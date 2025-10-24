@@ -83,13 +83,16 @@ Deno.serve(async (req) => {
     }
 
     // 성공 응답
-    return successResponse({
-      video_id: mockVideoId,
-      stream_url: mockStreamUrl,
-      thumbnail_url: mockThumbnailUrl,
-      video,
-      message: '영상이 업로드되었습니다',
-    }, 201);
+    return successResponse(
+      {
+        video_id: mockVideoId,
+        stream_url: mockStreamUrl,
+        thumbnail_url: mockThumbnailUrl,
+        video,
+        message: '영상이 업로드되었습니다',
+      },
+      201
+    );
 
   } catch (error) {
     console.error('Video upload error:', error);

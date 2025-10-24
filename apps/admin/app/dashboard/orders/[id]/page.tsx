@@ -21,7 +21,8 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     customerPhone: "010-1234-5678",
     item: "청바지 기장 수선",
     description: "기장을 3cm 줄여주세요",
-    trackingNo: "1234567890",
+    trackingNo: "MOCK1706174400123",
+    labelUrl: "https://mock.epost.go.kr/label/MOCK1706174400123.pdf",
     status: "PROCESSING",
     amount: 15000,
     paymentMethod: "신용카드",
@@ -36,13 +37,24 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">주문 상세</h1>
-          <p className="text-muted-foreground">{order.id}</p>
+          <div className="flex items-center gap-3 mt-2">
+            <p className="text-muted-foreground">{order.id}</p>
+            {order.trackingNo && (
+              <Badge variant="outline" className="font-mono text-sm">
+                송장: {order.trackingNo}
+              </Badge>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">송장 출력</Button>
+          {order.labelUrl && (
+            <Button variant="outline" onClick={() => window.open(order.labelUrl, '_blank')}>
+              송장 출력
+            </Button>
+          )}
           <Button>상태 변경</Button>
         </div>
       </div>
@@ -134,7 +146,35 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">송장번호</p>
-              <p className="font-medium font-mono">{order.trackingNo}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium font-mono">{order.trackingNo}</p>
+                {order.trackingNo && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => navigator.clipboard.writeText(order.trackingNo)}
+                  >
+                    복사
+                  </Button>
+                )}
+              </div>
+            </div>
+            {order.labelUrl && (
+              <div>
+                <p className="text-sm text-muted-foreground">송장 라벨</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(order.labelUrl, '_blank')}
+                  className="mt-1"
+                >
+                  PDF 다운로드
+                </Button>
+              </div>
+            )}
+            <div>
+              <p className="text-sm text-muted-foreground">택배사</p>
+              <p className="font-medium">우체국 택배</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">수거지</p>

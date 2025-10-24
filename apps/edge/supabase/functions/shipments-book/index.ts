@@ -84,12 +84,17 @@ Deno.serve(async (req) => {
     }
 
     // 성공 응답
-    return successResponse({
-      tracking_no: mockTrackingNo,
-      status: 'BOOKED',
-      message: '수거예약이 완료되었습니다',
-      shipment,
-    }, 201);
+    return successResponse(
+      {
+        tracking_no: mockTrackingNo,
+        label_url: `https://mock.epost.go.kr/label/${mockTrackingNo}.pdf`,
+        status: 'BOOKED',
+        message: '수거예약이 완료되었습니다',
+        pickup_date: new Date().toISOString().split('T')[0],
+        shipment,
+      },
+      201
+    );
 
   } catch (error) {
     console.error('Shipments book error:', error);

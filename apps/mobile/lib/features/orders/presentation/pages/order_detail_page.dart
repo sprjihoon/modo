@@ -12,6 +12,10 @@ class OrderDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // TODO: 실제 데이터는 Supabase에서 가져오기
+    final mockTrackingNo = 'MOCK1706174400123';
+    final mockLabelUrl = 'https://mock.epost.go.kr/label/$mockTrackingNo.pdf';
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('주문 상세'),
@@ -254,6 +258,8 @@ class OrderDetailPage extends ConsumerWidget {
   }
 
   Widget _buildShippingInfo(BuildContext context) {
+    final mockTrackingNo = 'MOCK1706174400123';
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -266,10 +272,70 @@ class OrderDetailPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _buildInfoRow('송장번호', '1234567890'),
+          
+          // 송장번호 (복사 가능)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '송장번호',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                Row(
+                  children: [
+                    Text(
+                      mockTrackingNo,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      onPressed: () {
+                        // TODO: 클립보드 복사
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('송장번호가 복사되었습니다'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
           _buildInfoRow('택배사', '우체국 택배'),
           _buildInfoRow('수거지', '서울시 강남구 테헤란로 123'),
           _buildInfoRow('배송지', '서울시 강남구 테헤란로 123'),
+          
+          // 송장 라벨 다운로드
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('송장 라벨 다운로드'),
+              onPressed: () {
+                // TODO: PDF 다운로드
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('송장 라벨을 다운로드합니다'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );

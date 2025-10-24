@@ -78,10 +78,11 @@ class OrderListPage extends ConsumerWidget {
                   Icon(Icons.local_shipping_outlined, size: 16, color: Colors.grey[600]),
                   const SizedBox(width: 4),
                   Text(
-                    '송장번호: 123456789${index}',
+                    '송장번호: MOCK17061744001${index.toString().padLeft(2, '0')}',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
+                      fontFamily: 'monospace',
                     ),
                   ),
                 ],

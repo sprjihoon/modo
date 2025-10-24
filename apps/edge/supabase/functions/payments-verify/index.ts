@@ -82,11 +82,13 @@ Deno.serve(async (req) => {
     }
 
     // 성공 응답
-    return successResponse({
-      verified: true,
-      payment,
-      message: '결제가 완료되었습니다',
-    });
+    return successResponse(
+      {
+        verified: true,
+        payment,
+        message: '결제가 완료되었습니다',
+      }
+    );
 
   } catch (error) {
     console.error('Payment verify error:', error);

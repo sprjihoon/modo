@@ -1,25 +1,45 @@
 import { corsHeaders } from './cors.ts';
 
 /**
- * 성공 응답
+ * Request ID 생성
  */
-export function successResponse(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      ...corsHeaders,
-      'Content-Type': 'application/json',
-    },
-  });
+function generateRequestId(): string {
+  return crypto.randomUUID();
 }
 
 /**
- * 에러 응답
+ * 성공 응답 (통일된 형식)
+ * { success: true, data: {...}, request_id: "uuid" }
+ */
+export function successResponse(data: unknown, status = 200) {
+  return new Response(
+    JSON.stringify({
+      success: true,
+      data,
+      request_id: generateRequestId(),
+      timestamp: new Date().toISOString(),
+    }),
+    {
+      status,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+}
+
+/**
+ * 에러 응답 (통일된 형식)
+ * { success: false, error: "...", request_id: "uuid" }
  */
 export function errorResponse(message: string, status = 400) {
   return new Response(
     JSON.stringify({
+      success: false,
       error: message,
+      request_id: generateRequestId(),
+      timestamp: new Date().toISOString(),
     }),
     {
       status,
