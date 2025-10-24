@@ -31,13 +31,14 @@ export function successResponse(data: unknown, status = 200) {
 
 /**
  * 에러 응답 (통일된 형식)
- * { success: false, error: "...", request_id: "uuid" }
+ * { success: false, error: "...", code: "...", request_id: "uuid" }
  */
-export function errorResponse(message: string, status = 400) {
+export function errorResponse(message: string, status = 400, code?: string) {
   return new Response(
     JSON.stringify({
       success: false,
       error: message,
+      code: code || `ERROR_${status}`,
       request_id: generateRequestId(),
       timestamp: new Date().toISOString(),
     }),
