@@ -19,7 +19,8 @@ void main() async {
     anonKey: SupabaseConfig.anonKey,
   );
   
-  // Firebase 초기화 (추후 구현)
+  // Firebase 초기화 (WEEK 4에서 구현 예정)
+  // TODO: Firebase 패키지 버전 업데이트 후 활성화
   // await Firebase.initializeApp(
   //   options: DefaultFirebaseOptions.currentPlatform,
   // );
