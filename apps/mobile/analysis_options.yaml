@@ -1,0 +1,21 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    - prefer_const_constructors
+    - prefer_const_literals_to_create_immutables
+    - avoid_print
+    - prefer_single_quotes
+    - always_declare_return_types
+    - always_put_required_named_parameters_first
+    - avoid_empty_else
+    - avoid_returning_null_for_void
+    - prefer_final_fields
+    - prefer_final_locals
+    - require_trailing_commas
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+
