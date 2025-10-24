@@ -46,7 +46,7 @@ class HomePage extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // TODO: 수선 접수 페이지로 이동
+          context.push('/create-order');
         },
         icon: const Icon(Icons.add),
         label: const Text('수선 접수'),

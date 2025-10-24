@@ -7,6 +7,8 @@ import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/orders/presentation/pages/order_list_page.dart';
 import '../../features/orders/presentation/pages/order_detail_page.dart';
+import '../../features/orders/presentation/pages/create_order_page.dart';
+import '../../features/orders/presentation/pages/payment_page.dart';
 
 /// GoRouter 프로바이더
 final routerProvider = Provider<GoRouter>((ref) {
@@ -50,6 +52,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
         ],
+      ),
+      
+      // Create Order
+      GoRoute(
+        path: '/create-order',
+        name: 'create-order',
+        builder: (context, state) => const CreateOrderPage(),
+      ),
+      
+      // Payment
+      GoRoute(
+        path: '/payment/:orderId',
+        name: 'payment',
+        builder: (context, state) {
+          final orderId = state.pathParameters['orderId']!;
+          return PaymentPage(orderId: orderId);
+        },
       ),
     ],
     

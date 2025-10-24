@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { OrderTimeline } from "@/components/orders/order-timeline";
 import { VideoUpload } from "@/components/orders/video-upload";
+import { StatusChangeDialog } from "@/components/orders/status-change-dialog";
 import { Package, Truck, User, CreditCard } from "lucide-react";
 
 interface OrderDetailPageProps {
@@ -55,7 +56,12 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
               송장 출력
             </Button>
           )}
-          <Button>상태 변경</Button>
+          <StatusChangeDialog
+            orderId={order.id}
+            trackingNo={order.trackingNo}
+            currentStatus={order.status}
+            onStatusChanged={() => window.location.reload()}
+          />
         </div>
       </div>
 
