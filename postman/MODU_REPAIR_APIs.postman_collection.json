@@ -1,0 +1,184 @@
+{
+  "info": {
+    "name": "모두의수선 API Collection",
+    "description": "모두의수선 Edge Functions API 테스트 컬렉션",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "modusrepair"
+  },
+  "item": [
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "결제 검증",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPABASE_ANON_KEY}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{ORDER_ID}}\",\n  \"imp_uid\": \"imp_{{$randomInt}}\",\n  \"merchant_uid\": \"merchant_{{$randomInt}}\"\n}"
+            },
+            "url": {
+              "raw": "{{SUPABASE_URL}}/functions/v1/payments-verify",
+              "host": ["{{SUPABASE_URL}}"],
+              "path": ["functions", "v1", "payments-verify"]
+            },
+            "description": "PortOne 결제를 검증하고 DB에 저장합니다"
+          },
+          "response": [
+            {
+              "name": "성공",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"order_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"imp_uid\": \"imp_123456789\",\n  \"merchant_uid\": \"merchant_123\"\n}"
+                },
+                "url": {
+                  "raw": "{{SUPABASE_URL}}/functions/v1/payments-verify"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"verified\": true,\n    \"payment\": {...},\n    \"message\": \"결제가 완료되었습니다\"\n  },\n  \"request_id\": \"uuid\",\n  \"timestamp\": \"2025-01-24T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Shipments",
+      "item": [
+        {
+          "name": "수거예약 및 송장발급",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPABASE_ANON_KEY}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{ORDER_ID}}\",\n  \"pickup_address\": \"서울시 강남구 테헤란로 123\",\n  \"pickup_phone\": \"010-1234-5678\",\n  \"delivery_address\": \"서울시 강남구 테헤란로 456\",\n  \"delivery_phone\": \"010-9876-5432\",\n  \"customer_name\": \"홍길동\"\n}"
+            },
+            "url": {
+              "raw": "{{SUPABASE_URL}}/functions/v1/shipments-book",
+              "host": ["{{SUPABASE_URL}}"],
+              "path": ["functions", "v1", "shipments-book"]
+            },
+            "description": "우체국 수거예약 및 tracking_no 생성 (KPOST + yymmdd + 5자리 랜덤)"
+          },
+          "response": [
+            {
+              "name": "성공",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"order_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"pickup_address\": \"서울시 강남구 테헤란로 123\",\n  \"customer_name\": \"홍길동\"\n}"
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"tracking_no\": \"KPOST25012412345\",\n    \"label_url\": \"https://service.epost.go.kr/label/KPOST25012412345.pdf\",\n    \"status\": \"BOOKED\",\n    \"message\": \"수거예약이 완료되었습니다\",\n    \"pickup_date\": \"2025-01-24\",\n    \"shipment\": {...}\n  },\n  \"request_id\": \"uuid\",\n  \"timestamp\": \"2025-01-24T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Videos",
+      "item": [
+        {
+          "name": "영상 업로드",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{SUPABASE_SERVICE_ROLE_KEY}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tracking_no\": \"{{TRACKING_NO}}\",\n  \"video_type\": \"INBOUND\"\n}"
+            },
+            "url": {
+              "raw": "{{SUPABASE_URL}}/functions/v1/videos-upload",
+              "host": ["{{SUPABASE_URL}}"],
+              "path": ["functions", "v1", "videos-upload"]
+            },
+            "description": "입출고 영상을 Cloudflare Stream에 업로드"
+          },
+          "response": [
+            {
+              "name": "성공",
+              "originalRequest": {
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tracking_no\": \"KPOST25012412345\",\n  \"video_type\": \"INBOUND\"\n}"
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"video_id\": \"VIDEO1706174400123\",\n    \"stream_url\": \"https://customer-demo.cloudflarestream.com/VIDEO1706174400123/manifest/video.m3u8\",\n    \"thumbnail_url\": \"https://customer-demo.cloudflarestream.com/VIDEO1706174400123/thumbnails/thumbnail.jpg\",\n    \"message\": \"영상이 업로드되었습니다\"\n  },\n  \"request_id\": \"uuid\",\n  \"timestamp\": \"2025-01-24T12:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "SUPABASE_URL",
+      "value": "https://your-project.supabase.co",
+      "type": "string"
+    },
+    {
+      "key": "SUPABASE_ANON_KEY",
+      "value": "your-anon-key-here",
+      "type": "string"
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "value": "your-service-role-key-here",
+      "type": "secret"
+    },
+    {
+      "key": "ORDER_ID",
+      "value": "550e8400-e29b-41d4-a716-446655440000",
+      "type": "string"
+    },
+    {
+      "key": "TRACKING_NO",
+      "value": "KPOST25012412345",
+      "type": "string"
+    }
+  ]
+}
+
