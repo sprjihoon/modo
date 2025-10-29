@@ -8,8 +8,7 @@ class PaymentPage extends ConsumerStatefulWidget {
   final String orderId;
 
   const PaymentPage({
-    super.key,
-    required this.orderId,
+    required this.orderId, super.key,
   });
 
   @override
@@ -111,14 +110,20 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Widget build(BuildContext context) {
     if (_orderData == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('결제')),
+        backgroundColor: Colors.grey.shade50,
+        appBar: AppBar(
+          title: const Text('결제'),
+          elevation: 0,
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('결제'),
+        elevation: 0,
       ),
       body: Column(
         children: [
@@ -129,59 +134,97 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // 주문 정보
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '주문 정보',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.receipt_long_outlined,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 24,
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildInfoRow('수선 항목', _orderData!['item_name']),
-                          _buildInfoRow('상세 설명', _orderData!['item_description']),
-                          if (_orderData!['notes'] != null)
-                            _buildInfoRow('요청사항', _orderData!['notes']),
-                        ],
-                      ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '주문 정보',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildInfoRow('수선 항목', _orderData!['item_name']),
+                        _buildInfoRow('상세 설명', _orderData!['item_description']),
+                        if (_orderData!['notes'] != null)
+                          _buildInfoRow('요청사항', _orderData!['notes']),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
                   
                   // 결제 금액
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '결제 금액',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.payments_outlined,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 24,
                             ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '결제 금액',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildInfoRow(
+                          '기본 금액',
+                          '₩${_orderData!['base_price'].toString().replaceAllMapped(
+                            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                            (Match m) => '${m[1]},',
+                          )}',
+                        ),
+                        Divider(height: 24, color: Colors.grey.shade200),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(height: 16),
-                          _buildInfoRow(
-                            '기본 금액',
-                            '₩${_orderData!['base_price'].toString().replaceAllMapped(
-                              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                              (Match m) => '${m[1]},',
-                            )}',
-                          ),
-                          const Divider(height: 24),
-                          Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
+                              Text(
                                 '총 결제금액',
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade800,
                                 ),
                               ),
                               Text(
@@ -190,40 +233,88 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                                   (Match m) => '${m[1]},',
                                 )}',
                                 style: TextStyle(
-                                  fontSize: 20,
+                                  fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
                   
-                  // 결제 수단 (추후 추가)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '결제 수단',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+                  // 결제 수단
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.credit_card_outlined,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 24,
                             ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '결제 수단',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(height: 12),
-                          const ListTile(
-                            leading: Icon(Icons.credit_card),
-                            title: Text('신용/체크카드'),
-                            trailing: Icon(Icons.chevron_right),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  Icons.credit_card,
+                                  color: Colors.blue.shade700,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  '신용/체크카드',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade800,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                color: Colors.grey.shade400,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -244,27 +335,43 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 ),
               ],
             ),
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _processPayment,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            child: SafeArea(
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _processPayment,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.lock_outline, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            '₩${_orderData!['total_price'].toString().replaceAllMapped(
+                              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                              (Match m) => '${m[1]},',
+                            )} 결제하기',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                    )
-                  : Text(
-                      '₩${_orderData!['total_price'].toString().replaceAllMapped(
-                        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                        (Match m) => '${m[1]},',
-                      )} 결제하기',
-                      style: const TextStyle(fontSize: 16),
-                    ),
+              ),
             ),
           ),
         ],
