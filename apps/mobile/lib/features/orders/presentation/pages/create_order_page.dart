@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../../services/order_service.dart';
 
 /// 주문 생성 페이지
 class CreateOrderPage extends ConsumerStatefulWidget {
@@ -13,8 +12,6 @@ class CreateOrderPage extends ConsumerStatefulWidget {
 }
 
 class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
-  final _orderService = OrderService();
-  
   // State
   final List<String> _imageUrls = [];
   final List<Map<String, dynamic>> _repairItems = []; // 선택한 수선 항목들
@@ -24,7 +21,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
   void dispose() {
     super.dispose();
   }
-  
+
   // 수선 항목 추가
   void _addRepairItem(Map<String, dynamic> item) {
     setState(() {
@@ -32,23 +29,26 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
     });
   }
 
-  /// 이미지 선택
+  /// 이미지 선택 (테스트용 - Mock 데이터)
   Future<void> _pickImage(ImageSource source) async {
-    try {
-      final picker = ImagePicker();
-      final image = await picker.pickImage(
-        source: source,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
-      );
-      
-      if (image == null) return;
-
       setState(() => _isLoading = true);
 
-      // Supabase Storage에 업로드
-      final url = await _orderService.uploadImage(image.path);
+    try {
+      // TODO: 실제 이미지 선택 및 업로드 (Supabase Storage 설정 후)
+      // final picker = ImagePicker();
+      // final image = await picker.pickImage(source: source);
+      // final url = await _orderService.uploadImage(image.path);
+      
+      // 임시 Mock 이미지 URL (테스트용)
+      final mockUrls = [
+        'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400',
+        'https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=400',
+        'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400',
+      ];
+      final url = mockUrls[_imageUrls.length % mockUrls.length];
+      
+      // 짧은 지연 (업로드 시뮬레이션)
+      await Future.delayed(const Duration(milliseconds: 500));
       
       setState(() {
         _imageUrls.add(url);
@@ -148,7 +148,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                         const Text(
-                          '[필수] 수선을 신청할',
+                          '수선을 신청할',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -157,21 +157,12 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
                           ),
                         ),
                         const Text(
-                          '세탁물 사진을 등록해주세요',
+                          '의류 사진을 등록해주세요',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.black87,
                             height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                        const Text(
-                          '개별클리닝 세탁 필수 진행',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF00C896),
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],

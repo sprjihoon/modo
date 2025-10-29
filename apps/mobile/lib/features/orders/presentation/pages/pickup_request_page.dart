@@ -557,7 +557,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                             '• 수선 소요 기간은 평균 7~10일이며, 의류 상태에 따라 변동될 수 있습니다.',
                           ),
                           _buildNoticeItem(
-                            '• 개별클리닝 세탁이 함께 진행되며, 세탁비가 추가 청구됩니다.',
+                            '• 의류 상태에 따라 추가 수선이 필요할 수 있으며, 사전 안내 후 진행됩니다.',
                           ),
                           _buildNoticeItem(
                             '• 수거 신청 후 취소는 수거 전까지만 가능합니다.',
@@ -583,56 +583,6 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
-                                '예상 수선비',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              Text(
-                                '${totalPrice.toString().replaceAllMapped(
-                                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                                  (Match m) => '${m[1]},',
-                                )}원',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '세탁비 (예상)',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                              Text(
-                                '별도',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            width: double.infinity,
-                            height: 1,
-                            color: Colors.grey.shade300,
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
                                 '총 예상 금액',
                                 style: TextStyle(
                                   fontSize: 16,
@@ -652,6 +602,33 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                                 ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00C896).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.info_outline,
+                                  color: Color(0xFF00C896),
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '정확한 견적은 입고 후 확정됩니다',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),

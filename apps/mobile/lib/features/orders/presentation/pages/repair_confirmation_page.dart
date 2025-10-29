@@ -333,16 +333,16 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                 ),
                                 children: [
                                   const TextSpan(
-                                    text: '수선 신청 시, 개별클리닝 세탁이 함께 진행되어 ',
+                                    text: '수선 신청 시, ',
                                   ),
                                   TextSpan(
-                                    text: '원장에 품목 차감 또는 세탁비가 발생',
+                                    text: '정확한 견적은 입고 후 확정',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: Colors.red.shade700,
                                     ),
                                   ),
-                                  const TextSpan(text: '해요.'),
+                                  const TextSpan(text: '됩니다.'),
                                 ],
                               ),
                             ),
@@ -410,16 +410,16 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                               ),
                               children: [
                                 const TextSpan(
-                                  text: '수선 신청 시, 개별클리닝 세탁이 함께 진행되어 ',
+                                  text: '수선 신청 시, ',
                                 ),
                                 TextSpan(
-                                  text: '원장에 품목 차감 또는 세탁비가 발생',
+                                  text: '정확한 견적은 입고 후 확정',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.red.shade700,
                                   ),
                                 ),
-                                const TextSpan(text: '해요.'),
+                                const TextSpan(text: '됩니다.'),
                               ],
                             ),
                           ),

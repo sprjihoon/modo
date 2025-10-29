@@ -117,7 +117,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                   children: [
                     TextSpan(
-                      text: '세탁물을 미리 ',
+                      text: '수선의류를 미리 ',
                       style: TextStyle(
                         color: Colors.grey.shade800,
                         fontWeight: FontWeight.w500,
@@ -217,7 +217,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             ),
             const TextSpan(text: '님 반가워요!\n'),
             const TextSpan(
-              text: '가장 가까운 세탁소, 런드리고입니다.',
+              text: '비대면 의류 수선 서비스입니다.',
               style: TextStyle(fontSize: 16),
             ),
           ],
