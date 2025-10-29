@@ -13,32 +13,35 @@ class CreateOrderPage extends ConsumerStatefulWidget {
 }
 
 class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
-  final _formKey = GlobalKey<FormState>();
   final _orderService = OrderService();
-  
-  // Form Controllers
-  final _itemNameController = TextEditingController();
-  final _itemDescriptionController = TextEditingController();
-  final _notesController = TextEditingController();
   
   // State
   final List<String> _imageUrls = [];
-  int _selectedPrice = 15000;
+  final List<Map<String, dynamic>> _repairItems = []; // 선택한 수선 항목들
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _itemNameController.dispose();
-    _itemDescriptionController.dispose();
-    _notesController.dispose();
     super.dispose();
+  }
+  
+  // 수선 항목 추가
+  void _addRepairItem(Map<String, dynamic> item) {
+    setState(() {
+      _repairItems.add(item);
+    });
   }
 
   /// 이미지 선택
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(ImageSource source) async {
     try {
       final picker = ImagePicker();
-      final image = await picker.pickImage(source: ImageSource.gallery);
+      final image = await picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
       
       if (image == null) return;
 
@@ -54,153 +57,333 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('이미지가 업로드되었습니다')),
+          SnackBar(
+            content: Text('사진이 추가되었습니다 (${_imageUrls.length}장)'),
+            backgroundColor: const Color(0xFF00C896),
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('이미지 업로드 실패: $e')),
+          SnackBar(
+            content: Text('사진 추가 실패: $e'),
+            backgroundColor: Colors.red.shade400,
+          ),
         );
       }
     }
   }
 
-  /// 주문 생성
-  Future<void> _createOrder() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      // 1. 주문 생성
-      final order = await _orderService.createOrder(
-        itemName: _itemNameController.text,
-        itemDescription: _itemDescriptionController.text,
-        basePrice: _selectedPrice,
-        totalPrice: _selectedPrice,
-        pickupAddress: '서울시 강남구 테헤란로 123', // TODO: 실제 주소
-        deliveryAddress: '서울시 강남구 테헤란로 123',
-        imageUrls: _imageUrls,
-        notes: _notesController.text,
+  /// 수선 부위 추가하기
+  Future<void> _addRepairPart() async {
+    if (_imageUrls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('최소 1장 이상의 사진을 등록해주세요'),
+          backgroundColor: Colors.red,
+        ),
       );
+      return;
+    }
 
-      if (mounted) {
-        // 2. 결제 화면으로 이동
-        context.push('/payment/${order['id']}');
-      }
-    } catch (e) {
-      if (mounted) {
+    // 수선 부위 선택 페이지로 이동
+    final result = await context.push<Map<String, dynamic>>(
+      '/select-repair-parts',
+      extra: _imageUrls,
+    );
+    
+    // 수선 항목이 추가되면 리스트에 추가
+    if (result != null && mounted) {
+      _addRepairItem(result);
+    }
+  }
+  
+  /// 다음 단계로 이동 (최종 확인)
+  Future<void> _goToConfirmation() async {
+    if (_repairItems.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('주문 생성 실패: $e')),
+        const SnackBar(
+          content: Text('최소 1개 이상의 수선 항목을 추가해주세요'),
+          backgroundColor: Colors.red,
+        ),
         );
+      return;
       }
-    } finally {
+
+    // 최종 확인 페이지로 이동
       if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      context.push('/repair-confirmation', extra: {
+        'repairItems': _repairItems,
+        'imageUrls': _imageUrls,
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('수선 접수'),
+        backgroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => context.pop(),
+        ),
       ),
-      body: Form(
-        key: _formKey,
-        child: Column(
+      body: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 헤더
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 이미지 업로드
-                    _buildImageSection(),
-                    const SizedBox(height: 20),
-                    
-                    // 수선 항목
-                    _buildInputCard(
-                      child: TextFormField(
-                        controller: _itemNameController,
-                        decoration: InputDecoration(
-                          labelText: '수선 항목',
-                          hintText: '예: 청바지 기장 수선',
-                          prefixIcon: Icon(
-                            Icons.checkroom_rounded,
-                            color: Theme.of(context).colorScheme.primary,
+                        const Text(
+                          '[필수] 수선을 신청할',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                            height: 1.3,
                           ),
-                          border: InputBorder.none,
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return '수선 항목을 입력하세요';
-                          }
-                          return null;
-                        },
+                        const Text(
+                          '세탁물 사진을 등록해주세요',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                            height: 1.3,
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
-                    // 상세 설명
-                    _buildInputCard(
-                      child: TextFormField(
-                        controller: _itemDescriptionController,
-                        decoration: InputDecoration(
-                          labelText: '상세 설명',
-                          hintText: '예: 기장을 3cm 줄여주세요',
-                          prefixIcon: Icon(
-                            Icons.description_outlined,
-                            color: Theme.of(context).colorScheme.primary,
+                        const Text(
+                          '개별클리닝 세탁 필수 진행',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF00C896),
+                            fontWeight: FontWeight.w600,
                           ),
-                          border: InputBorder.none,
                         ),
-                        maxLines: 3,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return '상세 설명을 입력하세요';
-                          }
-                          return null;
-                        },
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // 사진 및 수선 항목 목록
+                  if (_imageUrls.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: [
+                          // 사진과 연결된 수선 항목들
+                          ..._imageUrls.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final url = entry.value;
+                            
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      // 썸네일
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          url,
+                                          width: 60,
+                                          height: 60,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      // 정보
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '수선 ${index + 1} ${_repairItems.length > index ? '(${_repairItems[index]['repairPart']})' : ''}',
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                            if (_repairItems.length > index) ...[
+                                              const SizedBox(height: 4),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 4,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade200,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  '${_repairItems[index]['scope']} · ${_repairItems[index]['measurement']}',
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.black54,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      // 삭제 버튼
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.close,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _imageUrls.removeAt(index);
+                                            // 해당 인덱스의 수선 항목도 삭제
+                                            if (_repairItems.length > index) {
+                                              _repairItems.removeAt(index);
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  
+                  // 추가하기 버튼 (사진 or 수선)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: InkWell(
+                      onTap: _isLoading ? null : () {
+                        if (_imageUrls.isEmpty) {
+                          _showImageSourceDialog();
+                        } else {
+                          _addRepairPart();
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF374350),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _imageUrls.isEmpty ? Icons.camera_alt_outlined : Icons.add,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _imageUrls.isEmpty ? '추가하기' : '수선 추가하기',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       ),
                     ),
                     const SizedBox(height: 20),
                     
-                    // 가격 선택
-                    _buildPriceSection(),
-                    const SizedBox(height: 12),
-                    
-                    // 요청사항
-                    _buildInputCard(
-                      child: TextFormField(
-                        controller: _notesController,
-                        decoration: InputDecoration(
-                          labelText: '요청사항 (선택)',
-                          hintText: '추가 요청사항을 입력하세요',
-                          prefixIcon: Icon(
-                            Icons.note_outlined,
-                            color: Theme.of(context).colorScheme.primary,
+                  // 등록 어려움 체크박스
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Checkbox(
+                            value: false,
+                            onChanged: (value) {},
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                          border: InputBorder.none,
                         ),
-                        maxLines: 2,
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '현재는 등록이 어려워요. 수선은 다음에 신청할게요.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 20),
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // 불가품목 안내
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.grey.shade700,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '불가품목',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 100),
                   ],
                 ),
               ),
             ),
             
-            // 결제 버튼 (하단 고정)
+          // 다음 버튼 (하단 고정)
             Container(
-              padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -213,8 +396,12 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
               ),
               child: SafeArea(
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _createOrder,
+                onPressed: _repairItems.isEmpty ? null : _goToConfirmation,
                   style: ElevatedButton.styleFrom(
+                  backgroundColor: _repairItems.isEmpty 
+                      ? Colors.grey.shade300 
+                      : const Color(0xFF00C896),
+                  foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -230,325 +417,105 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '₩${_selectedPrice.toString().replaceAllMapped(
-                                RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                                (Match m) => '${m[1]},',
-                              )} 결제하기',
-                              style: const TextStyle(
+                    : const Text(
+                        '다음',
+                        style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward, size: 20),
-                          ],
                         ),
                 ),
               ),
             ),
           ],
-        ),
       ),
     );
   }
 
-  Widget _buildInputCard({required Widget child}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+  /// 이미지 소스 선택 다이얼로그
+  Future<void> _showImageSourceDialog() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: child,
-    );
-  }
-
-  Widget _buildImageSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.photo_camera_outlined,
-                color: Theme.of(context).colorScheme.primary,
-                size: 24,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '수선할 의류 사진',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade800,
+              // 핸들 바
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          
-          // 이미지 그리드
-          if (_imageUrls.isNotEmpty) ...[
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: _imageUrls.length,
-              itemBuilder: (context, index) {
-                final url = _imageUrls[index];
-                return Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        url,
-                        width: double.infinity,
-                        height: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    Positioned(
-                      right: 4,
-                      top: 4,
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _imageUrls.remove(url);
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.black87,
-                            shape: BoxShape.circle,
+              const SizedBox(height: 20),
+              
+              // 카메라로 촬영
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C896).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
-                            Icons.close,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-          ],
-          
-          // 이미지 추가 버튼
-          InkWell(
-            onTap: _isLoading ? null : _pickImage,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                  width: 2,
-                  style: BorderStyle.solid,
+                    Icons.camera_alt_outlined,
+                    color: Color(0xFF00C896),
+                  ),
                 ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.add_photo_alternate_outlined,
-                    color: Theme.of(context).colorScheme.primary,
+                title: const Text(
+                  '카메라로 촬영',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '사진 추가',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
               ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '* 최소 1장 이상의 사진을 등록해주세요',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPriceSection() {
-    final prices = [
-      {
-        'label': '기본 수선',
-        'price': 15000,
-        'description': '단순 수선',
-        'icon': Icons.content_cut_outlined,
-        'color': Colors.blue,
-      },
-      {
-        'label': '정밀 수선',
-        'price': 25000,
-        'description': '복잡한 수선',
-        'icon': Icons.star_outline,
-        'color': Colors.purple,
-      },
-      {
-        'label': '특수 수선',
-        'price': 35000,
-        'description': '고난이도 수선',
-        'icon': Icons.diamond_outlined,
-        'color': Colors.orange,
-      },
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.attach_money_rounded,
-              color: Theme.of(context).colorScheme.primary,
-              size: 24,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '수선 가격 선택',
+              
+              // 갤러리에서 선택
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                    color: const Color(0xFF00C896).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.photo_library_outlined,
+                    color: Color(0xFF00C896),
+                  ),
+                ),
+                title: const Text(
+                  '갤러리에서 선택',
               style: TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ...prices.map((item) {
-          final price = item['price'] as int;
-          final isSelected = price == _selectedPrice;
-          
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  _selectedPrice = price;
-                });
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary.withOpacity(0.05)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey.shade300,
-                    width: isSelected ? 2 : 1,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: (item['color'] as Color).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        item['icon'] as IconData,
-                        color: item['color'] as Color,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item['label'] as String,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Colors.grey.shade800,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            item['description'] as String,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '₩${price.toString().replaceAllMapped(
-                            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                            (Match m) => '${m[1]},',
-                          )}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.primary
-                                : Colors.grey.shade800,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        if (isSelected)
-                          Icon(
-                            Icons.check_circle,
-                            color: Theme.of(context).colorScheme.primary,
-                            size: 20,
-                          ),
-                      ],
-                    ),
+              onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              
+              const SizedBox(height: 10),
                   ],
                 ),
               ),
             ),
-          );
-        }),
-      ],
     );
   }
+
 }
 
