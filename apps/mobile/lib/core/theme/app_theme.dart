@@ -25,11 +25,10 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.light(
+      colorScheme: const ColorScheme.light(
         primary: primaryColor,
         secondary: secondaryColor,
         error: errorColor,
-        background: backgroundColor,
         surface: surfaceColor,
       ),
       scaffoldBackgroundColor: backgroundColor,
@@ -79,12 +78,12 @@ class AppTheme {
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         primary: primaryColor,
         secondary: secondaryColor,
         error: errorColor,
-        background: const Color(0xFF111827),
-        surface: const Color(0xFF1F2937),
+        background: Color(0xFF111827),
+        surface: Color(0xFF1F2937),
       ),
       scaffoldBackgroundColor: const Color(0xFF111827),
       appBarTheme: const AppBarTheme(

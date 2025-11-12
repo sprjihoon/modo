@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/auth/presentation/pages/signup_page.dart';
+import '../../features/auth/presentation/pages/terms_page.dart';
+import '../../features/auth/presentation/pages/privacy_policy_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/orders/presentation/pages/order_list_page.dart';
 import '../../features/orders/presentation/pages/order_detail_page.dart';
@@ -15,6 +18,20 @@ import '../../features/orders/presentation/pages/repair_detail_input_page.dart';
 import '../../features/orders/presentation/pages/repair_confirmation_page.dart';
 import '../../features/orders/presentation/pages/pickup_request_page.dart';
 import '../../features/orders/presentation/pages/payment_page.dart';
+import '../../features/orders/presentation/pages/image_annotation_page.dart';
+import '../../features/orders/domain/models/image_pin.dart';
+import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/profile/presentation/pages/account_info_page.dart';
+import '../../features/profile/presentation/pages/addresses_page.dart';
+import '../../features/profile/presentation/pages/add_address_page.dart';
+import '../../features/profile/presentation/pages/payment_methods_page.dart';
+import '../../features/profile/presentation/pages/payment_history_page.dart';
+import '../../features/profile/presentation/pages/receipt_page.dart';
+import '../../features/profile/presentation/pages/points_history_page.dart';
+import '../../features/profile/presentation/pages/invite_friends_page.dart';
+import '../../features/profile/presentation/pages/notices_page.dart';
+import '../../features/profile/presentation/pages/customer_service_page.dart';
+import '../../features/profile/presentation/pages/app_settings_page.dart';
 
 /// GoRouter 프로바이더
 final routerProvider = Provider<GoRouter>((ref) {
@@ -34,6 +51,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login',
         name: 'login',
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/signup',
+        name: 'signup',
+        builder: (context, state) => const SignupPage(),
+      ),
+      GoRoute(
+        path: '/terms',
+        name: 'terms',
+        builder: (context, state) => const TermsPage(),
+      ),
+      GoRoute(
+        path: '/privacy-policy',
+        name: 'privacy-policy',
+        builder: (context, state) => const PrivacyPolicyPage(),
       ),
       
       // Home
@@ -95,8 +127,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/select-repair-parts',
         name: 'select-repair-parts',
         builder: (context, state) {
-          final imageUrls = state.extra as List<String>? ?? [];
-          return SelectRepairPartsPage(imageUrls: imageUrls);
+          final data = state.extra;
+          List<String> imageUrls = [];
+          List<Map<String, dynamic>>? imagesWithPins;
+          
+          if (data is Map<String, dynamic>) {
+            imageUrls = data['imageUrls'] as List<String>? ?? [];
+            imagesWithPins = data['imagesWithPins'] as List<Map<String, dynamic>>?;
+          } else if (data is List<String>) {
+            imageUrls = data;
+          }
+          
+          return SelectRepairPartsPage(
+            imageUrls: imageUrls,
+            imagesWithPins: imagesWithPins,
+          );
         },
       ),
       
@@ -123,6 +168,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return RepairConfirmationPage(
             repairItems: data['repairItems'] as List<Map<String, dynamic>>? ?? [],
             imageUrls: data['imageUrls'] as List<String>? ?? [],
+            imagesWithPins: data['imagesWithPins'] as List<Map<String, dynamic>>?,
           );
         },
       ),
@@ -148,6 +194,103 @@ final routerProvider = Provider<GoRouter>((ref) {
           final orderId = state.pathParameters['orderId']!;
           return PaymentPage(orderId: orderId);
         },
+      ),
+      
+      // Image Annotation (이미지 핀 추가)
+      GoRoute(
+        path: '/image-annotation',
+        name: 'image-annotation',
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>? ?? {};
+          return ImageAnnotationPage(
+            initialImagePath: data['imagePath'] as String?,
+            initialPins: (data['pins'] as List?)?.cast<ImagePin>(),
+            onComplete: data['onComplete'] as Function(String, List<ImagePin>)?,
+          );
+        },
+      ),
+      
+      // Profile (마이페이지)
+      GoRoute(
+        path: '/profile',
+        name: 'profile',
+        builder: (context, state) => const ProfilePage(),
+        routes: [
+          // 회원정보
+          GoRoute(
+            path: 'account',
+            name: 'profile-account',
+            builder: (context, state) => const AccountInfoPage(),
+          ),
+          // 배송지 설정
+          GoRoute(
+            path: 'addresses',
+            name: 'profile-addresses',
+            builder: (context, state) => const AddressesPage(),
+            routes: [
+              // 배송지 추가/수정
+              GoRoute(
+                path: 'add',
+                name: 'profile-addresses-add',
+                builder: (context, state) {
+                  final existingAddress = state.extra as Map<String, dynamic>?;
+                  return AddAddressPage(existingAddress: existingAddress);
+                },
+              ),
+            ],
+          ),
+          // 결제수단 관리
+          GoRoute(
+            path: 'payment-methods',
+            name: 'profile-payment-methods',
+            builder: (context, state) => const PaymentMethodsPage(),
+          ),
+          // 결제내역
+          GoRoute(
+            path: 'payment-history',
+            name: 'profile-payment-history',
+            builder: (context, state) => const PaymentHistoryPage(),
+          ),
+          // 영수증
+          GoRoute(
+            path: 'receipt',
+            name: 'profile-receipt',
+            builder: (context, state) {
+              final payment = state.extra as Map<String, dynamic>;
+              return ReceiptPage(payment: payment);
+            },
+          ),
+          // 포인트 적립 내역
+          GoRoute(
+            path: 'points-history',
+            name: 'profile-points-history',
+            builder: (context, state) => const PointsHistoryPage(),
+          ),
+          // 친구초대
+          GoRoute(
+            path: 'invite-friends',
+            name: 'profile-invite-friends',
+            builder: (context, state) => const InviteFriendsPage(),
+          ),
+          // 공지사항
+          GoRoute(
+            path: 'notices',
+            name: 'profile-notices',
+            builder: (context, state) => const NoticesPage(),
+          ),
+          // 고객센터
+          GoRoute(
+            path: 'customer-service',
+            name: 'profile-customer-service',
+            builder: (context, state) => const CustomerServicePage(),
+          ),
+          // 앱 설정
+          GoRoute(
+            path: 'settings',
+            name: 'profile-settings',
+            builder: (context, state) => const AppSettingsPage(),
+          ),
+        ],
       ),
     ],
     

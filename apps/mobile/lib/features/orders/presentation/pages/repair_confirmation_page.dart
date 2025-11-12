@@ -6,11 +6,13 @@ import 'package:go_router/go_router.dart';
 class RepairConfirmationPage extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>> repairItems; // 선택한 수선 항목들
   final List<String> imageUrls;
+  final List<Map<String, dynamic>>? imagesWithPins; // 핀 정보 포함
   
   const RepairConfirmationPage({
     super.key,
     required this.repairItems,
     required this.imageUrls,
+    this.imagesWithPins,
   });
 
   @override
@@ -81,82 +83,9 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // 사진 with 수선 부위 라벨
+                  // 사진 with 핀 표시
                   if (widget.imageUrls.isNotEmpty)
-                    Stack(
-                      children: [
-                        // 사진
-                        Image.network(
-                          widget.imageUrls.first,
-                          width: double.infinity,
-                          height: MediaQuery.of(context).size.height * 0.5,
-                          fit: BoxFit.cover,
-                        ),
-                        // 블러 효과 (선택 사항)
-                        Container(
-                          width: double.infinity,
-                          height: MediaQuery.of(context).size.height * 0.5,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withOpacity(0.3),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // 수선 부위 라벨
-                        if (widget.repairItems.isNotEmpty)
-                          Positioned(
-                            bottom: 80,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(25),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF00C896),
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      widget.repairItems.first['repairPart'] as String,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                    _buildImageWithPins(context),
                   
                   const SizedBox(height: 20),
                   
@@ -462,6 +391,172 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 핀이 표시된 이미지 빌드
+  Widget _buildImageWithPins(BuildContext context) {
+    // 첫 번째 이미지와 핀 정보 가져오기
+    final firstImageUrl = widget.imageUrls.first;
+    final firstImageData = widget.imagesWithPins?.firstWhere(
+      (img) => img['imagePath'] == firstImageUrl,
+      orElse: () => {},
+    );
+    final pins = firstImageData?['pins'] as List? ?? [];
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.5,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 사진
+          Image.network(
+            firstImageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.grey.shade200,
+                child: const Center(
+                  child: Icon(Icons.image_outlined, size: 60, color: Colors.grey),
+                ),
+              );
+            },
+          ),
+          
+          // 핀들 표시
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                children: pins.map<Widget>((pinData) {
+                  // pinData는 ImagePin 객체를 Map으로 변환한 것
+                  final x = (pinData['relativePosition']?['dx'] ?? 0.5) as double;
+                  final y = (pinData['relativePosition']?['dy'] ?? 0.5) as double;
+                  
+                  return Positioned(
+                    left: x * constraints.maxWidth - 10,
+                    top: y * constraints.maxHeight - 10,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00C896),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 3,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          
+          // 그라데이션 오버레이
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.4),
+                ],
+              ),
+            ),
+          ),
+          
+          // 하단 정보
+          Positioned(
+            bottom: 20,
+            left: 20,
+            right: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 핀 개수 표시
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C896),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.push_pin,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '수선 부위 ${pins.length}개 표시',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // 수선 항목 표시
+                if (widget.repairItems.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.95),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.content_cut_rounded,
+                          color: Color(0xFF00C896),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            widget.repairItems.first['repairPart'] as String,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

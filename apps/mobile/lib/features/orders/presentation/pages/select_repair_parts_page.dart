@@ -5,10 +5,12 @@ import 'package:go_router/go_router.dart';
 /// 수선 부위 선택 페이지 (그리드 형태)
 class SelectRepairPartsPage extends ConsumerStatefulWidget {
   final List<String> imageUrls;
+  final List<Map<String, dynamic>>? imagesWithPins; // 핀 정보 포함
   
   const SelectRepairPartsPage({
     super.key,
     required this.imageUrls,
+    this.imagesWithPins,
   });
 
   @override
@@ -17,6 +19,17 @@ class SelectRepairPartsPage extends ConsumerStatefulWidget {
 
 class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
   String? _selectedPart;
+
+  // 전체 핀 개수 계산
+  int _getTotalPins() {
+    if (widget.imagesWithPins == null) return 0;
+    int total = 0;
+    for (var imageData in widget.imagesWithPins!) {
+      final pins = imageData['pins'] as List?;
+      total += pins?.length ?? 0;
+    }
+    return total;
+  }
 
   // 주요 수선 부위 목록 (가격표 기반)
   final List<Map<String, dynamic>> _repairParts = [
@@ -136,15 +149,53 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 헤더
-                  const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text(
-                      '수선 부위를 선택해주세요.',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '수선 부위를 선택해주세요.',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        if (widget.imagesWithPins != null && widget.imagesWithPins!.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00C896).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFF00C896).withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: Color(0xFF00C896),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '사진 ${widget.imagesWithPins!.length}장에 수선 부위 ${_getTotalPins()}개 표시됨',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade700,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   
@@ -174,11 +225,12 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                             // 선택 후 잠시 대기
                             Future.delayed(const Duration(milliseconds: 300), () {
                               if (mounted) {
-                                // 상세 입력 페이지로 이동
+                                // 상세 입력 페이지로 이동 (핀 정보 포함)
                                 context.push('/repair-detail-input', extra: {
                                   'repairPart': part['name'],
                                   'priceRange': part['priceRange'],
                                   'imageUrls': widget.imageUrls,
+                                  'imagesWithPins': widget.imagesWithPins, // 핀 정보 전달
                                 });
                               }
                             });

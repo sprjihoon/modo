@@ -34,7 +34,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
-      body: Center(
+      body: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -44,8 +44,8 @@ class _SplashPageState extends ConsumerState<SplashPage> {
               size: 80,
               color: Colors.white,
             ),
-            const SizedBox(height: 24),
-            const Text(
+            SizedBox(height: 24),
+            Text(
               '모두의수선',
               style: TextStyle(
                 fontSize: 32,
@@ -53,8 +53,8 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               'MODU\'S REPAIR',
               style: TextStyle(
                 fontSize: 14,
@@ -62,8 +62,8 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                 letterSpacing: 2,
               ),
             ),
-            const SizedBox(height: 48),
-            const CircularProgressIndicator(
+            SizedBox(height: 48),
+            CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
             ),
           ],

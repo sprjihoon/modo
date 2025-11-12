@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/widgets/company_footer.dart';
 
 /// 홈 화면
 class HomePage extends ConsumerStatefulWidget {
@@ -35,16 +36,31 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
         actions: [
+          // 주문 목록 아이콘
           IconButton(
-            icon: const Icon(Icons.location_on_outlined, color: Colors.black),
-            onPressed: () {},
+            icon: const Icon(Icons.receipt_long_outlined, color: Colors.black),
+            tooltip: '내 주문',
+            onPressed: () {
+              context.push('/orders');
+            },
+          ),
+          // 마이페이지 아이콘
+          IconButton(
+            icon: const Icon(Icons.person_outline, color: Colors.black),
+            tooltip: '마이페이지',
+            onPressed: () {
+              context.push('/profile');
+            },
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
             // 인사말
             _buildGreeting(context),
             const SizedBox(height: 20),
@@ -57,11 +73,19 @@ class _HomePageState extends ConsumerState<HomePage> {
             _buildActionButtons(context),
             const SizedBox(height: 24),
             
-            // 진행 중인 주문
-            _buildOrdersSection(context),
+            // 내 주문 섹션
+            _buildMyOrdersSection(context),
+            const SizedBox(height: 24),
+            
+            // 프로모션 배너
+            _buildPromotionBanner(context),
             const SizedBox(height: 80),
-          ],
-        ),
+                ],
+              ),
+            ),
+          ),
+          const CompanyFooter(),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showPreparationDialog(context),
@@ -87,16 +111,25 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 핸들 바
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+              // X 닫기 버튼
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  InkWell(
+                    onTap: () => Navigator.of(context).pop(),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close,
+                        size: 24,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
               
               // 타이틀
               const Text(
@@ -170,7 +203,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    context.push('/create-order');
+                    // 의류 종류 선택 화면으로 이동
+                    context.push('/select-clothing-type', extra: <String>[]);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF00C896),
@@ -455,7 +489,170 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
 
-  Widget _buildOrdersSection(BuildContext context) {
+  /// 내 주문 섹션
+  Widget _buildMyOrdersSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 섹션 헤더
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '내 주문',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  context.push('/orders');
+                },
+                icon: const Icon(Icons.arrow_forward, size: 16),
+                label: const Text('전체보기'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // 주문 카드 (최근 주문 1개 미리보기)
+          InkWell(
+            onTap: () => context.push('/orders'),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // 아이콘
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00C896).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.checkroom_rounded,
+                      color: Color(0xFF00C896),
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  
+                  // 주문 정보
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                '수선중',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '2024.11.12',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '청바지 기장 수선',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '₩15,000',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // 화살표
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey.shade400,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // 주문 목록으로 가는 버튼
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                context.push('/orders');
+              },
+              icon: const Icon(Icons.list_alt_rounded, size: 20),
+              label: const Text('전체 주문 보기'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                side: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 프로모션 배너
+  Widget _buildPromotionBanner(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -471,7 +668,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '10월 한정 최대 혜택',
+                    '11월 한정 최대 혜택',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.black54,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -185,10 +186,21 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                         decimal: true,
                         signed: true,
                       ),
+                      inputFormatters: [
+                        // 숫자, 마이너스, 소수점만 허용
+                        FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
+                      ],
                       decoration: InputDecoration(
-                        hintText: '(예) -3 cm',
+                        hintText: '(예) -3',
                         hintStyle: TextStyle(
                           color: Colors.grey.shade400,
+                        ),
+                        // cm 단위를 회색으로 표시
+                        suffixText: 'cm',
+                        suffixStyle: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w500,
                         ),
                         filled: true,
                         fillColor: Colors.grey.shade50,

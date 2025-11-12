@@ -1,0 +1,239 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// 회원정보 페이지
+class AccountInfoPage extends ConsumerStatefulWidget {
+  const AccountInfoPage({super.key});
+
+  @override
+  ConsumerState<AccountInfoPage> createState() => _AccountInfoPageState();
+}
+
+class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
+  final _nameController = TextEditingController(text: '홍길동');
+  final _phoneController = TextEditingController(text: '010-1234-5678');
+  final _emailController = TextEditingController(text: 'customer@example.com');
+  
+  bool _isEditing = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveChanges() async {
+    setState(() => _isEditing = false);
+    
+    // TODO: 실제 API 호출
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('회원정보가 수정되었습니다'),
+        backgroundColor: Color(0xFF00C896),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text('회원정보'),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        actions: [
+          if (!_isEditing)
+            TextButton(
+              onPressed: () => setState(() => _isEditing = true),
+              child: const Text('수정'),
+            )
+          else
+            TextButton(
+              onPressed: _saveChanges,
+              child: const Text(
+                '저장',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // 프로필 이미지
+            Center(
+              child: Stack(
+                children: [
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.primary,
+                          Theme.of(context).colorScheme.secondary,
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.person,
+                      size: 50,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (_isEditing)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00C896),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            
+            // 회원정보 폼
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  _buildTextField(
+                    label: '이름',
+                    controller: _nameController,
+                    icon: Icons.person_outline,
+                    enabled: _isEditing,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    label: '전화번호',
+                    controller: _phoneController,
+                    icon: Icons.phone_outlined,
+                    enabled: _isEditing,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    label: '이메일',
+                    controller: _emailController,
+                    icon: Icons.email_outlined,
+                    enabled: false, // 이메일은 변경 불가
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // 비밀번호 변경
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.lock_outline,
+                    size: 22,
+                    color: Colors.orange,
+                  ),
+                ),
+                title: const Text(
+                  '비밀번호 변경',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Colors.grey.shade400,
+                ),
+                onTap: () {
+                  // TODO: 비밀번호 변경 페이지
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    required bool enabled,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          enabled: enabled,
+          decoration: InputDecoration(
+            prefixIcon: Icon(
+              icon,
+              color: enabled ? const Color(0xFF00C896) : Colors.grey.shade400,
+            ),
+            filled: true,
+            fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF00C896), width: 2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+

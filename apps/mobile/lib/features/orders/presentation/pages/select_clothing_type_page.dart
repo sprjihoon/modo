@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// 수선 의류 종류 선택 페이지
 class SelectClothingTypePage extends ConsumerStatefulWidget {
@@ -17,6 +18,8 @@ class SelectClothingTypePage extends ConsumerStatefulWidget {
 
 class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage> {
   String? _selectedType;
+  // 이미지와 핀 정보를 함께 저장
+  final List<Map<String, dynamic>> _capturedImagesWithPins = [];
 
   final List<Map<String, dynamic>> _clothingTypes = [
     {'name': '아우터', 'icon': Icons.checkroom},
@@ -27,6 +30,198 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
     {'name': '청바지', 'icon': Icons.checkroom_outlined},
     {'name': '치마', 'icon': Icons.checkroom_outlined},
   ];
+
+  /// 사진 선택 바텀시트 표시
+  void _showImagePickerBottomSheet(BuildContext context, String clothingType) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 핸들바
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              
+              // 타이틀
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  '$clothingType 사진을 추가해주세요',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // 카메라 촬영
+              ListTile(
+                leading: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C896).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Color(0xFF00C896),
+                  ),
+                ),
+                title: const Text(
+                  '카메라로 촬영',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text(
+                  '지금 바로 사진 촬영',
+                  style: TextStyle(fontSize: 13),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera, clothingType);
+                },
+              ),
+              
+              const Divider(height: 1),
+              
+              // 갤러리에서 선택
+              ListTile(
+                leading: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.photo_library_rounded,
+                    color: Colors.blue,
+                  ),
+                ),
+                title: const Text(
+                  '갤러리에서 선택',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text(
+                  '저장된 사진 불러오기',
+                  style: TextStyle(fontSize: 13),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery, clothingType);
+                },
+              ),
+              
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 이미지 선택/촬영
+  Future<void> _pickImage(ImageSource source, String clothingType) async {
+    try {
+      // TODO: 실제 이미지 선택 및 업로드
+      // final picker = ImagePicker();
+      // final image = await picker.pickImage(source: source);
+      // if (image == null) return;
+      
+      // Mock: 0.5초 지연 후 더미 이미지 추가
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      final mockUrls = [
+        'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400',
+        'https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=400',
+        'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400',
+      ];
+      final mockUrl = mockUrls[_capturedImagesWithPins.length % mockUrls.length];
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('사진이 추가되었습니다'),
+            backgroundColor: Color(0xFF00C896),
+            duration: Duration(seconds: 1),
+          ),
+        );
+        
+        // 핀 표시 페이지로 이동 (이미지 주석)
+        final result = await context.push<Map<String, dynamic>>(
+          '/image-annotation',
+          extra: {
+            'imagePath': mockUrl,
+            'pins': [],
+            'onComplete': null,
+          },
+        );
+        
+        // 핀 표시 완료 후 이미지와 핀 정보를 함께 저장
+        if (result != null && mounted) {
+          setState(() {
+            _capturedImagesWithPins.add({
+              'imagePath': result['imagePath'] as String,
+              'pins': result['pins'] ?? [],
+              'clothingType': clothingType,
+            });
+          });
+          
+          // 성공 메시지 표시
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '수선 부위 ${(result['pins'] as List?)?.length ?? 0}개가 표시되었습니다',
+              ),
+              backgroundColor: const Color(0xFF00C896),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          
+          // 수선 부위 선택 페이지로 이동 (핀 정보 포함)
+          final imageUrls = _capturedImagesWithPins
+              .map((e) => e['imagePath'] as String)
+              .toList();
+          
+          context.push('/select-repair-parts', extra: {
+            'imageUrls': imageUrls,
+            'imagesWithPins': _capturedImagesWithPins,
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('사진 추가 실패: $e'),
+            backgroundColor: Colors.red.shade400,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,14 +296,10 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                         _selectedType = type['name'] as String;
                       });
                       
-                      // 선택 후 잠시 대기 후 다음 단계로
+                      // 선택 후 사진 선택 바텀시트 표시
                       Future.delayed(const Duration(milliseconds: 300), () {
                         if (mounted) {
-                          // 수선 부위 선택 페이지로 이동
-                          context.push('/select-repair-type', extra: {
-                            'clothingType': type['name'],
-                            'imageUrls': widget.imageUrls,
-                          });
+                          _showImagePickerBottomSheet(context, type['name'] as String);
                         }
                       });
                     },

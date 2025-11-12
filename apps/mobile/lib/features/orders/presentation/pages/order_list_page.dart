@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/widgets/company_footer.dart';
 
 /// 주문 목록 화면
 class OrderListPage extends ConsumerStatefulWidget {
@@ -14,11 +15,24 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _searchController = TextEditingController();
+  
+  int _currentPage = 1;
+  final int _itemsPerPage = 10;
+  String _selectedPeriod = '전체'; // 전체, 1개월, 3개월, 6개월
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
+    
+    // 탭 변경 시 페이지 리셋
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          _currentPage = 1;
+        });
+      }
+    });
   }
 
   @override
@@ -35,8 +49,9 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
       appBar: AppBar(
         title: const Text('주문 내역'),
         elevation: 0,
+        backgroundColor: Colors.white,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(100),
+          preferredSize: const Size.fromHeight(150),
           child: Column(
             children: [
               // 검색 바
@@ -57,6 +72,40 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                   ),
                 ),
               ),
+              // 날짜 필터
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ['전체', '1개월', '3개월', '6개월'].map((period) {
+                      final isSelected = _selectedPeriod == period;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          label: Text(period),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedPeriod = period;
+                              _currentPage = 1;
+                            });
+                          },
+                          selectedColor: const Color(0xFF00C896),
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : Colors.grey.shade700,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                          backgroundColor: Colors.grey.shade100,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
               // 탭 바
               TabBar(
                 controller: _tabController,
@@ -81,27 +130,148 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
           ),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _buildOrderList(context, null),
-          _buildOrderList(context, 0),
-          _buildOrderList(context, 2),
-          _buildOrderList(context, 3),
-          _buildOrderList(context, 4),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildOrderList(context, null),
+                _buildOrderList(context, 0),
+                _buildOrderList(context, 2),
+                _buildOrderList(context, 3),
+                _buildOrderList(context, 4),
+              ],
+            ),
+          ),
+          const CompanyFooter(),
         ],
       ),
     );
   }
 
   Widget _buildOrderList(BuildContext context, int? statusFilter) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: 5, // TODO: 실제 주문 개수로 변경
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        return _buildOrderCard(context, index);
-      },
+    // Mock 전체 주문 데이터 (페이징 테스트용 15개)
+    final allOrders = List.generate(15, (index) => index);
+    
+    // 페이징 계산
+    final totalPages = (allOrders.length / _itemsPerPage).ceil();
+    final startIndex = (_currentPage - 1) * _itemsPerPage;
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, allOrders.length);
+    final displayedOrders = allOrders.sublist(startIndex, endIndex);
+    
+    return Column(
+      children: [
+        // 결과 개수
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Text(
+                '총 ${allOrders.length}건',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$_currentPage / $totalPages 페이지',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // 주문 리스트
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            itemCount: displayedOrders.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              return _buildOrderCard(context, displayedOrders[index]);
+            },
+          ),
+        ),
+        
+        // 페이징 버튼
+        if (totalPages > 1)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: _currentPage > 1
+                      ? () => setState(() => _currentPage--)
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
+                  color: const Color(0xFF00C896),
+                ),
+                const SizedBox(width: 16),
+                ...List.generate(totalPages.clamp(0, 5), (index) {
+                  final page = index + 1;
+                  final isCurrentPage = page == _currentPage;
+                  
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: InkWell(
+                      onTap: () => setState(() => _currentPage = page),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isCurrentPage
+                              ? const Color(0xFF00C896)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isCurrentPage
+                                ? const Color(0xFF00C896)
+                                : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$page',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: isCurrentPage
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isCurrentPage
+                                  ? Colors.white
+                                  : Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(width: 16),
+                IconButton(
+                  onPressed: _currentPage < totalPages
+                      ? () => setState(() => _currentPage++)
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
+                  color: const Color(0xFF00C896),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
