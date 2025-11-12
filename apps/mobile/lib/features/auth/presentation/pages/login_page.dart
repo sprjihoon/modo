@@ -172,7 +172,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               alignment: Alignment.centerRight,
                               child: TextButton(
                                 onPressed: () {
-                                  // TODO: 비밀번호 찾기
+                                  context.push('/forgot-password');
                                 },
                                 child: Text(
                                   '비밀번호를 잊으셨나요?',

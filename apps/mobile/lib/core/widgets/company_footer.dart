@@ -9,8 +9,30 @@ class CompanyFooter extends StatefulWidget {
   State<CompanyFooter> createState() => _CompanyFooterState();
 }
 
-class _CompanyFooterState extends State<CompanyFooter> {
+class _CompanyFooterState extends State<CompanyFooter>
+    with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
+  late AnimationController _controller;
+  late Animation<double> _heightAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _heightAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +54,11 @@ class _CompanyFooterState extends State<CompanyFooter> {
             onTap: () {
               setState(() {
                 _isExpanded = !_isExpanded;
+                if (_isExpanded) {
+                  _controller.forward();
+                } else {
+                  _controller.reverse();
+                }
               });
             },
             child: Container(
@@ -62,70 +89,65 @@ class _CompanyFooterState extends State<CompanyFooter> {
           ),
           
           // 아코디언 내용
-          AnimatedSize(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            child: _isExpanded
-                ? Container(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // 사업자 정보
-                        _buildInfoRow('회사명', '(주) 의식주컴퍼니'),
-                        const SizedBox(height: 8),
-                        _buildInfoRow('대표자', '조성우'),
-                        const SizedBox(height: 8),
-                        _buildInfoRow('사업자등록번호', '561-87-00957'),
-                        const SizedBox(height: 8),
-                        _buildInfoRow('통신판매업신고번호', '2025-경기군포-0146호'),
-                        const SizedBox(height: 8),
-                        _buildInfoRow(
-                          '주소',
-                          '경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)',
-                        ),
-                        const SizedBox(height: 8),
-                        _buildInfoRow('우편번호', '15844'),
-                        const SizedBox(height: 8),
-                        _buildInfoRow('개인정보관리책임자', '최종수'),
-                        const SizedBox(height: 8),
-                        _buildInfoRow('이메일', 'privacy@lifegoeson.kr'),
-                        const SizedBox(height: 8),
-                        _buildInfoRow('고객센터', '1833-3429'),
-                        const SizedBox(height: 16),
-                        
-                        // 하단 링크
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            _buildLink(
-                              '사업자 정보',
-                              onTap: () {
-                                // 사업자 정보는 이미 표시되어 있으므로 아무 동작 없음
-                              },
-                            ),
-                            const SizedBox(width: 16),
-                            _buildLink(
-                              '이용약관',
-                              onTap: () {
-                                context.push('/terms');
-                              },
-                            ),
-                            const SizedBox(width: 16),
-                            _buildLink(
-                              '개인정보처리방침',
-                              onTap: () {
-                                context.push('/privacy-policy');
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(),
+          SizeTransition(
+            sizeFactor: _heightAnimation,
+            axisAlignment: -1.0, // 위에서 아래로 확장 (-1.0 = top)
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 사업자 정보
+                  _buildInfoRow('회사명', '(주) 의식주컴퍼니'),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('대표자', '조성우'),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('사업자등록번호', '561-87-00957'),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('통신판매업신고번호', '2025-경기군포-0146호'),
+                  const SizedBox(height: 8),
+                  _buildInfoRow(
+                    '주소',
+                    '경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)',
+                  ),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('개인정보관리책임자', '최종수'),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('이메일', 'privacy@lifegoeson.kr'),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('고객센터', '1833-3429'),
+                  const SizedBox(height: 16),
+                  
+                  // 하단 링크
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      _buildLink(
+                        '사업자 정보',
+                        onTap: () {
+                          // 사업자 정보는 이미 표시되어 있으므로 아무 동작 없음
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      _buildLink(
+                        '이용약관',
+                        onTap: () {
+                          context.push('/terms');
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      _buildLink(
+                        '개인정보처리방침',
+                        onTap: () {
+                          context.push('/privacy-policy');
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

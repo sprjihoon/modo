@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/auth/presentation/pages/signup_page.dart';
+import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/terms_page.dart';
 import '../../features/auth/presentation/pages/privacy_policy_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
@@ -22,6 +23,7 @@ import '../../features/orders/presentation/pages/image_annotation_page.dart';
 import '../../features/orders/domain/models/image_pin.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/account_info_page.dart';
+import '../../features/profile/presentation/pages/change_password_page.dart';
 import '../../features/profile/presentation/pages/addresses_page.dart';
 import '../../features/profile/presentation/pages/add_address_page.dart';
 import '../../features/profile/presentation/pages/payment_methods_page.dart';
@@ -56,6 +58,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/signup',
         name: 'signup',
         builder: (context, state) => const SignupPage(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        name: 'forgot-password',
+        builder: (context, state) => const ForgotPasswordPage(),
       ),
       GoRoute(
         path: '/terms',
@@ -221,6 +228,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'account',
             name: 'profile-account',
             builder: (context, state) => const AccountInfoPage(),
+          ),
+          // 비밀번호 변경
+          GoRoute(
+            path: 'change-password',
+            name: 'profile-change-password',
+            builder: (context, state) => const ChangePasswordPage(),
           ),
           // 배송지 설정
           GoRoute(
