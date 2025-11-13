@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../data/providers/auth_provider.dart';
 
 /// 비밀번호 찾기 페이지
 class ForgotPasswordPage extends ConsumerStatefulWidget {
@@ -29,8 +30,10 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Supabase 비밀번호 재설정 이메일 발송
-      await Future.delayed(const Duration(seconds: 1)); // Mock delay
+      final authService = ref.read(authServiceProvider);
+      final email = _emailController.text.trim();
+
+      await authService.resetPassword(email);
       
       if (mounted) {
         setState(() {
@@ -42,7 +45,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('이메일 발송 실패: $e'),
+            content: Text('이메일 발송 실패: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.red.shade400,
           ),
         );

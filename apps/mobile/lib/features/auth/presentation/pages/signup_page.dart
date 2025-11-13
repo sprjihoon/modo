@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../data/providers/auth_provider.dart';
 
 /// 회원가입 화면
 class SignupPage extends ConsumerStatefulWidget {
@@ -26,17 +27,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   bool _agreeToPrivacy = false;
   bool _isEmailChecked = false;
   bool _isPhoneChecked = false;
-  
-  // Mock 중복 이메일/전화번호 (테스트용)
-  final List<String> _existingEmails = [
-    'test@example.com',
-    'admin@modusrepair.com',
-    'user@test.com',
-  ];
-  final List<String> _existingPhones = [
-    '010-1234-5678',
-    '010-9999-8888',
-  ];
 
   @override
   void dispose() {
@@ -72,31 +62,38 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       return;
     }
 
-    // Mock: 0.5초 지연
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final authService = ref.read(authServiceProvider);
+      final isDuplicate = await authService.checkEmailDuplicate(email);
 
-    // TODO: 실제 Supabase 중복 체크
-    // final exists = await supabase.from('users').select().eq('email', email).count();
-    
-    final isDuplicate = _existingEmails.contains(email);
-
-    if (mounted) {
-      if (isDuplicate) {
+      if (mounted) {
+        if (isDuplicate) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('이미 사용 중인 이메일입니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() => _isEmailChecked = false);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('사용 가능한 이메일입니다'),
+              backgroundColor: Color(0xFF00C896),
+            ),
+          );
+          setState(() => _isEmailChecked = true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('이미 사용 중인 이메일입니다'),
+          SnackBar(
+            content: Text('중복 확인 실패: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.red,
           ),
         );
         setState(() => _isEmailChecked = false);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('사용 가능한 이메일입니다'),
-            backgroundColor: Color(0xFF00C896),
-          ),
-        );
-        setState(() => _isEmailChecked = true);
       }
     }
   }
@@ -115,31 +112,38 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       return;
     }
 
-    // Mock: 0.5초 지연
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final authService = ref.read(authServiceProvider);
+      final isDuplicate = await authService.checkPhoneDuplicate(phone);
 
-    // TODO: 실제 Supabase 중복 체크
-    // final exists = await supabase.from('users').select().eq('phone', phone).count();
-    
-    final isDuplicate = _existingPhones.contains(phone);
-
-    if (mounted) {
-      if (isDuplicate) {
+      if (mounted) {
+        if (isDuplicate) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('이미 사용 중인 전화번호입니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() => _isPhoneChecked = false);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('사용 가능한 전화번호입니다'),
+              backgroundColor: Color(0xFF00C896),
+            ),
+          );
+          setState(() => _isPhoneChecked = true);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('이미 사용 중인 전화번호입니다'),
+          SnackBar(
+            content: Text('중복 확인 실패: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.red,
           ),
         );
         setState(() => _isPhoneChecked = false);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('사용 가능한 전화번호입니다'),
-            backgroundColor: Color(0xFF00C896),
-          ),
-        );
-        setState(() => _isPhoneChecked = true);
       }
     }
   }
@@ -181,8 +185,18 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Supabase 회원가입 구현
-      await Future.delayed(const Duration(seconds: 1)); // Mock delay
+      final authService = ref.read(authServiceProvider);
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+      final name = _nameController.text.trim();
+      final phone = _phoneController.text.trim();
+
+      await authService.signUpWithEmail(
+        email: email,
+        password: password,
+        name: name,
+        phone: phone,
+      );
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -197,7 +211,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('회원가입 실패: $e'),
+            content: Text('회원가입 실패: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.red.shade400,
           ),
         );

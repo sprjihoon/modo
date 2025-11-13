@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../auth/data/providers/auth_provider.dart';
 
 /// 홈 화면
 class HomePage extends ConsumerStatefulWidget {
@@ -232,29 +233,84 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildGreeting(BuildContext context) {
+    final userProfileAsync = ref.watch(userProfileProvider);
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: RichText(
-        text: TextSpan(
-          style: const TextStyle(
-            fontSize: 20,
-            color: Colors.black,
-            height: 1.4,
-          ),
-          children: [
-            TextSpan(
-              text: '고객',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
+      child: userProfileAsync.when(
+        data: (profile) {
+          // 사용자 이름 가져오기 (없으면 '고객'으로 표시)
+          final userName = profile?['name'] as String? ?? '고객';
+          
+          return RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                fontSize: 20,
+                color: Colors.black,
+                height: 1.4,
               ),
+              children: [
+                TextSpan(
+                  text: userName,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const TextSpan(text: '님 반가워요!\n'),
+                const TextSpan(
+                  text: '비대면 의류 수선 서비스입니다.',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ],
             ),
-            const TextSpan(text: '님 반가워요!\n'),
-            const TextSpan(
-              text: '비대면 의류 수선 서비스입니다.',
-              style: TextStyle(fontSize: 16),
+          );
+        },
+        loading: () => RichText(
+          text: TextSpan(
+            style: const TextStyle(
+              fontSize: 20,
+              color: Colors.black,
+              height: 1.4,
             ),
-          ],
+            children: [
+              TextSpan(
+                text: '고객',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const TextSpan(text: '님 반가워요!\n'),
+              const TextSpan(
+                text: '비대면 의류 수선 서비스입니다.',
+                style: TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+        error: (_, __) => RichText(
+          text: TextSpan(
+            style: const TextStyle(
+              fontSize: 20,
+              color: Colors.black,
+              height: 1.4,
+            ),
+            children: [
+              TextSpan(
+                text: '고객',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const TextSpan(text: '님 반가워요!\n'),
+              const TextSpan(
+                text: '비대면 의류 수선 서비스입니다.',
+                style: TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
         ),
       ),
     );

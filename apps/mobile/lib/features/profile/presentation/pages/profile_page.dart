@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../auth/data/providers/auth_provider.dart';
 
 /// 마이페이지 (프로필)
 class ProfilePage extends ConsumerWidget {
@@ -9,11 +10,8 @@ class ProfilePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // TODO: 실제 사용자 정보 가져오기
-    const mockUserName = '홍길동';
-    const mockEmail = 'customer@example.com';
-    const mockPoints = 0;
-
+    final userProfileAsync = ref.watch(userProfileProvider);
+    
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -28,7 +26,16 @@ class ProfilePage extends ConsumerWidget {
               child: Column(
                 children: [
             // 사용자 정보 헤더
-            _buildUserHeader(context, mockUserName, mockEmail, mockPoints),
+            userProfileAsync.when(
+              data: (profile) {
+                final userName = profile?['name'] as String? ?? '고객';
+                final userEmail = profile?['email'] as String? ?? '';
+                const mockPoints = 0; // TODO: 포인트 정보 가져오기
+                return _buildUserHeader(context, userName, userEmail, mockPoints);
+              },
+              loading: () => _buildUserHeader(context, '고객', '', 0),
+              error: (_, __) => _buildUserHeader(context, '고객', '', 0),
+            ),
             const SizedBox(height: 16),
             
             // 회원 관리 섹션
@@ -117,7 +124,7 @@ class ProfilePage extends ConsumerWidget {
                   icon: Icons.logout,
                   title: '로그아웃',
                   titleColor: Colors.red,
-                  onTap: () => _showLogoutDialog(context),
+                  onTap: () => _showLogoutDialog(context, ref),
                 ),
                 _MenuItem(
                   icon: Icons.person_remove_outlined,
@@ -339,7 +346,7 @@ class ProfilePage extends ConsumerWidget {
   }
 
   /// 로그아웃 다이얼로그
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -360,16 +367,32 @@ class ProfilePage extends ConsumerWidget {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              // TODO: 실제 로그아웃
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('로그아웃되었습니다'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-              context.go('/login');
+              
+              try {
+                final authService = ref.read(authServiceProvider);
+                await authService.signOut();
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('로그아웃되었습니다'),
+                      backgroundColor: Color(0xFF00C896),
+                    ),
+                  );
+                  context.go('/login');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('로그아웃 실패: ${e.toString().replaceAll('Exception: ', '')}'),
+                      backgroundColor: Colors.red.shade400,
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

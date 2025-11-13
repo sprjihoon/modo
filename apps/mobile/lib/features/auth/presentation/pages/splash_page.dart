@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../services/auth_service.dart';
+import '../../data/providers/auth_provider.dart';
 
 /// 스플래시 화면
 class SplashPage extends ConsumerStatefulWidget {
@@ -21,12 +23,20 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     // 2초 대기 (스플래시 화면 표시)
     await Future.delayed(const Duration(seconds: 2));
     
-    // TODO: Supabase 인증 상태 확인
-    // final session = Supabase.instance.client.auth.currentSession;
+    if (!mounted) return;
+    
+    // Supabase 인증 상태 확인
+    final authService = ref.read(authServiceProvider);
+    final isLoggedIn = authService.isLoggedIn;
     
     if (mounted) {
-      // 임시로 로그인 페이지로 이동
-      context.go('/login');
+      if (isLoggedIn) {
+        // 로그인된 경우 홈으로 이동
+        context.go('/home');
+      } else {
+        // 로그인되지 않은 경우 로그인 페이지로 이동
+        context.go('/login');
+      }
     }
   }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../../services/auth_service.dart';
+import '../../data/providers/auth_provider.dart';
 
 /// 로그인 화면
 class LoginPage extends ConsumerStatefulWidget {
@@ -31,24 +33,94 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Supabase 로그인 구현
-      await Future.delayed(const Duration(seconds: 1)); // Mock delay
+      final authService = ref.read(authServiceProvider);
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+
+      await authService.signInWithEmail(
+        email: email,
+        password: password,
+      );
       
       if (mounted) {
         context.go('/home');
       }
     } catch (e) {
+      print('❌ 로그인 페이지 에러: $e');
       if (mounted) {
+        String errorMessage = '로그인 실패';
+        
+        final errorString = e.toString();
+        if (errorString.contains('Exception: ')) {
+          errorMessage = errorString.replaceAll('Exception: ', '');
+        } else {
+          errorMessage = errorString;
+        }
+        
+        // 사용자 친화적인 메시지로 변환
+        if (errorMessage.contains('이메일 확인')) {
+          errorMessage = '이메일 확인이 필요합니다.\nSupabase Dashboard에서 이메일 확인을 OFF로 설정하거나\n이메일을 확인해주세요.';
+        } else if (errorMessage.contains('올바르지 않습니다')) {
+          errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
+        } else if (errorMessage.contains('네트워크') || errorMessage.contains('connection')) {
+          errorMessage = '네트워크 연결을 확인해주세요.';
+        } else if (errorMessage.contains('설정') || errorMessage.contains('config')) {
+          errorMessage = 'Supabase 설정을 확인해주세요.\n.env 파일이 올바른지 확인하세요.';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('로그인 실패: $e'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red.shade400,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: '확인',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
           ),
         );
       }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleSocialLogin(String provider) async {
+    try {
+      final authService = ref.read(authServiceProvider);
+      
+      switch (provider) {
+        case 'google':
+          await authService.signInWithGoogle();
+          break;
+        case 'naver':
+          await authService.signInWithNaver();
+          break;
+        case 'kakao':
+          await authService.signInWithKakao();
+          break;
+      }
+      
+      // OAuth는 리다이렉트로 처리되므로 여기서는 성공 메시지만 표시
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$provider 로그인을 시작합니다'),
+            backgroundColor: const Color(0xFF00C896),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${provider} 로그인 실패: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red.shade400,
+          ),
+        );
       }
     }
   }
@@ -245,45 +317,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           'Google',
                           Colors.white,
                           Colors.black87,
-                          () {
-                            // TODO: 구글 로그인
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('구글 로그인 (준비 중)'),
-                                backgroundColor: Color(0xFF00C896),
-                              ),
-                            );
-                          },
+                          () => _handleSocialLogin('google'),
                         ),
                         const SizedBox(width: 16),
                         _buildSocialButton(
                           'Naver',
                           const Color(0xFF03C75A),
                           Colors.white,
-                          () {
-                            // TODO: 네이버 로그인
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('네이버 로그인 (준비 중)'),
-                                backgroundColor: Color(0xFF00C896),
-                              ),
-                            );
-                          },
+                          () => _handleSocialLogin('naver'),
                         ),
                         const SizedBox(width: 16),
                         _buildSocialButton(
                           'Kakao',
                           const Color(0xFFFFE812),
                           Colors.black87,
-                          () {
-                            // TODO: 카카오 로그인
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('카카오 로그인 (준비 중)'),
-                                backgroundColor: Color(0xFF00C896),
-                              ),
-                            );
-                          },
+                          () => _handleSocialLogin('kakao'),
                             ),
                           ],
                         ),

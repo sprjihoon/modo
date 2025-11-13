@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../auth/data/providers/auth_provider.dart';
 
 /// 회원정보 페이지
 class AccountInfoPage extends ConsumerStatefulWidget {
@@ -12,11 +13,19 @@ class AccountInfoPage extends ConsumerStatefulWidget {
 }
 
 class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
-  final _nameController = TextEditingController(text: '홍길동');
-  final _phoneController = TextEditingController(text: '010-1234-5678');
-  final _emailController = TextEditingController(text: 'customer@example.com');
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _emailController;
   
   bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _phoneController = TextEditingController();
+    _emailController = TextEditingController();
+  }
 
   @override
   void dispose() {
@@ -26,20 +35,108 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
     super.dispose();
   }
 
+
   Future<void> _saveChanges() async {
+    // 입력값 검증
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('이름을 입력해주세요'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('전화번호를 입력해주세요'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 전화번호 형식 검증 (간단한 검증)
+    if (!RegExp(r'^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$').hasMatch(phone.replaceAll('-', ''))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('올바른 전화번호 형식이 아닙니다'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isEditing = false);
-    
-    // TODO: 실제 API 호출
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('회원정보가 수정되었습니다'),
-        backgroundColor: Color(0xFF00C896),
+
+    // 로딩 표시
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
       ),
     );
+
+    try {
+      final authService = ref.read(authServiceProvider);
+      
+      // 프로필 업데이트
+      await authService.updateProfile(
+        name: name,
+        phone: phone,
+      );
+
+      // 프로필 Provider 새로고침
+      ref.invalidate(userProfileProvider);
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('회원정보가 수정되었습니다'),
+          backgroundColor: Color(0xFF00C896),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceAll('Exception: ', ''),
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // 에러 발생 시 수정 모드 유지
+      setState(() => _isEditing = true);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final userProfileAsync = ref.watch(userProfileProvider);
+    
+    // 사용자 정보가 로드되면 컨트롤러 업데이트
+    userProfileAsync.whenData((profile) {
+      if (profile != null && !_isEditing) {
+        _nameController.text = profile['name'] as String? ?? '';
+        _phoneController.text = profile['phone'] as String? ?? '';
+        _emailController.text = profile['email'] as String? ?? '';
+      }
+    });
+    
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -62,13 +159,14 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
+      body: userProfileAsync.when(
+        data: (profile) => Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
                   // 프로필 이미지
                   Center(
                     child: Stack(
@@ -189,12 +287,33 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
                       },
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
+            const CompanyFooter(),
+          ],
+        ),
+        loading: () => const Center(
+          child: CircularProgressIndicator(),
+        ),
+        error: (error, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('정보를 불러올 수 없습니다'),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  ref.invalidate(userProfileProvider);
+                },
+                child: const Text('다시 시도'),
+              ),
+            ],
           ),
-          const CompanyFooter(),
-        ],
+        ),
       ),
     );
   }
