@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../services/address_service.dart';
+import '../widgets/daum_postcode_widget.dart';
+
 /// 배송지 추가/수정 페이지
 class AddAddressPage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? existingAddress; // null이면 추가, 있으면 수정
@@ -35,12 +38,12 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
     if (widget.existingAddress != null) {
       final addr = widget.existingAddress!;
       _labelController.text = addr['label'] as String? ?? '';
-      _nameController.text = addr['name'] as String? ?? '';
-      _phoneController.text = addr['phone'] as String? ?? '';
+      _nameController.text = addr['recipient_name'] as String? ?? '';
+      _phoneController.text = addr['recipient_phone'] as String? ?? '';
       _zipcodeController.text = addr['zipcode'] as String? ?? '';
       _addressController.text = addr['address'] as String? ?? '';
-      _detailController.text = addr['detail'] as String? ?? '';
-      _isDefault = addr['isDefault'] as bool? ?? false;
+      _detailController.text = addr['address_detail'] as String? ?? '';
+      _isDefault = addr['is_default'] as bool? ?? false;
     }
   }
 
@@ -61,11 +64,32 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Supabase에 저장
-      // await supabase.from('addresses').insert({...});
+      final addressService = AddressService();
       
-      // Mock: 0.5초 지연
-      await Future.delayed(const Duration(milliseconds: 500));
+      if (widget.existingAddress == null) {
+        // 배송지 추가
+        await addressService.addAddress(
+          label: _labelController.text,
+          recipientName: _nameController.text,
+          recipientPhone: _phoneController.text,
+          zipcode: _zipcodeController.text,
+          address: _addressController.text,
+          addressDetail: _detailController.text.isEmpty ? null : _detailController.text,
+          isDefault: _isDefault,
+        );
+      } else {
+        // 배송지 수정
+        await addressService.updateAddress(
+          addressId: widget.existingAddress!['id'] as String,
+          label: _labelController.text,
+          recipientName: _nameController.text,
+          recipientPhone: _phoneController.text,
+          zipcode: _zipcodeController.text,
+          address: _addressController.text,
+          addressDetail: _detailController.text.isEmpty ? null : _detailController.text,
+          isDefault: _isDefault,
+        );
+      }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -433,38 +457,23 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
   }
 
   Future<void> _searchAddress() async {
-    // TODO: 실제 주소 검색 API (Daum Postcode, Kakao 주소 검색 등)
-    
-    // Mock: 주소 자동 입력
-    showDialog(
+    // Daum 우편번호 서비스 (웹뷰)
+    final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        title: const Text('주소 검색'),
-        content: const Text('주소 검색 API 연동 필요\n\n테스트용 주소를 입력합니다.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _zipcodeController.text = '06234';
-                _addressController.text = '서울시 강남구 테헤란로 123';
-              });
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00C896),
-            ),
-            child: const Text('입력'),
-          ),
-        ],
+        child: const DaumPostcodeWidget(),
       ),
     );
+    
+    if (result != null) {
+      setState(() {
+        _zipcodeController.text = result['zonecode'] ?? '';
+        _addressController.text = result['address'] ?? '';
+      });
+    }
   }
 }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../services/address_service.dart';
+
 /// 배송지 설정 페이지
 class AddressesPage extends ConsumerStatefulWidget {
   const AddressesPage({super.key});
@@ -11,29 +13,36 @@ class AddressesPage extends ConsumerStatefulWidget {
 }
 
 class _AddressesPageState extends ConsumerState<AddressesPage> {
-  // Mock 배송지 데이터 (State로 관리)
-  List<Map<String, dynamic>> _addresses = [
-      {
-        'id': '1',
-        'label': '집',
-        'name': '홍길동',
-        'phone': '010-1234-5678',
-        'address': '서울시 강남구 테헤란로 123',
-        'detail': '101동 1001호',
-        'zipcode': '06234',
-        'isDefault': true,
-      },
-      {
-        'id': '2',
-        'label': '회사',
-        'name': '홍길동',
-        'phone': '010-1234-5678',
-        'address': '서울시 송파구 올림픽로 300',
-        'detail': '5층',
-        'zipcode': '05551',
-        'isDefault': false,
-      },
-    ];
+  final _addressService = AddressService();
+  List<Map<String, dynamic>> _addresses = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
+
+  Future<void> _loadAddresses() async {
+    setState(() => _isLoading = true);
+    try {
+      final addresses = await _addressService.getAddresses();
+      setState(() {
+        _addresses = addresses;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('배송지 불러오기 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,17 +79,23 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
           
           // 배송지 목록
           Expanded(
-            child: _addresses.isEmpty
-                ? _buildEmptyState(context)
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _addresses.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final address = _addresses[index];
-                      return _buildAddressCard(context, address, index);
-                    },
-                  ),
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C896)),
+                    ),
+                  )
+                : _addresses.isEmpty
+                    ? _buildEmptyState(context)
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _addresses.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final address = _addresses[index];
+                          return _buildAddressCard(context, address, index);
+                        },
+                      ),
           ),
         ],
       ),
@@ -100,14 +115,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
 
   /// 배송지 목록 새로고침
   void _refreshAddresses() {
-    // TODO: Supabase에서 다시 가져오기
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('배송지 목록이 업데이트되었습니다'),
-        backgroundColor: Color(0xFF00C896),
-        duration: Duration(seconds: 1),
-      ),
-    );
+    _loadAddresses();
   }
 
   /// 빈 상태 UI
@@ -143,7 +151,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
   }
 
   Widget _buildAddressCard(BuildContext context, Map<String, dynamic> address, int index) {
-    final isDefault = address['isDefault'] as bool;
+    final isDefault = address['is_default'] as bool? ?? false;
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -212,13 +220,13 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
           const SizedBox(height: 16),
           
           // 수령인 정보
-          _buildInfoRow(Icons.person_outline, address['name'] as String),
+          _buildInfoRow(Icons.person_outline, address['recipient_name'] as String),
           const SizedBox(height: 8),
-          _buildInfoRow(Icons.phone_outlined, address['phone'] as String),
+          _buildInfoRow(Icons.phone_outlined, address['recipient_phone'] as String),
           const SizedBox(height: 8),
           _buildInfoRow(
             Icons.location_on_outlined,
-            '${address['address']}\n${address['detail']}',
+            '${address['address']}\n${address['address_detail'] ?? ''}',
           ),
         ],
       ),
@@ -257,20 +265,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
     );
     
     if (result == true && mounted) {
-      setState(() {
-        // Mock: 기존 주소를 업데이트
-        _addresses[index] = {
-          ..._addresses[index],
-          'name': '김철수', // Mock 수정 데이터
-        };
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('배송지가 수정되었습니다'),
-          backgroundColor: Color(0xFF00C896),
-        ),
-      );
+      _loadAddresses();
     }
   }
 
@@ -315,19 +310,28 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
     );
 
     if (confirmed == true && mounted) {
-      // TODO: Supabase에서 삭제
-      // await supabase.from('addresses').delete().eq('id', address['id']);
-      
-      setState(() {
-        _addresses.removeAt(index);
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('배송지가 삭제되었습니다'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      try {
+        await _addressService.deleteAddress(address['id'] as String);
+        _loadAddresses();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('배송지가 삭제되었습니다'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('삭제 실패: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 }

@@ -32,6 +32,9 @@ dependencies:
   # Image Picker
   image_picker: ^1.0.5
   
+  # WebView (for Daum Postcode)
+  webview_flutter: ^4.4.2
+  
   # HTTP & API
   dio: ^5.4.0
   
