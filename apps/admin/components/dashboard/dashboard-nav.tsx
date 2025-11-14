@@ -3,7 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Package, Users, Video, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  Package,
+  Users,
+  Video,
+  Settings,
+  BarChart3,
+  CreditCard,
+  TrendingUp,
+} from "lucide-react";
 
 const navItems = [
   {
@@ -20,6 +29,21 @@ const navItems = [
     title: "고객 관리",
     href: "/dashboard/customers",
     icon: Users,
+  },
+  {
+    title: "결제 내역",
+    href: "/dashboard/payments",
+    icon: CreditCard,
+  },
+  {
+    title: "포인트 관리",
+    href: "/dashboard/points",
+    icon: TrendingUp,
+  },
+  {
+    title: "통계 및 분석",
+    href: "/dashboard/analytics",
+    icon: BarChart3,
   },
   {
     title: "영상 관리",

@@ -1,39 +1,47 @@
 -- ============================================
--- 모두의수선 - 사용자 테이블
+-- 모두의수선 - 사용자 테이블 (간소화 버전)
 -- ============================================
 
--- 고객 프로필 테이블
+-- 1. 테이블 생성
 CREATE TABLE IF NOT EXISTS public.users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  
-  -- Supabase Auth 연동
   auth_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  
-  -- 기본 정보
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   phone TEXT NOT NULL,
-  
-  -- 주소 정보
   default_address TEXT,
   default_address_detail TEXT,
   default_zipcode TEXT,
-  
-  -- 푸시 알림
   fcm_token TEXT,
-  
-  -- 메타데이터
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
-  -- 인덱스
   CONSTRAINT users_phone_key UNIQUE (phone)
 );
 
--- RLS (Row Level Security) 활성화
+-- 2. RLS 활성화
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
--- 정책: 사용자는 자신의 정보만 조회/수정 가능
+-- 3. 함수 생성
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 4. 트리거 생성
+CREATE TRIGGER update_users_updated_at
+  BEFORE UPDATE ON public.users
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- 5. 인덱스 생성
+CREATE INDEX IF NOT EXISTS idx_users_auth_id ON public.users(auth_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
+CREATE INDEX IF NOT EXISTS idx_users_phone ON public.users(phone);
+
+-- 6. RLS 정책 생성
 CREATE POLICY "Users can view own profile"
   ON public.users
   FOR SELECT
@@ -44,14 +52,12 @@ CREATE POLICY "Users can update own profile"
   FOR UPDATE
   USING (auth.uid() = auth_id);
 
--- 정책: 사용자는 자신의 프로필을 생성할 수 있음 (회원가입 시)
 CREATE POLICY "Users can insert own profile"
   ON public.users
   FOR INSERT
   WITH CHECK (auth.uid() = auth_id);
 
--- 정책: 관리자는 모든 사용자 정보 조회/수정 가능
--- auth.users를 직접 조회하여 RLS 재귀 방지
+-- 관리자 정책: auth.users를 직접 조회하여 RLS 재귀 방지
 CREATE POLICY "Admins can view all users"
   ON public.users
   FOR SELECT
@@ -73,28 +79,4 @@ CREATE POLICY "Admins can update all users"
       AND email LIKE '%@admin.modusrepair.com'
     )
   );
-
--- 인덱스
-CREATE INDEX idx_users_auth_id ON public.users(auth_id);
-CREATE INDEX idx_users_email ON public.users(email);
-CREATE INDEX idx_users_phone ON public.users(phone);
-
--- 트리거: updated_at 자동 갱신
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER update_users_updated_at
-  BEFORE UPDATE ON public.users
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
--- 주석
-COMMENT ON TABLE public.users IS '고객 프로필 정보';
-COMMENT ON COLUMN public.users.auth_id IS 'Supabase Auth 사용자 ID';
-COMMENT ON COLUMN public.users.fcm_token IS 'Firebase Cloud Messaging 토큰';
 

@@ -60,26 +60,32 @@ Deno.serve(async (req) => {
       return errorResponse('Shipment already booked', 400, 'ALREADY_BOOKED');
     }
 
-    // tracking_no 생성 (KPOST + yymmdd + 5자리 랜덤)
-    const trackingNo = generateTrackingNo();
+    // 회수(수거) 송장번호 생성 (KPOST + yymmdd + 5자리 랜덤)
+    const pickupTrackingNo = generateTrackingNo();
     
     // label_url 생성 (실제로는 우체국 API에서 받아옴)
-    const labelUrl = `https://service.epost.go.kr/label/${trackingNo}.pdf`;
+    const labelUrl = `https://service.epost.go.kr/label/${pickupTrackingNo}.pdf`;
     const pickupDate = new Date().toISOString().split('T')[0];
 
-    // TODO: 실제 우체국 API 연동
-    // const epostResponse = await fetch('https://service.epost.go.kr/api/collect/book', {
+    // TODO: 실제 우체국 API 연동 (수거 송장 발급)
+    // const epostPickupResponse = await fetch('https://service.epost.go.kr/api/collect/book', {
     //   method: 'POST',
     //   headers: { 'Authorization': `Bearer ${Deno.env.get('EPOST_API_KEY')}` },
-    //   body: JSON.stringify({ ... })
+    //   body: JSON.stringify({ 
+    //     pickup: { address: pickup_address, phone: pickup_phone },
+    //     delivery: { address: delivery_address, phone: delivery_phone },
+    //   })
     // });
+    // const pickupTrackingNo = epostPickupResponse.tracking_no;
 
     // 송장 정보를 DB에 저장 (upsert)
     const { data: shipment, error: shipmentError } = await supabase
       .from('shipments')
       .upsert({
         order_id,
-        tracking_no: trackingNo,
+        tracking_no: pickupTrackingNo, // 하위 호환성 (기존 필드)
+        pickup_tracking_no: pickupTrackingNo, // 회수 송장번호
+        delivery_tracking_no: null, // 발송은 나중에 출고 시 생성
         pickup_address,
         pickup_phone: pickup_phone || '',
         delivery_address,
@@ -103,7 +109,7 @@ Deno.serve(async (req) => {
     const { error: orderError } = await supabase
       .from('orders')
       .update({
-        tracking_no: trackingNo,
+        tracking_no: pickupTrackingNo, // 하위 호환성
         status: 'BOOKED',
       })
       .eq('id', order_id);
@@ -120,9 +126,9 @@ Deno.serve(async (req) => {
         user_id: shipment.order_id, // TODO: 실제 user_id 가져오기
         type: 'SHIPMENT_BOOKED',
         title: '수거예약 완료',
-        body: `송장번호 ${trackingNo}로 수거가 예약되었습니다.`,
+        body: `회수 송장번호 ${pickupTrackingNo}로 수거가 예약되었습니다.`,
         order_id,
-        tracking_no: trackingNo,
+        tracking_no: pickupTrackingNo,
       });
 
     if (notificationError) {
@@ -133,7 +139,9 @@ Deno.serve(async (req) => {
     // 성공 응답
     return successResponse(
       {
-        tracking_no: trackingNo,
+        tracking_no: pickupTrackingNo, // 하위 호환성
+        pickup_tracking_no: pickupTrackingNo, // 회수 송장번호
+        delivery_tracking_no: null, // 발송은 나중에
         label_url: labelUrl,
         status: 'BOOKED',
         message: '수거예약이 완료되었습니다',

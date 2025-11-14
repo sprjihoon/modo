@@ -1,11 +1,14 @@
-import { notFound } from "next/navigation";
+"use client";
+
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { OrderTimeline } from "@/components/orders/order-timeline";
 import { VideoUpload } from "@/components/orders/video-upload";
 import { StatusChangeDialog } from "@/components/orders/status-change-dialog";
-import { Package, Truck, User, CreditCard } from "lucide-react";
+import { PaymentRefundDialog } from "@/components/orders/payment-refund-dialog";
+import { Package, Truck, User, CreditCard, History } from "lucide-react";
 
 interface OrderDetailPageProps {
   params: {
@@ -14,6 +17,8 @@ interface OrderDetailPageProps {
 }
 
 export default function OrderDetailPage({ params }: OrderDetailPageProps) {
+  const router = useRouter();
+  
   // TODO: Fetch order data from Supabase
   const order = {
     id: params.id,
@@ -27,14 +32,28 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     status: "PROCESSING",
     amount: 15000,
     paymentMethod: "신용카드",
+    paymentId: "PAY-2024-0001",
+    paymentStatus: "COMPLETED",
     createdAt: "2024.01.15 14:30",
     pickupAddress: "서울시 강남구 테헤란로 123",
     deliveryAddress: "서울시 강남구 테헤란로 123",
   };
 
-  if (!order) {
-    notFound();
-  }
+  // Mock payment history
+  const paymentHistory = [
+    {
+      id: "PAY-2024-0001",
+      type: "결제",
+      amount: 15000,
+      status: "완료",
+      date: "2024.01.15 14:30",
+    },
+  ];
+
+  // if (!order) {
+  //   router.push('/dashboard/orders');
+  //   return null;
+  // }
 
   return (
     <div className="space-y-6">
@@ -124,10 +143,21 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         {/* Payment Info */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              결제 정보
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                결제 정보
+              </CardTitle>
+              {order.paymentStatus === "COMPLETED" && (
+                <PaymentRefundDialog
+                  orderId={order.id}
+                  paymentId={order.paymentId}
+                  originalAmount={order.amount}
+                  paymentMethod={order.paymentMethod}
+                  onRefunded={() => window.location.reload()}
+                />
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -137,6 +167,28 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             <div>
               <p className="text-sm text-muted-foreground">결제 방법</p>
               <p className="font-medium">{order.paymentMethod}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">결제 상태</p>
+              <Badge
+                variant={
+                  order.paymentStatus === "COMPLETED"
+                    ? "default"
+                    : order.paymentStatus === "PENDING"
+                    ? "secondary"
+                    : "destructive"
+                }
+              >
+                {order.paymentStatus === "COMPLETED"
+                  ? "결제 완료"
+                  : order.paymentStatus === "PENDING"
+                  ? "결제 대기"
+                  : "결제 실패"}
+              </Badge>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">결제 ID</p>
+              <p className="font-medium font-mono text-sm">{order.paymentId}</p>
             </div>
           </CardContent>
         </Card>
@@ -193,6 +245,58 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Payment History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-5 w-5" />
+            결제 이력
+          </CardTitle>
+          <CardDescription>결제 및 환불 내역입니다</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {paymentHistory.map((payment) => (
+              <div
+                key={payment.id}
+                className="flex items-center justify-between p-3 border rounded-lg"
+              >
+                <div>
+                  <p className="font-medium">{payment.type}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {payment.id} • {payment.date}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p
+                    className={`font-medium ${
+                      payment.type.includes("환불") || payment.type.includes("취소")
+                        ? "text-red-600"
+                        : "text-green-600"
+                    }`}
+                  >
+                    {payment.type.includes("환불") || payment.type.includes("취소") ? "-" : "+"}
+                    ₩{payment.amount.toLocaleString()}
+                  </p>
+                  <Badge
+                    variant={
+                      payment.status === "완료"
+                        ? "default"
+                        : payment.status === "대기"
+                        ? "secondary"
+                        : "destructive"
+                    }
+                    className="mt-1"
+                  >
+                    {payment.status}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Video Upload */}
       <VideoUpload orderId={order.id} trackingNo={order.trackingNo} />

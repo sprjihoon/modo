@@ -595,3 +595,4 @@ modo/
 **버전**: 1.0.0  
 **다음 목표**: WEEK 2 - Supabase Auth & Real Data CRUD
 
+
