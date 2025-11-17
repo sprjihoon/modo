@@ -173,19 +173,52 @@ class OrderService {
         throw Exception('로그인이 필요합니다');
       }
 
-      // TODO: 실제 파일 업로드 구현
+      // 파일을 읽어서 업로드
+      // Note: XFile이나 실제 파일 경로인 경우
       // import 'dart:io';
       // final file = File(filePath);
       // final bytes = await file.readAsBytes();
-      // final fileName = '${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      // final path = 'orders/$fileName';
-      // await _supabase.storage.from('images-public').uploadBinary(path, bytes);
       
-      // Mock: 현재는 filePath를 그대로 반환
+      // 파일명 생성 (중복 방지)
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final random = DateTime.now().microsecond;
+      final fileName = '${user.id}_${timestamp}_$random.jpg';
+      final storagePath = 'orders/$fileName';
+      
+      // Supabase Storage에 업로드
+      // await _supabase.storage
+      //     .from('order-images')
+      //     .uploadBinary(storagePath, bytes);
+      
+      // 공개 URL 가져오기
+      // final imageUrl = _supabase.storage
+      //     .from('order-images')
+      //     .getPublicUrl(storagePath);
+      
+      // return imageUrl;
+      
+      // 현재: Mock URL 반환 (실제 파일 업로드는 Storage 버킷 생성 후 활성화)
       return filePath;
     } catch (e) {
       throw Exception('이미지 업로드 실패: $e');
     }
+  }
+  
+  /// 여러 이미지 업로드
+  Future<List<String>> uploadImages(List<String> filePaths) async {
+    final uploadedUrls = <String>[];
+    
+    for (final filePath in filePaths) {
+      try {
+        final url = await uploadImage(filePath);
+        uploadedUrls.add(url);
+      } catch (e) {
+        debugPrint('이미지 업로드 실패: $filePath, 에러: $e');
+        // 실패한 이미지는 건너뛰고 계속 진행
+      }
+    }
+    
+    return uploadedUrls;
   }
 }
 

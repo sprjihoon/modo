@@ -27,6 +27,9 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
   final _addressController = TextEditingController();
   final _detailController = TextEditingController();
   
+  // 상세주소 입력란 포커스
+  final _detailFocusNode = FocusNode();
+  
   bool _isDefault = false;
   bool _isLoading = false;
 
@@ -55,6 +58,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
     _zipcodeController.dispose();
     _addressController.dispose();
     _detailController.dispose();
+    _detailFocusNode.dispose();
     super.dispose();
   }
 
@@ -285,6 +289,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _detailController,
+                      focusNode: _detailFocusNode,
                       decoration: InputDecoration(
                         labelText: '상세주소',
                         hintText: '동, 호수 등',
@@ -457,7 +462,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
   }
 
   Future<void> _searchAddress() async {
-    // Daum 우편번호 서비스 (웹뷰)
+    // 주소 검색 다이얼로그 표시
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => Dialog(
@@ -473,6 +478,24 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
         _zipcodeController.text = result['zonecode'] ?? '';
         _addressController.text = result['address'] ?? '';
       });
+      
+      // 주소가 입력되면 상세주소 입력란으로 포커스 이동
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _detailFocusNode.requestFocus();
+        }
+      });
+      
+      // 스낵바로 안내 메시지 표시
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('주소가 입력되었습니다. 상세주소를 입력해주세요.'),
+            backgroundColor: Color(0xFF00C896),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 }

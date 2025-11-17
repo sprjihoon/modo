@@ -34,7 +34,24 @@ class AddressService {
     required bool isDefault,
   }) async {
     try {
+      // 현재 사용자 ID 조회
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다. (user_id 없음)');
+      }
+
+      // 새로운 주소를 기본 배송지로 설정하려는 경우,
+      // 동일 사용자 기존 기본 배송지들의 is_default를 모두 해제
+      if (isDefault) {
+        await _supabase
+            .from('addresses')
+            .update({'is_default': false})
+            .eq('user_id', userId)
+            .eq('is_default', true);
+      }
+
       final data = {
+        'user_id': userId,
         'label': label.isEmpty ? null : label,
         'recipient_name': recipientName,
         'recipient_phone': recipientPhone,
@@ -70,6 +87,19 @@ class AddressService {
     bool? isDefault,
   }) async {
     try {
+      // 기본 배송지로 설정하려는 경우, 다른 배송지들의 기본 설정 해제
+      if (isDefault == true) {
+        final userId = await _getCurrentUserId();
+        if (userId != null) {
+          await _supabase
+              .from('addresses')
+              .update({'is_default': false})
+              .eq('user_id', userId)
+              .eq('is_default', true)
+              .neq('id', addressId);
+        }
+      }
+
       final data = <String, dynamic>{};
       if (label != null) data['label'] = label.isEmpty ? null : label;
       if (recipientName != null) data['recipient_name'] = recipientName;
@@ -112,10 +142,24 @@ class AddressService {
   /// 기본 배송지 설정
   Future<void> setDefaultAddress(String addressId) async {
     try {
-      await updateAddress(
-        addressId: addressId,
-        isDefault: true,
-      );
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다. (user_id 없음)');
+      }
+
+      // 먼저 해당 사용자의 모든 배송지를 기본 해제
+      await _supabase
+          .from('addresses')
+          .update({'is_default': false})
+          .eq('user_id', userId)
+          .eq('is_default', true);
+
+      // 지정한 배송지를 기본 배송지로 설정
+      await _supabase
+          .from('addresses')
+          .update({'is_default': true})
+          .eq('id', addressId);
+
       _logger.i('✅ 기본 배송지 설정 성공: $addressId');
     } catch (e) {
       _logger.e('❌ 기본 배송지 설정 실패: $e');

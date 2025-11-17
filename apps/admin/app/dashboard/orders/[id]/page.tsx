@@ -8,7 +8,8 @@ import { OrderTimeline } from "@/components/orders/order-timeline";
 import { VideoUpload } from "@/components/orders/video-upload";
 import { StatusChangeDialog } from "@/components/orders/status-change-dialog";
 import { PaymentRefundDialog } from "@/components/orders/payment-refund-dialog";
-import { Package, Truck, User, CreditCard, History } from "lucide-react";
+import { TrackingManageDialog } from "@/components/orders/tracking-manage-dialog";
+import { Package, Truck, User, CreditCard, History, ExternalLink } from "lucide-react";
 
 interface OrderDetailPageProps {
   params: {
@@ -196,51 +197,83 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         {/* Shipping Info */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              배송 정보
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="h-5 w-5" />
+                배송 정보
+              </CardTitle>
+              <TrackingManageDialog
+                orderId={order.id}
+                pickupTrackingNo={order.trackingNo}
+                deliveryTrackingNo={undefined}
+                onUpdated={() => window.location.reload()}
+              />
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm text-muted-foreground">송장번호</p>
+              <p className="text-sm text-muted-foreground mb-1">수거 운송장번호</p>
               <div className="flex items-center gap-2">
-                <p className="font-medium font-mono">{order.trackingNo}</p>
+                <p className="font-medium font-mono text-sm">{order.trackingNo || "-"}</p>
                 {order.trackingNo && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigator.clipboard.writeText(order.trackingNo)}
+                    >
+                      복사
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(
+                        `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${order.trackingNo}`,
+                        '_blank'
+                      )}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      추적
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">배송 운송장번호</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium font-mono text-sm text-muted-foreground">
+                  {order.deliveryTrackingNo || "출고 시 발급"}
+                </p>
+                {order.deliveryTrackingNo && (
                   <Button
                     size="sm"
-                    variant="ghost"
-                    onClick={() => navigator.clipboard.writeText(order.trackingNo)}
+                    variant="outline"
+                    onClick={() => window.open(
+                      `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${order.deliveryTrackingNo}`,
+                      '_blank'
+                    )}
                   >
-                    복사
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    추적
                   </Button>
                 )}
               </div>
             </div>
-            {order.labelUrl && (
-              <div>
-                <p className="text-sm text-muted-foreground">송장 라벨</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => window.open(order.labelUrl, '_blank')}
-                  className="mt-1"
-                >
-                  PDF 다운로드
-                </Button>
-              </div>
-            )}
-            <div>
+
+            <div className="border-t pt-4">
               <p className="text-sm text-muted-foreground">택배사</p>
-              <p className="font-medium">우체국 택배</p>
+              <Badge variant="outline" className="mt-1">우체국 택배</Badge>
             </div>
+            
             <div>
               <p className="text-sm text-muted-foreground">수거지</p>
-              <p className="font-medium">{order.pickupAddress}</p>
+              <p className="font-medium text-sm">{order.pickupAddress}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">배송지</p>
-              <p className="font-medium">{order.deliveryAddress}</p>
+              <p className="font-medium text-sm">{order.deliveryAddress}</p>
             </div>
           </CardContent>
         </Card>

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// 주문 상세 화면
 class OrderDetailPage extends ConsumerStatefulWidget {
@@ -495,9 +496,54 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          // 배송추적 버튼
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: Icon(Icons.track_changes_outlined, size: 18, color: color),
+              label: const Text('배송추적'),
+              onPressed: () => _openTrackingUrl(trackingNo),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: color,
+                side: BorderSide(color: color),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+  
+  /// 배송추적 URL 열기
+  void _openTrackingUrl(String trackingNo) async {
+    final url = Uri.parse(
+      'https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=$trackingNo'
+    );
+    
+    try {
+      // 외부 브라우저로 열기
+      final canLaunch = await canLaunchUrl(url);
+      if (canLaunch) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        throw Exception('배송추적 URL을 열 수 없습니다');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('배송추적을 열 수 없습니다: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   /// 사진 추가

@@ -152,6 +152,11 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
 
   Widget _buildAddressCard(BuildContext context, Map<String, dynamic> address, int index) {
     final isDefault = address['is_default'] as bool? ?? false;
+    final label = (address['label'] as String?)?.trim();
+    final recipientName = (address['recipient_name'] as String?)?.trim() ?? '';
+    final recipientPhone = (address['recipient_phone'] as String?)?.trim() ?? '';
+    final baseAddress = (address['address'] as String?)?.trim() ?? '';
+    final addressDetail = (address['address_detail'] as String?)?.trim();
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -180,7 +185,8 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  address['label'] as String,
+                  // 라벨이 없으면 기본값 사용
+                  label?.isNotEmpty == true ? label! : '배송지 ${index + 1}',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -220,13 +226,16 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
           const SizedBox(height: 16),
           
           // 수령인 정보
-          _buildInfoRow(Icons.person_outline, address['recipient_name'] as String),
+          _buildInfoRow(Icons.person_outline, recipientName.isNotEmpty ? recipientName : '이름 미입력'),
           const SizedBox(height: 8),
-          _buildInfoRow(Icons.phone_outlined, address['recipient_phone'] as String),
+          _buildInfoRow(Icons.phone_outlined, recipientPhone.isNotEmpty ? recipientPhone : '전화번호 미입력'),
           const SizedBox(height: 8),
           _buildInfoRow(
             Icons.location_on_outlined,
-            '${address['address']}\n${address['address_detail'] ?? ''}',
+            [
+              if (baseAddress.isNotEmpty) baseAddress,
+              if (addressDetail != null && addressDetail.isNotEmpty) addressDetail,
+            ].join('\n'),
           ),
         ],
       ),

@@ -28,30 +28,91 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
   void _initWebView() {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..enableZoom(false)
+      ..setBackgroundColor(Colors.white)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onPageStarted: (url) {
+            debugPrint('페이지 로드 시작: $url');
+          },
           onPageFinished: (url) {
             setState(() => _isLoading = false);
+            debugPrint('페이지 로드 완료: $url');
+            
+            // 로드 완료 후 JavaScript 콘솔 리스닝 활성화
+            _controller?.runJavaScript('''
+              console.log('WebView 로드 완료 - JavaScript 실행 가능');
+            ''');
+          },
+          onWebResourceError: (error) {
+            debugPrint('WebView 오류: ${error.description}');
+          },
+          onNavigationRequest: (NavigationRequest request) {
+            debugPrint('네비게이션 요청: ${request.url}');
+            
+            // Flutter 스키마로 데이터 전달 받기
+            if (request.url.startsWith('flutter://address?')) {
+              try {
+                final uri = Uri.parse(request.url);
+                final zonecode = uri.queryParameters['zonecode'] ?? '';
+                final address = uri.queryParameters['address'] ?? '';
+                final addressType = uri.queryParameters['addressType'] ?? '';
+                
+                debugPrint('✅ 주소 데이터 수신 성공!');
+                debugPrint('  - 우편번호: $zonecode');
+                debugPrint('  - 주소: $address');
+                
+                if (zonecode.isNotEmpty && address.isNotEmpty) {
+                  Navigator.of(context).pop({
+                    'zonecode': zonecode,
+                    'address': address,
+                    'addressType': addressType,
+                  });
+                }
+              } catch (e) {
+                debugPrint('❌ 주소 파싱 오류: $e');
+              }
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
           },
         ),
       )
       ..addJavaScriptChannel(
-        'FlutterChannel',
+        'AddressChannel',
         onMessageReceived: (JavaScriptMessage message) {
-          // Daum 우편번호 서비스에서 주소 선택 시 호출됨
+          debugPrint('📨 JavaScript Channel 메시지 수신!');
+          debugPrint('  메시지 내용: ${message.message}');
+          
           try {
             final data = jsonDecode(message.message) as Map<String, dynamic>;
-            Navigator.of(context).pop({
-              'zonecode': data['zonecode'] as String,
-              'address': data['address'] as String,
-              'addressType': data['addressType'] as String,
-            });
+            final zonecode = data['zonecode'] as String? ?? '';
+            final address = data['address'] as String? ?? '';
+            final addressType = data['addressType'] as String? ?? '';
+            
+            debugPrint('✅ 주소 파싱 성공!');
+            debugPrint('  - 우편번호: $zonecode');
+            debugPrint('  - 주소: $address');
+            debugPrint('  - 타입: $addressType');
+            
+            if (zonecode.isNotEmpty && address.isNotEmpty) {
+              debugPrint('🎉 다이얼로그 닫기 - 주소 반환');
+              Navigator.of(context).pop({
+                'zonecode': zonecode,
+                'address': address,
+                'addressType': addressType,
+              });
+            } else {
+              debugPrint('⚠️ 우편번호 또는 주소가 비어있음');
+            }
           } catch (e) {
-            debugPrint('주소 파싱 오류: \$e');
+            debugPrint('❌ 주소 파싱 오류: $e');
           }
         },
       )
       ..loadHtmlString(_getDaumPostcodeHtml());
+    
+    debugPrint('🚀 WebView 초기화 완료');
   }
 
   String _getDaumPostcodeHtml() {
@@ -63,27 +124,87 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>주소 검색</title>
     <style>
-        * { margin: 0; padding: 0; }
-        body { height: 100vh; }
-        #layer { width: 100%; height: 100%; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { 
+            height: 100%; 
+            width: 100%;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        #layer { 
+            flex: 1;
+            width: 100%; 
+            position: relative;
+        }
+        /* Daum Postcode iframe을 감지하고 클릭 이벤트 캡처 */
+        #layer iframe {
+            width: 100% !important;
+            height: 100% !important;
+            border: none;
+        }
     </style>
-    <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 </head>
 <body>
     <div id="layer"></div>
+    
+    <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
     <script>
-        new daum.Postcode({
-            oncomplete: function(data) {
-                // 주소 선택 완료 시 Flutter로 데이터 전달
-                FlutterChannel.postMessage(JSON.stringify({
-                    zonecode: data.zonecode,
-                    address: data.address,
-                    addressType: data.addressType
-                }));
-            },
-            width: '100%',
-            height: '100%'
-        }).embed(document.getElementById('layer'));
+        // 주소 전송 함수
+        function sendAddressToFlutter(zonecode, address, addressType) {
+            console.log('Flutter로 주소 전송:', zonecode, address, addressType);
+            
+            try {
+                if (window.AddressChannel) {
+                    var result = JSON.stringify({
+                        zonecode: zonecode,
+                        address: address,
+                        addressType: addressType
+                    });
+                    window.AddressChannel.postMessage(result);
+                    console.log('전송 완료 (Channel)');
+                } else {
+                    var url = 'flutter://address?zonecode=' + encodeURIComponent(zonecode) + 
+                              '&address=' + encodeURIComponent(address) + 
+                              '&addressType=' + encodeURIComponent(addressType);
+                    window.location.href = url;
+                    console.log('전송 완료 (URL)');
+                }
+            } catch (e) {
+                console.error('전송 오류:', e);
+                alert('주소 전송 실패: ' + e.message);
+            }
+        }
+        
+        // 페이지 로드 시 Daum Postcode 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded - Postcode 초기화 시작');
+            
+            // Postcode 객체 생성 및 embed
+            var element_layer = document.getElementById('layer');
+            
+            new daum.Postcode({
+                oncomplete: function(data) {
+                    console.log('====================');
+                    console.log('주소 선택 완료!');
+                    console.log('zonecode:', data.zonecode);
+                    console.log('address:', data.address);
+                    console.log('addressType:', data.addressType);
+                    console.log('====================');
+                    
+                    // 즉시 Flutter로 전송
+                    sendAddressToFlutter(data.zonecode, data.address, data.addressType);
+                },
+                onresize: function(size) {
+                    console.log('크기 변경:', size);
+                },
+                width: '100%',
+                height: '100%'
+            }).embed(element_layer);
+            
+            console.log('Postcode embed 완료');
+        });
     </script>
 </body>
 </html>
@@ -92,7 +213,10 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // 웹에서는 WebView를 사용할 수 없으므로 간단한 입력 폼 제공
+    // WebView 대신 간단한 검색 UI 사용 (더 안정적)
+    return _buildSimpleAddressInput(context);
+    
+    /* WebView 방식 (현재 비활성화)
     if (kIsWeb) {
       return _buildSimpleAddressInput(context);
     }
@@ -162,9 +286,10 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
         ],
       ),
     );
+    */
   }
   
-  /// 웹용 카카오 주소 검색 (iframe 사용)
+  /// 간단한 주소 검색 UI (샘플 주소 제공)
   Widget _buildSimpleAddressInput(BuildContext context) {
     return _KakaoAddressSearchWeb(
       onAddressSelected: (result) {
@@ -189,8 +314,10 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
   List<Map<String, String>> searchResults = [];
   bool isSearching = false;
   
-  // 카카오 REST API 키 (발급 필요: https://developers.kakao.com/)
-  static const String kakaoApiKey = 'YOUR_KAKAO_REST_API_KEY';
+  // 카카오 REST API 키 
+  // 발급 방법: https://developers.kakao.com/ → 내 애플리케이션 → 앱 추가 → REST API 키 복사
+  // .env 파일에 KAKAO_REST_API_KEY 추가 권장
+  static const String kakaoApiKey = '009546eb1aca545ba309aabc78010bf7';
 
   Future<void> _searchAddress(String query) async {
     if (query.isEmpty) {
@@ -204,37 +331,25 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
       isSearching = true;
     });
 
-    // 샘플 데이터 (테스트용)
-    final sampleAddresses = [
-      {'zipcode': '13529', 'address': '경기도 성남시 분당구 판교역로 166', 'detail': '(카카오 판교아지트)'},
-      {'zipcode': '13529', 'address': '경기도 성남시 분당구 백현동 532', 'detail': ''},
-      {'zipcode': '06234', 'address': '서울특별시 강남구 테헤란로 123', 'detail': ''},
-      {'zipcode': '06236', 'address': '서울특별시 강남구 테헤란로 152', 'detail': '(강남파이낸스센터)'},
-      {'zipcode': '05551', 'address': '서울특별시 송파구 올림픽로 300', 'detail': '(롯데월드타워)'},
-      {'zipcode': '04524', 'address': '서울특별시 중구 세종대로 110', 'detail': '(서울시청)'},
-      {'zipcode': '03722', 'address': '서울특별시 서대문구 연세로 50', 'detail': '(연세대학교)'},
-      {'zipcode': '08826', 'address': '서울특별시 관악구 관악로 1', 'detail': '(서울대학교)'},
-      {'zipcode': '03080', 'address': '서울특별시 종로구 안심로 188', 'detail': ''},
-    ];
+    // API 키가 설정되어 있는지 확인 (실 서비스에서는 반드시 설정되어 있어야 함)
+    final hasApiKey = kakaoApiKey.isNotEmpty;
+    if (!hasApiKey) {
+      debugPrint('❌ 카카오 API 키가 비어 있습니다.');
+      setState(() {
+        isSearching = false;
+      });
+      return;
+    }
 
-    // 샘플 데이터로 검색
-    await Future.delayed(const Duration(milliseconds: 300));
-    
-    setState(() {
-      searchResults = sampleAddresses
-          .where((addr) =>
-              addr['address']!.contains(query) ||
-              addr['zipcode']!.contains(query) ||
-              (addr['detail']?.contains(query) ?? false))
-          .toList();
-      isSearching = false;
-    });
-
-    /* 실제 카카오 API 사용 시 (API 키 필요)
+    // 카카오 주소 검색 API 호출
     try {
       final url = Uri.parse(
         'https://dapi.kakao.com/v2/local/search/address.json?query=${Uri.encodeComponent(query)}&size=15',
       );
+      
+      debugPrint('🔍 주소 검색 API 호출: $query');
+      debugPrint('📡 URL: $url');
+      debugPrint('🔑 API Key: ${kakaoApiKey.substring(0, 10)}...');
       
       final response = await http.get(
         url,
@@ -243,9 +358,14 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
         },
       );
 
+      debugPrint('📥 응답 상태: ${response.statusCode}');
+      debugPrint('📥 응답 본문: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final documents = data['documents'] as List;
+        
+        debugPrint('✅ 검색 결과: ${documents.length}건');
         
         setState(() {
           searchResults = documents.map<Map<String, String>>((doc) {
@@ -268,15 +388,24 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
           }).toList();
           isSearching = false;
         });
+      } else {
+        // API 응답 실패
+        debugPrint('❌ API 응답 실패: ${response.statusCode}');
+        debugPrint('❌ 에러 내용: ${response.body}');
+        setState(() {
+          searchResults = [];
+          isSearching = false;
+        });
       }
     } catch (e) {
+      debugPrint('❌ 주소 검색 오류: $e');
       setState(() {
         searchResults = [];
         isSearching = false;
       });
     }
-    */
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -338,21 +467,48 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
           Expanded(
             child: searchResults.isEmpty
                 ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search, size: 64, color: Colors.grey.shade300),
-                        const SizedBox(height: 16),
-                        Text(
-                          searchController.text.isEmpty
-                              ? '주소를 검색해주세요'
-                              : '검색 결과가 없습니다',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            searchController.text.isEmpty ? Icons.search : Icons.warning_amber_rounded,
+                            size: 64,
+                            color: searchController.text.isEmpty ? Colors.grey.shade300 : Colors.orange.shade300,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+                          Text(
+                            searchController.text.isEmpty
+                                ? '주소를 검색해주세요'
+                                : '검색 결과가 없습니다',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                          if (searchController.text.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              '검색어를 바꿔보세요',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '예) 판교, 강남, 안심로, 테헤란로',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   )
                 : ListView.separated(

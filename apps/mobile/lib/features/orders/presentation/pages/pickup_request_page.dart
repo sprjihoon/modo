@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../services/address_service.dart';
+import '../../../../services/order_service.dart';
+
 /// 수거신청 페이지
 class PickupRequestPage extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>> repairItems;
@@ -23,6 +26,19 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   final _zipcodeController = TextEditingController();
   final _requestController = TextEditingController();
   
+  final _addressService = AddressService();
+  final _orderService = OrderService();
+  
+  String? _selectedAddressId;
+  bool _isLoading = false;
+  bool _isLoadingAddress = true;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadDefaultAddress();
+  }
+  
   @override
   void dispose() {
     _addressController.dispose();
@@ -30,6 +46,98 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     _zipcodeController.dispose();
     _requestController.dispose();
     super.dispose();
+  }
+  
+  /// 기본 배송지 불러오기
+  Future<void> _loadDefaultAddress() async {
+    try {
+      final defaultAddress = await _addressService.getDefaultAddress();
+      if (defaultAddress != null && mounted) {
+        setState(() {
+          _selectedAddressId = defaultAddress['id'] as String;
+          _addressController.text = defaultAddress['address'] as String? ?? '';
+          _addressDetailController.text = defaultAddress['address_detail'] as String? ?? '';
+          _zipcodeController.text = defaultAddress['zipcode'] as String? ?? '';
+          _isLoadingAddress = false;
+        });
+      } else {
+        setState(() => _isLoadingAddress = false);
+      }
+    } catch (e) {
+      debugPrint('기본 배송지 조회 실패: $e');
+      setState(() => _isLoadingAddress = false);
+    }
+  }
+  
+  /// 배송지 변경
+  Future<void> _changeAddress() async {
+    final result = await context.push<bool>('/profile/addresses');
+    if (result == true || result == null) {
+      // 배송지 목록에서 돌아온 경우 다시 로드
+      _loadDefaultAddress();
+    }
+  }
+  
+  /// 주문 생성 및 결제로 이동
+  Future<void> _createOrderAndProceedToPayment() async {
+    if (_addressController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('배송지를 선택해주세요'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      // 주문 정보 구성
+      final itemNames = widget.repairItems
+          .map((item) => '${item['clothingType']} ${item['repairType']}')
+          .join(', ');
+      
+      final itemDescription = widget.repairItems
+          .map((item) => '${item['repairPart']}: ${item['repairDetail'] ?? ""}')
+          .join('\n');
+      
+      final totalPrice = _calculateTotalPrice();
+      
+      // 주문 생성
+      final order = await _orderService.createOrder(
+        itemName: itemNames,
+        itemDescription: itemDescription,
+        basePrice: totalPrice,
+        totalPrice: totalPrice,
+        pickupAddress: _addressController.text,
+        pickupAddressDetail: _addressDetailController.text,
+        pickupZipcode: _zipcodeController.text,
+        deliveryAddress: _addressController.text, // 수거지 = 배송지
+        deliveryAddressDetail: _addressDetailController.text,
+        deliveryZipcode: _zipcodeController.text,
+        imageUrls: widget.imageUrls,
+        notes: _requestController.text,
+      );
+      
+      if (mounted) {
+        // 결제 페이지로 이동
+        context.push('/payment/${order['id']}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('주문 생성 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
   
   // 총 예상 가격 계산
@@ -154,11 +262,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                         ),
                         const SizedBox(width: 12),
                         ElevatedButton(
-                          onPressed: () {
-                            // TODO: 주소 검색 API 연동
-                            _addressController.text = '대구광역시 수성구 화랑로2길 62(만촌동) 302';
-                            _zipcodeController.text = '12345';
-                          },
+                          onPressed: _changeAddress,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: Colors.black87,
@@ -654,20 +758,11 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
             ),
             child: SafeArea(
               child: ElevatedButton(
-                onPressed: _addressController.text.isEmpty
+                onPressed: (_addressController.text.isEmpty || _isLoading)
                     ? null
-                    : () {
-                        // TODO: 주문 생성 및 결제
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('수거신청이 완료되었습니다'),
-                            backgroundColor: Color(0xFF00C896),
-                          ),
-                        );
-                        context.go('/home');
-                      },
+                    : _createOrderAndProceedToPayment,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _addressController.text.isEmpty
+                  backgroundColor: (_addressController.text.isEmpty || _isLoading)
                       ? Colors.grey.shade300
                       : const Color(0xFF00C896),
                   foregroundColor: Colors.white,
@@ -678,13 +773,22 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                   elevation: 0,
                   minimumSize: const Size(double.infinity, 50),
                 ),
-                child: const Text(
-                  '수거신청 하기',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        '주문 생성 및 결제',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ),
