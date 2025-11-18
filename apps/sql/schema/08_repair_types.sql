@@ -28,8 +28,7 @@ CREATE TABLE IF NOT EXISTS public.repair_types (
   description TEXT,                     -- 설명
   
   -- 가격 정보
-  price_min INT NOT NULL,               -- 최소 가격
-  price_max INT NOT NULL,               -- 최대 가격
+  price INT NOT NULL,                   -- 가격
   
   -- 표시 및 상태
   display_order INT NOT NULL DEFAULT 0, -- 표시 순서
@@ -40,7 +39,6 @@ CREATE TABLE IF NOT EXISTS public.repair_types (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   
   -- 제약조건
-  CONSTRAINT repair_types_price_check CHECK (price_min <= price_max),
   CONSTRAINT repair_types_unique_per_category UNIQUE (category_id, name, sub_type)
 );
 
@@ -116,27 +114,25 @@ INSERT INTO public.repair_categories (name, display_order, icon_name) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- 샘플 수선 종류 (아우터)
-INSERT INTO public.repair_types (category_id, name, sub_type, price_min, price_max, display_order)
+INSERT INTO public.repair_types (category_id, name, sub_type, price, display_order)
 SELECT 
   id,
   name,
   sub_type,
-  price_min,
-  price_max,
+  price,
   display_order
 FROM (
   SELECT 
     (SELECT id FROM public.repair_categories WHERE name = '아우터') as id,
     '소매기장 줄임' as name,
     '기본형' as sub_type,
-    8000 as price_min,
-    18000 as price_max,
+    15000 as price,
     1 as display_order
-  UNION ALL SELECT (SELECT id FROM public.repair_categories WHERE name = '아우터'), '소매기장 줄임', '단추구멍형', 10000, 20000, 2
-  UNION ALL SELECT (SELECT id FROM public.repair_categories WHERE name = '아우터'), '소매기장 줄임', '지퍼형', 10000, 20000, 3
-  UNION ALL SELECT (SELECT id FROM public.repair_categories WHERE name = '아우터'), '전체탈통 줄임', '기본형', 12000, 25000, 4
-  UNION ALL SELECT (SELECT id FROM public.repair_categories WHERE name = '아우터'), '전체탈통 줄임', '얇통', 12000, 22000, 5
-  UNION ALL SELECT (SELECT id FROM public.repair_categories WHERE name = '아우터'), '전체탈통 줄임', '소매통', 12000, 22000, 6
+  UNION ALL SELECT (SELECT id FROM public.repair_categories WHERE name = '아우터'), '소매기장 줄임', '단추구멍형', 18000, 2
+  UNION ALL SELECT (SELECT id FROM public.repair_categories WHERE name = '아우터'), '소매기장 줄임', '지퍼형', 18000, 3
+  UNION ALL SELECT (SELECT id FROM public.repair_categories WHERE name = '아우터'), '전체탈통 줄임', '기본형', 20000, 4
+  UNION ALL SELECT (SELECT id FROM public.repair_categories WHERE name = '아우터'), '전체탈통 줄임', '얇통', 18000, 5
+  UNION ALL SELECT (SELECT id FROM public.repair_categories WHERE name = '아우터'), '전체탈통 줄임', '소매통', 18000, 6
 ) as sample_data
 ON CONFLICT (category_id, name, sub_type) DO NOTHING;
 

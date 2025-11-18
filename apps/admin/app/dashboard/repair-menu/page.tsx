@@ -25,8 +25,7 @@ interface RepairType {
   name: string;
   sub_type?: string;
   description?: string;
-  price_min: number;
-  price_max: number;
+  price: number;
   display_order: number;
   is_active: boolean;
 }
@@ -227,7 +226,7 @@ export default function RepairMenuPage() {
                                 )}
                               </div>
                               <p className="text-sm text-muted-foreground">
-                                {type.price_min.toLocaleString()}원 ~ {type.price_max.toLocaleString()}원
+                                {type.price.toLocaleString()}원
                               </p>
                             </div>
                           </div>
@@ -372,12 +371,11 @@ function AddRepairTypeDialog({
   const [name, setName] = useState("");
   const [subType, setSubType] = useState("");
   const [description, setDescription] = useState("");
-  const [priceMin, setPriceMin] = useState("");
-  const [priceMax, setPriceMax] = useState("");
+  const [price, setPrice] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!name || !priceMin || !priceMax) {
+    if (!name || !price) {
       alert('필수 항목을 입력해주세요');
       return;
     }
@@ -391,8 +389,7 @@ function AddRepairTypeDialog({
           name,
           sub_type: subType || null,
           description: description || null,
-          price_min: parseInt(priceMin),
-          price_max: parseInt(priceMax),
+          price: parseInt(price),
           display_order: 999,
         });
 
@@ -402,8 +399,7 @@ function AddRepairTypeDialog({
       setName("");
       setSubType("");
       setDescription("");
-      setPriceMin("");
-      setPriceMax("");
+      setPrice("");
       onAdded();
     } catch (error) {
       alert('수선 항목 추가 실패: ' + error);
@@ -457,34 +453,25 @@ function AddRepairTypeDialog({
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="price-min">최소 가격 *</Label>
-              <Input
-                id="price-min"
-                type="number"
-                placeholder="8000"
-                value={priceMin}
-                onChange={(e) => setPriceMin(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="price-max">최대 가격 *</Label>
-              <Input
-                id="price-max"
-                type="number"
-                placeholder="18000"
-                value={priceMax}
-                onChange={(e) => setPriceMax(e.target.value)}
-              />
-            </div>
+          <div>
+            <Label htmlFor="price">가격 *</Label>
+            <Input
+              id="price"
+              type="number"
+              placeholder="15000"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              단위: 원
+            </p>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             취소
           </Button>
-          <Button onClick={handleSubmit} disabled={!name || !priceMin || !priceMax || isLoading}>
+          <Button onClick={handleSubmit} disabled={!name || !price || isLoading}>
             {isLoading ? "추가 중..." : "추가"}
           </Button>
         </DialogFooter>
