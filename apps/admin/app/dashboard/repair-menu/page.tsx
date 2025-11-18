@@ -43,11 +43,11 @@ export default function RepairMenuPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // 카테고리 조회
+      // 카테고리 조회 (오름차순)
       const { data: categoriesData, error: catError } = await supabase
         .from('repair_categories')
         .select('*')
-        .order('display_order');
+        .order('display_order', { ascending: true });
 
       if (catError) throw catError;
 
@@ -58,7 +58,7 @@ export default function RepairMenuPage() {
             .from('repair_types')
             .select('*')
             .eq('category_id', cat.id)
-            .order('display_order');
+            .order('display_order', { ascending: true });
 
           return {
             ...cat,

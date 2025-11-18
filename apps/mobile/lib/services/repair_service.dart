@@ -31,7 +31,7 @@ class RepairService {
           .select()
           .eq('category_id', categoryId)
           .eq('is_active', true)
-          .order('display_order');
+          .order('display_order', ascending: true); // 오름차순
 
       _logger.i('✅ 수선 종류 조회 성공: ${response.length}개');
       return List<Map<String, dynamic>>.from(response);
