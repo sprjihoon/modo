@@ -228,6 +228,8 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
           context.push('/select-repair-parts', extra: {
             'imageUrls': imageUrls,
             'imagesWithPins': _capturedImagesWithPins,
+            'categoryId': _selectedCategoryId,
+            'categoryName': _selectedType,
           });
         }
       }

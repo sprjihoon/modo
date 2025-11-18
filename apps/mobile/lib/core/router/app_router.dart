@@ -137,10 +137,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           final data = state.extra;
           List<String> imageUrls = [];
           List<Map<String, dynamic>>? imagesWithPins;
+          String? categoryId;
+          String? categoryName;
           
           if (data is Map<String, dynamic>) {
             imageUrls = data['imageUrls'] as List<String>? ?? [];
             imagesWithPins = data['imagesWithPins'] as List<Map<String, dynamic>>?;
+            categoryId = data['categoryId'] as String?;
+            categoryName = data['categoryName'] as String?;
           } else if (data is List<String>) {
             imageUrls = data;
           }
@@ -148,6 +152,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           return SelectRepairPartsPage(
             imageUrls: imageUrls,
             imagesWithPins: imagesWithPins,
+            categoryId: categoryId,
+            categoryName: categoryName,
           );
         },
       ),

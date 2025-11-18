@@ -2,15 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../services/repair_service.dart';
+
 /// 수선 부위 선택 페이지 (그리드 형태)
 class SelectRepairPartsPage extends ConsumerStatefulWidget {
   final List<String> imageUrls;
   final List<Map<String, dynamic>>? imagesWithPins; // 핀 정보 포함
+  final String? categoryId; // 선택한 카테고리 ID
+  final String? categoryName; // 선택한 카테고리명
   
   const SelectRepairPartsPage({
     super.key,
     required this.imageUrls,
     this.imagesWithPins,
+    this.categoryId,
+    this.categoryName,
   });
 
   @override
@@ -18,7 +24,41 @@ class SelectRepairPartsPage extends ConsumerStatefulWidget {
 }
 
 class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
-  String? _selectedPart;
+  final _repairService = RepairService();
+  List<Map<String, dynamic>> _repairTypes = [];
+  bool _isLoading = true;
+  
+  String? _selectedPartId;
+  String? _selectedPartName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRepairTypes();
+  }
+
+  /// DB에서 수선 종류 로드
+  Future<void> _loadRepairTypes() async {
+    if (widget.categoryId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    
+    try {
+      final types = await _repairService.getRepairTypesByCategory(widget.categoryId!);
+      if (mounted) {
+        setState(() {
+          _repairTypes = types;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('수선 종류 로드 실패: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   // 전체 핀 개수 계산
   int _getTotalPins() {
@@ -31,8 +71,8 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
     return total;
   }
 
-  // 주요 수선 부위 목록 (가격표 기반)
-  final List<Map<String, dynamic>> _repairParts = [
+  // Mock 수선 부위 목록 (DB 로드 실패 시 폴백용)
+  final List<Map<String, dynamic>> _mockRepairParts = [
     {
       'name': '소매기장 줄임',
       'icon': Icons.straighten,
