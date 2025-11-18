@@ -13,7 +13,7 @@ class RepairService {
           .from('repair_categories')
           .select()
           .eq('is_active', true)
-          .order('display_order');
+          .order('display_order', ascending: true); // 오름차순 정렬
 
       _logger.i('✅ 수선 카테고리 조회 성공: ${response.length}개');
       return List<Map<String, dynamic>>.from(response);

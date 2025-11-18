@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ArrowUp, ArrowDown } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
 
@@ -92,6 +92,35 @@ export default function RepairMenuPage() {
     });
   };
 
+  // 카테고리 순서 변경
+  const moveCategoryOrder = async (categoryId: string, direction: 'up' | 'down') => {
+    const currentIndex = categories.findIndex(c => c.id === categoryId);
+    if (currentIndex === -1) return;
+    
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= categories.length) return;
+
+    try {
+      // 현재 카테고리와 대상 카테고리의 display_order를 교환
+      const current = categories[currentIndex];
+      const target = categories[targetIndex];
+
+      await supabase
+        .from('repair_categories')
+        .update({ display_order: target.display_order })
+        .eq('id', current.id);
+
+      await supabase
+        .from('repair_categories')
+        .update({ display_order: current.display_order })
+        .eq('id', target.id);
+
+      await loadData();
+    } catch (error) {
+      console.error('순서 변경 실패:', error);
+    }
+  };
+
   // 카테고리 삭제
   const deleteCategory = async (categoryId: string) => {
     if (!confirm('이 카테고리와 하위 수선 항목을 모두 삭제하시겠습니까?')) return;
@@ -165,7 +194,7 @@ export default function RepairMenuPage() {
             </CardContent>
           </Card>
         ) : (
-          categories.map((category) => (
+          categories.map((category, index) => (
             <Card key={category.id}>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -192,6 +221,27 @@ export default function RepairMenuPage() {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    {/* 순서 변경 버튼 */}
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => moveCategoryOrder(category.id, 'up')}
+                        disabled={index === 0}
+                        title="위로"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => moveCategoryOrder(category.id, 'down')}
+                        disabled={index === categories.length - 1}
+                        title="아래로"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <EditCategoryDialog
                       category={category}
                       onUpdated={loadData}
@@ -667,6 +717,7 @@ function AddRepairTypeDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [iconName, setIconName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [requiresMultipleInputs, setRequiresMultipleInputs] = useState(false);
@@ -707,6 +758,7 @@ function AddRepairTypeDialog({
         .insert({
           category_id: categoryId,
           name,
+          icon_name: iconName || null,
           description: description || null,
           price: parseInt(price),
           display_order: 999,
@@ -765,6 +817,7 @@ function AddRepairTypeDialog({
 
       setOpen(false);
       setName("");
+      setIconName("");
       setDescription("");
       setPrice("");
       setRequiresMultipleInputs(false);
@@ -817,6 +870,18 @@ function AddRepairTypeDialog({
             />
             <p className="text-xs text-muted-foreground mt-1">
               그리드에 표시될 메인 메뉴명입니다
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="icon-name">아이콘 (선택)</Label>
+            <Input
+              id="icon-name"
+              placeholder="예: sleeve_shorten.svg"
+              value={iconName}
+              onChange={(e) => setIconName(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              SVG 파일명 또는 아이콘 ID
             </p>
           </div>
           <div>

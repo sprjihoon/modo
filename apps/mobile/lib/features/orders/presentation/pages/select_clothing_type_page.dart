@@ -283,16 +283,17 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                   ),
                 ),
                 
-                // 의류 종류 리스트
+                // 의류 종류 리스트 (DB에서 로드)
                 ..._clothingTypes.map((type) {
-                  final isSelected = _selectedType == type['name'];
+                  final typeName = type['name'] as String;
+                  final isSelected = _selectedType == typeName;
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 8,
                     ),
                     leading: Icon(
-                      type['icon'] as IconData,
+                      Icons.checkroom, // 고정 아이콘 (TODO: icon_name으로 SVG 로드)
                       size: 32,
                       color: isSelected 
                           ? const Color(0xFF00C896) 
