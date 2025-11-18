@@ -12,6 +12,7 @@ import {
   BarChart3,
   CreditCard,
   TrendingUp,
+  Scissors,
 } from "lucide-react";
 
 const navItems = [
@@ -29,6 +30,11 @@ const navItems = [
     title: "고객 관리",
     href: "/dashboard/customers",
     icon: Users,
+  },
+  {
+    title: "수선 메뉴 관리",
+    href: "/dashboard/repair-menu",
+    icon: Scissors,
   },
   {
     title: "결제 내역",
