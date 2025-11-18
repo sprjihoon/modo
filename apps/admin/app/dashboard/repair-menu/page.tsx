@@ -675,9 +675,10 @@ function AddRepairTypeDialog({
   const [inputLabel1, setInputLabel1] = useState("");
   const [inputLabel2, setInputLabel2] = useState("");
   const [hasSubParts, setHasSubParts] = useState(false);
-  const [subParts, setSubParts] = useState<Array<{name: string, icon?: string}>>([]);
+  const [subParts, setSubParts] = useState<Array<{name: string, icon?: string, price?: number}>>([]);
   const [newSubPartName, setNewSubPartName] = useState("");
   const [newSubPartIcon, setNewSubPartIcon] = useState("");
+  const [newSubPartPrice, setNewSubPartPrice] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -721,6 +722,7 @@ function AddRepairTypeDialog({
           repair_type_id: repairTypeData.id,
           name: part.name,
           icon_name: part.icon || null,
+          price: part.price || 0,
           display_order: index + 1,
         }));
 
@@ -747,6 +749,7 @@ function AddRepairTypeDialog({
       setSubParts([]);
       setNewSubPartName("");
       setNewSubPartIcon("");
+      setNewSubPartPrice("");
       onAdded();
     } catch (error: any) {
       console.error('Add repair type error:', error);
@@ -901,7 +904,7 @@ function AddRepairTypeDialog({
                   
                   {/* 세부 부위 추가 입력 */}
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
                         <Input
                           placeholder="부위명 (예: 앞섶)"
@@ -912,9 +915,18 @@ function AddRepairTypeDialog({
                       </div>
                       <div>
                         <Input
-                          placeholder="아이콘명 (예: front.svg)"
+                          placeholder="아이콘 (front.svg)"
                           value={newSubPartIcon}
                           onChange={(e) => setNewSubPartIcon(e.target.value)}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Input
+                          placeholder="가격 (10000)"
+                          type="number"
+                          value={newSubPartPrice}
+                          onChange={(e) => setNewSubPartPrice(e.target.value)}
                           className="h-9 text-sm"
                         />
                       </div>
@@ -930,11 +942,13 @@ function AddRepairTypeDialog({
                             ...subParts, 
                             { 
                               name: newSubPartName.trim(),
-                              icon: newSubPartIcon.trim() || undefined
+                              icon: newSubPartIcon.trim() || undefined,
+                              price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
                             }
                           ]);
                           setNewSubPartName("");
                           setNewSubPartIcon("");
+                          setNewSubPartPrice("");
                         }
                       }}
                     >
@@ -955,11 +969,18 @@ function AddRepairTypeDialog({
                         >
                           <div className="flex-1">
                             <p className="text-sm font-medium">{part.name}</p>
-                            {part.icon && (
-                              <p className="text-xs text-muted-foreground">
-                                📎 {part.icon}
-                              </p>
-                            )}
+                            <div className="flex items-center gap-2 mt-1">
+                              {part.icon && (
+                                <p className="text-xs text-muted-foreground">
+                                  📎 {part.icon}
+                                </p>
+                              )}
+                              {part.price && part.price > 0 && (
+                                <p className="text-xs font-medium text-green-600">
+                                  +{part.price.toLocaleString()}원
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <Button
                             type="button"

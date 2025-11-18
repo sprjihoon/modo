@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../services/repair_service.dart';
+
 /// 수선 의류 종류 선택 페이지
 class SelectClothingTypePage extends ConsumerStatefulWidget {
   final List<String> imageUrls;
@@ -18,18 +20,36 @@ class SelectClothingTypePage extends ConsumerStatefulWidget {
 
 class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage> {
   String? _selectedType;
-  // 이미지와 핀 정보를 함께 저장
+  String? _selectedCategoryId;
   final List<Map<String, dynamic>> _capturedImagesWithPins = [];
+  final _repairService = RepairService();
+  
+  List<Map<String, dynamic>> _clothingTypes = [];
+  bool _isLoading = true;
 
-  final List<Map<String, dynamic>> _clothingTypes = [
-    {'name': '아우터', 'icon': Icons.checkroom},
-    {'name': '티셔츠/맨투맨', 'icon': Icons.checkroom_outlined},
-    {'name': '셔츠/블라우스', 'icon': Icons.checkroom_outlined},
-    {'name': '원피스', 'icon': Icons.checkroom_outlined},
-    {'name': '바지', 'icon': Icons.checkroom_outlined},
-    {'name': '청바지', 'icon': Icons.checkroom_outlined},
-    {'name': '치마', 'icon': Icons.checkroom_outlined},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+  
+  /// DB에서 카테고리 로드
+  Future<void> _loadCategories() async {
+    try {
+      final categories = await _repairService.getCategories();
+      if (mounted) {
+        setState(() {
+          _clothingTypes = categories;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('카테고리 로드 실패: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   /// 사진 선택 바텀시트 표시
   void _showImagePickerBottomSheet(BuildContext context, String clothingType) {
