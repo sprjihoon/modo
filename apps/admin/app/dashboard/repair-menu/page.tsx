@@ -23,7 +23,6 @@ interface RepairType {
   id: string;
   category_id: string;
   name: string;
-  sub_type?: string;
   description?: string;
   price: number;
   display_order: number;
@@ -31,7 +30,8 @@ interface RepairType {
   requires_multiple_inputs?: boolean;
   input_count?: number;
   input_labels?: string[];
-  has_sub_parts?: boolean;
+  has_sub_types?: boolean;    // 세부 타입 선택 필요 (기본형, 단추구멍형...)
+  has_sub_parts?: boolean;    // 세부 부위 선택 필요 (앞섶, 뒤판...)
 }
 
 export default function RepairMenuPage() {
@@ -227,14 +227,14 @@ export default function RepairMenuPage() {
                             <div className="flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="font-medium">{type.name}</p>
-                                {type.sub_type && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {type.sub_type}
+                                {type.requires_multiple_inputs && (
+                                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                    입력×2
                                   </Badge>
                                 )}
-                                {type.requires_multiple_inputs && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    입력×2
+                                {type.has_sub_types && (
+                                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                    세부타입
                                   </Badge>
                                 )}
                                 {type.has_sub_parts && (
@@ -667,18 +667,26 @@ function AddRepairTypeDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [subType, setSubType] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [requiresMultipleInputs, setRequiresMultipleInputs] = useState(false);
   const [inputCount, setInputCount] = useState("1");
   const [inputLabel1, setInputLabel1] = useState("");
   const [inputLabel2, setInputLabel2] = useState("");
+  
+  // 세부 타입 (예: 기본형, 단추구멍형, 지퍼형)
+  const [hasSubTypes, setHasSubTypes] = useState(false);
+  const [subTypes, setSubTypes] = useState<Array<{name: string, price?: number}>>([]);
+  const [newSubTypeName, setNewSubTypeName] = useState("");
+  const [newSubTypePrice, setNewSubTypePrice] = useState("");
+  
+  // 세부 부위 (예: 앞섶, 뒤판, 왼팔, 오른팔)
   const [hasSubParts, setHasSubParts] = useState(false);
   const [subParts, setSubParts] = useState<Array<{name: string, icon?: string, price?: number}>>([]);
   const [newSubPartName, setNewSubPartName] = useState("");
   const [newSubPartIcon, setNewSubPartIcon] = useState("");
   const [newSubPartPrice, setNewSubPartPrice] = useState("");
+  
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -699,13 +707,13 @@ function AddRepairTypeDialog({
         .insert({
           category_id: categoryId,
           name,
-          sub_type: subType || null,
           description: description || null,
           price: parseInt(price),
           display_order: 999,
           requires_multiple_inputs: requiresMultipleInputs,
           input_count: requiresMultipleInputs ? parseInt(inputCount) : 1,
           input_labels: inputLabels,
+          has_sub_types: hasSubTypes,
           has_sub_parts: hasSubParts,
         })
         .select()
@@ -716,11 +724,31 @@ function AddRepairTypeDialog({
         throw new Error(error.message || error.hint || '수선 항목 추가 실패');
       }
 
-      // 2. 세부 부위 추가 (있는 경우)
+      // 2. 세부 타입 추가 (있는 경우)
+      if (hasSubTypes && subTypes.length > 0 && repairTypeData) {
+        const subTypesData = subTypes.map((type, index) => ({
+          repair_type_id: repairTypeData.id,
+          name: type.name,
+          part_type: 'sub_type',
+          price: type.price || 0,
+          display_order: index + 1,
+        }));
+
+        const { error: subTypesError } = await supabase
+          .from('repair_sub_parts')
+          .insert(subTypesData);
+
+        if (subTypesError) {
+          console.error('Sub types insert error:', subTypesError);
+        }
+      }
+
+      // 3. 세부 부위 추가 (있는 경우)
       if (hasSubParts && subParts.length > 0 && repairTypeData) {
         const subPartsData = subParts.map((part, index) => ({
           repair_type_id: repairTypeData.id,
           name: part.name,
+          part_type: 'sub_part',
           icon_name: part.icon || null,
           price: part.price || 0,
           display_order: index + 1,
@@ -732,19 +760,21 @@ function AddRepairTypeDialog({
 
         if (subPartsError) {
           console.error('Sub parts insert error:', subPartsError);
-          // 세부 부위 실패해도 메인 항목은 추가됨
         }
       }
 
       setOpen(false);
       setName("");
-      setSubType("");
       setDescription("");
       setPrice("");
       setRequiresMultipleInputs(false);
       setInputCount("1");
       setInputLabel1("");
       setInputLabel2("");
+      setHasSubTypes(false);
+      setSubTypes([]);
+      setNewSubTypeName("");
+      setNewSubTypePrice("");
       setHasSubParts(false);
       setSubParts([]);
       setNewSubPartName("");
@@ -785,15 +815,9 @@ function AddRepairTypeDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-          </div>
-          <div>
-            <Label htmlFor="sub-type">세부 타입 (선택)</Label>
-            <Input
-              id="sub-type"
-              placeholder="예: 기본형, 단추구멍형, 지퍼형"
-              value={subType}
-              onChange={(e) => setSubType(e.target.value)}
-            />
+            <p className="text-xs text-muted-foreground mt-1">
+              그리드에 표시될 메인 메뉴명입니다
+            </p>
           </div>
           <div>
             <Label htmlFor="description">설명 (선택)</Label>
@@ -880,6 +904,106 @@ function AddRepairTypeDialog({
               )}
             </div>
 
+            {/* 세부 타입 선택 */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="has-sub-types"
+                  checked={hasSubTypes}
+                  onChange={(e) => setHasSubTypes(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="has-sub-types" className="text-sm font-normal cursor-pointer">
+                  세부 타입 선택 필요 (예: 기본형, 단추구멍형, 지퍼형)
+                </Label>
+              </div>
+
+              {/* 세부 타입 목록 */}
+              {hasSubTypes && (
+                <div className="pl-6 space-y-3 bg-purple-50 p-3 rounded-lg">
+                  <p className="text-xs font-medium text-purple-900 mb-2">
+                    🏷️ 세부 타입 목록 (그리드 클릭 후 선택 화면)
+                  </p>
+                  
+                  {/* 세부 타입 추가 입력 */}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="타입명 (예: 기본형)"
+                        value={newSubTypeName}
+                        onChange={(e) => setNewSubTypeName(e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                      <Input
+                        placeholder="가격 (15000)"
+                        type="number"
+                        value={newSubTypePrice}
+                        onChange={(e) => setNewSubTypePrice(e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        if (newSubTypeName.trim()) {
+                          setSubTypes([
+                            ...subTypes,
+                            {
+                              name: newSubTypeName.trim(),
+                              price: newSubTypePrice ? parseInt(newSubTypePrice) : 0
+                            }
+                          ]);
+                          setNewSubTypeName("");
+                          setNewSubTypePrice("");
+                        }
+                      }}
+                    >
+                      + 세부 타입 추가
+                    </Button>
+                  </div>
+
+                  {/* 추가된 세부 타입 목록 */}
+                  {subTypes.length > 0 && (
+                    <div className="space-y-1 mt-2">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        추가된 타입 ({subTypes.length}개)
+                      </p>
+                      {subTypes.map((type, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-white rounded border"
+                        >
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{type.name}</p>
+                            {type.price && type.price > 0 && (
+                              <p className="text-xs font-medium text-green-600">
+                                {type.price.toLocaleString()}원
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSubTypes(subTypes.filter((_, i) => i !== index));
+                            }}
+                            className="h-7 w-7 p-0"
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* 세부 부위 선택 */}
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
@@ -891,7 +1015,7 @@ function AddRepairTypeDialog({
                   className="h-4 w-4 rounded border-gray-300"
                 />
                 <Label htmlFor="has-sub-parts" className="text-sm font-normal cursor-pointer">
-                  세부 부위 선택 필요
+                  세부 부위 선택 필요 (예: 앞섶, 뒤판, 왼팔, 오른팔)
                 </Label>
               </div>
 

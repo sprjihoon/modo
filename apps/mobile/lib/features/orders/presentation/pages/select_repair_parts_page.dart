@@ -458,9 +458,6 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                                 },
                               ),
                   ),
-                      },
-                    ),
-                  ),
                   const SizedBox(height: 20),
                   
                   // 안내 메시지
