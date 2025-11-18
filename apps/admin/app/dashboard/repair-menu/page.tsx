@@ -192,6 +192,10 @@ export default function RepairMenuPage() {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    <EditCategoryDialog
+                      category={category}
+                      onUpdated={loadData}
+                    />
                     <AddRepairTypeDialog
                       categoryId={category.id}
                       categoryName={category.name}
@@ -248,6 +252,11 @@ export default function RepairMenuPage() {
                             {!type.is_active && (
                               <Badge variant="secondary">비활성</Badge>
                             )}
+                            <EditRepairTypeDialog
+                              repairType={type}
+                              categoryName={category.name}
+                              onUpdated={loadData}
+                            />
                             <Button
                               variant="ghost"
                               size="sm"
@@ -280,6 +289,97 @@ export default function RepairMenuPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// 카테고리 수정 Dialog
+function EditCategoryDialog({
+  category,
+  onUpdated,
+}: {
+  category: RepairCategory;
+  onUpdated: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(category.name);
+  const [iconName, setIconName] = useState(category.icon_name || "");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!name) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('repair_categories')
+        .update({
+          name,
+          icon_name: iconName || null,
+        })
+        .eq('id', category.id);
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw new Error(error.message || error.hint || '카테고리 수정 실패');
+      }
+
+      setOpen(false);
+      onUpdated();
+    } catch (error: any) {
+      console.error('Edit category error:', error);
+      alert(`카테고리 수정 실패:\n${error.message || error.toString()}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Edit className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>카테고리 수정</DialogTitle>
+          <DialogDescription>
+            카테고리 정보를 수정합니다
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div>
+            <Label htmlFor="edit-cat-name">카테고리명 *</Label>
+            <Input
+              id="edit-cat-name"
+              placeholder="예: 아우터"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-cat-icon">아이콘명 (선택)</Label>
+            <Input
+              id="edit-cat-icon"
+              placeholder="예: outer"
+              value={iconName}
+              onChange={(e) => setIconName(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              SVG 파일명 (확장자 제외)
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            취소
+          </Button>
+          <Button onClick={handleSubmit} disabled={!name || isLoading}>
+            {isLoading ? "저장 중..." : "저장"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -373,6 +473,186 @@ function AddCategoryDialog({ onAdded, children }: { onAdded: () => void; childre
   );
 }
 
+// 수선 항목 수정 Dialog
+function EditRepairTypeDialog({
+  repairType,
+  categoryName,
+  onUpdated,
+}: {
+  repairType: RepairType;
+  categoryName: string;
+  onUpdated: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(repairType.name);
+  const [subType, setSubType] = useState(repairType.sub_type || "");
+  const [description, setDescription] = useState(repairType.description || "");
+  const [price, setPrice] = useState(repairType.price.toString());
+  const [requiresMultipleInputs, setRequiresMultipleInputs] = useState(repairType.requires_multiple_inputs || false);
+  const [inputLabel1, setInputLabel1] = useState(repairType.input_labels?.[0] || "");
+  const [inputLabel2, setInputLabel2] = useState(repairType.input_labels?.[1] || "");
+  const [hasSubParts, setHasSubParts] = useState(repairType.has_sub_parts || false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!name || !price) {
+      alert('필수 항목을 입력해주세요');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const inputLabels = requiresMultipleInputs 
+        ? [inputLabel1 || '첫 번째 입력', inputLabel2 || '두 번째 입력']
+        : ['치수 (cm)'];
+
+      const { error } = await supabase
+        .from('repair_types')
+        .update({
+          name,
+          sub_type: subType || null,
+          description: description || null,
+          price: parseInt(price),
+          requires_multiple_inputs: requiresMultipleInputs,
+          input_count: requiresMultipleInputs ? 2 : 1,
+          input_labels: inputLabels,
+          has_sub_parts: hasSubParts,
+        })
+        .eq('id', repairType.id);
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw new Error(error.message || error.hint || '수선 항목 수정 실패');
+      }
+
+      setOpen(false);
+      onUpdated();
+    } catch (error: any) {
+      console.error('Edit repair type error:', error);
+      alert(`수선 항목 수정 실패:\n${error.message || error.toString()}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm">
+          <Edit className="h-4 w-4 text-blue-600" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>{categoryName} - 수선 항목 수정</DialogTitle>
+          <DialogDescription>
+            수선 항목 정보를 수정합니다
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div>
+            <Label htmlFor="edit-repair-name">수선명 *</Label>
+            <Input
+              id="edit-repair-name"
+              placeholder="예: 소매기장 줄임"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-sub-type">세부 타입 (선택)</Label>
+            <Input
+              id="edit-sub-type"
+              placeholder="예: 기본형, 단추구멍형"
+              value={subType}
+              onChange={(e) => setSubType(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-description">설명 (선택)</Label>
+            <Input
+              id="edit-description"
+              placeholder="예: 소매 또는 총장 기장 줄임"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-price">가격 *</Label>
+            <Input
+              id="edit-price"
+              type="number"
+              placeholder="15000"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+            />
+          </div>
+
+          {/* 고급 옵션 */}
+          <div className="space-y-3 pt-3 border-t">
+            <p className="text-sm font-medium">고급 옵션</p>
+            
+            {/* 입력값 2개 */}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="edit-multiple-inputs"
+                  checked={requiresMultipleInputs}
+                  onChange={(e) => setRequiresMultipleInputs(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="edit-multiple-inputs" className="text-sm font-normal cursor-pointer">
+                  입력값 2개 필요
+                </Label>
+              </div>
+
+              {requiresMultipleInputs && (
+                <div className="pl-6 space-y-2 bg-blue-50 p-3 rounded-lg">
+                  <Input
+                    placeholder="첫 번째 힌트 (예: 왼쪽어깨)"
+                    value={inputLabel1}
+                    onChange={(e) => setInputLabel1(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                  <Input
+                    placeholder="두 번째 힌트 (예: 오른쪽어깨)"
+                    value={inputLabel2}
+                    onChange={(e) => setInputLabel2(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 세부 부위 */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-has-sub-parts"
+                checked={hasSubParts}
+                onChange={(e) => setHasSubParts(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="edit-has-sub-parts" className="text-sm font-normal cursor-pointer">
+                세부 부위 선택 필요
+              </Label>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            취소
+          </Button>
+          <Button onClick={handleSubmit} disabled={!name || !price || isLoading}>
+            {isLoading ? "저장 중..." : "저장"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // 수선 항목 추가 Dialog
 function AddRepairTypeDialog({
   categoryId,
@@ -395,8 +675,9 @@ function AddRepairTypeDialog({
   const [inputLabel1, setInputLabel1] = useState("");
   const [inputLabel2, setInputLabel2] = useState("");
   const [hasSubParts, setHasSubParts] = useState(false);
-  const [subParts, setSubParts] = useState<string[]>([]);
-  const [newSubPart, setNewSubPart] = useState("");
+  const [subParts, setSubParts] = useState<Array<{name: string, icon?: string}>>([]);
+  const [newSubPartName, setNewSubPartName] = useState("");
+  const [newSubPartIcon, setNewSubPartIcon] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -436,9 +717,10 @@ function AddRepairTypeDialog({
 
       // 2. 세부 부위 추가 (있는 경우)
       if (hasSubParts && subParts.length > 0 && repairTypeData) {
-        const subPartsData = subParts.map((partName, index) => ({
+        const subPartsData = subParts.map((part, index) => ({
           repair_type_id: repairTypeData.id,
-          name: partName,
+          name: part.name,
+          icon_name: part.icon || null,
           display_order: index + 1,
         }));
 
@@ -463,7 +745,8 @@ function AddRepairTypeDialog({
       setInputLabel2("");
       setHasSubParts(false);
       setSubParts([]);
-      setNewSubPart("");
+      setNewSubPartName("");
+      setNewSubPartIcon("");
       onAdded();
     } catch (error: any) {
       console.error('Add repair type error:', error);
@@ -611,60 +894,85 @@ function AddRepairTypeDialog({
 
               {/* 세부 부위 목록 */}
               {hasSubParts && (
-                <div className="pl-6 space-y-2 bg-amber-50 p-3 rounded-lg">
+                <div className="pl-6 space-y-3 bg-amber-50 p-3 rounded-lg">
                   <p className="text-xs font-medium text-amber-900 mb-2">
                     🎯 세부 부위 목록 (예: 앞섶, 뒤판, 왼팔, 오른팔)
                   </p>
                   
                   {/* 세부 부위 추가 입력 */}
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="부위명 입력 (예: 앞섶)"
-                      value={newSubPart}
-                      onChange={(e) => setNewSubPart(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && newSubPart.trim()) {
-                          setSubParts([...subParts, newSubPart.trim()]);
-                          setNewSubPart("");
-                        }
-                      }}
-                      className="h-9 text-sm"
-                    />
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Input
+                          placeholder="부위명 (예: 앞섶)"
+                          value={newSubPartName}
+                          onChange={(e) => setNewSubPartName(e.target.value)}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Input
+                          placeholder="아이콘명 (예: front.svg)"
+                          value={newSubPartIcon}
+                          onChange={(e) => setNewSubPartIcon(e.target.value)}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </div>
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
+                      className="w-full"
                       onClick={() => {
-                        if (newSubPart.trim()) {
-                          setSubParts([...subParts, newSubPart.trim()]);
-                          setNewSubPart("");
+                        if (newSubPartName.trim()) {
+                          setSubParts([
+                            ...subParts, 
+                            { 
+                              name: newSubPartName.trim(),
+                              icon: newSubPartIcon.trim() || undefined
+                            }
+                          ]);
+                          setNewSubPartName("");
+                          setNewSubPartIcon("");
                         }
                       }}
                     >
-                      추가
+                      + 세부 부위 추가
                     </Button>
                   </div>
 
                   {/* 추가된 세부 부위 목록 */}
                   {subParts.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="space-y-1 mt-2">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        추가된 부위 ({subParts.length}개)
+                      </p>
                       {subParts.map((part, index) => (
-                        <Badge
+                        <div
                           key={index}
-                          variant="secondary"
-                          className="pr-1 gap-1"
+                          className="flex items-center justify-between p-2 bg-white rounded border"
                         >
-                          {part}
-                          <button
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{part.name}</p>
+                            {part.icon && (
+                              <p className="text-xs text-muted-foreground">
+                                📎 {part.icon}
+                              </p>
+                            )}
+                          </div>
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                               setSubParts(subParts.filter((_, i) => i !== index));
                             }}
-                            className="ml-1 hover:bg-gray-300 rounded-full p-0.5"
+                            className="h-7 w-7 p-0"
                           >
                             ×
-                          </button>
-                        </Badge>
+                          </Button>
+                        </div>
                       ))}
                     </div>
                   )}
