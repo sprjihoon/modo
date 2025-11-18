@@ -28,6 +28,10 @@ interface RepairType {
   price: number;
   display_order: number;
   is_active: boolean;
+  requires_multiple_inputs?: boolean;
+  input_count?: number;
+  input_labels?: string[];
+  has_sub_parts?: boolean;
 }
 
 export default function RepairMenuPage() {
@@ -217,11 +221,21 @@ export default function RepairMenuPage() {
                           <div className="flex items-center gap-3 flex-1">
                             <GripVertical className="h-4 w-4 text-gray-400" />
                             <div className="flex-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <p className="font-medium">{type.name}</p>
                                 {type.sub_type && (
                                   <Badge variant="outline" className="text-xs">
                                     {type.sub_type}
+                                  </Badge>
+                                )}
+                                {type.requires_multiple_inputs && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    입력×2
+                                  </Badge>
+                                )}
+                                {type.has_sub_parts && (
+                                  <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                                    세부부위
                                   </Badge>
                                 )}
                               </div>
@@ -281,7 +295,7 @@ function AddCategoryDialog({ onAdded, children }: { onAdded: () => void; childre
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('repair_categories')
         .insert({
           name,
@@ -289,14 +303,18 @@ function AddCategoryDialog({ onAdded, children }: { onAdded: () => void; childre
           display_order: 999, // 마지막에 추가
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw new Error(error.message || error.hint || '카테고리 추가 실패');
+      }
 
       setOpen(false);
       setName("");
       setIconName("");
       onAdded();
-    } catch (error) {
-      alert('카테고리 추가 실패: ' + error);
+    } catch (error: any) {
+      console.error('Add category error:', error);
+      alert(`카테고리 추가 실패:\n${error.message || error.toString()}`);
     } finally {
       setIsLoading(false);
     }
@@ -372,6 +390,9 @@ function AddRepairTypeDialog({
   const [subType, setSubType] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [requiresMultipleInputs, setRequiresMultipleInputs] = useState(false);
+  const [inputCount, setInputCount] = useState("1");
+  const [hasSubParts, setHasSubParts] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -382,7 +403,11 @@ function AddRepairTypeDialog({
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      const inputLabels = requiresMultipleInputs 
+        ? ['첫 번째 입력 (cm)', '두 번째 입력 (cm)']
+        : ['치수 (cm)'];
+
+      const { data, error } = await supabase
         .from('repair_types')
         .insert({
           category_id: categoryId,
@@ -391,18 +416,29 @@ function AddRepairTypeDialog({
           description: description || null,
           price: parseInt(price),
           display_order: 999,
+          requires_multiple_inputs: requiresMultipleInputs,
+          input_count: requiresMultipleInputs ? parseInt(inputCount) : 1,
+          input_labels: inputLabels,
+          has_sub_parts: hasSubParts,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw new Error(error.message || error.hint || '수선 항목 추가 실패');
+      }
 
       setOpen(false);
       setName("");
       setSubType("");
       setDescription("");
       setPrice("");
+      setRequiresMultipleInputs(false);
+      setInputCount("1");
+      setHasSubParts(false);
       onAdded();
-    } catch (error) {
-      alert('수선 항목 추가 실패: ' + error);
+    } catch (error: any) {
+      console.error('Add repair type error:', error);
+      alert(`수선 항목 추가 실패:\n${error.message || error.toString()}`);
     } finally {
       setIsLoading(false);
     }
@@ -465,6 +501,52 @@ function AddRepairTypeDialog({
             <p className="text-xs text-muted-foreground mt-1">
               단위: 원
             </p>
+          </div>
+
+          {/* 고급 옵션 */}
+          <div className="space-y-3 pt-2 border-t">
+            <p className="text-sm font-medium">고급 옵션</p>
+            
+            {/* 입력값 2개 필요 */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="multiple-inputs"
+                checked={requiresMultipleInputs}
+                onChange={(e) => {
+                  setRequiresMultipleInputs(e.target.checked);
+                  if (e.target.checked) {
+                    setInputCount("2");
+                  } else {
+                    setInputCount("1");
+                  }
+                }}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="multiple-inputs" className="text-sm font-normal cursor-pointer">
+                입력값 2개 필요 (예: 왼쪽/오른쪽 어깨)
+              </Label>
+            </div>
+
+            {/* 세부 부위 선택 */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="has-sub-parts"
+                checked={hasSubParts}
+                onChange={(e) => setHasSubParts(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="has-sub-parts" className="text-sm font-normal cursor-pointer">
+                세부 부위 선택 필요 (예: 앞섶, 뒤판, 왼팔, 오른팔)
+              </Label>
+            </div>
+
+            {hasSubParts && (
+              <p className="text-xs text-amber-600 pl-6">
+                💡 저장 후 세부 부위를 별도로 추가할 수 있습니다
+              </p>
+            )}
           </div>
         </div>
         <DialogFooter>
