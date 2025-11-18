@@ -542,14 +542,14 @@ function EditRepairTypeDialog({
           <Edit className="h-4 w-4 text-blue-600" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{categoryName} - 수선 항목 수정</DialogTitle>
           <DialogDescription>
             수선 항목 정보를 수정합니다
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 overflow-y-auto flex-1">
           <div>
             <Label htmlFor="edit-repair-name">수선명 *</Label>
             <Input
@@ -769,14 +769,14 @@ function AddRepairTypeDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{categoryName} - 수선 항목 추가</DialogTitle>
           <DialogDescription>
             새로운 수선 항목을 추가합니다
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 overflow-y-auto flex-1">
           <div>
             <Label htmlFor="repair-name">수선명 *</Label>
             <Input
