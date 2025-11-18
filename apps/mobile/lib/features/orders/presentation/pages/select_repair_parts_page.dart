@@ -39,13 +39,21 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
 
   /// DB에서 수선 종류 로드
   Future<void> _loadRepairTypes() async {
+    debugPrint('🔍 수선 종류 로드 시작');
+    debugPrint('  categoryId: ${widget.categoryId}');
+    debugPrint('  categoryName: ${widget.categoryName}');
+    
     if (widget.categoryId == null) {
+      debugPrint('⚠️ categoryId가 null입니다');
       setState(() => _isLoading = false);
       return;
     }
     
     try {
+      debugPrint('📡 DB 조회 시작: category_id = ${widget.categoryId}');
       final types = await _repairService.getRepairTypesByCategory(widget.categoryId!);
+      debugPrint('✅ 수선 종류 ${types.length}개 로드 완료');
+      
       if (mounted) {
         setState(() {
           _repairTypes = types;
@@ -53,7 +61,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
         });
       }
     } catch (e) {
-      debugPrint('수선 종류 로드 실패: $e');
+      debugPrint('❌ 수선 종류 로드 실패: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }

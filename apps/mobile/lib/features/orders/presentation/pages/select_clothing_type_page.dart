@@ -317,7 +317,10 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                     onTap: () {
                       setState(() {
                         _selectedType = type['name'] as String;
+                        _selectedCategoryId = type['id'] as String; // 중요!
                       });
+                      
+                      debugPrint('✅ 카테고리 선택: ${type['name']} (${type['id']})');
                       
                       // 선택 후 사진 선택 바텀시트 표시
                       Future.delayed(const Duration(milliseconds: 300), () {
