@@ -12,6 +12,7 @@ class RepairDetailInputPage extends ConsumerStatefulWidget {
   final String? priceRange; // 가격 범위 (legacy)
   final int? price; // 단일 가격
   final List<String> imageUrls;
+  final List<Map<String, dynamic>>? imagesWithPins; // 이 의류의 핀 정보
   final bool? hasAdvancedOptions; // 고급 옵션 여부
   final bool? requiresMultipleInputs; // 여러 입력값 필요 여부
   final List<String>? inputLabels; // 입력 필드 라벨 배열
@@ -19,11 +20,10 @@ class RepairDetailInputPage extends ConsumerStatefulWidget {
   final bool? allowMultipleSubParts; // 세부 부위 다중 선택 허용 여부
   
   const RepairDetailInputPage({
-    super.key,
-    required this.repairPart,
+    required this.repairPart, required this.imageUrls, super.key,
     this.priceRange,
     this.price,
-    required this.imageUrls,
+    this.imagesWithPins,
     this.hasAdvancedOptions,
     this.requiresMultipleInputs,
     this.inputLabels,
@@ -185,9 +185,9 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                       if (tempSelected.isNotEmpty)
                         Text(
                           '${tempSelected.length}개 선택됨',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 14,
-                            color: const Color(0xFF00C896),
+                            color: Color(0xFF00C896),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -520,9 +520,9 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                       ),
                       child: Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.info_outline,
-                            color: const Color(0xFF00C896),
+                            color: Color(0xFF00C896),
                             size: 18,
                           ),
                           const SizedBox(width: 8),
@@ -622,7 +622,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                     : () {
                         // 최종 확인 페이지로 이동
                         String measurements;
-                        List<Map<String, dynamic>> detailedMeasurements = [];
+                        final List<Map<String, dynamic>> detailedMeasurements = [];
                         
                         if (_selectedScope == '특정 부위 선택' && _selectedSubParts.isNotEmpty) {
                           // 세부 부위별 측정값 생성
@@ -695,12 +695,14 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                           'measurement': measurements,
                           'selectedParts': _selectedSubParts.map((p) => p['name']).toList(),
                           'detailedMeasurements': detailedMeasurements,
+                          'imagesWithPins': widget.imagesWithPins, // 이 수선 항목의 사진과 핀 정보
                         };
                         
                         context.push('/repair-confirmation', extra: {
                           'repairItems': [repairItem],
                           'imageUrls': widget.imageUrls,
-                        });
+                          'imagesWithPins': widget.imagesWithPins,
+                        },);
                       },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: !_allFieldsFilled 
@@ -747,10 +749,10 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
           ),
           child: Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.location_on,
                 size: 16,
-                color: const Color(0xFF00C896),
+                color: Color(0xFF00C896),
               ),
               const SizedBox(width: 8),
               Text(
@@ -778,7 +780,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
           controller: _measurementControllers[controllerIndex],
           label: inputCountPerPart > 1 ? label : null,
           hint: '(예) -3',
-        ));
+        ),);
         widgets.add(const SizedBox(height: 12));
       }
       
@@ -805,7 +807,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
         controller: _measurementControllers[index],
         label: inputCount > 1 ? label : null,
         hint: '(예) -3',
-      ));
+      ),);
       widgets.add(const SizedBox(height: 12));
     }
     
@@ -815,8 +817,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
   // 입력 필드 위젯 생성
   Widget _buildInputField({
     required TextEditingController controller,
-    String? label,
-    required String hint,
+    required String hint, String? label,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

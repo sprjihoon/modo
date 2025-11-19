@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../../services/repair_service.dart';
+import '../../domain/models/image_pin.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -15,8 +17,7 @@ class SelectRepairPartsPage extends ConsumerStatefulWidget {
   final String? categoryName; // 선택한 카테고리명
   
   const SelectRepairPartsPage({
-    super.key,
-    required this.imageUrls,
+    required this.imageUrls, super.key,
     this.imagesWithPins,
     this.categoryId,
     this.categoryName,
@@ -31,8 +32,8 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
   List<Map<String, dynamic>> _repairTypes = [];
   bool _isLoading = true;
   
-  Set<String> _selectedPartIds = {}; // 다중 선택을 위해 Set 사용
-  List<Map<String, dynamic>> _selectedItems = []; // 선택한 항목들
+  final Set<String> _selectedPartIds = {}; // 다중 선택을 위해 Set 사용
+  final List<Map<String, dynamic>> _selectedItems = []; // 선택한 항목들
 
   @override
   void initState() {
@@ -73,12 +74,22 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
   
   // 전체 핀 개수 계산
   int _getTotalPins() {
-    if (widget.imagesWithPins == null) return 0;
+    if (widget.imagesWithPins == null) {
+      debugPrint('⚠️ imagesWithPins is null');
+      return 0;
+    }
+    
     int total = 0;
+    debugPrint('📍 핀 개수 계산: ${widget.imagesWithPins!.length}장의 사진');
+    
     for (var imageData in widget.imagesWithPins!) {
       final pins = imageData['pins'] as List?;
-      total += pins?.length ?? 0;
+      final pinsCount = pins?.length ?? 0;
+      debugPrint('  - 사진: ${imageData['imagePath']}, 핀: $pinsCount개');
+      total += pinsCount;
     }
+    
+    debugPrint('  총 핀 개수: $total개');
     return total;
   }
   
@@ -102,7 +113,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
       'allowMultipleSubParts': allowMultiple,
       'imageUrls': widget.imageUrls,
       'imagesWithPins': widget.imagesWithPins,
-    });
+    },);
   }
   
   // 세부 항목 선택 바텀시트 (수치 입력 불필요한 항목의 하위 항목들)
@@ -417,13 +428,15 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
         'price': subItemPrice,
         'scope': '전체',
         'measurement': '선택 완료',
+        'imagesWithPins': widget.imagesWithPins, // 이 수선 항목의 사진과 핀 정보
       };
     }).toList();
     
     context.push('/repair-confirmation', extra: {
       'repairItems': repairItems,
       'imageUrls': widget.imageUrls,
-    });
+      'imagesWithPins': widget.imagesWithPins,
+    },);
   }
   
   @override
@@ -513,6 +526,9 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                               ],
                             ),
                           ),
+                          // 사진 미리보기 (핀과 메모 표시)
+                          const SizedBox(height: 16),
+                          _buildImagePreviewSection(),
                         ],
                       ],
                     ),
@@ -598,12 +614,14 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                                               'price': price,
                                               'scope': '전체',
                                               'measurement': '선택 완료',
+                                              'imagesWithPins': widget.imagesWithPins, // 사진과 핀 정보
                                             };
                                             
                                             context.push('/repair-confirmation', extra: {
                                               'repairItems': [repairItem],
                                               'imageUrls': widget.imageUrls,
-                                            });
+                                              'imagesWithPins': widget.imagesWithPins,
+                                            },);
                                           }
                                         }
                                       });
@@ -760,6 +778,118 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 사진 미리보기 섹션 (핀과 메모 표시)
+  Widget _buildImagePreviewSection() {
+    if (widget.imagesWithPins == null || widget.imagesWithPins!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widget.imagesWithPins!.map((imageData) {
+        final imagePath = imageData['imagePath'] as String;
+        final pinsData = imageData['pins'] as List?;
+        final pins = pinsData?.map((p) {
+          if (p is Map<String, dynamic>) {
+            return ImagePin.fromJson(p);
+          }
+          return null;
+        }).whereType<ImagePin>().toList() ?? [];
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 사진
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: CachedNetworkImage(
+                  imageUrl: imagePath,
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    height: 150,
+                    color: Colors.grey.shade200,
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    height: 150,
+                    color: Colors.grey.shade200,
+                    child: const Icon(Icons.error),
+                  ),
+                ),
+              ),
+              
+              // 핀 정보
+              if (pins.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ...pins.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final pin = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF00C896),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            pin.memo.isEmpty ? '(메모 없음)' : pin.memo,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: pin.memo.isEmpty ? Colors.grey.shade500 : Colors.grey.shade800,
+                              fontStyle: pin.memo.isEmpty ? FontStyle.italic : FontStyle.normal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ] else ...[
+                const SizedBox(height: 8),
+                Text(
+                  '핀이 표시되지 않았습니다',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

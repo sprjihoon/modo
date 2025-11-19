@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../domain/models/image_pin.dart';
 
 /// 수선 확인 페이지 (선택한 항목 및 가격 표시)
 class RepairConfirmationPage extends ConsumerStatefulWidget {
@@ -9,9 +11,7 @@ class RepairConfirmationPage extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>>? imagesWithPins; // 핀 정보 포함
   
   const RepairConfirmationPage({
-    super.key,
-    required this.repairItems,
-    required this.imageUrls,
+    required this.repairItems, required this.imageUrls, super.key,
     this.imagesWithPins,
   });
 
@@ -165,42 +165,50 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                   
                   const SizedBox(height: 24),
                   
-                  // 수선 항목 리스트
+                  // 수선 항목 리스트 (각 항목의 사진과 핀 포함)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
-                      children: widget.repairItems.map((item) {
+                      children: widget.repairItems.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final item = entry.value;
+                        final itemImages = item['imagesWithPins'] as List<Map<String, dynamic>>?;
+                        
                         return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
+                          margin: const EdgeInsets.only(bottom: 16),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: Colors.grey.shade200,
+                              color: const Color(0xFF00C896).withOpacity(0.3),
+                              width: 2,
                             ),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF00C896).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.checkroom_rounded,
-                                  color: Color(0xFF00C896),
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
+                              // 항목 헤더
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF00C896),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '의류 ${index + 1}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
                                       item['repairPart'] as String,
                                       style: const TextStyle(
                                         fontSize: 15,
@@ -208,28 +216,63 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                         color: Colors.black87,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${item['scope']} · ${item['measurement']}',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade600,
-                                      ),
+                                  ),
+                                  Text(
+                                    item['priceRange'] as String,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF00C896),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 8),
                               Text(
-                                item['priceRange'] as String,
+                                '${item['scope']} · ${item['measurement']}',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: Colors.grey.shade600,
                                 ),
                               ),
+                              
+                              // 이 항목의 사진과 핀 표시
+                              if (itemImages != null && itemImages.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                const Divider(),
+                                const SizedBox(height: 8),
+                                _buildRepairItemImages(itemImages),
+                              ],
                             ],
                           ),
                         );
                       }).toList(),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // 의류 추가 버튼
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        // 현재 선택한 항목들을 유지하면서 의류 추가
+                        final result = await context.push('/select-clothing-type', extra: widget.imageUrls);
+                        
+                        // 새로운 의류가 추가되면 기존 항목에 합쳐서 다시 표시
+                        // TODO: 여러 의류 항목을 누적하는 로직 필요
+                      },
+                      icon: const Icon(Icons.add_circle_outline, size: 20),
+                      label: const Text('다른 의류 추가하기'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF00C896),
+                        side: const BorderSide(color: Color(0xFF00C896), width: 1.5),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                   
@@ -366,7 +409,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                             context.push('/pickup-request', extra: {
                               'repairItems': widget.repairItems,
                               'imageUrls': widget.imageUrls,
-                            });
+                            },);
                           }
                         : null,
                     style: ElevatedButton.styleFrom(
@@ -408,7 +451,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
     );
     final pins = firstImageData?['pins'] as List? ?? [];
 
-    return Container(
+    return SizedBox(
       height: MediaQuery.of(context).size.height * 0.5,
       width: double.infinity,
       child: Stack(
@@ -561,6 +604,109 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
           ),
         ],
       ),
+    );
+  }
+
+  /// 각 수선 항목의 사진과 핀 표시
+  Widget _buildRepairItemImages(List<Map<String, dynamic>> imagesWithPins) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '📸 첨부 사진 (${imagesWithPins.length}장)',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...imagesWithPins.map((imageData) {
+          final imagePath = imageData['imagePath'] as String;
+          final pinsData = imageData['pins'] as List?;
+          final pins = pinsData?.map((p) {
+            if (p is Map<String, dynamic>) {
+              return ImagePin.fromJson(p);
+            }
+            return null;
+          }).whereType<ImagePin>().toList() ?? [];
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 사진
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: CachedNetworkImage(
+                    imageUrl: imagePath,
+                    height: 120,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      height: 120,
+                      color: Colors.grey.shade200,
+                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      height: 120,
+                      color: Colors.grey.shade200,
+                      child: const Icon(Icons.error, size: 30),
+                    ),
+                  ),
+                ),
+                
+                // 핀과 메모
+                if (pins.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ...pins.asMap().entries.map((pinEntry) {
+                    final pinIndex = pinEntry.key;
+                    final pin = pinEntry.value;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 18,
+                            height: 18,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF00C896),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${pinIndex + 1}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              pin.memo.isEmpty ? '(메모 없음)' : pin.memo,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: pin.memo.isEmpty ? Colors.grey.shade400 : Colors.grey.shade700,
+                                fontStyle: pin.memo.isEmpty ? FontStyle.italic : FontStyle.normal,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ],
+            ),
+          );
+        }).toList(),
+      ],
     );
   }
 }

@@ -139,10 +139,14 @@ class _ImageAnnotationPageState extends State<ImageAnnotationPage> {
     // 완료 콜백 호출
     widget.onComplete?.call(_imagePath!, _pins);
 
+    // 핀을 JSON으로 변환하여 반환
+    final pinsJson = _pins.map((pin) => pin.toJson()).toList();
+
     // 결과를 반환하며 페이지 닫기
     Navigator.of(context).pop({
       'imagePath': _imagePath,
-      'pins': _pins,
+      'pins': pinsJson, // JSON 형태로 변환
+      'pinsCount': _pins.length, // 개수도 함께 전달
     });
   }
 

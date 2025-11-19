@@ -82,7 +82,7 @@ export async function getCustomers(filters?: {
  * 고객 상세 조회
  */
 export async function getCustomerById(customerId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('users')
     .select('*')
     .eq('id', customerId)
@@ -91,7 +91,7 @@ export async function getCustomerById(customerId: string) {
   if (error) throw error;
 
   // 주문 통계 정보 추가
-  const { data: orders, error: ordersError } = await supabase
+  const { data: orders, error: ordersError } = await supabaseAdmin
     .from('orders')
     .select('id, total_price, created_at, item_name, status')
     .eq('user_id', customerId)

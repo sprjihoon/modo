@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../services/order_service.dart';
+import '../../domain/models/image_pin.dart';
 
 /// 결제 페이지
 class PaymentPage extends ConsumerStatefulWidget {
@@ -171,6 +173,12 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  
+                  // 첨부 사진 및 수선 부위 (핀 정보 표시)
+                  if (_orderData!['images_with_pins'] != null && (_orderData!['images_with_pins'] as List).isNotEmpty)
+                    _buildImagesWithPinsSection(),
+                  if (_orderData!['images_with_pins'] != null && (_orderData!['images_with_pins'] as List).isNotEmpty)
+                    const SizedBox(height: 16),
                   
                   // 결제 금액
                   Container(
@@ -404,6 +412,218 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 이미지와 핀 정보 섹션
+  Widget _buildImagesWithPinsSection() {
+    final imagesWithPins = _orderData!['images_with_pins'] as List;
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.photo_camera_outlined,
+                color: Theme.of(context).colorScheme.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '첨부 사진 및 수선 부위',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C896).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${imagesWithPins.length}장',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF00C896),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // 이미지 목록
+          ...imagesWithPins.asMap().entries.map((entry) {
+            final index = entry.key;
+            final imageData = entry.value as Map<String, dynamic>;
+            final imagePath = imageData['imagePath'] as String;
+            final pins = (imageData['pins'] as List?)?.map((p) {
+              if (p is Map<String, dynamic>) {
+                return ImagePin.fromJson(p);
+              }
+              return null;
+            }).whereType<ImagePin>().toList() ?? [];
+            
+            return Column(
+              children: [
+                if (index > 0) const SizedBox(height: 16),
+                _buildImageWithPins(imagePath, pins, index),
+              ],
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  /// 개별 이미지와 핀 표시
+  Widget _buildImageWithPins(String imagePath, List<ImagePin> pins, int index) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 이미지 헤더
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '사진 ${index + 1}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${pins.length}개 수선 부위',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        
+        // 이미지
+        Container(
+          height: 200,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: CachedNetworkImage(
+            imageUrl: imagePath,
+            fit: BoxFit.contain,
+            placeholder: (context, url) => const Center(
+              child: CircularProgressIndicator(),
+            ),
+            errorWidget: (context, url, error) => const Center(
+              child: Icon(Icons.error, color: Colors.red),
+            ),
+          ),
+        ),
+        
+        // 핀 리스트 (메모 포함)
+        if (pins.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00C896).withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF00C896).withOpacity(0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.push_pin,
+                      size: 16,
+                      color: Color(0xFF00C896),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '수선 부위 상세',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ...pins.asMap().entries.map((pinEntry) {
+                  final pinIndex = pinEntry.key;
+                  final pin = pinEntry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00C896),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${pinIndex + 1}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            pin.memo.isEmpty ? '(메모 없음)' : pin.memo,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: pin.memo.isEmpty ? Colors.grey.shade500 : Colors.grey.shade800,
+                              fontStyle: pin.memo.isEmpty ? FontStyle.italic : FontStyle.normal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

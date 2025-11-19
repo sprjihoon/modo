@@ -169,6 +169,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             priceRange: data['priceRange'] as String?,
             price: data['price'] as int?,
             imageUrls: data['imageUrls'] as List<String>? ?? [],
+            imagesWithPins: data['imagesWithPins'] as List<Map<String, dynamic>>?,
             hasAdvancedOptions: data['hasAdvancedOptions'] as bool?,
             requiresMultipleInputs: data['requiresMultipleInputs'] as bool?,
             inputLabels: (data['inputLabels'] as List?)?.cast<String>(),
@@ -201,6 +202,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return PickupRequestPage(
             repairItems: data['repairItems'] as List<Map<String, dynamic>>? ?? [],
             imageUrls: data['imageUrls'] as List<String>? ?? [],
+            imagesWithPins: data['imagesWithPins'] as List<Map<String, dynamic>>?,
           );
         },
       ),

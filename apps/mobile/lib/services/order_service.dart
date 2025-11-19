@@ -18,6 +18,7 @@ class OrderService {
     String? pickupZipcode,
     String? deliveryZipcode,
     List<String>? imageUrls,
+    List<Map<String, dynamic>>? imagesWithPins, // 핀 정보 추가
     String? notes,
   }) async {
     try {
@@ -50,6 +51,7 @@ class OrderService {
         'delivery_address_detail': deliveryAddressDetail,
         'delivery_zipcode': deliveryZipcode,
         'image_urls': imageUrls,
+        'images_with_pins': imagesWithPins, // 핀 정보 저장
         'notes': notes,
         'status': 'PENDING',
         'payment_status': 'PENDING',

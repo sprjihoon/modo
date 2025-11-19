@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../services/image_service.dart';
+
 /// 주문 상세 화면
 class OrderDetailPage extends ConsumerStatefulWidget {
   final String orderId;
@@ -18,7 +20,7 @@ class OrderDetailPage extends ConsumerStatefulWidget {
 
 class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   // Mock 사진 데이터 (State로 관리)
-  List<Map<String, dynamic>> _images = [
+  final List<Map<String, dynamic>> _images = [
     {
       'url': 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400',
       'pinsCount': 3,
@@ -522,7 +524,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   /// 배송추적 URL 열기
   void _openTrackingUrl(String trackingNo) async {
     final url = Uri.parse(
-      'https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=$trackingNo'
+      'https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=$trackingNo',
     );
     
     try {
@@ -615,29 +617,49 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     );
 
     if (source != null && mounted) {
-      // Mock: 더미 이미지 추가
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      final mockUrls = [
-        'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400',
-        'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400',
-      ];
-      final newUrl = mockUrls[_images.length % mockUrls.length];
-      
-      setState(() {
-        _images.add({
-          'url': newUrl,
-          'pinsCount': 0,
-          'pins': [],
+      try {
+        final imageService = ImageService();
+        
+        // 로딩 표시
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('이미지를 업로드하는 중...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // 실제 이미지 선택 및 업로드
+        final imageUrl = await imageService.pickAndUploadImage(
+          source: source,
+          bucket: 'order-images',
+          folder: 'repairs',
+        );
+        
+        // 사용자가 취소한 경우
+        if (imageUrl == null) return;
+        
+        setState(() {
+          _images.add({
+            'url': imageUrl,
+            'pinsCount': 0,
+            'pins': [],
+          });
         });
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('사진이 추가되었습니다 (${_images.length}장)'),
-          backgroundColor: const Color(0xFF00C896),
-        ),
-      );
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('사진이 추가되었습니다 (${_images.length}장)'),
+            backgroundColor: const Color(0xFF00C896),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미지 업로드 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -751,25 +773,49 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     );
 
     if (source != null && mounted) {
-      // Mock: 더미 이미지로 변경
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      final newUrl = 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400';
-      
-      setState(() {
-        _images[index] = {
-          'url': newUrl,
-          'pinsCount': 0, // 사진 변경 시 핀 초기화
-          'pins': [],
-        };
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${index + 1}번 사진이 변경되었습니다'),
-          backgroundColor: const Color(0xFF00C896),
-        ),
-      );
+      try {
+        final imageService = ImageService();
+        
+        // 로딩 표시
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('이미지를 업로드하는 중...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // 실제 이미지 선택 및 업로드
+        final imageUrl = await imageService.pickAndUploadImage(
+          source: source,
+          bucket: 'order-images',
+          folder: 'repairs',
+        );
+        
+        // 사용자가 취소한 경우
+        if (imageUrl == null) return;
+        
+        setState(() {
+          _images[index] = {
+            'url': imageUrl,
+            'pinsCount': 0, // 사진 변경 시 핀 초기화
+            'pins': [],
+          };
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${index + 1}번 사진이 변경되었습니다'),
+            backgroundColor: const Color(0xFF00C896),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('이미지 업로드 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -980,8 +1026,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             child: Container(
               width: 24,
               height: 24,
-              decoration: BoxDecoration(
-                color: const Color(0xFF00C896),
+              decoration: const BoxDecoration(
+                color: Color(0xFF00C896),
                 shape: BoxShape.circle,
               ),
               child: Center(

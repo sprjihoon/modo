@@ -9,11 +9,10 @@ import '../../../../services/order_service.dart';
 class PickupRequestPage extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>> repairItems;
   final List<String> imageUrls;
+  final List<Map<String, dynamic>>? imagesWithPins; // 핀 정보 추가
   
   const PickupRequestPage({
-    super.key,
-    required this.repairItems,
-    required this.imageUrls,
+    required this.repairItems, required this.imageUrls, this.imagesWithPins, super.key,
   });
 
   @override
@@ -129,6 +128,15 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       
       final totalPrice = _calculateTotalPrice();
       
+      // 모든 수선 항목의 사진과 핀을 모음
+      final allImagesWithPins = <Map<String, dynamic>>[];
+      for (var repairItem in widget.repairItems) {
+        final itemImages = repairItem['imagesWithPins'] as List<Map<String, dynamic>>?;
+        if (itemImages != null) {
+          allImagesWithPins.addAll(itemImages);
+        }
+      }
+      
       // 주문 생성
       final order = await _orderService.createOrder(
         itemName: itemNames,
@@ -142,6 +150,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         deliveryAddressDetail: _addressDetailController.text,
         deliveryZipcode: _zipcodeController.text,
         imageUrls: widget.imageUrls,
+        imagesWithPins: allImagesWithPins, // 모든 의류의 핀 정보
         notes: _requestController.text,
       );
       
@@ -616,7 +625,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                                 color: const Color(0xFF0064FF),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Center(
+                              child: const Center(
                                 child: Icon(
                                   Icons.payment,
                                   color: Colors.white,
@@ -714,8 +723,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: RichText(
-                                    text: TextSpan(
-                                      style: const TextStyle(
+                                    text: const TextSpan(
+                                      style: TextStyle(
                                         fontSize: 13,
                                         color: Colors.black87,
                                         height: 1.4,
@@ -725,10 +734,10 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                                           text: '선불 서비스',
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF00C896),
+                                            color: Color(0xFF00C896),
                                           ),
                                         ),
-                                        const TextSpan(
+                                        TextSpan(
                                           text: '입니다. 수거 신청 시 예상 금액이 결제됩니다.',
                                         ),
                                       ],

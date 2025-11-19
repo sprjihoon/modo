@@ -4,14 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../services/repair_service.dart';
+import '../../../../services/image_service.dart';
 
 /// 수선 의류 종류 선택 페이지
 class SelectClothingTypePage extends ConsumerStatefulWidget {
   final List<String> imageUrls;
   
   const SelectClothingTypePage({
-    super.key,
-    required this.imageUrls,
+    required this.imageUrls, super.key,
   });
 
   @override
@@ -165,35 +165,42 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
   /// 이미지 선택/촬영
   Future<void> _pickImage(ImageSource source, String clothingType) async {
     try {
-      // TODO: 실제 이미지 선택 및 업로드
-      // final picker = ImagePicker();
-      // final image = await picker.pickImage(source: source);
-      // if (image == null) return;
+      final imageService = ImageService();
       
-      // Mock: 0.5초 지연 후 더미 이미지 추가
-      await Future.delayed(const Duration(milliseconds: 500));
+      // 로딩 표시
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('이미지를 선택하는 중...'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
       
-      final mockUrls = [
-        'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400',
-        'https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=400',
-        'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400',
-      ];
-      final mockUrl = mockUrls[_capturedImagesWithPins.length % mockUrls.length];
+      // 1. 이미지 선택 및 업로드
+      final imageUrl = await imageService.pickAndUploadImage(
+        source: source,
+        bucket: 'order-images',
+        folder: 'repairs',
+      );
+      
+      // 사용자가 취소한 경우
+      if (imageUrl == null) return;
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('사진이 추가되었습니다'),
+            content: Text('사진이 업로드되었습니다'),
             backgroundColor: Color(0xFF00C896),
             duration: Duration(seconds: 1),
           ),
         );
         
-        // 핀 표시 페이지로 이동 (이미지 주석)
+        // 2. 핀 표시 페이지로 이동 (이미지 주석)
         final result = await context.push<Map<String, dynamic>>(
           '/image-annotation',
           extra: {
-            'imagePath': mockUrl,
+            'imagePath': imageUrl,
             'pins': [],
             'onComplete': null,
           },
@@ -230,7 +237,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
             'imagesWithPins': _capturedImagesWithPins,
             'categoryId': _selectedCategoryId,
             'categoryName': _selectedType,
-          });
+          },);
         }
       }
     } catch (e) {
@@ -364,11 +371,11 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
+                            const Text(
                               '수선 가격표 확인하기',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: const Color(0xFF00C896),
+                                color: Color(0xFF00C896),
                                 decoration: TextDecoration.underline,
                               ),
                             ),

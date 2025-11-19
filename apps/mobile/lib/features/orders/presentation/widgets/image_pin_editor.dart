@@ -26,8 +26,7 @@ class ImagePinEditor extends StatefulWidget {
   final int? maxPins;
 
   const ImagePinEditor({
-    super.key,
-    required this.imagePath,
+    required this.imagePath, super.key,
     this.initialPins = const [],
     this.onPinsChanged,
     this.pinColor = Colors.red,
@@ -74,13 +73,10 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
       return;
     }
 
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final localPosition = renderBox.globalToLocal(details.globalPosition);
-
-    // 상대 좌표로 변환 (0.0 ~ 1.0)
+    // 상대 좌표로 변환 (0.0 ~ 1.0) - RenderBox 사용하지 않음
     final relativePosition = Offset(
-      localPosition.dx / constraints.maxWidth,
-      localPosition.dy / constraints.maxHeight,
+      details.localPosition.dx / constraints.maxWidth,
+      details.localPosition.dy / constraints.maxHeight,
     );
 
     // 임시 핀 추가
@@ -93,8 +89,12 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
       _pins.add(newPin);
     });
 
-    // 즉시 메모 입력창 표시
-    _showMemoInput(pin: newPin);
+    // 약간의 지연 후 메모 입력창 표시 (레이아웃 안정화)
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _showMemoInput(pin: newPin);
+      }
+    });
   }
 
   /// 핀 탭 시 메모 수정
@@ -134,9 +134,17 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
       }
       // 삭제는 onDelete 콜백에서 처리됨
     } else {
-      setState(() {
-        _selectedPinId = null;
-      });
+      // 취소된 경우: 메모가 없는 새 핀이면 삭제
+      if (pin != null && pin.memo.isEmpty) {
+        setState(() {
+          _pins.removeWhere((p) => p.id == pin.id);
+        });
+        widget.onPinsChanged?.call(_pins);
+      } else {
+        setState(() {
+          _selectedPinId = null;
+        });
+      }
     }
   }
 

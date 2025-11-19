@@ -7,16 +7,15 @@ class PinMemoBottomSheet extends StatefulWidget {
   final VoidCallback? onDelete; // 삭제 콜백 추가
 
   const PinMemoBottomSheet({
-    super.key,
+    required this.onSave, super.key,
     this.initialMemo,
-    required this.onSave,
     this.onDelete,
   });
 
   @override
   State<PinMemoBottomSheet> createState() => _PinMemoBottomSheetState();
 
-  /// 바텀시트 표시 헬퍼 메서드
+  /// 다이얼로그로 표시 (레이아웃 변경 방지)
   static Future<Map<String, dynamic>?> showMemoBottomSheet(
     BuildContext context, {
     String? initialMemo,
@@ -24,20 +23,24 @@ class PinMemoBottomSheet extends StatefulWidget {
   }) async {
     Map<String, dynamic>? result;
     
-    await showModalBottomSheet<void>(
+    await showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => PinMemoBottomSheet(
-        initialMemo: initialMemo,
-        onSave: (memo) {
-          result = {'action': 'save', 'memo': memo};
-        },
-        onDelete: onDelete != null ? () {
-          result = {'action': 'delete'};
-          Navigator.of(context).pop();
-          onDelete();
-        } : null,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: PinMemoBottomSheet(
+          initialMemo: initialMemo,
+          onSave: (memo) {
+            result = {'action': 'save', 'memo': memo};
+          },
+          onDelete: onDelete != null ? () {
+            result = {'action': 'delete'};
+            Navigator.of(context).pop();
+            onDelete();
+          } : null,
+        ),
       ),
     );
     
@@ -70,16 +73,8 @@ class _PinMemoBottomSheetState extends State<PinMemoBottomSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
+      constraints: const BoxConstraints(maxWidth: 500),
+      padding: const EdgeInsets.all(20),
       child: Form(
         key: _formKey,
         child: Column(
