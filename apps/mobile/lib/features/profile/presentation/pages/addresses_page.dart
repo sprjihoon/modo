@@ -6,7 +6,12 @@ import '../../../../services/address_service.dart';
 
 /// 배송지 설정 페이지
 class AddressesPage extends ConsumerStatefulWidget {
-  const AddressesPage({super.key});
+  final bool isSelectionMode; // 선택 모드 여부 (true: 선택, false: 관리)
+  
+  const AddressesPage({
+    super.key,
+    this.isSelectionMode = false,
+  });
 
   @override
   ConsumerState<AddressesPage> createState() => _AddressesPageState();
@@ -16,6 +21,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
   final _addressService = AddressService();
   List<Map<String, dynamic>> _addresses = [];
   bool _isLoading = true;
+  String? _selectedAddressId; // 선택된 배송지 ID
 
   @override
   void initState() {
@@ -49,7 +55,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('배송지 설정'),
+        title: Text(widget.isSelectionMode ? '배송지 변경' : '배송지 설정'),
         elevation: 0,
         backgroundColor: Colors.white,
       ),
@@ -66,7 +72,9 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '수거지와 배송지를 미리 등록해두면 더 편리합니다',
+                    widget.isSelectionMode
+                        ? '사용할 배송지를 선택해주세요'
+                        : '수거지와 배송지를 미리 등록해두면 더 편리합니다',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.blue.shade700,
@@ -99,17 +107,19 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await context.push<bool>('/profile/addresses/add');
-          if (result == true && mounted) {
-            _refreshAddresses();
-          }
-        },
-        backgroundColor: const Color(0xFF00C896),
-        icon: const Icon(Icons.add),
-        label: const Text('배송지 추가'),
-      ),
+      floatingActionButton: widget.isSelectionMode
+          ? null // 선택 모드에서는 추가 버튼 숨김
+          : FloatingActionButton.extended(
+              onPressed: () async {
+                final result = await context.push<bool>('/profile/addresses/add');
+                if (result == true && mounted) {
+                  _refreshAddresses();
+                }
+              },
+              backgroundColor: const Color(0xFF00C896),
+              icon: const Icon(Icons.add),
+              label: const Text('배송지 추가'),
+            ),
     );
   }
 
@@ -152,24 +162,39 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
 
   Widget _buildAddressCard(BuildContext context, Map<String, dynamic> address, int index) {
     final isDefault = address['is_default'] as bool? ?? false;
+    final addressId = address['id'] as String;
+    final isSelected = _selectedAddressId == addressId;
     final label = (address['label'] as String?)?.trim();
     final recipientName = (address['recipient_name'] as String?)?.trim() ?? '';
     final recipientPhone = (address['recipient_phone'] as String?)?.trim() ?? '';
     final baseAddress = (address['address'] as String?)?.trim() ?? '';
     final addressDetail = (address['address_detail'] as String?)?.trim();
     
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDefault 
-              ? const Color(0xFF00C896)
-              : Colors.grey.shade200,
-          width: isDefault ? 2 : 1,
+    return InkWell(
+      onTap: widget.isSelectionMode 
+          ? () {
+              setState(() {
+                _selectedAddressId = addressId;
+              });
+              // 선택 후 바로 돌아가기
+              context.pop(address);
+            }
+          : null,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: widget.isSelectionMode && isSelected
+                ? const Color(0xFF00C896)
+                : isDefault 
+                    ? const Color(0xFF00C896)
+                    : Colors.grey.shade200,
+            width: (widget.isSelectionMode && isSelected) || isDefault ? 2 : 1,
+          ),
         ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -213,14 +238,22 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
                 ),
               ],
               const Spacer(),
-              IconButton(
-                icon: Icon(Icons.edit_outlined, size: 20, color: Colors.grey.shade600),
-                onPressed: () => _editAddress(context, address, index),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                onPressed: () => _deleteAddress(context, address, index),
-              ),
+              if (!widget.isSelectionMode) ...[
+                IconButton(
+                  icon: Icon(Icons.edit_outlined, size: 20, color: Colors.grey.shade600),
+                  onPressed: () => _editAddress(context, address, index),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                  onPressed: () => _deleteAddress(context, address, index),
+                ),
+              ],
+              if (widget.isSelectionMode && isSelected)
+                const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF00C896),
+                  size: 24,
+                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -239,6 +272,7 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
           ),
         ],
       ),
+    ),
     );
   }
 

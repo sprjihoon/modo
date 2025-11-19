@@ -166,8 +166,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           final data = state.extra as Map<String, dynamic>? ?? {};
           return RepairDetailInputPage(
             repairPart: data['repairPart'] as String? ?? '',
-            priceRange: data['priceRange'] as String? ?? '',
+            priceRange: data['priceRange'] as String?,
+            price: data['price'] as int?,
             imageUrls: data['imageUrls'] as List<String>? ?? [],
+            hasAdvancedOptions: data['hasAdvancedOptions'] as bool?,
+            requiresMultipleInputs: data['requiresMultipleInputs'] as bool?,
+            inputLabels: (data['inputLabels'] as List?)?.cast<String>(),
+            repairTypeId: data['repairTypeId'] as String?,
+            allowMultipleSubParts: data['allowMultipleSubParts'] as bool?,
           );
         },
       ),
@@ -245,7 +251,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'addresses',
             name: 'profile-addresses',
-            builder: (context, state) => const AddressesPage(),
+            builder: (context, state) {
+              final data = state.extra as Map<String, dynamic>?;
+              final isSelectionMode = data?['isSelectionMode'] as bool? ?? false;
+              return AddressesPage(isSelectionMode: isSelectionMode);
+            },
             routes: [
               // 배송지 추가/수정
               GoRoute(

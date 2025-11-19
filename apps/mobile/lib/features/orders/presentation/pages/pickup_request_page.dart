@@ -21,6 +21,8 @@ class PickupRequestPage extends ConsumerStatefulWidget {
 }
 
 class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
+  final _recipientNameController = TextEditingController();
+  final _recipientPhoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _addressDetailController = TextEditingController();
   final _zipcodeController = TextEditingController();
@@ -41,6 +43,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   
   @override
   void dispose() {
+    _recipientNameController.dispose();
+    _recipientPhoneController.dispose();
     _addressController.dispose();
     _addressDetailController.dispose();
     _zipcodeController.dispose();
@@ -55,6 +59,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       if (defaultAddress != null && mounted) {
         setState(() {
           _selectedAddressId = defaultAddress['id'] as String;
+          _recipientNameController.text = defaultAddress['recipient_name'] as String? ?? '';
+          _recipientPhoneController.text = defaultAddress['recipient_phone'] as String? ?? '';
           _addressController.text = defaultAddress['address'] as String? ?? '';
           _addressDetailController.text = defaultAddress['address_detail'] as String? ?? '';
           _zipcodeController.text = defaultAddress['zipcode'] as String? ?? '';
@@ -71,10 +77,29 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   
   /// 배송지 변경
   Future<void> _changeAddress() async {
-    final result = await context.push<bool>('/profile/addresses');
-    if (result == true || result == null) {
-      // 배송지 목록에서 돌아온 경우 다시 로드
-      _loadDefaultAddress();
+    final result = await context.push<Map<String, dynamic>>(
+      '/profile/addresses',
+      extra: {'isSelectionMode': true},
+    );
+    
+    if (result != null && mounted) {
+      // 선택된 배송지 정보 업데이트
+      setState(() {
+        _selectedAddressId = result['id'] as String;
+        _recipientNameController.text = result['recipient_name'] as String? ?? '';
+        _recipientPhoneController.text = result['recipient_phone'] as String? ?? '';
+        _addressController.text = result['address'] as String? ?? '';
+        _addressDetailController.text = result['address_detail'] as String? ?? '';
+        _zipcodeController.text = result['zipcode'] as String? ?? '';
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('배송지가 변경되었습니다'),
+          backgroundColor: Color(0xFF00C896),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
   
@@ -219,6 +244,73 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                     ),
                     const SizedBox(height: 16),
                     
+                    // 수령인 이름
+                    const Text(
+                      '수령인',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _recipientNameController,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        hintText: '수령인 이름',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade200,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade200,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        prefixIcon: const Icon(Icons.person_outline),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // 수령인 전화번호
+                    TextField(
+                      controller: _recipientPhoneController,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        hintText: '전화번호',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade200,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade200,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        prefixIcon: const Icon(Icons.phone_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    
                     // 주소
                     const Text(
                       '주소',
@@ -261,25 +353,23 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        ElevatedButton(
+                        ElevatedButton.icon(
                           onPressed: _changeAddress,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black87,
+                            backgroundColor: const Color(0xFF00C896),
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
+                              horizontal: 16,
                               vertical: 16,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(
-                                color: Colors.grey.shade300,
-                              ),
                             ),
                             elevation: 0,
                           ),
-                          child: const Text(
-                            '변경',
+                          icon: const Icon(Icons.location_on_outlined, size: 18),
+                          label: const Text(
+                            '배송지 변경',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../services/repair_service.dart';
+
+final supabase = Supabase.instance.client;
 
 /// 수선 부위 선택 페이지 (그리드 형태)
 class SelectRepairPartsPage extends ConsumerStatefulWidget {
@@ -28,8 +31,8 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
   List<Map<String, dynamic>> _repairTypes = [];
   bool _isLoading = true;
   
-  String? _selectedPartId;
-  String? _selectedPartName;
+  Set<String> _selectedPartIds = {}; // 다중 선택을 위해 Set 사용
+  List<Map<String, dynamic>> _selectedItems = []; // 선택한 항목들
 
   @override
   void initState() {
@@ -68,75 +71,6 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
     }
   }
   
-  /// 세부 부위 선택 바텀시트
-  Future<void> _showSubPartsSelection(Map<String, dynamic> repairType) async {
-    // TODO: DB에서 세부 부위 로드
-    // final subParts = await _repairService.getSubParts(repairType['id']);
-    
-    // 임시: 바텀시트 표시
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            // 핸들
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 16),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // 제목
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                '세부 부위를 선택해주세요',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // TODO: 세부 부위 그리드
-            Expanded(
-              child: Center(
-                child: Text(
-                  '세부 부위 UI 구현 중...',
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    
-    if (result != null && mounted) {
-      // 세부 부위 선택 후 상세 입력으로 이동
-      context.push('/repair-detail-input', extra: {
-        'repairPart': '${repairType['name']} - ${result['partName']}',
-        'price': result['price'],
-        'repairTypeId': repairType['id'],
-        'subPartId': result['subPartId'],
-        'requiresMultipleInputs': repairType['requires_multiple_inputs'] ?? false,
-        'inputLabels': repairType['input_labels'] ?? ['치수 (cm)'],
-        'imageUrls': widget.imageUrls,
-        'imagesWithPins': widget.imagesWithPins,
-      });
-    }
-  }
-
   // 전체 핀 개수 계산
   int _getTotalPins() {
     if (widget.imagesWithPins == null) return 0;
@@ -147,83 +81,351 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
     }
     return total;
   }
-
-  // Mock 수선 부위 목록 (DB 로드 실패 시 폴백용)
-  final List<Map<String, dynamic>> _mockRepairParts = [
-    {
-      'name': '소매기장 줄임',
-      'icon': Icons.straighten,
-      'priceRange': '8,000원 ~ 30,000원',
-      'color': const Color(0xFFFF6B6B),
-    },
-    {
-      'name': '전체팔통 줄임',
-      'icon': Icons.expand_less,
-      'priceRange': '8,000원 ~ 40,000원',
-      'color': const Color(0xFFFF6B6B),
-    },
-    {
-      'name': '어깨길이 줄임',
-      'icon': Icons.height,
-      'priceRange': '10,000원 ~ 35,000원',
-      'color': const Color(0xFFFF6B6B),
-    },
-    {
-      'name': '전체품 줄임',
-      'icon': Icons.unfold_less,
-      'priceRange': '8,000원 ~ 40,000원',
-      'color': const Color(0xFFFF6B6B),
-    },
-    {
-      'name': '총기장 줄임',
-      'icon': Icons.vertical_align_bottom,
-      'priceRange': '10,000원 ~ 30,000원',
-      'color': const Color(0xFFFF6B6B),
-    },
-    {
-      'name': '부속품 찢김, 수선',
-      'icon': Icons.build_circle_outlined,
-      'priceRange': '8,000원 ~ 10,000원',
-      'color': const Color(0xFFFF8B94),
-    },
-    {
-      'name': '기장 줄임',
-      'icon': Icons.arrow_downward,
-      'priceRange': '6,000원 ~ 20,000원',
-      'color': const Color(0xFF4ECDC4),
-    },
-    {
-      'name': '허리/밑 줄임',
-      'icon': Icons.rotate_90_degrees_ccw,
-      'priceRange': '15,000원 ~ 20,000원',
-      'color': const Color(0xFF4ECDC4),
-    },
-    {
-      'name': '전체통 줄임',
-      'icon': Icons.compress,
-      'priceRange': '12,000원 ~ 20,000원',
-      'color': const Color(0xFF4ECDC4),
-    },
-    {
-      'name': '재봉줄',
-      'icon': Icons.construction,
-      'priceRange': '부위당 4,000원 ~ 7,000원',
-      'color': const Color(0xFF95E1D3),
-    },
-    {
-      'name': '단추 달기',
-      'icon': Icons.circle_outlined,
-      'priceRange': '1,000원 ~ 3,000원',
-      'color': const Color(0xFF95E1D3),
-    },
-    {
-      'name': '지퍼교체',
-      'icon': Icons.vertical_align_center,
-      'priceRange': '8,000원 ~ 30,000원',
-      'color': const Color(0xFF95E1D3),
-    },
-  ];
-
+  
+  // 다음 단계로 진행
+  void _proceedToNextStep(Map<String, dynamic> repairType) {
+    final typeName = repairType['name'] as String;
+    final subType = repairType['sub_type'] as String?;
+    final price = repairType['price'] as int;
+    final displayName = subType != null ? '$typeName ($subType)' : typeName;
+    final hasSubParts = repairType['has_sub_parts'] as bool? ?? false;
+    final allowMultiple = repairType['allow_multiple_sub_parts'] as bool? ?? false;
+    
+    // 수치 입력이 필요한 경우 입력 페이지로
+    context.push('/repair-detail-input', extra: {
+      'repairPart': displayName,
+      'price': price,
+      'repairTypeId': repairType['id'],
+      'requiresMultipleInputs': repairType['requires_multiple_inputs'] ?? false,
+      'inputLabels': repairType['input_labels'] ?? ['치수 (cm)'],
+      'hasAdvancedOptions': hasSubParts,
+      'allowMultipleSubParts': allowMultiple,
+      'imageUrls': widget.imageUrls,
+      'imagesWithPins': widget.imagesWithPins,
+    });
+  }
+  
+  // 세부 항목 선택 바텀시트 (수치 입력 불필요한 항목의 하위 항목들)
+  Future<void> _showSubItemsSelection(Map<String, dynamic> parentItem) async {
+    final repairTypeId = parentItem['id'] as String;
+    final parentName = parentItem['name'] as String;
+    final allowMultiple = parentItem['allow_multiple_sub_parts'] as bool? ?? true; // 기본값 다중 선택
+    final customTitle = parentItem['sub_parts_title'] as String?; // 커스텀 제목
+    
+    // 세부 항목 로드
+    try {
+      final response = await supabase
+          .from('repair_sub_parts')
+          .select('*')
+          .eq('repair_type_id', repairTypeId)
+          .eq('part_type', 'sub_part')
+          .order('display_order');
+      
+      final subItems = List<Map<String, dynamic>>.from(response);
+      
+      if (subItems.isEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('등록된 세부 항목이 없습니다')),
+        );
+        return;
+      }
+      
+      if (!mounted) return;
+      
+      // 바텀시트 표시
+      final selectedSubItems = <Map<String, dynamic>>[];
+      
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  // 핸들
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 16),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  
+                  // 제목
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    customTitle ?? '상세 수선 부위를 선택해주세요',
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    parentName,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              allowMultiple ? '(다중 선택 가능)' : '(단일 선택)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (selectedSubItems.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00C896).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${selectedSubItems.length}개 선택됨',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF00C896),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // 세부 항목 그리드
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 1.0,
+                        ),
+                        itemCount: subItems.length,
+                        itemBuilder: (context, index) {
+                          final subItem = subItems[index];
+                          final subItemId = subItem['id'] as String;
+                          final subItemName = subItem['name'] as String;
+                          final subItemPrice = subItem['price'] as int? ?? 0;
+                          final isSelected = selectedSubItems.any((item) => item['id'] == subItemId);
+                          
+                          return InkWell(
+                            onTap: () {
+                              setModalState(() {
+                                if (allowMultiple) {
+                                  // 다중 선택
+                                  if (isSelected) {
+                                    selectedSubItems.removeWhere((item) => item['id'] == subItemId);
+                                  } else {
+                                    selectedSubItems.add(subItem);
+                                  }
+                                } else {
+                                  // 단일 선택
+                                  selectedSubItems.clear();
+                                  selectedSubItems.add(subItem);
+                                }
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFF00C896).withOpacity(0.05)
+                                    : Colors.grey.shade50,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFF00C896)
+                                      : Colors.grey.shade200,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  // 아이콘
+                                  Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? const Color(0xFF00C896)
+                                          : Colors.grey.shade300,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      isSelected
+                                          ? Icons.check_circle
+                                          : Icons.build_outlined,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.grey.shade600,
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // 항목명
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Text(
+                                      subItemName,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? const Color(0xFF00C896)
+                                            : Colors.black87,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  // 가격
+                                  if (subItemPrice > 0)
+                                    Text(
+                                      '${subItemPrice.toString().replaceAllMapped(
+                                        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                        (Match m) => '${m[1]},',
+                                      )}원',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  
+                  // 확인 버튼
+                  SafeArea(
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, -5),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: selectedSubItems.isEmpty
+                            ? null
+                            : () {
+                                Navigator.pop(context);
+                                _completeSubItemSelection(parentItem, selectedSubItems);
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: selectedSubItems.isEmpty
+                              ? Colors.grey.shade300
+                              : const Color(0xFF00C896),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          selectedSubItems.isEmpty
+                              ? '부위를 선택해주세요'
+                              : '${selectedSubItems.length}개 항목 선택 완료',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    } catch (e) {
+      debugPrint('세부 항목 로드 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('세부 항목 로드 실패: $e')),
+        );
+      }
+    }
+  }
+  
+  // 세부 항목 선택 완료
+  void _completeSubItemSelection(
+    Map<String, dynamic> parentItem,
+    List<Map<String, dynamic>> selectedSubItems,
+  ) {
+    final parentName = parentItem['name'] as String;
+    
+    final repairItems = selectedSubItems.map((subItem) {
+      final subItemName = subItem['name'] as String;
+      final subItemPrice = subItem['price'] as int? ?? (parentItem['price'] as int);
+      
+      return {
+        'repairPart': '$parentName - $subItemName',
+        'priceRange': '${subItemPrice.toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        )}원',
+        'price': subItemPrice,
+        'scope': '전체',
+        'measurement': '선택 완료',
+      };
+    }).toList();
+    
+    context.push('/repair-confirmation', extra: {
+      'repairItems': repairItems,
+      'imageUrls': widget.imageUrls,
+    });
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -359,36 +561,48 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                                   final typeName = repairType['name'] as String;
                                   final subType = repairType['sub_type'] as String?;
                                   final price = repairType['price'] as int;
-                                  final isSelected = _selectedPartId == repairType['id'];
+                                  final partId = repairType['id'] as String;
+                                  final isSelected = _selectedPartIds.contains(partId);
+                                  final requiresMeasurement = repairType['requires_measurement'] as bool? ?? true;
                                   
                                   final displayName = subType != null ? '$typeName ($subType)' : typeName;
                                   
                                   return InkWell(
                                     onTap: () {
+                                      final hasSubParts = repairType['has_sub_parts'] as bool? ?? false;
+                                      
                                       setState(() {
-                                        _selectedPartId = repairType['id'] as String;
-                                        _selectedPartName = displayName;
+                                        _selectedPartIds.clear();
+                                        _selectedItems.clear();
+                                        _selectedPartIds.add(partId);
+                                        _selectedItems.add(repairType);
                                       });
                                       
-                                      // 선택 후 잠시 대기
+                                      // 선택 후 다음 단계로
                                       Future.delayed(const Duration(milliseconds: 300), () {
                                         if (mounted) {
-                                          // 세부 부위가 있는지 확인
-                                          final hasSubParts = repairType['has_sub_parts'] as bool? ?? false;
-                                          
-                                          if (hasSubParts) {
-                                            // TODO: 세부 부위 선택 페이지로 이동
-                                            _showSubPartsSelection(repairType);
+                                          if (requiresMeasurement) {
+                                            // 수치 입력이 필요한 경우 → 입력 페이지로
+                                            _proceedToNextStep(repairType);
+                                          } else if (hasSubParts) {
+                                            // 수치 입력 불필요 + 세부 항목 있음 → 세부 항목 선택 화면
+                                            _showSubItemsSelection(repairType);
                                           } else {
-                                            // 바로 상세 입력 페이지로 이동
-                                            context.push('/repair-detail-input', extra: {
+                                            // 수치 입력 불필요 + 세부 항목 없음 → 바로 확인 페이지
+                                            final repairItem = {
                                               'repairPart': displayName,
+                                              'priceRange': '${price.toString().replaceAllMapped(
+                                                RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                                (Match m) => '${m[1]},',
+                                              )}원',
                                               'price': price,
-                                              'repairTypeId': repairType['id'],
-                                              'requiresMultipleInputs': repairType['requires_multiple_inputs'] ?? false,
-                                              'inputLabels': repairType['input_labels'] ?? ['치수 (cm)'],
+                                              'scope': '전체',
+                                              'measurement': '선택 완료',
+                                            };
+                                            
+                                            context.push('/repair-confirmation', extra: {
+                                              'repairItems': [repairItem],
                                               'imageUrls': widget.imageUrls,
-                                              'imagesWithPins': widget.imagesWithPins,
                                             });
                                           }
                                         }
@@ -412,18 +626,46 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
                                           // 아이콘
-                                          Container(
-                                            width: 80,
-                                            height: 80,
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF00C896).withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            child: const Icon(
-                                              Icons.content_cut, // TODO: DB의 icon_name으로 SVG 로드
-                                              size: 40,
-                                              color: Color(0xFF00C896),
-                                            ),
+                                          Stack(
+                                            children: [
+                                              Container(
+                                                width: 80,
+                                                height: 80,
+                                                decoration: BoxDecoration(
+                                                  color: isSelected 
+                                                      ? const Color(0xFF00C896)
+                                                      : const Color(0xFF00C896).withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Icon(
+                                                  isSelected && !requiresMeasurement
+                                                      ? Icons.check_circle
+                                                      : Icons.content_cut, // TODO: DB의 icon_name으로 SVG 로드
+                                                  size: 40,
+                                                  color: isSelected 
+                                                      ? Colors.white
+                                                      : const Color(0xFF00C896),
+                                                ),
+                                              ),
+                                              if (isSelected && !requiresMeasurement)
+                                                Positioned(
+                                                  top: 4,
+                                                  right: 4,
+                                                  child: Container(
+                                                    width: 20,
+                                                    height: 20,
+                                                    decoration: const BoxDecoration(
+                                                      color: Colors.white,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.check,
+                                                      size: 16,
+                                                      color: Color(0xFF00C896),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                           const SizedBox(height: 12),
                                           
