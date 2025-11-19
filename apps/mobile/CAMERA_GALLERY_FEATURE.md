@@ -74,15 +74,22 @@ await imageService.deleteImage(
 
 ## 🔒 권한
 
-### Android
+### Android (AndroidManifest.xml에 추가됨)
 - `CAMERA`: 카메라 촬영
 - `READ_EXTERNAL_STORAGE`: 갤러리 읽기 (Android 12 이하)
 - `WRITE_EXTERNAL_STORAGE`: 저장소 쓰기 (Android 10 이하)
 - `READ_MEDIA_IMAGES`: 미디어 읽기 (Android 13+)
 
-### iOS (자동 처리됨)
-- `NSCameraUsageDescription`
-- `NSPhotoLibraryUsageDescription`
+### iOS (Info.plist에 추가됨)
+- `NSCameraUsageDescription`: 카메라 권한 설명
+  - "의류 사진을 촬영하여 수선 부위를 표시하기 위해 카메라 접근이 필요합니다."
+- `NSPhotoLibraryUsageDescription`: 사진 라이브러리 권한 설명
+  - "갤러리에서 의류 사진을 선택하여 수선 부위를 표시하기 위해 사진 접근이 필요합니다."
+- `NSPhotoLibraryAddUsageDescription`: 사진 저장 권한 (iOS 14+)
+  - "수선 사진을 저장하기 위해 사진 라이브러리 접근이 필요합니다."
+
+### Web
+- 브라우저 파일 선택 API 사용 (별도 권한 불필요)
 
 ## 📁 저장 구조
 
