@@ -177,9 +177,22 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         }
       }
       
+      // repair_type 추출 (첫 번째 수선 항목에서)
+      String repairType = '기타';
+      if (widget.repairItems.isNotEmpty) {
+        repairType = widget.repairItems[0]['repairPart'] ?? '기타';
+      }
+      
+      // repair_parts 배열 생성
+      List<String> repairParts = widget.repairItems
+          .map((item) => item['repairPart'] as String)
+          .toList();
+      
       debugPrint('주문명: $itemNames');
       debugPrint('주문 상세: $itemDescription');
       debugPrint('의류 타입: $clothingType');
+      debugPrint('수선 타입: $repairType');
+      debugPrint('수선 부위들: $repairParts');
       
       final totalPrice = _calculateTotalPrice();
       
@@ -209,7 +222,9 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         imageUrls: widget.imageUrls,
         imagesWithPins: allImagesWithPins, // 모든 의류의 핀 정보
         notes: _requestController.text,
-        clothingType: clothingType, // 의류 타입 추가
+        clothingType: clothingType, // 의류 타입
+        repairType: repairType, // 수선 타입
+        repairParts: repairParts, // 수선 부위들
       );
       
       debugPrint('✅ 주문 생성 완료: ${order['id']}');

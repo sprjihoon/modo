@@ -21,6 +21,8 @@ class OrderService {
     List<Map<String, dynamic>>? imagesWithPins, // 핀 정보 추가
     String? notes,
     String? clothingType, // 의류 타입 추가
+    String? repairType, // 수선 타입 추가
+    List<String>? repairParts, // 수선 부위들 추가
   }) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -38,9 +40,15 @@ class OrderService {
         'user_id': user.id, // auth.uid() 직접 사용
         'order_number': orderNumber, // 필수 컬럼
         'clothing_type': clothingType ?? '기타', // 필수 컬럼
+        'repair_type': repairType ?? '기타', // 필수 컬럼
         'base_price': basePrice,
         'total_price': totalPrice,
       };
+      
+      // repair_parts 배열 추가
+      if (repairParts != null && repairParts.isNotEmpty) {
+        orderData['repair_parts'] = repairParts;
+      }
       
       // repair_detail에 상세 정보 저장
       if (itemDescription.isNotEmpty) {
