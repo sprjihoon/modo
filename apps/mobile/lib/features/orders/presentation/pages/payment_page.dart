@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../services/order_service.dart';
+import '../../../../services/payment_service.dart';
 import '../../domain/models/image_pin.dart';
 
 /// 결제 페이지
@@ -19,13 +21,18 @@ class PaymentPage extends ConsumerStatefulWidget {
 
 class _PaymentPageState extends ConsumerState<PaymentPage> {
   final _orderService = OrderService();
+  final _paymentService = PaymentService();
   bool _isLoading = false;
+  bool _isLoadingPaymentMethods = true;
   Map<String, dynamic>? _orderData;
+  List<Map<String, dynamic>> _paymentMethods = [];
+  String? _selectedPaymentMethodId;
 
   @override
   void initState() {
     super.initState();
     _loadOrder();
+    _loadPaymentMethods();
   }
 
   Future<void> _loadOrder() async {
@@ -43,33 +50,61 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     }
   }
 
+  Future<void> _loadPaymentMethods() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        setState(() => _isLoadingPaymentMethods = false);
+        return;
+      }
+
+      final methods = await _paymentService.getPaymentMethods(user.id);
+      setState(() {
+        _paymentMethods = methods;
+        _isLoadingPaymentMethods = false;
+        // 기본 결제수단 자동 선택
+        if (methods.isNotEmpty) {
+          final defaultMethod = methods.firstWhere(
+            (m) => m['is_default'] == true,
+            orElse: () => methods.first,
+          );
+          _selectedPaymentMethodId = defaultMethod['id'];
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingPaymentMethods = false);
+      }
+    }
+  }
+
   /// 결제 진행
   Future<void> _processPayment() async {
+    if (_selectedPaymentMethodId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('결제수단을 선택해주세요'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      // TODO: PortOne SDK 연동
-      // import 'package:iamport_flutter/iamport_payment.dart';
-      // final payment = IamportPayment(
-      //   pg: 'html5_inicis',
-      //   pay_method: 'card',
-      //   merchant_uid: 'merchant_${widget.orderId}',
-      //   amount: _orderData!['total_price'],
-      //   name: _orderData!['item_name'],
-      // );
-      // final result = await Navigator.push(...);
+      // 선택한 결제수단 정보
+      final paymentMethod = _paymentMethods.firstWhere(
+        (m) => m['id'] == _selectedPaymentMethodId,
+      );
+      final billingKey = paymentMethod['billing_key'] as String;
 
-      // Mock 결제 (개발용)
-      await Future.delayed(const Duration(seconds: 2));
-      
-      final mockImpUid = 'imp_${DateTime.now().millisecondsSinceEpoch}';
-      final mockMerchantUid = 'merchant_${widget.orderId}';
-
-      // 1. 결제 검증
-      await _orderService.verifyPayment(
+      // 1. 빌링키로 결제
+      final paymentResult = await _paymentService.payWithBillingKey(
+        billingKey: billingKey,
         orderId: widget.orderId,
-        impUid: mockImpUid,
-        merchantUid: mockMerchantUid,
+        amount: _orderData!['total_price'] as int,
+        orderName: _orderData!['item_name'] as String,
       );
 
       if (!mounted) return;
@@ -78,9 +113,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       final shipment = await _orderService.bookShipment(
         orderId: widget.orderId,
         pickupAddress: _orderData!['pickup_address'],
-        pickupPhone: '010-1234-5678',
+        pickupPhone: _orderData!['pickup_phone'] ?? '010-1234-5678',
         deliveryAddress: _orderData!['delivery_address'],
-        deliveryPhone: '010-1234-5678',
+        deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
         customerName: _orderData!['customer_name'],
       );
 
@@ -91,6 +126,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         SnackBar(
           content: Text('결제 완료! 송장번호: ${shipment['tracking_no']}'),
           duration: const Duration(seconds: 3),
+          backgroundColor: const Color(0xFF00C896),
         ),
       );
 
@@ -98,7 +134,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('결제 실패: $e')),
+          SnackBar(
+            content: Text('결제 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -330,6 +369,84 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             ),
           ),
           
+          // 결제수단 선택
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '결제수단',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                if (_isLoadingPaymentMethods)
+                  const Center(child: CircularProgressIndicator())
+                else if (_paymentMethods.isEmpty)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final result = await context.push<bool>('/profile/payment-methods/add');
+                      if (result == true && mounted) {
+                        _loadPaymentMethods();
+                      }
+                    },
+                    icon: const Icon(Icons.add_card, size: 18),
+                    label: const Text('카드 등록하기'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF00C896),
+                      side: const BorderSide(color: Color(0xFF00C896)),
+                    ),
+                  )
+                else
+                  ..._paymentMethods.map((method) {
+                    final isSelected = method['id'] == _selectedPaymentMethodId;
+                    return RadioListTile<String>(
+                      value: method['id'],
+                      groupValue: _selectedPaymentMethodId,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedPaymentMethodId = value;
+                        });
+                      },
+                      activeColor: const Color(0xFF00C896),
+                      title: Row(
+                        children: [
+                          Text(
+                            method['card_company'] as String,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            method['card_number'] as String,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                    );
+                  }).toList(),
+              ],
+            ),
+          ),
+          
           // 결제 버튼
           Container(
             padding: const EdgeInsets.all(16),
@@ -345,7 +462,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             ),
             child: SafeArea(
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _processPayment,
+                onPressed: (_isLoading || _selectedPaymentMethodId == null) ? null : _processPayment,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(

@@ -20,6 +20,7 @@ class OrderService {
     List<String>? imageUrls,
     List<Map<String, dynamic>>? imagesWithPins, // 핀 정보 추가
     String? notes,
+    String? clothingType, // 의류 타입 추가
   }) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -27,35 +28,41 @@ class OrderService {
         throw Exception('로그인이 필요합니다');
       }
 
-      // 사용자 정보 조회
-      final userProfile = await _supabase
-          .from('users')
-          .select('id, name, email, phone')
-          .eq('auth_id', user.id)
-          .single();
+      // users 테이블 권한 문제로 인해 auth.uid() 직접 사용
+      debugPrint('📋 Auth User ID: ${user.id}');
 
-      // 주문 생성
-      final order = await _supabase.from('orders').insert({
-        'user_id': userProfile['id'],
-        'customer_name': userProfile['name'],
-        'customer_email': userProfile['email'],
-        'customer_phone': userProfile['phone'],
-        'item_name': itemName,
-        'item_description': itemDescription,
+      // 주문 생성 (실제 DB 구조에 맞게)
+      final orderNumber = 'ORD${DateTime.now().millisecondsSinceEpoch}';
+      
+      final orderData = <String, dynamic>{
+        'user_id': user.id, // auth.uid() 직접 사용
+        'order_number': orderNumber, // 필수 컬럼
+        'clothing_type': clothingType ?? '기타', // 필수 컬럼
         'base_price': basePrice,
         'total_price': totalPrice,
-        'pickup_address': pickupAddress,
-        'pickup_address_detail': pickupAddressDetail,
-        'pickup_zipcode': pickupZipcode,
-        'delivery_address': deliveryAddress,
-        'delivery_address_detail': deliveryAddressDetail,
-        'delivery_zipcode': deliveryZipcode,
-        'image_urls': imageUrls,
-        'images_with_pins': imagesWithPins, // 핀 정보 저장
-        'notes': notes,
-        'status': 'PENDING',
-        'payment_status': 'PENDING',
-      }).select().single();
+      };
+      
+      // repair_detail에 상세 정보 저장
+      if (itemDescription.isNotEmpty) {
+        orderData['repair_detail'] = itemDescription;
+      }
+      
+      // images에 사진 정보 저장 (jsonb)
+      if (imageUrls != null && imageUrls.isNotEmpty) {
+        orderData['images'] = {'urls': imageUrls};
+      }
+      
+      // images_with_pins에 핀 정보 저장 (jsonb)
+      if (imagesWithPins != null && imagesWithPins.isNotEmpty) {
+        orderData['images_with_pins'] = imagesWithPins;
+      }
+
+      debugPrint('📦 주문 데이터 (실제 컬럼): $orderData');
+
+      final order = await _supabase.from('orders').insert(orderData).select().single();
+      debugPrint('✅ 주문 생성 성공: ${order['id']}');
+      
+      return order;
 
       return order;
     } catch (e) {

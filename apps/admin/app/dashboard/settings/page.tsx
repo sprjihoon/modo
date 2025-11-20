@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
 
 export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState({
     siteName: "모두의수선",
     siteUrl: "https://modu-repair.com",
@@ -32,7 +33,8 @@ export default function SettingsPage() {
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
     supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
     cloudflareApiKey: "",
-    portoneApiKey: "",
+    tosspaymentsClientKey: "",
+    tosspaymentsSecretKey: "",
   });
 
   const [footerSettings, setFooterSettings] = useState({
@@ -47,10 +49,68 @@ export default function SettingsPage() {
     customerCenter: "1833-3429",
   });
 
-  const handleSave = () => {
-    // TODO: Save settings to Supabase
-    // TODO: Save footerSettings to Supabase
-    alert("설정이 저장되었습니다.");
+  // 초기 데이터 로드
+  useEffect(() => {
+    const loadCompanyInfo = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase');
+        const supabase = createClient();
+        
+        const { data, error } = await supabase
+          .from('company_info')
+          .select()
+          .limit(1)
+          .maybeSingle();
+        
+        if (data) {
+          setFooterSettings({
+            headerTitle: data.company_name?.split('(')[0].trim() || "의식주컴퍼니",
+            companyName: data.company_name || "(주) 의식주컴퍼니",
+            ceoName: data.ceo_name || "조성우",
+            businessNumber: data.business_number || "561-87-00957",
+            salesReportNumber: data.online_business_number || "2025-경기군포-0146호",
+            address: data.address || "경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)",
+            privacyOfficer: data.privacy_officer || "최종수",
+            email: data.email || "privacy@lifegoeson.kr",
+            customerCenter: data.phone || "1833-3429",
+          });
+        }
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Failed to load company info:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    loadCompanyInfo();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      // Supabase에서 가져오기
+      const { createClient } = await import('@/lib/supabase');
+      const supabase = createClient();
+      
+      // 푸터 정보 저장
+      const { error } = await supabase
+        .from('company_info')
+        .upsert({
+          company_name: footerSettings.companyName,
+          ceo_name: footerSettings.ceoName,
+          business_number: footerSettings.businessNumber,
+          online_business_number: footerSettings.salesReportNumber,
+          address: footerSettings.address,
+          privacy_officer: footerSettings.privacyOfficer,
+          email: footerSettings.email,
+          phone: footerSettings.customerCenter,
+        });
+      
+      if (error) throw error;
+      
+      alert("설정이 저장되었습니다.");
+    } catch (error: any) {
+      alert(`저장 실패: ${error.message}`);
+    }
   };
 
   return (
@@ -209,15 +269,28 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="portoneKey">PortOne API Key</Label>
+              <Label htmlFor="tosspaymentsClientKey">토스페이먼츠 Client Key</Label>
               <Badge variant="secondary">선택</Badge>
             </div>
             <Input
-              id="portoneKey"
+              id="tosspaymentsClientKey"
+              type="text"
+              value={settings.tosspaymentsClientKey}
+              onChange={(e) => setSettings({ ...settings, tosspaymentsClientKey: e.target.value })}
+              placeholder="test_ck_..."
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="tosspaymentsSecretKey">토스페이먼츠 Secret Key</Label>
+              <Badge variant="secondary">선택</Badge>
+            </div>
+            <Input
+              id="tosspaymentsSecretKey"
               type="password"
-              value={settings.portoneApiKey}
-              onChange={(e) => setSettings({ ...settings, portoneApiKey: e.target.value })}
-              placeholder="결제 처리용"
+              value={settings.tosspaymentsSecretKey}
+              onChange={(e) => setSettings({ ...settings, tosspaymentsSecretKey: e.target.value })}
+              placeholder="test_sk_... (서버에서 사용)"
             />
           </div>
         </CardContent>

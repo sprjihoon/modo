@@ -9,9 +9,16 @@ import '../../../../services/image_service.dart';
 /// 수선 의류 종류 선택 페이지
 class SelectClothingTypePage extends ConsumerStatefulWidget {
   final List<String> imageUrls;
+  final bool fromCamera; // 카메라 촬영 후 자동 진입 플래그
+  final String? imageUrl; // 촬영한 이미지 URL
+  final String? preSelectedCategory; // 미리 선택된 카테고리
   
   const SelectClothingTypePage({
-    required this.imageUrls, super.key,
+    required this.imageUrls,
+    this.fromCamera = false,
+    this.imageUrl,
+    this.preSelectedCategory,
+    super.key,
   });
 
   @override
@@ -26,12 +33,54 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
   
   List<Map<String, dynamic>> _clothingTypes = [];
   bool _isLoading = true;
+  bool _isNavigating = false; // 네비게이션 중 플래그
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    
+    // 카메라 촬영 후 자동 진입인 경우, 바로 핀 마킹으로 이동
+    if (widget.fromCamera && widget.imageUrl != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigateToImageAnnotation(widget.imageUrl!, widget.preSelectedCategory ?? '');
+      });
+    }
   }
+  
+   /// 핀 마킹 페이지로 이동 (카메라 촬영 후 자동 진입)
+   Future<void> _navigateToImageAnnotation(String imageUrl, String clothingType) async {
+     // 핀 마킹 페이지로 바로 이동
+     final result = await context.push<Map<String, dynamic>>(
+       '/image-annotation',
+       extra: {
+         'imagePath': imageUrl,
+         'pins': [],
+         'onComplete': null,
+       },
+     );
+     
+     // 핀 완료 후 수선 부위 선택으로 이동
+     if (result != null && mounted) {
+       _capturedImagesWithPins.add({
+         'imagePath': result['imagePath'] as String,
+         'pins': result['pins'] ?? [],
+         'clothingType': clothingType,
+       });
+       
+       final imageUrls = _capturedImagesWithPins
+           .map((e) => e['imagePath'] as String)
+           .toList();
+       
+       // 카테고리 페이지를 교체하면서 수선 부위 선택으로 이동
+       context.pushReplacement('/select-repair-parts', extra: {
+         'imageUrls': imageUrls,
+         'imagesWithPins': _capturedImagesWithPins,
+         'categoryId': _selectedCategoryId,
+         'categoryName': _selectedType,
+       });
+     }
+   }
   
   /// DB에서 카테고리 로드
   Future<void> _loadCategories() async {
@@ -162,99 +211,87 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
     );
   }
 
-  /// 이미지 선택/촬영
-  Future<void> _pickImage(ImageSource source, String clothingType) async {
-    try {
-      final imageService = ImageService();
-      
-      // 로딩 표시
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('이미지를 선택하는 중...'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
-      
-      // 1. 이미지 선택 및 업로드
-      final imageUrl = await imageService.pickAndUploadImage(
-        source: source,
-        bucket: 'order-images',
-        folder: 'repairs',
-      );
-      
-      // 사용자가 취소한 경우
-      if (imageUrl == null) return;
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('사진이 업로드되었습니다'),
-            backgroundColor: Color(0xFF00C896),
-            duration: Duration(seconds: 1),
-          ),
-        );
-        
-        // 2. 핀 표시 페이지로 이동 (이미지 주석)
-        final result = await context.push<Map<String, dynamic>>(
-          '/image-annotation',
-          extra: {
-            'imagePath': imageUrl,
-            'pins': [],
-            'onComplete': null,
-          },
-        );
-        
-        // 핀 표시 완료 후 이미지와 핀 정보를 함께 저장
-        if (result != null && mounted) {
-          setState(() {
-            _capturedImagesWithPins.add({
-              'imagePath': result['imagePath'] as String,
-              'pins': result['pins'] ?? [],
-              'clothingType': clothingType,
-            });
-          });
-          
-          // 성공 메시지 표시
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '수선 부위 ${(result['pins'] as List?)?.length ?? 0}개가 표시되었습니다',
-              ),
-              backgroundColor: const Color(0xFF00C896),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-          
-          // 수선 부위 선택 페이지로 이동 (핀 정보 포함)
-          final imageUrls = _capturedImagesWithPins
-              .map((e) => e['imagePath'] as String)
-              .toList();
-          
-          context.push('/select-repair-parts', extra: {
-            'imageUrls': imageUrls,
-            'imagesWithPins': _capturedImagesWithPins,
-            'categoryId': _selectedCategoryId,
-            'categoryName': _selectedType,
-          },);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('사진 추가 실패: $e'),
-            backgroundColor: Colors.red.shade400,
-          ),
-        );
-      }
-    }
-  }
+   /// 이미지 선택/촬영
+   Future<void> _pickImage(ImageSource source, String clothingType) async {
+     try {
+       final imageService = ImageService();
+       
+       // 1. 이미지 선택 및 업로드
+       final imageUrl = await imageService.pickAndUploadImage(
+         source: source,
+         bucket: 'order-images',
+         folder: 'repairs',
+       );
+       
+       // 사용자가 취소한 경우
+       if (imageUrl == null) return;
+       
+       if (!mounted) return;
+       
+       // 2. 즉시 오버레이 표시 (카테고리 화면 가림)
+       setState(() {
+         _isNavigating = true;
+       });
+       
+       // 3. 오버레이가 확실히 표시되도록 대기
+       await Future.delayed(const Duration(milliseconds: 100));
+       
+       // 4. 핀 마킹 페이지로 이동
+       final result = await context.push<Map<String, dynamic>>(
+         '/image-annotation',
+         extra: {
+           'imagePath': imageUrl,
+           'pins': [],
+           'onComplete': null,
+         },
+       );
+       
+       // 5. 핀 완료 후 수선 부위 선택으로 이동
+       if (result != null && mounted) {
+         _capturedImagesWithPins.add({
+           'imagePath': result['imagePath'] as String,
+           'pins': result['pins'] ?? [],
+           'clothingType': clothingType,
+         });
+         
+         final imageUrls = _capturedImagesWithPins
+             .map((e) => e['imagePath'] as String)
+             .toList();
+         
+         // pushReplacement로 카테고리 페이지 교체
+         context.pushReplacement('/select-repair-parts', extra: {
+           'imageUrls': imageUrls,
+           'imagesWithPins': _capturedImagesWithPins,
+           'categoryId': _selectedCategoryId,
+           'categoryName': _selectedType,
+         });
+       } else if (mounted) {
+         // 취소 시 오버레이 제거
+         setState(() {
+           _isNavigating = false;
+         });
+       }
+     } catch (e) {
+       if (mounted) {
+         setState(() {
+           _isNavigating = false;
+         });
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(
+             content: Text('사진 추가 실패: $e'),
+             backgroundColor: Colors.red.shade400,
+           ),
+         );
+       }
+     }
+   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Stack(
+      children: [
+        // 메인 화면
+        Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -391,6 +428,34 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
           ),
         ],
       ),
+        ),
+        
+        // 풀스크린 로딩 오버레이 (네비게이션 중일 때)
+        if (_isNavigating)
+          Positioned.fill(
+            child: Container(
+              color: Colors.white,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C896)),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '핀 마킹 화면으로 이동 중...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../domain/models/image_pin.dart';
+import '../../providers/repair_items_provider.dart';
+import '../../providers/cart_provider.dart';
 
 /// 수선 확인 페이지 (선택한 항목 및 가격 표시)
 class RepairConfirmationPage extends ConsumerStatefulWidget {
@@ -21,13 +23,489 @@ class RepairConfirmationPage extends ConsumerStatefulWidget {
 
 class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage> {
   bool _agreeToTerms = false;
+  final Set<int> _selectedItemIndices = {}; // 선택된 항목 인덱스
   
-  // 총 예상 가격 계산 (최소 가격 기준)
-  int _calculateTotalPrice() {
+  @override
+  void initState() {
+    super.initState();
+    // 페이지 로드 시 Provider를 현재 페이지의 항목으로 정확히 설정 (중복 방지)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Provider를 완전히 교체 (누적하지 않음)
+      ref.read(repairItemsProvider.notifier).setItems(widget.repairItems);
+      // 처음에는 모든 항목 선택
+      setState(() {
+        for (int i = 0; i < widget.repairItems.length; i++) {
+          _selectedItemIndices.add(i);
+        }
+      });
+    });
+  }
+  
+  @override
+  void dispose() {
+    // 페이지 종료 시 Provider 초기화하지 않음 (다른 의류 추가 시 유지 필요)
+    super.dispose();
+  }
+  
+  /// 핀 개수 계산
+  int _countPins(List<Map<String, dynamic>> imagesWithPins) {
+    int totalPins = 0;
+    for (var imageData in imagesWithPins) {
+      final pinsData = imageData['pins'] as List?;
+      if (pinsData != null) {
+        totalPins += pinsData.length;
+      }
+    }
+    return totalPins;
+  }
+  
+  /// 수선 항목 수정
+  void _editRepairItem(int index, Map<String, dynamic> item) async {
+    // 수치 수정 다이얼로그
+    final measurement = item['measurement'] as String;
+    final controller = TextEditingController(text: measurement.replaceAll('cm', '').trim());
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('수치 수정 - ${item['repairPart']}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '현재: $measurement',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: '새로운 치수 (cm)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                suffixText: 'cm',
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, controller.text);
+            },
+            child: const Text('수정', style: TextStyle(color: Color(0xFF00C896), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    
+    if (result != null && result.isNotEmpty && mounted) {
+      // 항목 업데이트
+      final updatedItems = List<Map<String, dynamic>>.from(widget.repairItems);
+      updatedItems[index] = {
+        ...item,
+        'measurement': '${result}cm',
+      };
+      
+      ref.read(repairItemsProvider.notifier).setItems(updatedItems);
+      
+      // 페이지 새로고침
+      context.pushReplacement('/repair-confirmation', extra: {
+        'repairItems': updatedItems,
+        'imageUrls': widget.imageUrls,
+        'imagesWithPins': widget.imagesWithPins,
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('수치가 수정되었습니다'),
+          backgroundColor: Color(0xFF00C896),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+  
+  /// 의류 상세 페이지 표시
+  void _showRepairItemDetail(BuildContext context, Map<String, dynamic> item, int index) {
+    final itemImages = item['imagesWithPins'] as List<Map<String, dynamic>>?;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // 핸들
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                
+                // 헤더
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00C896),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '의류 ${index + 1}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          item['repairPart'] as String,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, color: Color(0xFF00C896)),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _editRepairItem(index, item);
+                        },
+                        tooltip: '수정',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _deleteRepairItem(index);
+                        },
+                        tooltip: '삭제',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const Divider(height: 1),
+                
+                // 내용
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 가격
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00C896).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '예상 가격',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              Text(
+                                item['priceRange'] as String,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF00C896),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 20),
+                        
+                        // 수선 정보
+                        Text(
+                          '수선 정보',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildInfoRow('범위', item['scope'] as String),
+                        _buildInfoRow('치수', item['measurement'] as String),
+                        
+                        // 이미지와 핀
+                        if (itemImages != null && itemImages.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          Text(
+                            '첨부 사진 및 수선 부위',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildRepairItemImages(itemImages),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+  
+  /// 정보 행 빌더
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// 수선 항목 삭제
+  void _deleteRepairItem(int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('항목 삭제'),
+        content: const Text('이 수선 항목을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              
+              // Provider에서 항목 제거
+              ref.read(repairItemsProvider.notifier).removeItem(index);
+              final updatedItems = ref.read(repairItemsProvider);
+              
+              if (updatedItems.isEmpty) {
+                // 모든 항목이 삭제되면 홈으로 이동
+                context.go('/home');
+              } else {
+                // 페이지 새로고침
+                context.pushReplacement('/repair-confirmation', extra: {
+                  'repairItems': updatedItems,
+                  'imageUrls': widget.imageUrls,
+                  'imagesWithPins': widget.imagesWithPins,
+                });
+              }
+            },
+            child: const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// 수거신청 진행
+  void _proceedToPickup() {
+    final selectedItems = _selectedItemIndices
+        .map((index) => widget.repairItems[index])
+        .toList();
+    final unselectedCount = widget.repairItems.length - _selectedItemIndices.length;
+    
+    if (unselectedCount > 0) {
+      // 선택되지 않은 항목이 있으면 확인
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('수거신청 확인'),
+          content: Text(
+            '선택된 ${_selectedItemIndices.length}개 항목만 수거신청하고,\n선택되지 않은 $unselectedCount개 항목은 삭제됩니다.\n\n계속하시겠습니까?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _confirmPickup(selectedItems);
+              },
+              child: const Text('수거신청', style: TextStyle(color: Color(0xFF00C896), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    } else {
+      _confirmPickup(selectedItems);
+    }
+  }
+  
+  /// 수거신청 확정
+  void _confirmPickup(List<Map<String, dynamic>> selectedItems) {
+    // Provider 초기화
+    ref.read(repairItemsProvider.notifier).clear();
+    
+    // 수거신청 페이지로 이동
+    context.push('/pickup-request', extra: {
+      'repairItems': selectedItems,
+      'imageUrls': widget.imageUrls,
+    },);
+  }
+  
+  /// 장바구니에 담기
+  void _addToCart() {
+    final selectedItems = _selectedItemIndices
+        .map((index) => widget.repairItems[index])
+        .toList();
+    final unselectedCount = widget.repairItems.length - _selectedItemIndices.length;
+    
+    if (unselectedCount > 0) {
+      // 선택되지 않은 항목이 있으면 확인
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('장바구니 담기 확인'),
+          content: Text(
+            '선택된 ${_selectedItemIndices.length}개 항목만 장바구니에 담고,\n선택되지 않은 $unselectedCount개 항목은 삭제됩니다.\n\n계속하시겠습니까?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _confirmAddToCart(selectedItems);
+              },
+              child: const Text('장바구니에 담기', style: TextStyle(color: Color(0xFF00C896), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    } else {
+      _confirmAddToCart(selectedItems);
+    }
+  }
+  
+  /// 장바구니 담기 확정
+  void _confirmAddToCart(List<Map<String, dynamic>> selectedItems) {
+    // 장바구니에 추가
+    ref.read(cartProvider.notifier).addToCart(
+      repairItems: selectedItems,
+      imageUrls: widget.imageUrls,
+      imagesWithPins: widget.imagesWithPins,
+    );
+    
+    // Provider 초기화
+    ref.read(repairItemsProvider.notifier).clear();
+    
+    // 성공 메시지 표시
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${selectedItems.length}개 항목을 장바구니에 담았습니다'),
+        backgroundColor: const Color(0xFF00C896),
+        action: SnackBarAction(
+          label: '보기',
+          textColor: Colors.white,
+          onPressed: () {
+            context.push('/cart');
+          },
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+    
+    // 홈으로 이동
+    context.go('/home');
+  }
+  
+  /// 다른 의류 추가하기
+  void _addAnotherClothing() {
+    // 현재 모든 항목을 Provider에 저장
+    ref.read(repairItemsProvider.notifier).setItems(widget.repairItems);
+    
+    // 현재 페이지를 닫고 의류 선택 페이지로 이동
+    context.pop();
+    context.push('/select-clothing-type', extra: widget.imageUrls);
+  }
+  
+  // 선택된 항목의 총 가격 계산
+  int _calculateSelectedTotalPrice() {
     int total = 0;
-    for (var item in widget.repairItems) {
+    for (int index in _selectedItemIndices) {
+      if (index < widget.repairItems.length) {
+        final item = widget.repairItems[index];
       final priceRange = item['priceRange'] as String;
-      // "8,000원 ~ 18,000원" 형식에서 최소 가격 추출
       final prices = priceRange.split('~');
       if (prices.isNotEmpty) {
         final minPrice = prices[0]
@@ -36,6 +514,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
             .replaceAll('부위당', '')
             .trim();
         total += int.tryParse(minPrice) ?? 0;
+        }
       }
     }
     return total;
@@ -43,7 +522,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
 
   @override
   Widget build(BuildContext context) {
-    final totalPrice = _calculateTotalPrice();
+    final selectedTotalPrice = _calculateSelectedTotalPrice();
     
     return Scaffold(
       backgroundColor: Colors.white,
@@ -77,36 +556,59 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
+      body: SingleChildScrollView(
               child: Column(
                 children: [
-                  // 사진 with 핀 표시
-                  if (widget.imageUrls.isNotEmpty)
-                    _buildImageWithPins(context),
-                  
                   const SizedBox(height: 20),
                   
                   // 총 정찰가격
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C896).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '총 정찰가격',
+                          '선택된 항목',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        Text(
+                          '${_selectedItemIndices.length}개',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF00C896),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '선택 항목 예상 가격',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade800,
                           ),
                         ),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              totalPrice.toString().replaceAllMapped(
+                              selectedTotalPrice.toString().replaceAllMapped(
                                 RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
                                 (Match m) => '${m[1]},',
                               ),
@@ -128,42 +630,64 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                         ),
                       ],
                     ),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // 선택 안내
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00C896).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.touch_app,
+                    size: 18,
+                    color: Color(0xFF00C896),
                   ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // 가격표 보기 버튼
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          // TODO: 가격표 보기
-                        },
-                        style: TextButton.styleFrom(
-                          backgroundColor: const Color(0xFF00C896).withOpacity(0.1),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        child: const Text(
-                          '가격표 보기',
-                          style: TextStyle(
-                            fontSize: 13,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '신청할 항목을 선택해주세요 (${_selectedItemIndices.length}/${widget.repairItems.length}개)',
+                      style: const TextStyle(
+                        fontSize: 12,
                             color: Color(0xFF00C896),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        if (_selectedItemIndices.length == widget.repairItems.length) {
+                          _selectedItemIndices.clear();
+                        } else {
+                          _selectedItemIndices.clear();
+                          for (int i = 0; i < widget.repairItems.length; i++) {
+                            _selectedItemIndices.add(i);
+                          }
+                        }
+                      });
+                    },
+                    child: Text(
+                      _selectedItemIndices.length == widget.repairItems.length ? '전체해제' : '전체선택',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF00C896),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  
-                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
                   
                   // 수선 항목 리스트 (각 항목의 사진과 핀 포함)
                   Padding(
@@ -173,18 +697,94 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                         final index = entry.key;
                         final item = entry.value;
                         final itemImages = item['imagesWithPins'] as List<Map<String, dynamic>>?;
-                        
-                        return Container(
+                  final isSelected = _selectedItemIndices.contains(index);
+                  
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedItemIndices.remove(index);
+                        } else {
+                          _selectedItemIndices.add(index);
+                        }
+                      });
+                    },
+                    onLongPress: () {
+                      // 길게 누르면 상세 페이지
+                      _showRepairItemDetail(context, item, index);
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
                           margin: const EdgeInsets.only(bottom: 16),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFF00C896).withOpacity(0.3),
-                              width: 2,
-                            ),
+                          color: isSelected
+                              ? const Color(0xFF00C896)
+                              : Colors.grey.shade300,
+                          width: isSelected ? 2 : 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              // 선택 체크박스
+                              Checkbox(
+                                value: isSelected,
+                                onChanged: (value) {
+                                  setState(() {
+                                    if (value == true) {
+                                      _selectedItemIndices.add(index);
+                                    } else {
+                                      _selectedItemIndices.remove(index);
+                                    }
+                                  });
+                                },
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                activeColor: const Color(0xFF00C896),
+                              ),
+                              // 썸네일 이미지
+                              if (itemImages != null && itemImages.isNotEmpty)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: CachedNetworkImage(
+                                    imageUrl: itemImages.first['imagePath'] as String,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Container(
+                                      width: 80,
+                                      height: 80,
+                                      color: Colors.grey.shade200,
+                                      child: const Center(
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) => Container(
+                                      width: 80,
+                                      height: 80,
+                                      color: Colors.grey.shade200,
+                                      child: const Icon(Icons.image_outlined, size: 30),
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(width: 12),
+                              
+                              // 항목 정보
+                              Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -192,31 +792,70 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                               Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF00C896),
-                                      borderRadius: BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
                                       '의류 ${index + 1}',
                                       style: const TextStyle(
-                                        fontSize: 11,
+                                              fontSize: 10,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
+                                        const Spacer(),
+                                        // 수정 버튼
+                                        InkWell(
+                                          onTap: () => _editRepairItem(index, item),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(4),
+                                            child: const Icon(
+                                              Icons.edit_outlined,
+                                              color: Color(0xFF00C896),
+                                              size: 18,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        // 삭제 버튼
+                                        InkWell(
+                                          onTap: () => _deleteRepairItem(index),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(4),
+                                            child: const Icon(
+                                              Icons.delete_outline,
+                                              color: Colors.red,
+                                              size: 18,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
                                       item['repairPart'] as String,
                                       style: const TextStyle(
-                                        fontSize: 15,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.black87,
                                       ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${item['scope']} · ${item['measurement']}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
                                   Text(
                                     item['priceRange'] as String,
                                     style: const TextStyle(
@@ -227,23 +866,42 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '${item['scope']} · ${item['measurement']}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey.shade600,
-                                ),
                               ),
-                              
-                              // 이 항목의 사진과 핀 표시
+                            ],
+                          ),
+                          
+                          // 핀 개수 표시
                               if (itemImages != null && itemImages.isNotEmpty) ...[
                                 const SizedBox(height: 12),
-                                const Divider(),
-                                const SizedBox(height: 8),
-                                _buildRepairItemImages(itemImages),
-                              ],
-                            ],
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00C896).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.push_pin,
+                                    size: 14,
+                                    color: Color(0xFF00C896),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '수선 부위 ${_countPins(itemImages)}개 표시됨',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF00C896),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                           ),
                         );
                       }).toList(),
@@ -255,14 +913,10 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                   // 의류 추가 버튼
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () async {
-                        // 현재 선택한 항목들을 유지하면서 의류 추가
-                        final result = await context.push('/select-clothing-type', extra: widget.imageUrls);
-                        
-                        // 새로운 의류가 추가되면 기존 항목에 합쳐서 다시 표시
-                        // TODO: 여러 의류 항목을 누적하는 로직 필요
-                      },
+                  onPressed: _addAnotherClothing,
                       icon: const Icon(Icons.add_circle_outline, size: 20),
                       label: const Text('다른 의류 추가하기'),
                       style: OutlinedButton.styleFrom(
@@ -271,6 +925,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
+                    ),
                         ),
                       ),
                     ),
@@ -324,31 +979,12 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                     ),
                   ),
                   
-                  const SizedBox(height: 100),
-                ],
-              ),
-            ),
-          ),
-          
-          // 하단 확인 영역
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 동의 체크박스
-                  InkWell(
+            const SizedBox(height: 24),
+            
+            // 동의 체크박스 (페이지 내)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: InkWell(
                     onTap: () {
                       setState(() {
                         _agreeToTerms = !_agreeToTerms;
@@ -399,21 +1035,21 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                       ],
                     ),
                   ),
+            ),
+            
                   const SizedBox(height: 16),
                   
-                  // 등록하기 버튼
-                  ElevatedButton(
-                    onPressed: _agreeToTerms
-                        ? () {
-                            // 수거신청 페이지로 이동
-                            context.push('/pickup-request', extra: {
-                              'repairItems': widget.repairItems,
-                              'imageUrls': widget.imageUrls,
-                            },);
-                          }
+            // 등록하기 버튼 (페이지 내, 가로 꽉 찬 형태)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: (_agreeToTerms && _selectedItemIndices.isNotEmpty)
+                      ? () => _proceedToPickup()
                         : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _agreeToTerms
+                    backgroundColor: (_agreeToTerms && _selectedItemIndices.isNotEmpty)
                           ? const Color(0xFF00C896)
                           : Colors.grey.shade300,
                       foregroundColor: Colors.white,
@@ -422,190 +1058,65 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                    child: const Text(
-                      '등록하기',
-                      style: TextStyle(
+                    minimumSize: const Size(double.infinity, 54),
+                  ),
+                  child: Text(
+                    _selectedItemIndices.isEmpty
+                        ? '항목을 선택해주세요'
+                        : '선택 항목 수거신청 (${_selectedItemIndices.length}개)',
+                    style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 핀이 표시된 이미지 빌드
-  Widget _buildImageWithPins(BuildContext context) {
-    // 첫 번째 이미지와 핀 정보 가져오기
-    final firstImageUrl = widget.imageUrls.first;
-    final firstImageData = widget.imagesWithPins?.firstWhere(
-      (img) => img['imagePath'] == firstImageUrl,
-      orElse: () => {},
-    );
-    final pins = firstImageData?['pins'] as List? ?? [];
-
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.5,
+            
+            const SizedBox(height: 12),
+            
+            // 장바구니에 담기 버튼
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
       width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 사진
-          Image.network(
-            firstImageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.grey.shade200,
-                child: const Center(
-                  child: Icon(Icons.image_outlined, size: 60, color: Colors.grey),
-                ),
-              );
-            },
-          ),
-          
-          // 핀들 표시
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
-                children: pins.map<Widget>((pinData) {
-                  // pinData는 ImagePin 객체를 Map으로 변환한 것
-                  final x = (pinData['relativePosition']?['dx'] ?? 0.5) as double;
-                  final y = (pinData['relativePosition']?['dy'] ?? 0.5) as double;
-                  
-                  return Positioned(
-                    left: x * constraints.maxWidth - 10,
-                    top: y * constraints.maxHeight - 10,
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00C896),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 3,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
+                child: OutlinedButton.icon(
+                  onPressed: (_agreeToTerms && _selectedItemIndices.isNotEmpty)
+                      ? () => _addToCart()
+                      : null,
+                  icon: const Icon(Icons.shopping_cart_outlined, size: 20),
+                  label: Text(
+                    _selectedItemIndices.isEmpty
+                        ? '항목을 선택해주세요'
+                        : '선택 항목 장바구니에 담기 (${_selectedItemIndices.length}개)',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: (_agreeToTerms && _selectedItemIndices.isNotEmpty)
+                        ? const Color(0xFF00C896)
+                        : Colors.grey.shade400,
+                    side: BorderSide(
+                      color: (_agreeToTerms && _selectedItemIndices.isNotEmpty)
+                          ? const Color(0xFF00C896)
+                          : Colors.grey.shade300,
+                      width: 1.5,
                     ),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-          
-          // 그라데이션 오버레이
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.4),
-                ],
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    minimumSize: const Size(double.infinity, 54),
+                  ),
+                ),
               ),
             ),
-          ),
-          
-          // 하단 정보
-          Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 핀 개수 표시
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00C896),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.push_pin,
-                        size: 14,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '수선 부위 ${pins.length}개 표시',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // 수선 항목 표시
-                if (widget.repairItems.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.95),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.content_cut_rounded,
-                          color: Color(0xFF00C896),
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            widget.repairItems.first['repairPart'] as String,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
+            
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
+
 
   /// 각 수선 항목의 사진과 핀 표시
   Widget _buildRepairItemImages(List<Map<String, dynamic>> imagesWithPins) {

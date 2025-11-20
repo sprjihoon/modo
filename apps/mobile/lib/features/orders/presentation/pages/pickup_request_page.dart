@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../services/address_service.dart';
 import '../../../../services/order_service.dart';
+import '../../../../services/payment_service.dart';
+import '../../providers/repair_items_provider.dart';
 
 /// 수거신청 페이지
 class PickupRequestPage extends ConsumerStatefulWidget {
@@ -29,15 +32,51 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   
   final _addressService = AddressService();
   final _orderService = OrderService();
+  final _paymentService = PaymentService();
   
   String? _selectedAddressId;
   bool _isLoading = false;
   bool _isLoadingAddress = true;
+  bool _isLoadingPaymentMethods = true;
+  
+  List<Map<String, dynamic>> _paymentMethods = [];
+  String? _selectedPaymentMethodId;
   
   @override
   void initState() {
     super.initState();
     _loadDefaultAddress();
+    _loadPaymentMethods();
+  }
+  
+  /// 결제수단 목록 로드
+  Future<void> _loadPaymentMethods() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        setState(() => _isLoadingPaymentMethods = false);
+        return;
+      }
+
+      final methods = await _paymentService.getPaymentMethods(user.id);
+      setState(() {
+        _paymentMethods = methods;
+        _isLoadingPaymentMethods = false;
+        // 기본 결제수단 자동 선택
+        if (methods.isNotEmpty) {
+          final defaultMethod = methods.firstWhere(
+            (m) => m['is_default'] == true,
+            orElse: () => methods.first,
+          );
+          _selectedPaymentMethodId = defaultMethod['id'];
+        }
+      });
+    } catch (e) {
+      debugPrint('결제수단 로드 실패: $e');
+      if (mounted) {
+        setState(() => _isLoadingPaymentMethods = false);
+      }
+    }
   }
   
   @override
@@ -117,14 +156,30 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     setState(() => _isLoading = true);
     
     try {
+      debugPrint('🔧 주문 생성 시작...');
+      debugPrint('수선 항목 개수: ${widget.repairItems.length}');
+      
       // 주문 정보 구성
       final itemNames = widget.repairItems
-          .map((item) => '${item['clothingType']} ${item['repairType']}')
+          .map((item) => item['repairPart'] as String)
           .join(', ');
       
       final itemDescription = widget.repairItems
-          .map((item) => '${item['repairPart']}: ${item['repairDetail'] ?? ""}')
+          .map((item) => '${item['repairPart']}: ${item['scope']} - ${item['measurement']}')
           .join('\n');
+      
+      // clothing_type 추출 (한글 그대로 사용)
+      String clothingType = '기타';
+      if (widget.repairItems.isNotEmpty) {
+        final imagesWithPins = widget.repairItems[0]['imagesWithPins'];
+        if (imagesWithPins is List && imagesWithPins.isNotEmpty) {
+          clothingType = imagesWithPins[0]['clothingType'] ?? '기타';
+        }
+      }
+      
+      debugPrint('주문명: $itemNames');
+      debugPrint('주문 상세: $itemDescription');
+      debugPrint('의류 타입: $clothingType');
       
       final totalPrice = _calculateTotalPrice();
       
@@ -136,6 +191,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
           allImagesWithPins.addAll(itemImages);
         }
       }
+      
+      debugPrint('📦 주문 생성 중...');
       
       // 주문 생성
       final order = await _orderService.createOrder(
@@ -152,18 +209,29 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         imageUrls: widget.imageUrls,
         imagesWithPins: allImagesWithPins, // 모든 의류의 핀 정보
         notes: _requestController.text,
+        clothingType: clothingType, // 의류 타입 추가
       );
       
+      debugPrint('✅ 주문 생성 완료: ${order['id']}');
+      
       if (mounted) {
+        // 주문 생성 성공 - Provider 초기화
+        ref.read(repairItemsProvider.notifier).clear();
+        
+        debugPrint('🔄 결제 페이지로 이동: ${order['id']}');
+        
         // 결제 페이지로 이동
         context.push('/payment/${order['id']}');
       }
     } catch (e) {
+      debugPrint('❌ 주문 생성 실패: $e');
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('주문 생성 실패: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -514,76 +582,168 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                     ),
                     const SizedBox(height: 16),
                     
-                    // 결제수단 등록 안내
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.red.shade100,
+                    // 결제수단 표시
+                    if (_isLoadingPaymentMethods)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20.0),
+                          child: CircularProgressIndicator(),
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            color: Colors.red.shade700,
-                            size: 20,
+                      )
+                    else if (_paymentMethods.isEmpty)
+                      // 결제수단이 없을 때
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.red.shade100,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.black87,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Colors.red.shade700,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: '결제수단을 등록',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red.shade700,
+                                      ),
+                                    ),
+                                    const TextSpan(text: '해주세요'),
+                                  ],
                                 ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final result = await context.push<bool>('/profile/payment-methods/add');
+                                if (result == true && mounted) {
+                                  _loadPaymentMethods();
+                                }
+                              },
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text(
+                                '등록하기',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      // 결제수단이 있을 때
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFF00C896),
+                            width: 2,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00C896).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.credit_card,
+                                color: Color(0xFF00C896),
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  TextSpan(
-                                    text: '결제수단을 등록',
-                                    style: TextStyle(
+                                  Text(
+                                    _paymentMethods.firstWhere(
+                                      (m) => m['id'] == _selectedPaymentMethodId,
+                                      orElse: () => _paymentMethods.first,
+                                    )['card_company'].toString(),
+                                    style: const TextStyle(
+                                      fontSize: 15,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.red.shade700,
+                                      color: Colors.black87,
                                     ),
                                   ),
-                                  const TextSpan(text: '해주세요'),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _paymentMethods.firstWhere(
+                                      (m) => m['id'] == _selectedPaymentMethodId,
+                                      orElse: () => _paymentMethods.first,
+                                    )['card_number'].toString(),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              // TODO: 결제수단 등록 페이지로 이동
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('결제수단 등록 기능 구현 예정'),
-                                  backgroundColor: Color(0xFF00C896),
+                            TextButton(
+                              onPressed: () async {
+                                final result = await context.push('/profile/payment-methods');
+                                if (result == true && mounted) {
+                                  _loadPaymentMethods();
+                                }
+                              },
+                              style: TextButton.styleFrom(
+                                backgroundColor: const Color(0xFF00C896).withOpacity(0.1),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
                                 ),
-                              );
-                            },
-                            style: TextButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: const Text(
-                              '변경',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.black87,
-                                fontWeight: FontWeight.w600,
+                              child: const Text(
+                                '변경',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF00C896),
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 12),
                     
                     // 안내 메시지

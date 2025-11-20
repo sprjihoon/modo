@@ -20,6 +20,7 @@ import '../../features/orders/presentation/pages/repair_confirmation_page.dart';
 import '../../features/orders/presentation/pages/pickup_request_page.dart';
 import '../../features/orders/presentation/pages/payment_page.dart';
 import '../../features/orders/presentation/pages/image_annotation_page.dart';
+import '../../features/orders/presentation/pages/cart_page.dart';
 import '../../features/orders/domain/models/image_pin.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/account_info_page.dart';
@@ -27,6 +28,7 @@ import '../../features/profile/presentation/pages/change_password_page.dart';
 import '../../features/profile/presentation/pages/addresses_page.dart';
 import '../../features/profile/presentation/pages/add_address_page.dart';
 import '../../features/profile/presentation/pages/payment_methods_page.dart';
+import '../../features/profile/presentation/pages/add_payment_method_page.dart';
 import '../../features/profile/presentation/pages/payment_history_page.dart';
 import '../../features/profile/presentation/pages/receipt_page.dart';
 import '../../features/profile/presentation/pages/points_history_page.dart';
@@ -106,12 +108,28 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CreateOrderPage(),
       ),
       
+      // Cart (장바구니)
+      GoRoute(
+        path: '/cart',
+        name: 'cart',
+        builder: (context, state) => const CartPage(),
+      ),
+      
       // Select Clothing Type
       GoRoute(
         path: '/select-clothing-type',
         name: 'select-clothing-type',
         builder: (context, state) {
-          final imageUrls = state.extra as List<String>? ?? [];
+          final data = state.extra;
+          if (data is Map<String, dynamic>) {
+            return SelectClothingTypePage(
+              imageUrls: data['imageUrls'] as List<String>? ?? [],
+              fromCamera: data['fromCamera'] as bool? ?? false,
+              imageUrl: data['imageUrl'] as String?,
+              preSelectedCategory: data['preSelectedCategory'] as String?,
+            );
+          }
+          final imageUrls = data as List<String>? ?? [];
           return SelectClothingTypePage(imageUrls: imageUrls);
         },
       ),
@@ -133,7 +151,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/select-repair-parts',
         name: 'select-repair-parts',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final data = state.extra;
           List<String> imageUrls = [];
           List<Map<String, dynamic>>? imagesWithPins;
@@ -149,11 +167,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             imageUrls = data;
           }
           
-          return SelectRepairPartsPage(
-            imageUrls: imageUrls,
-            imagesWithPins: imagesWithPins,
-            categoryId: categoryId,
-            categoryName: categoryName,
+          // 애니메이션 없이 즉시 표시 (깜빡임 최소화)
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: SelectRepairPartsPage(
+              imageUrls: imageUrls,
+              imagesWithPins: imagesWithPins,
+              categoryId: categoryId,
+              categoryName: categoryName,
+            ),
+            transitionDuration: Duration.zero, // 애니메이션 없음
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return child; // 애니메이션 효과 없이 바로 표시
+            },
           );
         },
       ),
@@ -275,6 +301,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'payment-methods',
             name: 'profile-payment-methods',
             builder: (context, state) => const PaymentMethodsPage(),
+            routes: [
+              // 결제수단 추가
+              GoRoute(
+                path: 'add',
+                name: 'profile-payment-methods-add',
+                builder: (context, state) => const AddPaymentMethodPage(),
+              ),
+            ],
           ),
           // 결제내역
           GoRoute(

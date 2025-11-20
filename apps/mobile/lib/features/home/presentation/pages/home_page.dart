@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../../auth/data/providers/auth_provider.dart';
+import '../../../orders/providers/cart_provider.dart';
 
 /// 홈 화면
 class HomePage extends ConsumerStatefulWidget {
@@ -37,6 +38,49 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
         actions: [
+          // 장바구니 아이콘
+          Consumer(
+            builder: (context, ref, child) {
+              final cartItemCount = ref.watch(cartItemCountProvider);
+              
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black),
+                    tooltip: '장바구니',
+                    onPressed: () {
+                      context.push('/cart');
+                    },
+                  ),
+                  if (cartItemCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          cartItemCount > 99 ? '99+' : '$cartItemCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           // 주문 목록 아이콘
           IconButton(
             icon: const Icon(Icons.receipt_long_outlined, color: Colors.black),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 사업자 정보 아코디언 푸터
 class CompanyFooter extends StatefulWidget {
@@ -14,6 +15,9 @@ class _CompanyFooterState extends State<CompanyFooter>
   bool _isExpanded = false;
   late AnimationController _controller;
   late Animation<double> _heightAnimation;
+  
+  Map<String, dynamic>? _companyInfo;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -26,6 +30,34 @@ class _CompanyFooterState extends State<CompanyFooter>
       parent: _controller,
       curve: Curves.easeInOut,
     );
+    _loadCompanyInfo();
+  }
+  
+  Future<void> _loadCompanyInfo() async {
+    try {
+      debugPrint('🔍 Loading company info from DB...');
+      final data = await Supabase.instance.client
+          .from('company_info')
+          .select()
+          .limit(1)
+          .maybeSingle();
+      
+      debugPrint('✅ Company info loaded: $data');
+      
+      if (mounted) {
+        setState(() {
+          _companyInfo = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to load company info: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -65,9 +97,9 @@ class _CompanyFooterState extends State<CompanyFooter>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  const Text(
-                    '의식주컴퍼니',
-                    style: TextStyle(
+                  Text(
+                    _companyInfo?['company_name']?.toString().split('(')[0].trim() ?? '의식주컴퍼니',
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: Colors.black87,
@@ -98,26 +130,56 @@ class _CompanyFooterState extends State<CompanyFooter>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 사업자 정보
-                  _buildInfoRow('회사명', '(주) 의식주컴퍼니'),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('대표자', '조성우'),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('사업자등록번호', '561-87-00957'),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('통신판매업신고번호', '2025-경기군포-0146호'),
-                  const SizedBox(height: 8),
-                  _buildInfoRow(
-                    '주소',
-                    '경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('개인정보관리책임자', '최종수'),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('이메일', 'privacy@lifegoeson.kr'),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('고객센터', '1833-3429'),
-                  const SizedBox(height: 16),
+                  if (_isLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  else if (_companyInfo != null) ...[
+                    // 사업자 정보 (DB에서 로드)
+                    _buildInfoRow('회사명', _companyInfo!['company_name'] ?? '(주) 의식주컴퍼니'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('대표자', _companyInfo!['ceo_name'] ?? '조성우'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('사업자등록번호', _companyInfo!['business_number'] ?? '561-87-00957'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('통신판매업신고번호', _companyInfo!['online_business_number'] ?? '2025-경기군포-0146호'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow(
+                      '주소',
+                      _companyInfo!['address'] ?? '경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('개인정보관리책임자', _companyInfo!['privacy_officer'] ?? '최종수'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('이메일', _companyInfo!['email'] ?? 'privacy@lifegoeson.kr'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('고객센터', _companyInfo!['phone'] ?? '1833-3429'),
+                    const SizedBox(height: 16),
+                  ] else ...[
+                    // 기본 정보 (DB 로드 실패 시)
+                    _buildInfoRow('회사명', '(주) 의식주컴퍼니'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('대표자', '조성우'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('사업자등록번호', '561-87-00957'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('통신판매업신고번호', '2025-경기군포-0146호'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow(
+                      '주소',
+                      '경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('개인정보관리책임자', '최종수'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('이메일', 'privacy@lifegoeson.kr'),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('고객센터', '1833-3429'),
+                    const SizedBox(height: 16),
+                  ],
                   
                   // 하단 링크
                   Row(

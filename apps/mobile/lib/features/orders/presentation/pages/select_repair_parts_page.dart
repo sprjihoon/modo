@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../../services/repair_service.dart';
 import '../../domain/models/image_pin.dart';
+import '../../providers/repair_items_provider.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -101,6 +102,8 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
     final displayName = subType != null ? '$typeName ($subType)' : typeName;
     final hasSubParts = repairType['has_sub_parts'] as bool? ?? false;
     final allowMultiple = repairType['allow_multiple_sub_parts'] as bool? ?? false;
+    
+    debugPrint('🔄 수치 입력 페이지로 이동: $displayName');
     
     // 수치 입력이 필요한 경우 입력 페이지로
     context.push('/repair-detail-input', extra: {
@@ -414,12 +417,14 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
     List<Map<String, dynamic>> selectedSubItems,
   ) {
     final parentName = parentItem['name'] as String;
+    final currentItems = ref.read(repairItemsProvider);
     
-    final repairItems = selectedSubItems.map((subItem) {
+    final newItems = selectedSubItems.map((subItem) {
       final subItemName = subItem['name'] as String;
       final subItemPrice = subItem['price'] as int? ?? (parentItem['price'] as int);
       
       return {
+        'id': '${parentName}_${subItemName}_${DateTime.now().millisecondsSinceEpoch}',
         'repairPart': '$parentName - $subItemName',
         'priceRange': '${subItemPrice.toString().replaceAllMapped(
           RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -432,11 +437,18 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
       };
     }).toList();
     
-    context.push('/repair-confirmation', extra: {
-      'repairItems': repairItems,
-      'imageUrls': widget.imageUrls,
-      'imagesWithPins': widget.imagesWithPins,
-    },);
+    // 기존 항목에 새 항목 추가
+    final allItems = [...currentItems, ...newItems];
+    ref.read(repairItemsProvider.notifier).setItems(allItems);
+    
+    // RepairConfirmationPage로 직접 이동
+    if (mounted) {
+      context.push('/repair-confirmation', extra: {
+        'repairItems': allItems,
+        'imageUrls': widget.imageUrls,
+        'imagesWithPins': widget.imagesWithPins,
+      },);
+    }
   }
   
   @override
@@ -597,15 +609,25 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                                       // 선택 후 다음 단계로
                                       Future.delayed(const Duration(milliseconds: 300), () {
                                         if (mounted) {
+                                          debugPrint('✅ 수선 부위 선택됨: $displayName');
+                                          debugPrint('📊 requiresMeasurement: $requiresMeasurement');
+                                          debugPrint('📊 hasSubParts: $hasSubParts');
+                                          
                                           if (requiresMeasurement) {
                                             // 수치 입력이 필요한 경우 → 입력 페이지로
+                                            debugPrint('🔄 수치 입력 페이지로 이동...');
                                             _proceedToNextStep(repairType);
                                           } else if (hasSubParts) {
                                             // 수치 입력 불필요 + 세부 항목 있음 → 세부 항목 선택 화면
+                                            debugPrint('🔄 세부 항목 선택 화면 표시...');
                                             _showSubItemsSelection(repairType);
                                           } else {
-                                            // 수치 입력 불필요 + 세부 항목 없음 → 바로 확인 페이지
+                                            // 수치 입력 불필요 + 세부 항목 없음 → 바로 추가
+                                            debugPrint('✅ 바로 확인 페이지로 이동...');
+                                            final currentItems = ref.read(repairItemsProvider);
+                                            
                                             final repairItem = {
+                                              'id': '${displayName}_${DateTime.now().millisecondsSinceEpoch}',
                                               'repairPart': displayName,
                                               'priceRange': '${price.toString().replaceAllMapped(
                                                 RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -617,11 +639,17 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                                               'imagesWithPins': widget.imagesWithPins, // 사진과 핀 정보
                                             };
                                             
-                                            context.push('/repair-confirmation', extra: {
-                                              'repairItems': [repairItem],
-                                              'imageUrls': widget.imageUrls,
-                                              'imagesWithPins': widget.imagesWithPins,
-                                            },);
+                                            // 기존 항목에 새 항목 추가
+                                            final allItems = [...currentItems, repairItem];
+                                            ref.read(repairItemsProvider.notifier).setItems(allItems);
+                                            
+                                            if (mounted) {
+                                              context.push('/repair-confirmation', extra: {
+                                                'repairItems': allItems,
+                                                'imageUrls': widget.imageUrls,
+                                                'imagesWithPins': widget.imagesWithPins,
+                                              },);
+                                            }
                                           }
                                         }
                                       });

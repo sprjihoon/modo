@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../providers/repair_items_provider.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -616,7 +617,9 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                   ),
                 ],
               ),
-              child: ElevatedButton(
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
                 onPressed: !_allFieldsFilled 
                     ? null 
                     : () {
@@ -698,28 +701,63 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                           'imagesWithPins': widget.imagesWithPins, // 이 수선 항목의 사진과 핀 정보
                         };
                         
-                        context.push('/repair-confirmation', extra: {
-                          'repairItems': [repairItem],
-                          'imageUrls': widget.imageUrls,
-                          'imagesWithPins': widget.imagesWithPins,
-                        },);
+                        // 현재 Provider의 항목을 가져와서 새 항목 추가 (중복 방지)
+                        final currentItems = ref.read(repairItemsProvider);
+                        
+                        // 고유 ID 생성하여 중복 체크
+                        final itemId = '${repairItem['repairPart']}_${DateTime.now().millisecondsSinceEpoch}';
+                        repairItem['id'] = itemId;
+                        
+                        // 이미 같은 항목이 있는지 확인 (repairPart로 체크)
+                        final existingIndex = currentItems.indexWhere(
+                          (item) => item['repairPart'] == repairItem['repairPart'] &&
+                                    item['measurement'] == repairItem['measurement']
+                        );
+                        
+                        List<Map<String, dynamic>> allItems;
+                        if (existingIndex >= 0) {
+                          // 이미 존재하면 교체
+                          allItems = List.from(currentItems);
+                          allItems[existingIndex] = repairItem;
+                        } else {
+                          // 새 항목 추가
+                          allItems = [...currentItems, repairItem];
+                        }
+                        
+                        ref.read(repairItemsProvider.notifier).setItems(allItems);
+                        
+                        debugPrint('📝 수치 입력 완료! 항목 수: ${allItems.length}');
+                        debugPrint('🔄 등록 확인 페이지로 이동 중...');
+                        
+                        // RepairConfirmationPage로 직접 이동
+                        if (mounted) {
+                          context.push('/repair-confirmation', extra: {
+                            'repairItems': allItems,
+                            'imageUrls': widget.imageUrls,
+                            'imagesWithPins': widget.imagesWithPins,
+                          },);
+                        } else {
+                          debugPrint('⚠️ mounted가 false입니다!');
+                        }
                       },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: !_allFieldsFilled 
-                      ? Colors.grey.shade300 
-                      : const Color(0xFF00C896),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: !_allFieldsFilled 
+                        ? Colors.grey.shade300 
+                        : const Color(0xFF00C896),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                    minimumSize: const Size(double.infinity, 54),
                   ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  '확인',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                  child: const Text(
+                    '확인',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
