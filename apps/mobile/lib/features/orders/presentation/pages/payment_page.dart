@@ -22,6 +22,7 @@ class PaymentPage extends ConsumerStatefulWidget {
 class _PaymentPageState extends ConsumerState<PaymentPage> {
   final _orderService = OrderService();
   final _paymentService = PaymentService();
+  final _supabase = Supabase.instance.client;
   bool _isLoading = false;
   bool _isLoadingPaymentMethods = true;
   Map<String, dynamic>? _orderData;
@@ -37,7 +38,13 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
   Future<void> _loadOrder() async {
     try {
-      final order = await _orderService.getOrderDetail(widget.orderId);
+      // 주문 정보만 직접 조회 (shipments, payments join 제거)
+      final order = await _supabase
+          .from('orders')
+          .select('*')
+          .eq('id', widget.orderId)
+          .single();
+          
       setState(() {
         _orderData = order;
       });
@@ -137,6 +144,78 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           SnackBar(
             content: Text('결제 실패: $e'),
             backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+  
+  /// 실제 우체국 API 테스트 (결제 건너뛰고 수거예약만)
+  Future<void> _testRealShipment({required bool testMode}) async {
+    setState(() => _isLoading = true);
+
+    try {
+      // 주문 상태를 PAID로 업데이트 (결제 건너뛰기)
+      await _supabase
+          .from('orders')
+          .update({
+            'payment_status': 'PAID',
+          })
+          .eq('id', widget.orderId);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(testMode ? '🧪 Mock 모드로 수거예약 시작...' : '🚚 실제 우체국 API로 수거예약 시작...'),
+          backgroundColor: testMode ? Colors.orange : Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Edge Function을 통한 수거예약 (실제 또는 Mock)
+      final shipment = await _orderService.bookShipment(
+        orderId: widget.orderId,
+        pickupAddress: _orderData!['pickup_address'] ?? '테스트 주소',
+        pickupPhone: _orderData!['pickup_phone'] ?? '010-1234-5678',
+        deliveryAddress: _orderData!['delivery_address'] ?? '테스트 주소',
+        deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
+        customerName: _orderData!['customer_name'] ?? '테스트 고객',
+        testMode: testMode,
+      );
+
+      if (!mounted) return;
+
+      // 성공 메시지
+      final trackingNo = shipment['tracking_no'] ?? shipment['pickup_tracking_no'];
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            testMode 
+              ? '✅ Mock 수거예약 완료!\n송장번호: $trackingNo'
+              : '🎉 실제 우체국 수거예약 완료!\n송장번호: $trackingNo',
+          ),
+          duration: const Duration(seconds: 5),
+          backgroundColor: const Color(0xFF00C896),
+        ),
+      );
+
+      // 주문 목록으로 이동
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        context.go('/orders');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('수거예약 실패: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -256,6 +335,19 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                             (Match m) => '${m[1]},',
                           )}',
                         ),
+                        // 프로모션 할인이 있는 경우 표시
+                        if (_orderData!['promotion_discount_amount'] != null && 
+                            (_orderData!['promotion_discount_amount'] as int) > 0) ...[
+                          const SizedBox(height: 12),
+                          _buildInfoRow(
+                            '프로모션 할인',
+                            '-₩${_orderData!['promotion_discount_amount'].toString().replaceAllMapped(
+                              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                              (Match m) => '${m[1]},',
+                            )}',
+                            isDiscount: true,
+                          ),
+                        ],
                         Divider(height: 24, color: Colors.grey.shade200),
                         Container(
                           padding: const EdgeInsets.all(16),
@@ -461,8 +553,42 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
               ],
             ),
             child: SafeArea(
-              child: ElevatedButton(
-                onPressed: (_isLoading || _selectedPaymentMethodId == null) ? null : _processPayment,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 실제 우체국 API 테스트 버튼
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: _isLoading ? null : () => _testRealShipment(testMode: true),
+                          icon: const Icon(Icons.science_outlined, size: 18),
+                          label: const Text('🧪 Mock 수거예약'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.orange,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: _isLoading ? null : () => _testRealShipment(testMode: false),
+                          icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                          label: const Text('🚚 실제 우체국 API'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.green,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            backgroundColor: Colors.green.withOpacity(0.1),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // 정상 결제 버튼
+                  ElevatedButton(
+                    onPressed: (_isLoading || _selectedPaymentMethodId == null) ? null : _processPayment,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(
@@ -496,6 +622,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                           ),
                         ],
                       ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -504,7 +632,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value, {bool isDiscount = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -514,15 +642,17 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             label,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
+              color: isDiscount ? Colors.red : Colors.grey[600],
+              fontWeight: isDiscount ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
           Flexible(
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
+                color: isDiscount ? Colors.red : Colors.black87,
               ),
               textAlign: TextAlign.right,
             ),

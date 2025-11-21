@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,40 +18,86 @@ import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 
 const statusMap = {
   ALL: { label: "전체", color: "bg-gray-100 text-gray-800" },
-  BOOKED: { label: "수거예약", color: "bg-blue-100 text-blue-800" },
+  PENDING: { label: "결제대기", color: "bg-yellow-100 text-yellow-800" },
+  PAID: { label: "결제완료", color: "bg-blue-100 text-blue-800" },
+  BOOKED: { label: "수거예약", color: "bg-cyan-100 text-cyan-800" },
   INBOUND: { label: "입고완료", color: "bg-orange-100 text-orange-800" },
   PROCESSING: { label: "수선중", color: "bg-purple-100 text-purple-800" },
   READY_TO_SHIP: { label: "출고완료", color: "bg-green-100 text-green-800" },
   DELIVERED: { label: "배송완료", color: "bg-gray-100 text-gray-800" },
+  CANCELLED: { label: "취소", color: "bg-red-100 text-red-800" },
 };
+
+interface Order {
+  id: string;
+  order_number: string;
+  user_id: string;
+  customer_name: string | null;
+  customer_email: string | null;
+  item_name: string | null;
+  clothing_type: string;
+  repair_type: string;
+  base_price: number;
+  total_price: number;
+  original_total_price: number | null;
+  promotion_discount_amount: number | null;
+  status: string;
+  payment_status: string;
+  tracking_no: string | null;
+  created_at: string;
+  promotion_codes: {
+    code: string;
+    discount_type: string;
+    discount_value: number;
+  } | null;
+}
 
 export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<string>("date");
   const [currentPage, setCurrentPage] = useState(1);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const itemsPerPage = 10;
 
-  // Mock data
-  const allOrders = Array.from({ length: 45 }, (_, i) => ({
-    id: `ORDER-2024-${(i + 1).toString().padStart(4, "0")}`,
-    customerName: `고객${i + 1}`,
-    item: `청바지 기장 수선 ${i + 1}`,
-    trackingNo: `123456789${i}`,
-    status: Object.keys(statusMap).filter((k) => k !== "ALL")[
-      i % 5
-    ] as keyof typeof statusMap,
-    amount: (i + 1) * 15000,
-    createdAt: `2024.01.${((i % 28) + 1).toString().padStart(2, "0")}`,
-  }));
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const loadOrders = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          promotion_codes:promotion_code_id (code, discount_type, discount_value)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('주문 로드 실패:', error);
+        throw error;
+      }
+      
+      console.log('Loaded orders:', data);
+      setAllOrders(data || []);
+    } catch (error: any) {
+      console.error('주문 조회 실패:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Filter and search
   let filteredOrders = allOrders.filter((order) => {
     const matchesSearch =
       order.id.toLowerCase().includes(search.toLowerCase()) ||
-      order.trackingNo.includes(search) ||
-      order.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      order.item.toLowerCase().includes(search.toLowerCase());
+      order.order_number?.toLowerCase().includes(search.toLowerCase()) ||
+      (order.tracking_no && order.tracking_no.includes(search)) ||
+      (order.customer_name && order.customer_name.toLowerCase().includes(search.toLowerCase())) ||
+      (order.item_name && order.item_name.toLowerCase().includes(search.toLowerCase()));
 
     const matchesStatus = statusFilter === "ALL" || order.status === statusFilter;
 
@@ -60,9 +107,9 @@ export default function OrdersPage() {
   // Sort
   filteredOrders = [...filteredOrders].sort((a, b) => {
     if (sortBy === "date") {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     } else if (sortBy === "amount") {
-      return b.amount - a.amount;
+      return b.total_price - a.total_price;
     }
     return 0;
   });
@@ -72,6 +119,28 @@ export default function OrdersPage() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage);
 
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -79,10 +148,13 @@ export default function OrdersPage() {
           <h1 className="text-3xl font-bold">주문 관리</h1>
           <p className="text-muted-foreground">전체 수선 주문을 관리합니다</p>
         </div>
+        <Button onClick={loadOrders} variant="outline">
+          새로고침
+        </Button>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>전체 주문</CardDescription>
@@ -91,20 +163,36 @@ export default function OrdersPage() {
             <div className="text-2xl font-bold">{allOrders.length}</div>
           </CardContent>
         </Card>
-        {Object.entries(statusMap)
-          .filter(([key]) => key !== "ALL")
-          .map(([key, value]) => (
-            <Card key={key}>
-              <CardHeader className="pb-2">
-                <CardDescription>{value.label}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {allOrders.filter((o) => o.status === key).length}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>프로모션 사용</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {allOrders.filter((o) => o.promotion_codes).length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>총 할인 금액</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              ₩{allOrders.reduce((sum, o) => sum + (o.promotion_discount_amount || 0), 0).toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>총 매출</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              ₩{allOrders.reduce((sum, o) => sum + o.total_price, 0).toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -163,24 +251,47 @@ export default function OrdersPage() {
               paginatedOrders.map((order) => (
                 <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
                   <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                    <div className="flex items-center space-x-4">
-                      <div>
-                        <p className="font-medium">{order.item}</p>
+                    <div className="flex items-center space-x-4 flex-1">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">
+                            {order.item_name || `${order.clothing_type} - ${order.repair_type}`}
+                          </p>
+                          {order.promotion_codes && (
+                            <Badge className="bg-green-100 text-green-800 text-xs">
+                              🎟️ {order.promotion_codes.code}
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
-                          {order.id} • {order.customerName}
+                          {order.order_number} • {order.customer_name || order.customer_email || '고객'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          송장: {order.trackingNo}
+                          {order.tracking_no ? `송장: ${order.tracking_no}` : '송장 미발급'}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <Badge className={statusMap[order.status].color}>
-                        {statusMap[order.status].label}
+                      <Badge className={statusMap[order.status as keyof typeof statusMap]?.color || statusMap.PENDING.color}>
+                        {statusMap[order.status as keyof typeof statusMap]?.label || order.status}
                       </Badge>
-                      <div className="text-right">
-                        <p className="font-medium">₩{order.amount.toLocaleString()}</p>
-                        <p className="text-sm text-muted-foreground">{order.createdAt}</p>
+                      <div className="text-right min-w-[120px]">
+                        {order.promotion_discount_amount && order.promotion_discount_amount > 0 ? (
+                          <>
+                            <p className="text-xs text-gray-400 line-through">
+                              ₩{(order.original_total_price || order.total_price).toLocaleString()}
+                            </p>
+                            <p className="font-medium text-green-600">
+                              ₩{order.total_price.toLocaleString()}
+                              <span className="text-xs text-red-500 ml-1">
+                                (-{order.promotion_discount_amount.toLocaleString()})
+                              </span>
+                            </p>
+                          </>
+                        ) : (
+                          <p className="font-medium">₩{order.total_price.toLocaleString()}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">{formatDate(order.created_at)}</p>
                       </div>
                     </div>
                   </div>

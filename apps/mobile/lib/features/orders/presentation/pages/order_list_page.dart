@@ -50,6 +50,22 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
         title: const Text('주문 내역'),
         elevation: 0,
         backgroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.home_outlined, color: Colors.black),
+          onPressed: () => context.go('/'),
+          tooltip: '홈으로',
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black),
+            onPressed: () {
+              setState(() {
+                // 주문 목록 새로고침
+              });
+            },
+            tooltip: '새로고침',
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(150),
           child: Column(

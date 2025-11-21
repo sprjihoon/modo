@@ -23,6 +23,11 @@ class OrderService {
     String? clothingType, // 의류 타입 추가
     String? repairType, // 수선 타입 추가
     List<String>? repairParts, // 수선 부위들 추가
+    String? promotionCodeId, // 프로모션 코드 ID
+    int? promotionDiscountAmount, // 프로모션 할인 금액
+    int? originalTotalPrice, // 할인 전 원래 금액
+    String? recipientName, // 수취인 이름
+    String? recipientPhone, // 수취인 전화번호
   }) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -36,14 +41,38 @@ class OrderService {
       // 주문 생성 (실제 DB 구조에 맞게)
       final orderNumber = 'ORD${DateTime.now().millisecondsSinceEpoch}';
       
+      // 현재 사용자 정보
+      final userEmail = user.email ?? 'unknown@example.com';
+      
       final orderData = <String, dynamic>{
-        'user_id': user.id, // auth.uid() 직접 사용
-        'order_number': orderNumber, // 필수 컬럼
-        'clothing_type': clothingType ?? '기타', // 필수 컬럼
-        'repair_type': repairType ?? '기타', // 필수 컬럼
+        'user_id': user.id,
+        'order_number': orderNumber,
+        'clothing_type': clothingType ?? '기타',
+        'repair_type': repairType ?? '기타',
         'base_price': basePrice,
         'total_price': totalPrice,
+        'item_name': itemName,
+        'item_description': itemDescription,
+        'pickup_address': pickupAddress,
+        'pickup_address_detail': pickupAddressDetail,
+        'pickup_zipcode': pickupZipcode,
+        'delivery_address': deliveryAddress,
+        'delivery_address_detail': deliveryAddressDetail,
+        'delivery_zipcode': deliveryZipcode,
+        'customer_name': recipientName ?? '수취인',
+        'customer_email': userEmail,
+        'customer_phone': recipientPhone ?? '010-0000-0000',
+        'pickup_phone': recipientPhone ?? '010-0000-0000',
+        'delivery_phone': recipientPhone ?? '010-0000-0000',
+        'notes': notes,
       };
+      
+      // 프로모션 코드 정보 추가
+      if (promotionCodeId != null) {
+        orderData['promotion_code_id'] = promotionCodeId;
+        orderData['promotion_discount_amount'] = promotionDiscountAmount ?? 0;
+        orderData['original_total_price'] = originalTotalPrice ?? totalPrice;
+      }
       
       // repair_parts 배열 추가
       if (repairParts != null && repairParts.isNotEmpty) {
@@ -108,12 +137,7 @@ class OrderService {
           .from('orders')
           .select('''
             *,
-            shipments (
-              *,
-              pickup_tracking_no,
-              delivery_tracking_no,
-              videos (*)
-            ),
+            shipments (*),
             payments (*)
           ''')
           .eq('id', orderId)
@@ -159,8 +183,11 @@ class OrderService {
     required String deliveryAddress,
     required String deliveryPhone,
     required String customerName,
+    bool testMode = false,  // 실제 우체국 API 사용: false, Mock: true
   }) async {
     try {
+      debugPrint('📦 수거예약 시작 (testMode: $testMode)');
+      
       final response = await _supabase.functions.invoke(
         'shipments-book',
         body: {
@@ -170,6 +197,7 @@ class OrderService {
           'delivery_address': deliveryAddress,
           'delivery_phone': deliveryPhone,
           'customer_name': customerName,
+          'test_mode': testMode,  // 실제 API 사용 여부
         },
       );
 

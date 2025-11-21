@@ -13,6 +13,7 @@ import {
   CreditCard,
   TrendingUp,
   Scissors,
+  Ticket,
 } from "lucide-react";
 
 const navItems = [
@@ -45,6 +46,11 @@ const navItems = [
     title: "포인트 관리",
     href: "/dashboard/points",
     icon: TrendingUp,
+  },
+  {
+    title: "프로모션 코드",
+    href: "/dashboard/promotions",
+    icon: Ticket,
   },
   {
     title: "통계 및 분석",

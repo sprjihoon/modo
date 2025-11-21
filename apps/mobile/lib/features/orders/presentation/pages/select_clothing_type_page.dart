@@ -164,7 +164,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                   '지금 바로 사진 촬영',
                   style: TextStyle(fontSize: 13),
                 ),
-                onTap: () {
+                onTap: _isNavigating ? null : () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.camera, clothingType);
                 },
@@ -197,7 +197,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                   '저장된 사진 불러오기',
                   style: TextStyle(fontSize: 13),
                 ),
-                onTap: () {
+                onTap: _isNavigating ? null : () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.gallery, clothingType);
                 },
@@ -214,9 +214,17 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
    /// 이미지 선택/촬영
    Future<void> _pickImage(ImageSource source, String clothingType) async {
      try {
+       // 1. 즉시 오버레이 표시 (이미지 선택 전에)
+       setState(() {
+         _isNavigating = true;
+       });
+       
+       // 2. 오버레이가 확실히 표시되도록 대기
+       await Future.delayed(const Duration(milliseconds: 200));
+       
        final imageService = ImageService();
        
-       // 1. 이미지 선택 및 업로드
+       // 3. 이미지 선택 및 업로드 (오버레이 유지하면서)
        final imageUrl = await imageService.pickAndUploadImage(
          source: source,
          bucket: 'order-images',
@@ -224,19 +232,16 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
        );
        
        // 사용자가 취소한 경우
-       if (imageUrl == null) return;
+       if (imageUrl == null) {
+         setState(() {
+           _isNavigating = false;
+         });
+         return;
+       }
        
        if (!mounted) return;
        
-       // 2. 즉시 오버레이 표시 (카테고리 화면 가림)
-       setState(() {
-         _isNavigating = true;
-       });
-       
-       // 3. 오버레이가 확실히 표시되도록 대기
-       await Future.delayed(const Duration(milliseconds: 100));
-       
-       // 4. 핀 마킹 페이지로 이동
+       // 4. 핀 마킹 페이지로 이동 (오버레이는 계속 유지)
        final result = await context.push<Map<String, dynamic>>(
          '/image-annotation',
          extra: {
@@ -246,7 +251,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
          },
        );
        
-       // 5. 핀 완료 후 수선 부위 선택으로 이동
+       // 5. 핀 완료 후 수선 부위 선택으로 이동 (오버레이 계속 유지)
        if (result != null && mounted) {
          _capturedImagesWithPins.add({
            'imagePath': result['imagePath'] as String,
@@ -259,6 +264,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
              .toList();
          
          // pushReplacement로 카테고리 페이지 교체
+         // 주의: 오버레이는 dispose될 때 자동으로 사라짐
          context.pushReplacement('/select-repair-parts', extra: {
            'imageUrls': imageUrls,
            'imagesWithPins': _capturedImagesWithPins,
@@ -298,7 +304,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => context.pop(),
+          onPressed: _isNavigating ? null : () => context.pop(),
         ),
         title: const Text(
           '수선',
@@ -358,7 +364,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                       size: 16,
                       color: Colors.grey.shade400,
                     ),
-                    onTap: () {
+                    onTap: _isNavigating ? null : () {
                       setState(() {
                         _selectedType = type['name'] as String;
                         _selectedCategoryId = type['id'] as String; // 중요!
@@ -368,7 +374,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                       
                       // 선택 후 사진 선택 바텀시트 표시
                       Future.delayed(const Duration(milliseconds: 300), () {
-                        if (mounted) {
+                        if (mounted && !_isNavigating) {
                           _showImagePickerBottomSheet(context, type['name'] as String);
                         }
                       });
@@ -452,6 +458,30 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                     ),
                   ],
                 ),
+              ),
+      ),
+      ),
+        // 네비게이션 중 로딩 오버레이
+        if (_isNavigating)
+          Container(
+            color: Colors.black.withOpacity(0.5),
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    '화면 전환 중...',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

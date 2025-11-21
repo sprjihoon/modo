@@ -21,16 +21,24 @@ interface EPostConfig {
 function getEPostConfig(): EPostConfig {
   const apiKey = Deno.env.get('EPOST_API_KEY');
   const securityKey = Deno.env.get('EPOST_SECURITY_KEY');
-  const custNo = Deno.env.get('EPOST_CUSTOMER_ID');
+  const custNo = Deno.env.get('EPOST_CUSTOMER_ID') || 'vovok1122';
+
+  console.log('🔑 환경 변수 확인:', {
+    hasApiKey: !!apiKey,
+    hasSecurityKey: !!securityKey,
+    custNo: custNo,
+    apiKeyLength: apiKey?.length || 0,
+    securityKeyLength: securityKey?.length || 0,
+  });
 
   if (!apiKey) {
-    throw new Error('EPOST_API_KEY not configured');
+    throw new Error('EPOST_API_KEY 환경 변수가 설정되지 않았습니다. Supabase Dashboard → Settings → Edge Functions → Secrets에서 설정하세요.');
   }
   if (!securityKey) {
-    throw new Error('EPOST_SECURITY_KEY not configured');
+    throw new Error('EPOST_SECURITY_KEY 환경 변수가 설정되지 않았습니다. Supabase Dashboard → Settings → Edge Functions → Secrets에서 설정하세요.');
   }
   if (!custNo) {
-    throw new Error('EPOST_CUSTOMER_ID not configured');
+    throw new Error('EPOST_CUSTOMER_ID 환경 변수가 설정되지 않았습니다.');
   }
 
   return { apiKey, securityKey, custNo };
@@ -45,16 +53,104 @@ function getEPostConfig(): EPostConfig {
 async function callEPostAPI(
   endpoint: string,
   params: Record<string, any>,
-  needsEncryption = true
+  needsEncryption = true,
+  testYn?: string
 ): Promise<any> {
   const config = getEPostConfig();
 
   let url = `${EPOST_BASE_URL}/${endpoint}?key=${config.apiKey}`;
+  
+  // testYn이 'Y'이면 URL 파라미터로 추가
+  if (testYn === 'Y') {
+    url += '&testYn=Y';
+  }
 
   if (needsEncryption) {
     // 파라미터를 문자열로 변환
+    console.log('📋 원본 파라미터:', JSON.stringify(params, null, 2));
     const plainText = buildEpostParams(params);
-    console.log('📝 암호화할 평문:', plainText);
+    console.log('📝 암호화할 평문 (전체):', plainText);
+    console.log('📝 암호화할 평문 (길이):', plainText.length);
+    
+    // 평문을 Base64로 인코딩해서 확인 (디버깅용)
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(plainText);
+      const base64Preview = btoa(String.fromCharCode(...data)).substring(0, 100);
+      console.log('📝 평문 Base64 미리보기:', base64Preview);
+    } catch (e) {
+      console.warn('⚠️ Base64 인코딩 실패:', e);
+    }
+    
+    // 평문을 파싱하여 각 파라미터 검증
+    const paramPairs = plainText.split('&');
+    console.log('🔍 파라미터 쌍 개수:', paramPairs.length);
+    console.log('🔍 파라미터 쌍 전체 (JSON):', JSON.stringify(paramPairs, null, 2));
+    console.log('🔍 파라미터 쌍 전체 (텍스트):', paramPairs.join('\n'));
+    
+    // 각 파라미터 쌍을 개별적으로 출력
+    paramPairs.forEach((pair, index) => {
+      console.log(`  [${index}] ${pair}`);
+    });
+    
+    const invalidParams: string[] = [];
+    const paramMap: Record<string, string> = {};
+    
+    for (const pair of paramPairs) {
+      const equalIndex = pair.indexOf('=');
+      if (equalIndex === -1) {
+        console.warn('⚠️ 잘못된 파라미터 형식 (등호 없음):', pair);
+        continue;
+      }
+      
+      const key = pair.substring(0, equalIndex);
+      const value = pair.substring(equalIndex + 1);
+      
+      // "Y3" 같은 잘못된 값 패턴 먼저 검사
+      if (/^Y\d+$/.test(value) || /^\d+Y$/.test(value) || /^[YN]\d+$/.test(value) || /^\d+[YN]$/.test(value)) {
+        invalidParams.push(`${key}=${value} (잘못된 형식: Y/N과 숫자가 합쳐짐)`);
+        console.error(`❌ 🚨 잘못된 값 패턴 발견: ${key}=${value}`);
+        console.error(`   이전 파라미터: ${paramPairs[paramPairs.indexOf(pair) - 1]}`);
+        console.error(`   다음 파라미터: ${paramPairs[paramPairs.indexOf(pair) + 1]}`);
+      }
+      
+      paramMap[key] = value;
+      
+      // 숫자 필드 검증
+      if (['weight', 'volume', 'insuAmt'].includes(key)) {
+        const numValue = Number(value);
+        if (isNaN(numValue) || numValue <= 0) {
+          invalidParams.push(`${key}=${value} (숫자가 아님)`);
+          console.error(`❌ 숫자 필드 ${key}에 잘못된 값: "${value}"`);
+        } else {
+          console.log(`✅ ${key}=${value} (숫자 확인됨)`);
+        }
+      }
+      
+      // Y/N 필드 검증 (testYn은 이미 제거되어야 함)
+      if (['microYn', 'printYn', 'insuYn'].includes(key)) {
+        if (value !== 'Y' && value !== 'N') {
+          invalidParams.push(`${key}=${value} (Y 또는 N이 아님)`);
+          console.error(`❌ Y/N 필드 ${key}에 잘못된 값: "${value}"`);
+        } else {
+          console.log(`✅ ${key}=${value} (Y/N 확인됨)`);
+        }
+      }
+      
+      // testYn이 있으면 에러
+      if (key === 'testYn') {
+        invalidParams.push(`${key}=${value} (testYn은 제거되어야 함)`);
+        console.error(`❌ 🚨 testYn 파라미터가 여전히 존재함: ${value}`);
+      }
+    }
+    
+    console.log('📊 파라미터 맵 (전체):', JSON.stringify(paramMap, null, 2));
+    console.log('📊 파라미터 맵 (키 목록):', Object.keys(paramMap).join(', '));
+    
+    if (invalidParams.length > 0) {
+      console.error('❌ 잘못된 파라미터 값들:', invalidParams);
+      throw new Error(`Invalid parameter values: ${invalidParams.join(', ')}`);
+    }
 
     // SEED128 암호화
     const encryptedData = seed128Encrypt(plainText, config.securityKey);
@@ -90,13 +186,45 @@ async function callEPostAPI(
 
   // XML 응답 파싱
   const xmlText = await response.text();
-  console.log('📥 우체국 응답 (XML):', xmlText.substring(0, 200) + '...');
+  console.log('📥 우체국 응답 (XML 전체):', xmlText);
 
-  // 간단한 XML 파싱 (error 체크)
-  if (xmlText.includes('<error>')) {
-    const errorCode = xmlText.match(/<error_code>(.*?)<\/error_code>/)?.[1];
-    const errorMsg = xmlText.match(/<message>(.*?)<\/message>/)?.[1];
-    throw new Error(`EPost API Error: ${errorCode} - ${errorMsg}`);
+  // 에러 체크 (다양한 형식 지원)
+  if (xmlText.includes('<error>') || xmlText.includes('<Error>')) {
+    // 형식 1: <error_code>...</error_code>
+    let errorCode = xmlText.match(/<error_code>(.*?)<\/error_code>/i)?.[1]?.trim();
+    let errorMsg = xmlText.match(/<message>(.*?)<\/message>/i)?.[1]?.trim();
+    
+    // 형식 2: <ErrorCode>...</ErrorCode>
+    if (!errorCode) {
+      errorCode = xmlText.match(/<ErrorCode>(.*?)<\/ErrorCode>/i)?.[1]?.trim();
+    }
+    if (!errorMsg) {
+      errorMsg = xmlText.match(/<ErrorMessage>(.*?)<\/ErrorMessage>/i)?.[1]?.trim() ||
+                 xmlText.match(/<ErrorMsg>(.*?)<\/ErrorMsg>/i)?.[1]?.trim();
+    }
+    
+    // 형식 3: <result>N</result> 또는 <success>N</success>
+    const result = xmlText.match(/<result>(.*?)<\/result>/i)?.[1]?.trim();
+    const success = xmlText.match(/<success>(.*?)<\/success>/i)?.[1]?.trim();
+    
+    if (result === 'N' || success === 'N') {
+      errorCode = errorCode || result || success || 'UNKNOWN';
+      errorMsg = errorMsg || 'API 호출 실패';
+    }
+    
+    // 에러 정보가 있으면 throw
+    if (errorCode || errorMsg) {
+      throw new Error(`EPost API Error: ${errorCode || 'UNKNOWN'} - ${errorMsg || '알 수 없는 오류'}`);
+    }
+    
+    // 에러 태그는 있지만 파싱 실패
+    throw new Error(`EPost API Error: XML 파싱 실패 - ${xmlText.substring(0, 500)}`);
+  }
+
+  // 성공 여부 확인 (일부 API는 result 태그 사용)
+  const result = xmlText.match(/<result>(.*?)<\/result>/i)?.[1]?.trim();
+  if (result === 'N') {
+    throw new Error(`EPost API Error: API 호출 실패 - ${xmlText.substring(0, 500)}`);
   }
 
   return xmlText;
@@ -104,8 +232,17 @@ async function callEPostAPI(
 
 /**
  * XML에서 값 추출 (간단한 파서)
+ * CDATA 섹션도 처리
  */
 function parseXmlValue(xml: string, tagName: string): string | null {
+  // CDATA 섹션이 있는 경우: <tagName><![CDATA[value]]></tagName>
+  const cdataRegex = new RegExp(`<${tagName}>\\s*<!\\[CDATA\\[(.*?)\\]\\]>\\s*</${tagName}>`, 's');
+  const cdataMatch = xml.match(cdataRegex);
+  if (cdataMatch) {
+    return cdataMatch[1].trim();
+  }
+  
+  // 일반 태그: <tagName>value</tagName>
   const regex = new RegExp(`<${tagName}>(.*?)<\/${tagName}>`, 's');
   const match = xml.match(regex);
   return match ? match[1].trim() : null;
@@ -177,13 +314,16 @@ export interface InsertOrderResponse {
   reqNo: string;            // 소포 주문번호
   resNo: string;            // 소포 예약번호
   regiNo: string;           // 운송장번호(등기번호) - 핵심!
-  orderNo: string;          // 주문번호
-  regiPoNm: string;         // 접수 우체국명
+  orderNo?: string;         // 주문번호 (응답에 없을 수 있음)
+  regiPoNm: string;        // 접수 우체국명
   resDate: string;          // 예약 일시
   price: string;            // (예상)접수요금
   vTelNo?: string;          // 가상 전화번호
   insuFee?: string;         // 안심소포 수수료
   islandAddFee?: string;    // 도서행 부가이용료
+  arrCnpoNm?: string;       // 도착 집중국명
+  delivPoNm?: string;       // 배달 우체국명
+  delivAreaCd?: string;     // 배달 지역코드
 }
 
 /**
@@ -192,32 +332,70 @@ export interface InsertOrderResponse {
 export async function insertOrder(params: InsertOrderParams): Promise<InsertOrderResponse> {
   const config = getEPostConfig();
 
-  // 기본값 설정
-  const requestParams = {
+  // 기본값 설정 및 타입 검증
+  const requestParams: Record<string, any> = {
     ...params,
     custNo: config.custNo,
-    weight: params.weight || 2,
-    volume: params.volume || 60,
-    microYn: params.microYn || 'N',
-    testYn: params.testYn || 'N',
-    printYn: params.printYn || 'Y',
+    weight: typeof params.weight === 'number' ? params.weight : (params.weight || 2),
+    volume: typeof params.volume === 'number' ? params.volume : (params.volume || 60),
+    microYn: params.microYn === 'Y' || params.microYn === 'N' ? params.microYn : 'N',
+    testYn: params.testYn === 'Y' || params.testYn === 'N' ? params.testYn : 'N',
+    printYn: params.printYn === 'Y' || params.printYn === 'N' ? params.printYn : 'Y',
   };
+  
+  // 숫자 필드 검증 및 정수 변환
+  if (typeof requestParams.weight !== 'number' || requestParams.weight <= 0) {
+    requestParams.weight = 2;
+  } else {
+    requestParams.weight = Math.floor(requestParams.weight);
+  }
+  
+  if (typeof requestParams.volume !== 'number' || requestParams.volume <= 0) {
+    requestParams.volume = 60;
+  } else {
+    requestParams.volume = Math.floor(requestParams.volume);
+  }
+  
+  console.log('✅ 최종 요청 파라미터:', JSON.stringify(requestParams, null, 2));
+  console.log('🔍 숫자 필드 확인:', {
+    weight: requestParams.weight,
+    weightType: typeof requestParams.weight,
+    volume: requestParams.volume,
+    volumeType: typeof requestParams.volume,
+    testYn: requestParams.testYn,
+  });
 
-  const xml = await callEPostAPI('api.InsertOrder.jparcel', requestParams, true);
+  // testYn이 'Y'이면 암호화 없이 호출 (테스트 모드)
+  const needsEncryption = requestParams.testYn !== 'Y';
+  console.log('🔐 암호화 필요 여부:', needsEncryption, '(testYn:', requestParams.testYn, ')');
+  
+  // regData에 포함할 파라미터 (testYn 제외)
+  const regDataParams = { ...requestParams };
+  delete regDataParams.testYn;
+  
+  const xml = await callEPostAPI('api.InsertOrder.jparcel', regDataParams, needsEncryption, requestParams.testYn);
 
-  // XML 파싱
+  // XML 파싱 (CDATA 섹션 처리)
   const result: InsertOrderResponse = {
     reqNo: parseXmlValue(xml, 'reqNo') || '',
     resNo: parseXmlValue(xml, 'resNo') || '',
     regiNo: parseXmlValue(xml, 'regiNo') || '',
-    orderNo: parseXmlValue(xml, 'orderNo') || '',
-    regiPoNm: parseXmlValue(xml, 'regipoNm') || '',
+    orderNo: parseXmlValue(xml, 'orderNo') || undefined,
+    regiPoNm: parseXmlValue(xml, 'regiPoNm') || parseXmlValue(xml, 'regipoNm') || '', // 대소문자 모두 지원
     resDate: parseXmlValue(xml, 'resDate') || '',
     price: parseXmlValue(xml, 'price') || '0',
     vTelNo: parseXmlValue(xml, 'vTelNo') || undefined,
     insuFee: parseXmlValue(xml, 'insuFee') || undefined,
     islandAddFee: parseXmlValue(xml, 'islandAddFee') || undefined,
+    arrCnpoNm: parseXmlValue(xml, 'arrCnpoNm') || undefined,
+    delivPoNm: parseXmlValue(xml, 'delivPoNm') || undefined,
+    delivAreaCd: parseXmlValue(xml, 'delivAreaCd') || undefined,
   };
+  
+  // 필수 필드 검증
+  if (!result.regiNo) {
+    throw new Error('운송장번호(regiNo)를 받지 못했습니다.');
+  }
 
   console.log('✅ 소포신청 성공:', result.regiNo);
   return result;

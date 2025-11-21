@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../services/address_service.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/payment_service.dart';
+import '../../../../services/promotion_service.dart';
 import '../../providers/repair_items_provider.dart';
 
 /// 수거신청 페이지
@@ -29,18 +30,25 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   final _addressDetailController = TextEditingController();
   final _zipcodeController = TextEditingController();
   final _requestController = TextEditingController();
+  final _promotionCodeController = TextEditingController();
   
   final _addressService = AddressService();
   final _orderService = OrderService();
   final _paymentService = PaymentService();
+  final _promotionService = PromotionService();
   
   String? _selectedAddressId;
   bool _isLoading = false;
   bool _isLoadingAddress = true;
   bool _isLoadingPaymentMethods = true;
+  bool _isValidatingPromoCode = false;
   
   List<Map<String, dynamic>> _paymentMethods = [];
   String? _selectedPaymentMethodId;
+  
+  // 프로모션 코드 관련
+  Map<String, dynamic>? _appliedPromotion;
+  String? _promotionErrorMessage;
   
   @override
   void initState() {
@@ -87,6 +95,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     _addressDetailController.dispose();
     _zipcodeController.dispose();
     _requestController.dispose();
+    _promotionCodeController.dispose();
     super.dispose();
   }
   
@@ -139,6 +148,71 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         ),
       );
     }
+  }
+  
+  /// 프로모션 코드 검증 및 적용
+  Future<void> _validateAndApplyPromotionCode() async {
+    final code = _promotionCodeController.text.trim();
+    
+    if (code.isEmpty) {
+      setState(() {
+        _promotionErrorMessage = '프로모션 코드를 입력해주세요';
+        _appliedPromotion = null;
+      });
+      return;
+    }
+    
+    setState(() {
+      _isValidatingPromoCode = true;
+      _promotionErrorMessage = null;
+    });
+    
+    try {
+      final totalPrice = _calculateTotalPrice();
+      final promoData = await _promotionService.validatePromotionCode(
+        code,
+        orderAmount: totalPrice,
+      );
+      
+      setState(() {
+        _appliedPromotion = promoData;
+        _promotionErrorMessage = null;
+        _isValidatingPromoCode = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('프로모션 코드가 적용되었습니다 (${_formatPrice(promoData['discount_amount'] as int)}원 할인)'),
+            backgroundColor: const Color(0xFF00C896),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _promotionErrorMessage = e.toString().replaceAll('Exception: ', '');
+        _appliedPromotion = null;
+        _isValidatingPromoCode = false;
+      });
+    }
+  }
+  
+  /// 프로모션 코드 제거
+  void _removePromotionCode() {
+    setState(() {
+      _appliedPromotion = null;
+      _promotionCodeController.clear();
+      _promotionErrorMessage = null;
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('프로모션 코드가 제거되었습니다'),
+        backgroundColor: Colors.grey,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
   
   /// 주문 생성 및 결제로 이동
@@ -207,12 +281,17 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       
       debugPrint('📦 주문 생성 중...');
       
+      // 프로모션 코드 적용된 최종 금액 계산
+      final finalTotalPrice = _appliedPromotion != null 
+        ? (_appliedPromotion!['final_amount'] as int)
+        : totalPrice;
+      
       // 주문 생성
       final order = await _orderService.createOrder(
         itemName: itemNames,
         itemDescription: itemDescription,
         basePrice: totalPrice,
-        totalPrice: totalPrice,
+        totalPrice: finalTotalPrice, // 프로모션 할인 적용된 최종 금액
         pickupAddress: _addressController.text,
         pickupAddressDetail: _addressDetailController.text,
         pickupZipcode: _zipcodeController.text,
@@ -225,9 +304,31 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         clothingType: clothingType, // 의류 타입
         repairType: repairType, // 수선 타입
         repairParts: repairParts, // 수선 부위들
+        promotionCodeId: _appliedPromotion?['id'] as String?, // 프로모션 코드 ID
+        promotionDiscountAmount: _appliedPromotion?['discount_amount'] as int?, // 할인 금액
+        originalTotalPrice: _appliedPromotion != null ? totalPrice : null, // 할인 전 원래 금액
+        recipientName: _recipientNameController.text, // 수취인 이름
+        recipientPhone: _recipientPhoneController.text, // 수취인 전화번호
       );
       
       debugPrint('✅ 주문 생성 완료: ${order['id']}');
+      
+      // 프로모션 코드 사용 기록
+      if (_appliedPromotion != null) {
+        try {
+          await _promotionService.recordPromotionCodeUsage(
+            promotionCodeId: _appliedPromotion!['id'] as String,
+            orderId: order['id'] as String,
+            discountAmount: _appliedPromotion!['discount_amount'] as int,
+            originalAmount: _appliedPromotion!['original_amount'] as int,
+            finalAmount: _appliedPromotion!['final_amount'] as int,
+          );
+          debugPrint('✅ 프로모션 코드 사용 기록 완료');
+        } catch (e) {
+          debugPrint('⚠️ 프로모션 코드 사용 기록 실패 (주문은 생성됨): $e');
+          // 주문은 이미 생성되었으므로 에러를 무시하고 계속 진행
+        }
+      }
       
       if (mounted) {
         // 주문 생성 성공 - Provider 초기화
@@ -273,6 +374,14 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       }
     }
     return total;
+  }
+  
+  // 가격 포맷팅
+  String _formatPrice(int price) {
+    return price.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
   }
 
   @override
@@ -856,6 +965,160 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 24),
+                    
+                    // 프로모션 코드 섹션
+                    const Text(
+                      '프로모션 코드',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // 프로모션 코드가 적용된 경우
+                    if (_appliedPromotion != null)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00C896).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFF00C896),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _appliedPromotion!['code'] as String,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF00C896),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  if (_appliedPromotion!['description'] != null)
+                                    Text(
+                                      _appliedPromotion!['description'] as String,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '-${_formatPrice(_appliedPromotion!['discount_amount'] as int)}원 할인',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.grey),
+                              onPressed: _removePromotionCode,
+                              tooltip: '프로모션 코드 제거',
+                            ),
+                          ],
+                        ),
+                      )
+                    // 프로모션 코드 입력 필드
+                    else
+                      Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _promotionCodeController,
+                                  decoration: InputDecoration(
+                                    hintText: '프로모션 코드를 입력하세요',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: Colors.grey.shade300),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(color: Colors.grey.shade300),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF00C896),
+                                        width: 2,
+                                      ),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(color: Colors.red),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
+                                    errorText: _promotionErrorMessage,
+                                  ),
+                                  textCapitalization: TextCapitalization.characters,
+                                  onChanged: (value) {
+                                    if (_promotionErrorMessage != null) {
+                                      setState(() {
+                                        _promotionErrorMessage = null;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              ElevatedButton(
+                                onPressed: _isValidatingPromoCode
+                                    ? null
+                                    : _validateAndApplyPromotionCode,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00C896),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: _isValidatingPromoCode
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            Colors.white,
+                                          ),
+                                        ),
+                                      )
+                                    : const Text(
+                                        '적용',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     const SizedBox(height: 32),
                     
                     // 고지사항
@@ -957,22 +1220,68 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                       ),
                       child: Column(
                         children: [
+                          // 프로모션 할인이 있는 경우 원래 금액 표시
+                          if (_appliedPromotion != null) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  '예상 금액',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                                Text(
+                                  '${_formatPrice(totalPrice)}원~',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  '프로모션 할인',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                                Text(
+                                  '-${_formatPrice(_appliedPromotion!['discount_amount'] as int)}원',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Divider(color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                          ],
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                '총 예상 금액',
-                                style: TextStyle(
+                              Text(
+                                _appliedPromotion != null ? '최종 결제 금액' : '총 예상 금액',
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.black87,
                                 ),
                               ),
                               Text(
-                                '${totalPrice.toString().replaceAllMapped(
-                                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                                  (Match m) => '${m[1]},',
-                                )}원~',
+                                '${_formatPrice(_appliedPromotion != null 
+                                  ? (_appliedPromotion!['final_amount'] as int)
+                                  : totalPrice)}원~',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
