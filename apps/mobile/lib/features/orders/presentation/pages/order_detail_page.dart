@@ -1796,10 +1796,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   Future<void> _loadVideoUrls() async {
     try {
       // final_waybill_no 후보: delivery_tracking_no, tracking_no, orderId
+      debugPrint('🔍 shipmentData: ${_shipmentData?.keys.toList()}');
+      debugPrint('🔍 delivery_tracking_no: ${_shipmentData?['delivery_tracking_no']}');
+      
       final candidates = [
         _shipmentData?['delivery_tracking_no'],
         _shipmentData?['tracking_no'],
         _shipmentData?['outbound_tracking_no'],
+        _shipmentData?['pickup_tracking_no'],
         _orderData?['id'], // orderId도 포함
       ].where((v) => v != null && (v is String) && v.isNotEmpty).toList();
       
