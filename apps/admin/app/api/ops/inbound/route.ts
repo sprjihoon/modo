@@ -15,29 +15,35 @@ export async function POST(request: NextRequest) {
 
     console.log("📦 입고 처리 시작:", orderId);
 
-    // 1. 출고 송장 생성 (임시: Mock 모드)
+    // 1. 출고 송장 생성 (Edge Function 호출)
     let outboundTrackingNo: string | null = null;
     try {
-      // 임시 테스트 송장번호 생성
-      const timestamp = Date.now();
-      const mockTrackingNo = `TEST-OUT-${timestamp.toString().substring(3)}`;
-      outboundTrackingNo = mockTrackingNo;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
-      console.log("✅ 출고 송장 생성 (MOCK):", outboundTrackingNo);
+      console.log("📮 출고 송장 생성 Edge Function 호출...");
+      const outboundResponse = await fetch(`${supabaseUrl}/functions/v1/shipments-create-outbound`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({ orderId }),
+      });
+
+      console.log("📡 Edge Function 응답:", outboundResponse.status);
       
-      // shipments 테이블에 직접 저장
-      const { error: updateTrackingError } = await supabaseAdmin
-        .from("shipments")
-        .update({ delivery_tracking_no: outboundTrackingNo })
-        .eq("order_id", orderId);
-      
-      if (updateTrackingError) {
-        console.error("❌ delivery_tracking_no 업데이트 실패:", updateTrackingError);
-        outboundTrackingNo = null;
+      if (outboundResponse.ok) {
+        const outboundResult = await outboundResponse.json();
+        console.log("📦 응답 데이터:", JSON.stringify(outboundResult, null, 2));
+        outboundTrackingNo = outboundResult.data?.trackingNo || null;
+        console.log("✅ 출고 송장 생성 성공:", outboundTrackingNo);
+      } else {
+        const errorText = await outboundResponse.text();
+        console.error("❌ 출고 송장 생성 실패:", errorText);
       }
-    } catch (outboundError) {
-      console.warn("⚠️ 출고 송장 생성 실패 (계속 진행):", outboundError);
-      outboundTrackingNo = null;
+    } catch (outboundError: any) {
+      console.error("❌ Edge Function 호출 오류:", outboundError.message);
     }
 
     // 2. shipments 테이블 업데이트
