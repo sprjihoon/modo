@@ -156,16 +156,26 @@ class OrderService {
 
       // 타입 안전하게 변환
       final order = Map<String, dynamic>.from(response as Map);
-      final trackingNo = order['tracking_no'] as String?;
 
-      // shipments 정보는 orders.tracking_no로 대체
+      // shipments 테이블에서 실제 데이터 조회
+      List<Map<String, dynamic>> shipments = [];
+      try {
+        final shipmentsResponse = await _supabase
+            .from('shipments')
+            .select('*')
+            .eq('order_id', orderId);
+        
+        if (shipmentsResponse != null && shipmentsResponse is List) {
+          shipments = shipmentsResponse.map((s) => Map<String, dynamic>.from(s as Map)).toList();
+          debugPrint('✅ Shipments 조회 성공: ${shipments.length}개');
+        }
+      } catch (shipmentError) {
+        debugPrint('⚠️ Shipments 조회 실패 (계속 진행): $shipmentError');
+      }
+
       final result = {
         ...order,
-        'shipments': trackingNo != null ? [{
-          'tracking_no': trackingNo,
-          'pickup_tracking_no': trackingNo,
-          'order_id': orderId,
-        }] : <Map<String, dynamic>>[],
+        'shipments': shipments,
       };
       
       debugPrint('✅ 주문 상세 데이터 준비 완료');
