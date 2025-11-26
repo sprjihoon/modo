@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../services/image_service.dart';
 import '../../../../services/order_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 주문 상세 화면
 class OrderDetailPage extends ConsumerStatefulWidget {
@@ -1629,7 +1629,36 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     return InkWell(
       onTap: hasVideo
           ? () {
-              // TODO: 영상 재생
+              // 개별 영상 재생
+              final videoUrl = isInbound ? _inboundVideoUrl : _outboundVideoUrl;
+              if (videoUrl != null && videoUrl.isNotEmpty) {
+                // 간단한 비디오 플레이어 다이얼로그
+                showDialog(
+                  context: context,
+                  builder: (context) => Dialog(
+                    backgroundColor: Colors.black,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppBar(
+                          title: Text(title),
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                        ),
+                        AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: VideoPlayer(
+                            VideoPlayerController.networkUrl(Uri.parse(videoUrl))
+                              ..initialize().then((_) {
+                                // 초기화 후 자동 재생은 하지 않음
+                              }),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
             }
           : null,
       borderRadius: BorderRadius.circular(12),
@@ -1795,34 +1824,38 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
 
   Future<void> _loadVideoUrls() async {
     try {
-      // final_waybill_no 후보: delivery_tracking_no, tracking_no, orderId
       debugPrint('🔍 shipmentData: ${_shipmentData?.keys.toList()}');
+      debugPrint('🔍 pickup_tracking_no: ${_shipmentData?['pickup_tracking_no']}');
       debugPrint('🔍 delivery_tracking_no: ${_shipmentData?['delivery_tracking_no']}');
       
+      // 모든 가능한 송장번호로 조회 (유연한 매칭)
       final candidates = [
-        _shipmentData?['delivery_tracking_no'],
-        _shipmentData?['tracking_no'],
-        _shipmentData?['outbound_tracking_no'],
-        _shipmentData?['pickup_tracking_no'],
-        _orderData?['id'], // orderId도 포함
-      ].where((v) => v != null && (v is String) && v.isNotEmpty).toList();
+        _shipmentData?['pickup_tracking_no'],      // 수거 송장 (입고 영상용)
+        _shipmentData?['delivery_tracking_no'],    // 출고 송장 (출고 영상용)
+        _shipmentData?['tracking_no'],             // 기본 송장
+        _shipmentData?['outbound_tracking_no'],    // 호환성
+        _orderData?['id'],                         // orderId (폴백)
+      ].where((v) => v != null && (v is String) && v.isNotEmpty).toSet().toList(); // 중복 제거
       
       if (candidates.isEmpty) {
         debugPrint('❌ final_waybill_no 후보가 없습니다');
         return;
       }
 
-      debugPrint('🔍 영상 조회 시도: $candidates');
+      debugPrint('🔍 영상 조회 시도 (${candidates.length}개 후보): $candidates');
 
       final supabase = Supabase.instance.client;
       final videos = await supabase
           .from('media')
-          .select('type, path, provider')
+          .select('type, path, provider, final_waybill_no')
           .inFilter('final_waybill_no', candidates)
           .inFilter('type', ['inbound_video', 'outbound_video'])
           .order('created_at', ascending: false);
       
       debugPrint('📹 조회된 영상: ${videos.length}개');
+      if (videos.isNotEmpty) {
+        debugPrint('📹 영상 상세: ${videos.map((v) => '${v['type']}(${v['final_waybill_no']})').join(', ')}');
+      }
 
       String? inboundUrl;
       String? outboundUrl;

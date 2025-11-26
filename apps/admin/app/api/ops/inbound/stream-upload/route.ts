@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "orderId and base64 are required" }, { status: 400 });
     }
 
-    // Try to derive final waybill no from shipments
+    // 입고 영상: pickup_tracking_no (수거 송장번호) 사용
     let finalWaybillNo = orderId;
     try {
       const { data: shipment } = await supabaseAdmin
@@ -23,13 +23,17 @@ export async function POST(req: NextRequest) {
         .select("tracking_no, outbound_tracking_no, delivery_tracking_no, pickup_tracking_no")
         .eq("order_id", orderId)
         .maybeSingle();
+      
+      // 입고 단계이므로 수거 송장번호 우선
       finalWaybillNo =
-        shipment?.delivery_tracking_no ||
-        shipment?.outbound_tracking_no ||
-        shipment?.tracking_no ||
         shipment?.pickup_tracking_no ||
+        shipment?.tracking_no ||
         orderId;
-    } catch {}
+      
+      console.log("📦 입고 영상 final_waybill_no:", finalWaybillNo);
+    } catch (e) {
+      console.error("❌ shipment 조회 실패:", e);
+    }
 
     const buffer = Buffer.from(base64, "base64");
     const blob = new Blob([buffer], { type: mimeType || "video/webm" });
