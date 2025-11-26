@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../services/image_service.dart';
 import '../../../../services/order_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// 주문 상세 화면
 class OrderDetailPage extends ConsumerStatefulWidget {
@@ -41,6 +42,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   
   // 우체국 API 취소 응답 정보 저장
   Map<String, dynamic>? _cancelInfo;
+  
+  // 입고/출고 영상 URL
+  String? _inboundVideoUrl;
+  String? _outboundVideoUrl;
 
   @override
   void initState() {
@@ -117,6 +122,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         _images = images;
         _isLoading = false;
       });
+      
+      // 입고/출고 영상 URL 조회 (비동기, 별도 처리)
+      _loadVideoUrls();
 
       // 병합 영상 조회 시도 (비동기)
       unawaited(_loadMergedVideoUrl());
@@ -1558,21 +1566,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   Widget _buildVideoSection(BuildContext context) {
-    // 실제 영상 데이터 가져오기 (shipments 또는 orders에서)
-    final videos = _orderData?['videos'] as List<dynamic>? ?? [];
-    final hasInboundVideo = videos.any((v) {
-      final videoMap = v is Map ? v : <String, dynamic>{};
-      return videoMap['video_type'] == 'INBOUND' || 
-             videoMap['video_type'] == 'INBOUND_COMPLETE';
-    });
-    final hasOutboundVideo = videos.any((v) {
-      final videoMap = v is Map ? v : <String, dynamic>{};
-      return videoMap['video_type'] == 'OUTBOUND' || 
-             videoMap['video_type'] == 'OUTBOUND_COMPLETE';
-    });
+    // media 테이블에서 조회한 영상 URL 사용
+    final hasInboundVideo = _inboundVideoUrl != null;
+    final hasOutboundVideo = _outboundVideoUrl != null;
+    final hasBothVideos = hasInboundVideo && hasOutboundVideo;
     
-    // 영상이 없으면 섹션 숨기기
-    if (videos.isEmpty) {
+    // 영상이 하나도 없으면 섹션 숨기기
+    if (!hasInboundVideo && !hasOutboundVideo && _mergedVideoUrl == null) {
       return const SizedBox.shrink();
     }
     
@@ -1604,6 +1604,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ),
             ],
           ),
+          
+          // 전후 비교 영상 (우선 표시)
+          if (hasBothVideos) ...[
+            const SizedBox(height: 16),
+            _buildComparisonVideoCard(context),
+          ],
+          
+          // 개별 영상
           const SizedBox(height: 16),
           Row(
             children: [
@@ -1617,9 +1625,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             ],
           ),
 
-          const SizedBox(height: 16),
-          // 전후 비교 영상
-          _buildMergedVideoCard(context),
+          // 병합 영상 (Worker 방식)
+          if (_mergedVideoUrl != null) ...[
+            const SizedBox(height: 16),
+            _buildMergedVideoCard(context),
+          ],
         ],
       ),
     );
@@ -1689,6 +1699,110 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     );
   }
 
+  Widget _buildComparisonVideoCard(BuildContext context) {
+    final hasBoth = _inboundVideoUrl != null && _outboundVideoUrl != null;
+    return InkWell(
+      onTap: hasBoth
+          ? () {
+              context.push('/comparison-video', extra: {
+                'inboundUrl': _inboundVideoUrl,
+                'outboundUrl': _outboundVideoUrl,
+              });
+            }
+          : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: hasBoth
+              ? LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: hasBoth ? null : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasBoth
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                : Colors.grey.shade300,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: hasBoth
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.grey.shade400,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                hasBoth ? Icons.compare_arrows_outlined : Icons.schedule,
+                size: 36,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '전후 비교 영상',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: hasBoth ? Colors.grey.shade900 : Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    hasBoth ? '좌우 나란히 재생됩니다' : '입고/출고 영상 준비 중',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: hasBoth ? Colors.grey.shade600 : Colors.grey.shade500,
+                    ),
+                  ),
+                  if (hasBoth) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        '재생하기',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 20,
+              color: hasBoth ? Theme.of(context).colorScheme.primary : Colors.grey.shade400,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMergedVideoCard(BuildContext context) {
     final hasMerged = _mergedVideoUrl != null && _mergedVideoUrl!.isNotEmpty;
     return InkWell(
@@ -1751,6 +1865,56 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _loadVideoUrls() async {
+    try {
+      final fwbn =
+          _shipmentData?['delivery_tracking_no'] ?? _shipmentData?['tracking_no'] ?? _shipmentData?['outbound_tracking_no'];
+      if (fwbn == null || (fwbn is String && fwbn.isEmpty)) {
+        return;
+      }
+
+      final supabase = Supabase.instance.client;
+      final videos = await supabase
+          .from('media')
+          .select('type, path, provider')
+          .eq('final_waybill_no', fwbn)
+          .in_('type', ['inbound_video', 'outbound_video'])
+          .order('created_at', ascending: false);
+
+      String? inboundUrl;
+      String? outboundUrl;
+
+      for (final video in videos) {
+        final type = video['type'] as String?;
+        final path = video['path'] as String? ?? '';
+        final provider = video['provider'] as String? ?? '';
+        
+        String? url;
+        if (path.startsWith('http')) {
+          url = path;
+        } else if (provider == 'cloudflare' && path.isNotEmpty) {
+          // Cloudflare Stream HLS URL
+          url = 'https://videodelivery.net/$path/manifest/video.m3u8';
+        }
+
+        if (type == 'inbound_video' && url != null) {
+          inboundUrl = url;
+        } else if (type == 'outbound_video' && url != null) {
+          outboundUrl = url;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _inboundVideoUrl = inboundUrl;
+          _outboundVideoUrl = outboundUrl;
+        });
+      }
+    } catch (e) {
+      debugPrint('입고/출고 영상 조회 실패: $e');
+    }
   }
 
   Future<void> _loadMergedVideoUrl() async {

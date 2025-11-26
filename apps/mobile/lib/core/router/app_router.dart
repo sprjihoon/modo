@@ -38,6 +38,7 @@ import '../../features/profile/presentation/pages/notices_page.dart';
 import '../../features/profile/presentation/pages/customer_service_page.dart';
 import '../../features/profile/presentation/pages/app_settings_page.dart';
 import '../../features/video/presentation/pages/video_player_page.dart';
+import '../../features/video/presentation/pages/comparison_video_player_page.dart';
 
 /// GoRouter 프로바이더
 final routerProvider = Provider<GoRouter>((ref) {
@@ -139,6 +140,25 @@ final routerProvider = Provider<GoRouter>((ref) {
             videoUrl = extra['videoUrl'] as String? ?? '';
           }
           return VideoPlayerPage(videoUrl: videoUrl);
+        },
+      ),
+      
+      // Comparison video player (side-by-side)
+      GoRoute(
+        path: '/comparison-video',
+        name: 'comparison-video',
+        builder: (context, state) {
+          final extra = state.extra;
+          String inboundUrl = '';
+          String outboundUrl = '';
+          if (extra is Map<String, dynamic>) {
+            inboundUrl = extra['inboundUrl'] as String? ?? '';
+            outboundUrl = extra['outboundUrl'] as String? ?? '';
+          }
+          return ComparisonVideoPlayerPage(
+            inboundVideoUrl: inboundUrl,
+            outboundVideoUrl: outboundUrl,
+          );
         },
       ),
       

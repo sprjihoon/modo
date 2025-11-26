@@ -10,13 +10,17 @@ type Props = {
 
 export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const animationFrameRef = useRef<number | null>(null);
+  const recordStartTimeRef = useRef<number>(0);
 
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
   const [recording, setRecording] = useState(false);
+  const [recordDuration, setRecordDuration] = useState(0);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,13 +81,62 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) 
     }
   };
 
+  // Canvas에 비디오 + 오버레이 그리기
+  const drawFrame = () => {
+    if (!videoRef.current || !canvasRef.current || !recording) return;
+    
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // 비디오 프레임 그리기
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // 현재 시간 오버레이
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("ko-KR");
+    const timeStr = now.toLocaleTimeString("ko-KR");
+    
+    // 녹화 시간 계산
+    const elapsed = Math.floor((Date.now() - recordStartTimeRef.current) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    const durationStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+    // 배경 + 텍스트 그리기
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillRect(10, 10, 200, 60);
+    
+    ctx.fillStyle = "#fff";
+    ctx.fillText(dateStr, 20, 30);
+    ctx.fillText(timeStr, 20, 50);
+    
+    // 녹화 시간 (우측 상단)
+    ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
+    ctx.fillRect(canvas.width - 120, 10, 110, 30);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 18px Arial";
+    ctx.fillText(`⏺ ${durationStr}`, canvas.width - 110, 32);
+
+    setRecordDuration(elapsed);
+    animationFrameRef.current = requestAnimationFrame(drawFrame);
+  };
+
   const startRecord = async () => {
-    if (!mediaStreamRef.current) return;
+    if (!mediaStreamRef.current || !canvasRef.current) return;
     try {
       chunksRef.current = [];
+      recordStartTimeRef.current = Date.now();
+      setRecordDuration(0);
+      
+      // Canvas 스트림 생성
+      const canvasStream = canvasRef.current.captureStream(24);
+      
       const mimeType =
         MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
-      const rec = new MediaRecorder(mediaStreamRef.current, {
+      const rec = new MediaRecorder(canvasStream, {
         mimeType,
         videoBitsPerSecond: 700_000,
       });
@@ -91,12 +144,19 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) 
         if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
       };
       rec.onstop = () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
         const b = new Blob(chunksRef.current, { type: "video/webm" });
         setBlob(b);
       };
       recorderRef.current = rec;
       rec.start();
       setRecording(true);
+      
+      // 프레임 그리기 시작
+      drawFrame();
     } catch (e: any) {
       setError(e.message || "녹화 시작 실패");
     }
@@ -158,7 +218,9 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) 
         </select>
       </div>
 
-      <video ref={videoRef} className="w-full rounded border" muted playsInline />
+      <div className="relative">
+        <video ref={videoRef} className="w-full rounded border" muted playsInline style={{ display: recording ? 'none' : 'block' }} />
+        <canvas ref={canvasRef} width={640} height={360} className="w-full rounded border" style={{ display: recording ? 'block' : 'none' }} />
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -166,16 +228,18 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) 
         {!recording ? (
           <button
             onClick={startRecord}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2"
           >
+            <span className="text-xl">⏺</span>
             녹화 시작
           </button>
         ) : (
           <button
             onClick={stopRecord}
-            className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900"
+            className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900 flex items-center gap-2"
           >
-            녹화 종료
+            <span className="text-xl">⏹</span>
+            녹화 종료 ({recordDuration}초)
           </button>
         )}
 

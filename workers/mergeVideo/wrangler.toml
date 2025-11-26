@@ -1,0 +1,19 @@
+name = "merge-video-worker"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# R2 bucket binding for merged video outputs
+[[r2_buckets]]
+binding = "MERGED_BUCKET"
+bucket_name = "modo-merged-videos"
+
+# Optional: If you host ffmpeg core files separately
+# [vars]
+# FFMPEG_CORE_URL = "https://..."
+# FFMPEG_WASM_URL = "https://..."
+# FFMPEG_WORKER_URL = "https://..."
+
+# Note: To use @ffmpeg/ffmpeg in Workers, you need to bundle it properly.
+# This may require custom build steps or using a bundler like esbuild/webpack.
+# For now, this is a deployment skeleton.
+
