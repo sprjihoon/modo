@@ -81,11 +81,16 @@ Deno.serve(async (req) => {
     const apprNo = await getApprovalNumber();
 
     // 5. 출고 송장 생성 파라미터
-    const config = await import('../_shared/epost/config.ts');
-    const epostConfig = config.getEPostConfig();
+    // custNo 직접 가져오기
+    const custNo = Deno.env.get('EPOST_CUSTOMER_ID')?.trim() || '';
+    if (!custNo) {
+      throw new Error('EPOST_CUSTOMER_ID 환경변수가 설정되지 않았습니다.');
+    }
+    
+    console.log('🔑 고객번호 확인:', { custNo, length: custNo.length });
     
     const outboundParams: InsertOrderParams = {
-      custNo: epostConfig.custNo,
+      custNo: custNo,
       apprNo,
       payType: '1', // 선불
       reqType: '1', // 일반소포
