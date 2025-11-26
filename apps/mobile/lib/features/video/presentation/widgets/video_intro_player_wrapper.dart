@@ -85,7 +85,7 @@ class _VideoIntroPlayerWrapperState extends State<VideoIntroPlayerWrapper> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.scissors_rounded, size: 16, color: Colors.white),
+                    Icon(Icons.content_cut, size: 16, color: Colors.white),
                     SizedBox(width: 6),
                     Text(
                       '모두의수선',
@@ -121,7 +121,7 @@ class _VideoIntroPlayerWrapperState extends State<VideoIntroPlayerWrapper> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.scissors_rounded, size: 56, color: Colors.white),
+                      const Icon(Icons.content_cut, size: 56, color: Colors.white),
                       const SizedBox(height: 12),
                       Text(
                         '전후 비교 영상',
