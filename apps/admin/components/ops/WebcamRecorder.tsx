@@ -221,6 +221,7 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) 
       <div className="relative">
         <video ref={videoRef} className="w-full rounded border" muted playsInline style={{ display: recording ? 'none' : 'block' }} />
         <canvas ref={canvasRef} width={640} height={360} className="w-full rounded border" style={{ display: recording ? 'block' : 'none' }} />
+      </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
