@@ -81,8 +81,11 @@ Deno.serve(async (req) => {
     const apprNo = await getApprovalNumber();
 
     // 5. 출고 송장 생성 파라미터
+    const config = await import('../_shared/epost/config.ts');
+    const epostConfig = config.getEPostConfig();
+    
     const outboundParams: InsertOrderParams = {
-      custNo: '', // config에서 자동 설정
+      custNo: epostConfig.custNo,
       apprNo,
       payType: '1', // 선불
       reqType: '1', // 일반소포
