@@ -37,7 +37,6 @@ import '../../features/profile/presentation/pages/invite_friends_page.dart';
 import '../../features/profile/presentation/pages/notices_page.dart';
 import '../../features/profile/presentation/pages/customer_service_page.dart';
 import '../../features/profile/presentation/pages/app_settings_page.dart';
-import '../../features/video/presentation/pages/video_player_page.dart';
 import '../../features/video/presentation/pages/comparison_video_player_page.dart';
 
 /// GoRouter 프로바이더
@@ -127,20 +126,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/cart',
         name: 'cart',
         builder: (context, state) => const CartPage(),
-      ),
-      
-      // Video player (merged video)
-      GoRoute(
-        path: '/video',
-        name: 'video',
-        builder: (context, state) {
-          final extra = state.extra;
-          String videoUrl = '';
-          if (extra is Map<String, dynamic>) {
-            videoUrl = extra['videoUrl'] as String? ?? '';
-          }
-          return VideoPlayerPage(videoUrl: videoUrl);
-        },
       ),
       
       // Comparison video player (side-by-side)

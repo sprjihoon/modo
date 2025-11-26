@@ -28,7 +28,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   bool _isCancelling = false; // 취소 중 상태 추가
   Map<String, dynamic>? _orderData;
   Map<String, dynamic>? _shipmentData;
-  String? _mergedVideoUrl;
   
   // 실제 사진 데이터 (State로 관리)
   List<Map<String, dynamic>> _images = [];
@@ -125,9 +124,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       
       // 입고/출고 영상 URL 조회 (비동기, 별도 처리)
       _loadVideoUrls();
-
-      // 병합 영상 조회 시도 (비동기)
-      unawaited(_loadMergedVideoUrl());
     } catch (e, stackTrace) {
       debugPrint('❌ 주문 상세 조회 실패: $e');
       debugPrint('스택 트레이스: $stackTrace');
@@ -1572,7 +1568,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     final hasBothVideos = hasInboundVideo && hasOutboundVideo;
     
     // 영상이 하나도 없으면 섹션 숨기기
-    if (!hasInboundVideo && !hasOutboundVideo && _mergedVideoUrl == null) {
+    if (!hasInboundVideo && !hasOutboundVideo) {
       return const SizedBox.shrink();
     }
     
@@ -1624,12 +1620,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ),
             ],
           ),
-
-          // 병합 영상 (Worker 방식)
-          if (_mergedVideoUrl != null) ...[
-            const SizedBox(height: 16),
-            _buildMergedVideoCard(context),
-          ],
         ],
       ),
     );
@@ -1803,70 +1793,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     );
   }
 
-  Widget _buildMergedVideoCard(BuildContext context) {
-    final hasMerged = _mergedVideoUrl != null && _mergedVideoUrl!.isNotEmpty;
-    return InkWell(
-      onTap: hasMerged
-          ? () {
-              context.push('/video', extra: {'videoUrl': _mergedVideoUrl});
-            }
-          : null,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 140,
-        decoration: BoxDecoration(
-          color: hasMerged
-              ? const Color(0xFF7C3AED).withOpacity(0.06) // purple tone
-              : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: hasMerged ? const Color(0xFF7C3AED).withOpacity(0.25) : Colors.grey.shade300,
-          ),
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: 16),
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: hasMerged ? const Color(0xFF7C3AED) : Colors.grey.shade400,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.play_arrow_rounded, size: 32, color: Colors.white),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '전후 비교 영상',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: hasMerged ? Colors.grey.shade900 : Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    hasMerged ? '재생하려면 눌러주세요' : '생성 대기 중',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: hasMerged ? Colors.grey.shade600 : Colors.grey.shade500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _loadVideoUrls() async {
     try {
       final fwbn =
@@ -1914,45 +1840,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       }
     } catch (e) {
       debugPrint('입고/출고 영상 조회 실패: $e');
-    }
-  }
-
-  Future<void> _loadMergedVideoUrl() async {
-    try {
-      final fwbn =
-          _shipmentData?['delivery_tracking_no'] ?? _shipmentData?['tracking_no'] ?? _shipmentData?['outbound_tracking_no'];
-      if (fwbn == null || (fwbn is String && fwbn.isEmpty)) {
-        return;
-      }
-
-      final supabase = Supabase.instance.client;
-      final res = await supabase
-          .from('media')
-          .select('path, provider')
-          .eq('final_waybill_no', fwbn)
-          .eq('type', 'merged_video')
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
-
-      if (res != null) {
-        final path = (res['path'] as String?) ?? '';
-        final provider = (res['provider'] as String?) ?? '';
-        String? url;
-        if (path.startsWith('http')) {
-          url = path;
-        } else if (provider == 'cloudflare' && path.isNotEmpty) {
-          // Cloudflare Stream 기본 재생(m3u8) URL
-          url = 'https://videodelivery.net/$path/manifest/video.m3u8';
-        }
-        if (mounted) {
-          setState(() {
-            _mergedVideoUrl = url;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('merged_video 조회 실패: $e');
     }
   }
 
