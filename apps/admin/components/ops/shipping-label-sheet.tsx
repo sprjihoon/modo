@@ -1,6 +1,6 @@
 /**
  * 우체국 송장 라벨 컴포넌트
- * 표준 크기: 100mm x 150mm (A6)
+ * C형 라벨: 168mm x 107mm
  * 인쇄 최적화 포함
  */
 
@@ -52,12 +52,12 @@ export function ShippingLabelSheet({ data }: Props) {
             position: absolute;
             left: 0;
             top: 0;
-            width: 100mm;
-            height: 150mm;
+            width: 168mm;
+            height: 107mm;
             page-break-after: always;
           }
           @page {
-            size: 100mm 150mm;
+            size: 168mm 107mm landscape;
             margin: 0;
           }
         }
@@ -66,8 +66,8 @@ export function ShippingLabelSheet({ data }: Props) {
       <div
         className="shipping-label"
         style={{
-          width: "100mm",
-          height: "150mm",
+          width: "168mm",
+          height: "107mm",
           border: "2px solid #000",
           padding: "8mm",
           fontFamily: "Arial, sans-serif",
@@ -76,95 +76,100 @@ export function ShippingLabelSheet({ data }: Props) {
           position: "relative",
         }}
       >
-        {/* 헤더 - 로고 및 타이틀 */}
-        <div style={{ textAlign: "center", marginBottom: "4mm", borderBottom: "2px solid #000", paddingBottom: "3mm" }}>
-          <div style={{ fontSize: "18pt", fontWeight: "bold", marginBottom: "2mm" }}>
-            🧵 모두의수선
-          </div>
-          <div style={{ fontSize: "12pt", fontWeight: "bold" }}>
-            우체국 택배 송장
-          </div>
-        </div>
+        {/* C형 라벨 레이아웃 (168mm x 107mm - 가로형) */}
+        <div style={{ display: "flex", height: "100%" }}>
+          {/* 좌측 영역 - 송장번호 + 바코드 */}
+          <div style={{ width: "60mm", borderRight: "2px solid #000", padding: "3mm", display: "flex", flexDirection: "column" }}>
+            {/* 로고 */}
+            <div style={{ textAlign: "center", marginBottom: "3mm", paddingBottom: "2mm", borderBottom: "1px solid #ccc" }}>
+              <div style={{ fontSize: "16pt", fontWeight: "bold" }}>🧵 모두의수선</div>
+              <div style={{ fontSize: "8pt", color: "#666" }}>우체국 택배</div>
+            </div>
 
-        {/* 운송장번호 + 바코드 */}
-        <div style={{ textAlign: "center", margin: "4mm 0", padding: "3mm", backgroundColor: "#f0f0f0" }}>
-          <div style={{ fontSize: "9pt", marginBottom: "2mm", color: "#666" }}>운송장번호</div>
-          <div style={{ fontSize: "16pt", fontWeight: "bold", letterSpacing: "2px", fontFamily: "monospace" }}>
-            {data.trackingNo}
-          </div>
-          {/* 바코드 영역 (실제 바코드 라이브러리 사용 권장) */}
-          <div style={{ marginTop: "3mm", height: "12mm", backgroundColor: "#fff", border: "1px solid #ccc", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ fontFamily: "monospace", fontSize: "8pt", color: "#999" }}>
-              ||||| {data.trackingNo} |||||
+            {/* 운송장번호 */}
+            <div style={{ textAlign: "center", marginBottom: "3mm" }}>
+              <div style={{ fontSize: "8pt", color: "#666", marginBottom: "1mm" }}>운송장번호</div>
+              <div style={{ fontSize: "14pt", fontWeight: "bold", letterSpacing: "1px", fontFamily: "monospace" }}>
+                {data.trackingNo}
+              </div>
+            </div>
+
+            {/* 바코드 영역 */}
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #ccc", backgroundColor: "#fff" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontFamily: "monospace", fontSize: "7pt", color: "#999", marginBottom: "2mm" }}>
+                  ||||| {data.trackingNo} |||||
+                </div>
+                <div style={{ fontSize: "6pt", color: "#999" }}>
+                  바코드 스캔 영역
+                </div>
+              </div>
+            </div>
+
+            {/* 하단 정보 */}
+            <div style={{ marginTop: "2mm", fontSize: "6pt", color: "#666", textAlign: "center" }}>
+              <div>{data.orderNumber}</div>
+              <div>{new Date().toLocaleDateString("ko-KR")}</div>
             </div>
           </div>
-        </div>
 
-        {/* 발송인 정보 */}
-        <div style={{ marginBottom: "3mm", padding: "3mm", border: "1px solid #ccc", backgroundColor: "#f9f9f9" }}>
-          <div style={{ fontSize: "9pt", fontWeight: "bold", marginBottom: "2mm", color: "#0066cc" }}>
-            📤 발송인
-          </div>
-          <div style={{ fontSize: "9pt", lineHeight: "1.4" }}>
-            <div><strong>{data.senderName}</strong></div>
-            <div>〒 {data.senderZipcode}</div>
-            <div>{data.senderAddress}</div>
-            <div>☎ {data.senderPhone}</div>
-          </div>
-        </div>
-
-        {/* 수취인 정보 */}
-        <div style={{ marginBottom: "3mm", padding: "3mm", border: "2px solid #000" }}>
-          <div style={{ fontSize: "10pt", fontWeight: "bold", marginBottom: "2mm" }}>
-            📥 수취인
-          </div>
-          <div style={{ fontSize: "10pt", lineHeight: "1.5" }}>
-            <div style={{ fontSize: "12pt", fontWeight: "bold" }}>{data.recipientName}</div>
-            <div>〒 {data.recipientZipcode}</div>
-            <div>{data.recipientAddress}</div>
-            <div>☎ {data.recipientPhone}</div>
-          </div>
-        </div>
-
-        {/* 상품 정보 */}
-        <div style={{ marginBottom: "3mm", padding: "2mm", border: "1px solid #ccc", fontSize: "9pt" }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <div>
-              <strong>품목:</strong> {data.goodsName}
+          {/* 우측 영역 - 주소 정보 */}
+          <div style={{ flex: 1, padding: "3mm", display: "flex", flexDirection: "column" }}>
+            {/* 발송인 */}
+            <div style={{ marginBottom: "3mm", padding: "2mm", border: "1px solid #999", backgroundColor: "#f9f9f9" }}>
+              <div style={{ fontSize: "8pt", fontWeight: "bold", marginBottom: "1mm", color: "#0066cc" }}>
+                📤 발송인 (보내는 곳)
+              </div>
+              <div style={{ fontSize: "8pt", lineHeight: "1.3" }}>
+                <div><strong>{data.senderName}</strong> ☎ {data.senderPhone}</div>
+                <div>〒 {data.senderZipcode}</div>
+                <div>{data.senderAddress}</div>
+              </div>
             </div>
-            <div>
-              <strong>중량:</strong> {data.weight || 2}kg
+
+            {/* 수취인 */}
+            <div style={{ marginBottom: "3mm", padding: "3mm", border: "2px solid #000" }}>
+              <div style={{ fontSize: "9pt", fontWeight: "bold", marginBottom: "1mm" }}>
+                📥 받는 분 (수취인)
+              </div>
+              <div style={{ fontSize: "10pt", lineHeight: "1.4" }}>
+                <div style={{ fontSize: "12pt", fontWeight: "bold" }}>{data.recipientName}</div>
+                <div>〒 {data.recipientZipcode}</div>
+                <div>{data.recipientAddress}</div>
+                <div>☎ {data.recipientPhone}</div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* 커스텀 영역 - 메모 */}
-        {data.memo && (
-          <div style={{ marginBottom: "2mm", padding: "2mm", backgroundColor: "#fffbcc", border: "1px dashed #ffcc00", fontSize: "8pt" }}>
-            <div style={{ fontWeight: "bold", marginBottom: "1mm" }}>📝 작업 메모</div>
-            <div>{data.memo}</div>
-          </div>
-        )}
+            {/* 상품 정보 */}
+            <div style={{ marginBottom: "2mm", padding: "2mm", border: "1px solid #ccc", fontSize: "8pt", display: "flex", justifyContent: "space-between" }}>
+              <div><strong>품목:</strong> {data.goodsName}</div>
+              <div><strong>중량:</strong> {data.weight || 2}kg</div>
+            </div>
 
-        {/* 특별 지시사항 */}
-        {data.specialInstructions && (
-          <div style={{ marginBottom: "2mm", padding: "2mm", backgroundColor: "#ffe6e6", border: "1px solid #ff6666", fontSize: "8pt" }}>
-            <div style={{ fontWeight: "bold", marginBottom: "1mm" }}>⚠️ 특별 지시사항</div>
-            <div>{data.specialInstructions}</div>
-          </div>
-        )}
+            {/* 커스텀 영역 */}
+            <div style={{ flex: 1, display: "flex", gap: "2mm" }}>
+              {/* 메모 */}
+              {data.memo && (
+                <div style={{ flex: 1, padding: "2mm", backgroundColor: "#fffbcc", border: "1px dashed #ffcc00", fontSize: "7pt" }}>
+                  <div style={{ fontWeight: "bold", marginBottom: "1mm" }}>📝 메모</div>
+                  <div style={{ lineHeight: "1.2" }}>{data.memo}</div>
+                </div>
+              )}
 
-        {/* 하단 - QR코드 및 주문번호 */}
-        <div style={{ position: "absolute", bottom: "8mm", left: "8mm", right: "8mm", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #ccc", paddingTop: "2mm" }}>
-          <div style={{ fontSize: "7pt", color: "#666" }}>
-            {data.orderNumber && (
-              <div>주문번호: {data.orderNumber}</div>
-            )}
-            <div>인쇄일시: {new Date().toLocaleString("ko-KR")}</div>
-          </div>
-          {/* QR코드 영역 (실제 QR 라이브러리 사용 권장) */}
-          <div style={{ width: "15mm", height: "15mm", border: "1px solid #ccc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "6pt", color: "#999" }}>
-            QR
+              {/* 특별 지시사항 + QR */}
+              <div style={{ width: "25mm", display: "flex", flexDirection: "column", gap: "2mm" }}>
+                {data.specialInstructions && (
+                  <div style={{ padding: "2mm", backgroundColor: "#ffe6e6", border: "1px solid #ff6666", fontSize: "6pt", textAlign: "center" }}>
+                    <div style={{ fontWeight: "bold" }}>⚠️</div>
+                    <div>{data.specialInstructions}</div>
+                  </div>
+                )}
+                {/* QR코드 */}
+                <div style={{ width: "20mm", height: "20mm", border: "1px solid #ccc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "5pt", color: "#999", margin: "0 auto" }}>
+                  QR
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
