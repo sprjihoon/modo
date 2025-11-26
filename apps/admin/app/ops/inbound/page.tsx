@@ -94,11 +94,13 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
 
     // 입고송장번호와 출고송장번호 구분
     const inboundTrackingNo = shipment.pickup_tracking_no || shipment.tracking_no || "";
-    const outboundTrackingNo = shipment.tracking_no && 
-                                shipment.pickup_tracking_no && 
-                                shipment.tracking_no !== shipment.pickup_tracking_no
-                                  ? shipment.tracking_no
-                                  : undefined;
+    const outboundTrackingNo = shipment.delivery_tracking_no || 
+                                shipment.outbound_tracking_no || 
+                                (shipment.tracking_no && 
+                                 shipment.pickup_tracking_no && 
+                                 shipment.tracking_no !== shipment.pickup_tracking_no
+                                   ? shipment.tracking_no
+                                   : undefined);
 
     return {
       trackingNo: inboundTrackingNo, // 입고송장번호
