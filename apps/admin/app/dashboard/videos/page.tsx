@@ -1,34 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Video, Upload, Play, Calendar, Package } from "lucide-react";
-import { VideoUpload } from "@/components/orders/video-upload";
+import { Search, Video, Upload, Play, Calendar, Package, ExternalLink } from "lucide-react";
+import { supabaseAdmin } from "@/lib/supabase";
+
+interface MediaVideo {
+  id: string;
+  final_waybill_no: string;
+  type: string;
+  provider: string;
+  path: string;
+  created_at: string;
+}
 
 export default function VideosPage() {
   const [search, setSearch] = useState("");
-  const [showUpload, setShowUpload] = useState(false);
+  const [videos, setVideos] = useState<MediaVideo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data
-  const videos = Array.from({ length: 12 }, (_, i) => ({
-    id: `VID-${(i + 1).toString().padStart(4, "0")}`,
-    orderId: `ORDER-2024-${(i + 1).toString().padStart(4, "0")}`,
-    orderItem: `청바지 기장 수선 ${i + 1}`,
-    type: i % 2 === 0 ? "입고" : "출고",
-    url: `https://example.com/video${i + 1}.mp4`,
-    thumbnail: `https://via.placeholder.com/320x180?text=Video+${i + 1}`,
-    duration: `${Math.floor(Math.random() * 5) + 1}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-    uploadedAt: `2024.01.${((i % 28) + 1).toString().padStart(2, "0")} ${String(10 + (i % 12)).padStart(2, "0")}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-    status: i % 3 === 0 ? "처리중" : i % 3 === 1 ? "완료" : "업로드중",
-  }));
+  useEffect(() => {
+    loadVideos();
+  }, []);
+
+  const loadVideos = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/admin/videos');
+      const data = await response.json();
+      if (data.success) {
+        setVideos(data.videos || []);
+      }
+    } catch (error) {
+      console.error('영상 로드 실패:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getVideoUrl = (video: MediaVideo) => {
+    if (video.path.startsWith('http')) {
+      return video.path;
+    }
+    if (video.provider === 'cloudflare') {
+      return `https://videodelivery.net/${video.path}/manifest/video.m3u8`;
+    }
+    return video.path;
+  };
+
+  const getVideoTypeLabel = (type: string) => {
+    if (type === 'inbound_video') return '입고';
+    if (type === 'outbound_video') return '출고';
+    if (type === 'merged_video') return '병합';
+    return type;
+  };
 
   const filteredVideos = videos.filter(
     (video) =>
-      video.orderId.toLowerCase().includes(search.toLowerCase()) ||
-      video.orderItem.toLowerCase().includes(search.toLowerCase())
+      video.final_waybill_no.toLowerCase().includes(search.toLowerCase()) ||
+      video.type.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -36,26 +69,13 @@ export default function VideosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">영상 관리</h1>
-          <p className="text-muted-foreground">수선 과정 영상을 관리합니다</p>
+          <p className="text-muted-foreground">입고/출고/병합 영상을 관리합니다</p>
         </div>
-        <Button onClick={() => setShowUpload(!showUpload)}>
-          <Upload className="mr-2 h-4 w-4" />
-          영상 업로드
+        <Button onClick={loadVideos}>
+          <Video className="mr-2 h-4 w-4" />
+          새로고침
         </Button>
       </div>
-
-      {/* Upload Section */}
-      {showUpload && (
-        <Card>
-          <CardHeader>
-            <CardTitle>새 영상 업로드</CardTitle>
-            <CardDescription>수선 과정 영상을 업로드하세요</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <VideoUpload orderId="" trackingNo="" />
-          </CardContent>
-        </Card>
-      )}
 
       {/* Search */}
       <Card>
@@ -63,7 +83,7 @@ export default function VideosPage() {
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="주문번호, 수선 항목으로 검색..."
+              placeholder="송장번호로 검색..."
               className="pl-10"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -88,7 +108,7 @@ export default function VideosPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {videos.filter((v) => v.type === "입고").length}개
+              {videos.filter((v) => v.type === "inbound_video").length}개
             </div>
           </CardContent>
         </Card>
@@ -98,86 +118,93 @@ export default function VideosPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {videos.filter((v) => v.type === "출고").length}개
+              {videos.filter((v) => v.type === "outbound_video").length}개
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>처리 완료</CardDescription>
+            <CardDescription>병합 영상</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {videos.filter((v) => v.status === "완료").length}개
+              {videos.filter((v) => v.type === "merged_video").length}개
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Videos Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredVideos.map((video) => (
-          <Card key={video.id} className="overflow-hidden">
-            <div className="relative aspect-video bg-gray-200">
-              <img
-                src={video.thumbnail}
-                alt={video.orderItem}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => window.open(video.url, "_blank")}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  재생
-                </Button>
-              </div>
-              <div className="absolute top-2 right-2">
-                <Badge
-                  variant={video.type === "입고" ? "default" : "secondary"}
-                  className="text-xs"
-                >
-                  {video.type}
-                </Badge>
-              </div>
-              <div className="absolute bottom-2 left-2">
-                <Badge variant="outline" className="text-xs bg-black/50 text-white">
-                  {video.duration}
-                </Badge>
-              </div>
-            </div>
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="font-medium text-sm truncate">{video.orderItem}</p>
-                  <Badge
-                    variant={
-                      video.status === "완료"
-                        ? "default"
-                        : video.status === "처리중"
-                        ? "secondary"
-                        : "outline"
-                    }
-                    className="text-xs"
-                  >
-                    {video.status}
-                  </Badge>
+      {isLoading ? (
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <p className="mt-4 text-muted-foreground">영상 로딩 중...</p>
+        </div>
+      ) : filteredVideos.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            영상이 없습니다.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredVideos.map((video) => {
+            const videoUrl = getVideoUrl(video);
+            const typeLabel = getVideoTypeLabel(video.type);
+            const date = new Date(video.created_at);
+            const formattedDate = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+            
+            return (
+              <Card key={video.id} className="overflow-hidden">
+                <div className="relative aspect-video bg-gray-900 flex items-center justify-center">
+                  <Video className="h-16 w-16 text-gray-600" />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => window.open(videoUrl, "_blank")}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      재생
+                    </Button>
+                  </div>
+                  <div className="absolute top-2 right-2">
+                    <Badge
+                      variant={video.type === "inbound_video" ? "default" : video.type === "outbound_video" ? "secondary" : "outline"}
+                      className="text-xs"
+                    >
+                      {typeLabel}
+                    </Badge>
+                  </div>
+                  <div className="absolute bottom-2 left-2">
+                    <Badge variant="outline" className="text-xs bg-black/50 text-white border-white/20">
+                      {video.provider}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Package className="h-3 w-3" />
-                  <span className="truncate">{video.orderId}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Calendar className="h-3 w-3" />
-                  <span>{video.uploadedAt}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <CardContent className="p-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium text-sm truncate">{typeLabel} 영상</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Package className="h-3 w-3" />
+                      <span className="truncate">{video.final_waybill_no}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      <span>{formattedDate}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      ID: {video.path.substring(0, 20)}...
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
