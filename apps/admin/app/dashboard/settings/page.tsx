@@ -37,6 +37,15 @@ export default function SettingsPage() {
     tosspaymentsSecretKey: "",
   });
 
+  // 센터(입고 도착지) 설정
+  const [centerSettings, setCenterSettings] = useState({
+    recipientName: "모두의수선",
+    zipcode: "41142",
+    address1: "대구광역시 동구 동촌로 1",
+    address2: "동대구우체국 2층 소포실 모두의수선",
+    phone: "010-2723-9490",
+  });
+
   const [footerSettings, setFooterSettings] = useState({
     headerTitle: "의식주컴퍼니",
     companyName: "(주) 의식주컴퍼니",
@@ -53,8 +62,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const loadCompanyInfo = async () => {
       try {
-        const { createClient } = await import('@/lib/supabase');
-        const supabase = createClient();
+        const { supabase } = await import('@/lib/supabase');
         
         const { data, error } = await supabase
           .from('company_info')
@@ -83,30 +91,66 @@ export default function SettingsPage() {
     };
     
     loadCompanyInfo();
+
+  // 센터 설정 로드
+  const loadCenter = async () => {
+    try {
+      const res = await fetch('/api/admin/ops/center');
+      const json = await res.json();
+      if (json?.data) {
+        setCenterSettings({
+          recipientName: json.data.recipient_name || "모두의수선",
+          zipcode: json.data.zipcode || "41142",
+          address1: json.data.address1 || "",
+          address2: json.data.address2 || "",
+          phone: json.data.phone ? String(json.data.phone) : "010-2723-9490",
+        });
+      }
+    } catch (e) {
+      console.warn('센터 설정 로드 실패 (기본값 사용):', e);
+    }
+  };
+
+  loadCenter();
   }, []);
 
   const handleSave = async () => {
     try {
-      // Supabase에서 가져오기
-      const { createClient } = await import('@/lib/supabase');
-      const supabase = createClient();
-      
-      // 푸터 정보 저장
-      const { error } = await supabase
-        .from('company_info')
-        .upsert({
-          company_name: footerSettings.companyName,
-          ceo_name: footerSettings.ceoName,
-          business_number: footerSettings.businessNumber,
-          online_business_number: footerSettings.salesReportNumber,
-          address: footerSettings.address,
-          privacy_officer: footerSettings.privacyOfficer,
-          email: footerSettings.email,
-          phone: footerSettings.customerCenter,
+      // 푸터 정보 저장 - 서버 API 경유 (RLS 우회)
+      {
+        const res = await fetch('/api/admin/settings/company-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company_name: footerSettings.companyName,
+            ceo_name: footerSettings.ceoName,
+            business_number: footerSettings.businessNumber,
+            online_business_number: footerSettings.salesReportNumber,
+            address: footerSettings.address,
+            privacy_officer: footerSettings.privacyOfficer,
+            email: footerSettings.email,
+            phone: footerSettings.customerCenter,
+          }),
         });
-      
-      if (error) throw error;
-      
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || '회사 정보 저장 실패');
+      }
+
+      // 센터 설정 저장
+      const res = await fetch('/api/admin/ops/center', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient_name: centerSettings.recipientName,
+          zipcode: centerSettings.zipcode,
+          address1: centerSettings.address1,
+          address2: centerSettings.address2,
+          phone: centerSettings.phone,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || '센터 설정 저장 실패');
+
       alert("설정이 저장되었습니다.");
     } catch (error: any) {
       alert(`저장 실패: ${error.message}`);
@@ -205,6 +249,68 @@ export default function SettingsPage() {
               {settings.enableEmailAlerts ? "활성화" : "비활성화"}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Center Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            센터(입고 도착지) 설정
+          </CardTitle>
+          <CardDescription>우체국 기사 도착지 기본값입니다</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="centerRecipient">수취인명</Label>
+              <Input
+                id="centerRecipient"
+                value={centerSettings.recipientName}
+                onChange={(e) => setCenterSettings({ ...centerSettings, recipientName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="centerZip">우편번호</Label>
+              <Input
+                id="centerZip"
+                value={centerSettings.zipcode}
+                onChange={(e) => setCenterSettings({ ...centerSettings, zipcode: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="centerAddr1">주소1</Label>
+            <Input
+              id="centerAddr1"
+              value={centerSettings.address1}
+              onChange={(e) => setCenterSettings({ ...centerSettings, address1: e.target.value })}
+              placeholder="대구광역시 동구 동촌로 1"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="centerAddr2">주소2</Label>
+            <Input
+              id="centerAddr2"
+              value={centerSettings.address2}
+              onChange={(e) => setCenterSettings({ ...centerSettings, address2: e.target.value })}
+              placeholder="동대구우체국 2층 소포실 모두의수선"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="centerPhone">전화번호</Label>
+            <Input
+              id="centerPhone"
+              value={centerSettings.phone}
+              onChange={(e) => setCenterSettings({ ...centerSettings, phone: e.target.value })}
+              placeholder="010-2723-9490"
+            />
+          </div>
+          <Button onClick={handleSave}>
+            <Save className="h-4 w-4 mr-2" />
+            저장
+          </Button>
         </CardContent>
       </Card>
 

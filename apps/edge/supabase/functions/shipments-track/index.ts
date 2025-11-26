@@ -8,7 +8,7 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { getResInfo } from '../_shared/epost.ts';
+import { getResInfo } from '../_shared/epost/index.ts';
 
 Deno.serve(async (req) => {
   // CORS preflight
@@ -17,14 +17,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // GET 요청만 허용
-    if (req.method !== 'GET') {
+    // GET 또는 POST 요청 허용
+    let trackingNo: string | null = null;
+    
+    if (req.method === 'GET') {
+      // GET 요청: URL 파라미터에서 추출
+      const url = new URL(req.url);
+      trackingNo = url.searchParams.get('tracking_no');
+    } else if (req.method === 'POST') {
+      // POST 요청: body에서 추출
+      const body = await req.json();
+      trackingNo = body.tracking_no || null;
+    } else {
       return errorResponse('Method not allowed', 405);
     }
-
-    // URL 파라미터 파싱
-    const url = new URL(req.url);
-    const trackingNo = url.searchParams.get('tracking_no');
 
     if (!trackingNo) {
       return errorResponse('Missing tracking_no parameter', 400, 'MISSING_TRACKING_NO');
@@ -52,7 +58,8 @@ Deno.serve(async (req) => {
       .single();
 
     // 우체국 API로 실시간 배송 상태 조회
-    let epostStatus = null;
+    let epostStatus: any = null;
+    let epostError: { message: string; code: string } | null = null;
     try {
       const reqYmd = shipment.pickup_requested_at 
         ? new Date(shipment.pickup_requested_at).toISOString().split('T')[0].replace(/-/g, '')
@@ -65,9 +72,13 @@ Deno.serve(async (req) => {
         reqYmd,
       });
 
-      console.log('✅ 우체국 배송 상태 조회 성공:', epostStatus.treatStusCd);
-    } catch (e) {
-      console.error('⚠️ 우체국 배송 상태 조회 실패:', e.message);
+      console.log('✅ 우체국 배송 상태 조회 성공:', epostStatus?.treatStusCd);
+    } catch (e: any) {
+      console.error('⚠️ 우체국 배송 상태 조회 실패:', e?.message || e);
+      epostError = {
+        message: e?.message || '배송 상태를 조회할 수 없습니다',
+        code: e?.code || 'UNKNOWN_ERROR',
+      };
       // 실패해도 DB의 정보는 반환
     }
 
@@ -99,6 +110,8 @@ Deno.serve(async (req) => {
         treatStusCd: epostStatus.treatStusCd,
         treatStusNm: getTreatStatusName(epostStatus.treatStusCd),
       } : null,
+      epostError: epostError || null,
+      isNotYetPickedUp: epostStatus === null && epostError === null, // 아직 집하되지 않음
     });
 
   } catch (error) {

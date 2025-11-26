@@ -41,6 +41,7 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
   late List<ImagePin> _pins;
   String? _selectedPinId;
   String? _draggingPinId; // 드래그 중인 핀
+  Size? _baseCanvasSize; // 최초 탭 시의 캔버스 크기(안정된 기준)
 
   @override
   void initState() {
@@ -55,6 +56,7 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
       setState(() {
         _pins = List.from(widget.initialPins);
         _selectedPinId = null;
+        _baseCanvasSize = null; // 이미지 변경 시 기준 리셋
       });
     }
   }
@@ -73,13 +75,17 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
       return;
     }
 
-    // 상대 좌표로 변환 (0.0 ~ 1.0) - RenderBox 사용하지 않음
+    // 최초 탭 시의 캔버스 크기를 고정해 이후 뷰 인셋(키보드/바텀시트) 변화에도
+    // 절대 좌표 계산이 흔들리지 않도록 함
+    _baseCanvasSize ??= Size(constraints.maxWidth, constraints.maxHeight);
+
+    // 상대 좌표로 변환 (0.0 ~ 1.0) - 고정된 기준 크기 사용
     final relativePosition = Offset(
-      details.localPosition.dx / constraints.maxWidth,
-      details.localPosition.dy / constraints.maxHeight,
+      (details.localPosition.dx / _baseCanvasSize!.width).clamp(0.0, 1.0),
+      (details.localPosition.dy / _baseCanvasSize!.height).clamp(0.0, 1.0),
     );
 
-    // 임시 핀 추가
+    // 임시 핀 추가 - 즉시 추가하여 위치 고정
     final newPin = ImagePin(
       relativePosition: relativePosition,
       memo: '', 
@@ -89,7 +95,7 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
       _pins.add(newPin);
     });
 
-    // 약간의 지연 후 메모 입력창 표시 (레이아웃 안정화)
+    // 약간의 지연 후 메모 입력창 표시 (핀은 이미 추가됨)
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) {
         _showMemoInput(pin: newPin);
@@ -181,6 +187,9 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
     DragUpdateDetails details,
     BoxConstraints constraints,
   ) {
+    final baseWidth = _baseCanvasSize?.width ?? constraints.maxWidth;
+    final baseHeight = _baseCanvasSize?.height ?? constraints.maxHeight;
+
     setState(() {
       final index = _pins.indexWhere((p) => p.id == pin.id);
       if (index != -1) {
@@ -188,10 +197,8 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
         
         // 상대 좌표로 변환하여 업데이트
         final newRelativePosition = Offset(
-          (currentPosition.dx * constraints.maxWidth + details.delta.dx) /
-              constraints.maxWidth,
-          (currentPosition.dy * constraints.maxHeight + details.delta.dy) /
-              constraints.maxHeight,
+          (currentPosition.dx * baseWidth + details.delta.dx) / baseWidth,
+          (currentPosition.dy * baseHeight + details.delta.dy) / baseHeight,
         );
 
         // 이미지 경계 내로 제한
@@ -228,7 +235,7 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
       builder: (context, constraints) {
         return Stack(
           children: [
-            // 이미지 (탭 감지용)
+            // 이미지 (탭 감지용) - 실제 이미지 크기를 측정하기 위해 GlobalKey 사용
             GestureDetector(
               onTapDown: (details) => _handleImageTap(details, constraints),
               child: _buildImage(),
@@ -274,9 +281,31 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
     final isSelected = _selectedPinId == pin.id;
     final isDragging = _draggingPinId == pin.id;
 
+    final baseWidth = _baseCanvasSize?.width ?? constraints.maxWidth;
+    final baseHeight = _baseCanvasSize?.height ?? constraints.maxHeight;
+
+    // 핀의 실제 크기 (PinMarker의 최대 크기 + 여유 공간)
+    // PinMarker: 최대 32px (선택 시 외곽 링) + 라벨 높이
+    // 드래그 영역: 80x80
+    const pinSize = 40.0; // 핀 중심점에서의 오프셋 (드래그 영역의 절반)
+    const dragAreaSize = 80.0; // 드래그 영역 크기
+    
+    // 상대 위치를 절대 위치로 변환 (핀 중심점 기준)
+    // relativePosition은 0.0~1.0 범위이므로 정확히 계산
+    final pinLeft = pin.relativePosition.dx * baseWidth;
+    final pinTop = pin.relativePosition.dy * baseHeight;
+    
+    // Positioned의 left/top는 왼쪽 상단 모서리 기준이므로, 핀 중심점에서 오프셋을 빼야 함
+    final positionedLeft = pinLeft - pinSize;
+    final positionedTop = pinTop - pinSize;
+    
+    // 경계 체크: 드래그 영역이 이미지 밖으로 나가지 않도록
+    final clampedLeft = positionedLeft.clamp(0.0, baseWidth - dragAreaSize);
+    final clampedTop = positionedTop.clamp(0.0, baseHeight - dragAreaSize);
+
     return Positioned(
-      left: pin.relativePosition.dx * constraints.maxWidth - 40, // 영역 더 확대
-      top: pin.relativePosition.dy * constraints.maxHeight - 40,
+      left: clampedLeft,
+      top: clampedTop,
       child: GestureDetector(
         // 드래그 영역 확대 (더 쉽게 잡힘)
         behavior: HitTestBehavior.translucent, // 투명하지만 제스처 감지
@@ -298,7 +327,12 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
             duration: const Duration(milliseconds: 100),
             child: PinMarker(
               label: pin.memo,
-              onTap: () => _handlePinTap(pin),
+              onTap: () {
+                // 탭 시 레이아웃 재계산을 방지하기 위해 약간의 지연 추가
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _handlePinTap(pin);
+                });
+              },
               onDelete: () => _handlePinDelete(pin),
               color: const Color(0xFF00C896), // 녹색 (메인 컬러)
               isSelected: isSelected,

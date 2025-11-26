@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../../auth/data/providers/auth_provider.dart';
 import '../../../orders/providers/cart_provider.dart';
+import '../../../../services/order_service.dart';
 
 /// 홈 화면
 class HomePage extends ConsumerStatefulWidget {
@@ -16,6 +17,7 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   final PageController _bannerController = PageController();
   int _currentBannerIndex = 0;
+  final OrderService _orderService = OrderService();
 
   @override
   void dispose() {
@@ -622,9 +624,51 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
           const SizedBox(height: 12),
           
-          // 주문 카드 (최근 주문 1개 미리보기)
-          InkWell(
-            onTap: () => context.push('/orders'),
+          // 실데이터: 최근 주문 1건
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _orderService.getMyOrders(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Container(
+                  height: 92,
+                  alignment: Alignment.center,
+                  child: const CircularProgressIndicator(strokeWidth: 2),
+                );
+              }
+              if (snapshot.hasError) {
+                return _buildEmptyOrderCard(
+                  context,
+                  title: '주문을 불러오지 못했어요',
+                  subtitle: '다시 시도해 주세요',
+                  icon: Icons.error_outline,
+                );
+              }
+              final orders = snapshot.data ?? [];
+              if (orders.isEmpty) {
+                return _buildEmptyOrderCard(
+                  context,
+                  title: '아직 주문이 없어요',
+                  subtitle: '첫 수거신청을 시작해 보세요',
+                  icon: Icons.inbox_outlined,
+                );
+              }
+              
+              final order = orders.first;
+              final status = order['status'] as String? ?? 'BOOKED';
+              final statusStyle = _statusStyle(status);
+              final createdAt = order['created_at'] as String?;
+              String dateStr = '';
+              if (createdAt != null) {
+                try {
+                  final dt = DateTime.parse(createdAt);
+                  dateStr = '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
+                } catch (_) {}
+              }
+              final price = order['total_price'] as num? ?? 0;
+              final priceStr = '₩${price.toString().replaceAllMapped(RegExp(r'(\\d{1,3})(?=(\\d{3})+(?!\\d))'), (m) => '${m[1]},')}';
+              
+              return InkWell(
+                onTap: () => context.push('/orders/${order['id']}'),
             borderRadius: BorderRadius.circular(16),
             child: Container(
               padding: const EdgeInsets.all(20),
@@ -666,64 +710,51 @@ class _HomePageState extends ConsumerState<HomePage> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.orange.withOpacity(0.1),
+                                    color: statusStyle['color']!.withOpacity(0.12),
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: const Text(
-                                '수선중',
+                                  child: Text(
+                                    statusStyle['label']! as String,
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.orange,
+                                      color: statusStyle['color']! as Color,
                                 ),
                               ),
                             ),
+                                if (dateStr.isNotEmpty) ...[
                             const SizedBox(width: 8),
                             Text(
-                              '2024.11.12',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade600,
-                              ),
+                                    dateStr,
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                             ),
+                                ],
                           ],
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          '청바지 기장 수선',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
+                            Text(
+                              (order['item_name'] as String?) ?? '수선 항목',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '₩15,000',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
-                          ),
+                              priceStr,
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
                         ),
                       ],
                     ),
                   ),
                   
-                  // 화살표
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey.shade400,
-                  ),
+                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
                 ],
               ),
             ),
+              );
+            },
           ),
           
           const SizedBox(height: 12),
@@ -746,6 +777,67 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Map<String, dynamic> _statusStyle(String status) {
+    switch (status) {
+      case 'BOOKED':
+        return {'label': '수거예약', 'color': Colors.blue};
+      case 'INBOUND':
+        return {'label': '입고완료', 'color': Colors.orange};
+      case 'PROCESSING':
+        return {'label': '수선중', 'color': Colors.purple};
+      case 'READY_TO_SHIP':
+        return {'label': '출고완료', 'color': Colors.green};
+      case 'DELIVERED':
+        return {'label': '배송완료', 'color': Colors.grey.shade600};
+      case 'CANCELLED':
+        return {'label': '수거취소', 'color': Colors.red};
+      default:
+        return {'label': '수거예약', 'color': Colors.blue};
+    }
+  }
+
+  Widget _buildEmptyOrderCard(BuildContext context,
+      {required String title, required String subtitle, required IconData icon}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: Colors.grey.shade500, size: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => context.push('/orders'),
+            child: const Text('주문 보기'),
+          )
         ],
       ),
     );

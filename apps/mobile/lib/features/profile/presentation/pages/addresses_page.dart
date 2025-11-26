@@ -107,25 +107,24 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
           ),
         ],
       ),
-      floatingActionButton: widget.isSelectionMode
-          ? null // 선택 모드에서는 추가 버튼 숨김
-          : FloatingActionButton.extended(
-              onPressed: () async {
-                final result = await context.push<bool>('/profile/addresses/add');
-                if (result == true && mounted) {
-                  _refreshAddresses();
-                }
-              },
-              backgroundColor: const Color(0xFF00C896),
-              icon: const Icon(Icons.add),
-              label: const Text('배송지 추가'),
-            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final result = await context.push<Map<String, dynamic>>('/profile/addresses/add');
+          if (result != null && mounted) {
+            // 배송지 목록 새로고침
+            await _loadAddresses();
+            
+            // 선택 모드이면 새로 추가된 배송지를 바로 선택하여 반환
+            if (widget.isSelectionMode) {
+              context.pop(result);
+            }
+          }
+        },
+        backgroundColor: const Color(0xFF00C896),
+        icon: const Icon(Icons.add),
+        label: Text(widget.isSelectionMode ? '새 배송지 추가' : '배송지 추가'),
+      ),
     );
-  }
-
-  /// 배송지 목록 새로고침
-  void _refreshAddresses() {
-    _loadAddresses();
   }
 
   /// 빈 상태 UI
@@ -302,13 +301,18 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
     Map<String, dynamic> address,
     int index,
   ) async {
-    final result = await context.push<bool>(
+    final result = await context.push<Map<String, dynamic>>(
       '/profile/addresses/add',
       extra: address,
     );
     
-    if (result == true && mounted) {
-      _loadAddresses();
+    if (result != null && mounted) {
+      await _loadAddresses();
+      
+      // 선택 모드이면 수정된 배송지를 바로 선택하여 반환
+      if (widget.isSelectionMode) {
+        context.pop(result);
+      }
     }
   }
 

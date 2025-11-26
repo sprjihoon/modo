@@ -162,19 +162,15 @@ class PaymentService {
     }
   }
 
-  /// 결제 내역 조회
+  /// 결제 내역 조회 (orders 기반으로 조회)
   Future<List<Map<String, dynamic>>> getPaymentHistory(String userId) async {
     try {
+      // payments 테이블 대신 orders 테이블에서 결제 완료된 주문 조회
       final data = await _supabase
-          .from('payments')
-          .select('''
-            *,
-            orders (
-              item_name,
-              item_description
-            )
-          ''')
+          .from('orders')
+          .select('*')
           .eq('user_id', userId)
+          .eq('payment_status', 'PAID')
           .order('created_at', ascending: false);
 
       return List<Map<String, dynamic>>.from(data);

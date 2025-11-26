@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../../services/payment_service.dart';
 
 /// 결제내역 페이지
 class PaymentHistoryPage extends ConsumerStatefulWidget {
@@ -14,69 +17,92 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
   int _currentPage = 1;
   final int _itemsPerPage = 10;
   String _selectedPeriod = '전체'; // 전체, 1개월, 3개월, 6개월
-  
-  // Mock 결제내역 (페이징 테스트용)
-  final List<Map<String, dynamic>> _allPayments = [
-    {
-      'date': '2024.11.12 14:30',
-      'item': '청바지 기장 수선',
-      'amount': 15000,
-      'method': 'KB국민카드',
-      'status': 'completed',
-    },
-    {
-      'date': '2024.11.05 10:20',
-      'item': '셔츠 소매 수선',
-      'amount': 25000,
-      'method': '신한카드',
-      'status': 'completed',
-    },
-    {
-      'date': '2024.10.28 16:45',
-      'item': '원피스 총기장 수선',
-      'amount': 30000,
-      'method': 'KB국민카드',
-      'status': 'completed',
-    },
-    {
-      'date': '2024.10.20 11:30',
-      'item': '바지 기장 수선',
-      'amount': 12000,
-      'method': '현대카드',
-      'status': 'completed',
-    },
-    {
-      'date': '2024.10.15 09:15',
-      'item': '코트 소매 수선',
-      'amount': 35000,
-      'method': 'KB국민카드',
-      'status': 'completed',
-    },
-    {
-      'date': '2024.10.10 13:40',
-      'item': '청바지 밑단 수선',
-      'amount': 18000,
-      'method': '신한카드',
-      'status': 'completed',
-    },
-    {
-      'date': '2024.10.05 15:20',
-      'item': '셔츠 기장 수선',
-      'amount': 20000,
-      'method': '삼성카드',
-      'status': 'completed',
-    },
-    {
-      'date': '2024.09.28 10:50',
-      'item': '원피스 허리 수선',
-      'amount': 28000,
-      'method': 'KB국민카드',
-      'status': 'completed',
-    },
-  ];
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<Map<String, dynamic>> _allPayments = [];
+  final _paymentService = PaymentService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPayments();
+  }
+
+  Future<void> _loadPayments() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) {
+        setState(() {
+          _allPayments = [];
+          _isLoading = false;
+        });
+        return;
+      }
+      final data = await _paymentService.getPaymentHistory(userId);
+      setState(() {
+        _allPayments = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        appBar: AppBar(
+          title: const Text('결제내역'),
+          elevation: 0,
+          backgroundColor: Colors.white,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        appBar: AppBar(
+          title: const Text('결제내역'),
+          elevation: 0,
+          backgroundColor: Colors.white,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  '결제내역을 불러오지 못했습니다.\n$_errorMessage',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _loadPayments,
+                icon: const Icon(Icons.refresh),
+                label: const Text('다시 시도'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     // 기간 필터링
     final filteredPayments = _getFilteredPayments();
     
@@ -268,22 +294,49 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
     }
     
     return _allPayments.where((payment) {
-      final dateStr = payment['date'] as String;
-      // "2024.11.12 14:30" 형식 파싱
-      final dateParts = dateStr.split(' ')[0].split('.');
-      final paymentDate = DateTime(
-        int.parse(dateParts[0]),
-        int.parse(dateParts[1]),
-        int.parse(dateParts[2]),
-      );
-      return paymentDate.isAfter(cutoffDate);
+      final createdAt = payment['created_at'] as String? ?? payment['approved_at'] as String?;
+      if (createdAt == null) return false;
+      try {
+        final dt = DateTime.parse(createdAt);
+        return dt.isAfter(cutoffDate);
+      } catch (_) {
+        return true;
+      }
     }).toList();
   }
 
   /// 결제 카드 (포인트 내역 스타일)
   Widget _buildPaymentCard(BuildContext context, Map<String, dynamic> payment) {
+    final createdAt = payment['created_at'] as String? ?? payment['approved_at'] as String? ?? '';
+    String dateStr = '';
+    if (createdAt.isNotEmpty) {
+      try {
+        final dt = DateTime.parse(createdAt);
+        dateStr =
+            '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      } catch (_) {}
+    }
+    final order = payment['orders'] as Map<String, dynamic>?;
+    final itemName = order?['item_name'] as String? ?? payment['order_name'] as String? ?? '주문';
+    final amountNum = (payment['amount'] as num?) ??
+        (payment['approved_amount'] as num?) ??
+        (payment['total_price'] as num?) ??
+        0;
+
+    final displayPayment = {
+      'item': itemName,
+      'date': dateStr,
+      'amount': amountNum.toInt(),
+    };
+
     return InkWell(
-      onTap: () => context.push('/profile/receipt', extra: payment),
+      onTap: () {
+        // 주문 상세 페이지로 이동
+        final orderId = payment['id'] as String?;
+        if (orderId != null) {
+          context.push('/orders/$orderId');
+        }
+      },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -316,7 +369,7 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    payment['item'] as String,
+                    displayPayment['item'] as String,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -325,7 +378,7 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    payment['date'] as String,
+                    displayPayment['date'] as String? ?? '',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey.shade600,
@@ -337,7 +390,7 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
             
             // 금액
             Text(
-              '₩${(payment['amount'] as int).toString().replaceAllMapped(
+              '₩${(displayPayment['amount'] as int).toString().replaceAllMapped(
                 RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
                 (Match m) => '${m[1]},',
               )}',

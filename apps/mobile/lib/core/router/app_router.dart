@@ -11,6 +11,7 @@ import '../../features/auth/presentation/pages/privacy_policy_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/orders/presentation/pages/order_list_page.dart';
 import '../../features/orders/presentation/pages/order_detail_page.dart';
+import '../../features/orders/presentation/pages/tracking_page.dart';
 import '../../features/orders/presentation/pages/create_order_page.dart';
 import '../../features/orders/presentation/pages/select_clothing_type_page.dart';
 import '../../features/orders/presentation/pages/select_repair_type_page.dart';
@@ -36,6 +37,7 @@ import '../../features/profile/presentation/pages/invite_friends_page.dart';
 import '../../features/profile/presentation/pages/notices_page.dart';
 import '../../features/profile/presentation/pages/customer_service_page.dart';
 import '../../features/profile/presentation/pages/app_settings_page.dart';
+import '../../features/video/presentation/pages/video_player_page.dart';
 
 /// GoRouter 프로바이더
 final routerProvider = Provider<GoRouter>((ref) {
@@ -97,6 +99,17 @@ final routerProvider = Provider<GoRouter>((ref) {
               final orderId = state.pathParameters['orderId']!;
               return OrderDetailPage(orderId: orderId);
             },
+            routes: [
+              GoRoute(
+                path: 'tracking/:trackingNo',
+                name: 'tracking',
+                builder: (context, state) {
+                  final orderId = state.pathParameters['orderId']!;
+                  final trackingNo = state.pathParameters['trackingNo']!;
+                  return TrackingPage(orderId: orderId, trackingNo: trackingNo);
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -113,6 +126,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/cart',
         name: 'cart',
         builder: (context, state) => const CartPage(),
+      ),
+      
+      // Video player (merged video)
+      GoRoute(
+        path: '/video',
+        name: 'video',
+        builder: (context, state) {
+          final extra = state.extra;
+          String videoUrl = '';
+          if (extra is Map<String, dynamic>) {
+            videoUrl = extra['videoUrl'] as String? ?? '';
+          }
+          return VideoPlayerPage(videoUrl: videoUrl);
+        },
       ),
       
       // Select Clothing Type
@@ -249,9 +276,26 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'image-annotation',
         builder: (context, state) {
           final data = state.extra as Map<String, dynamic>? ?? {};
+          
+          // pins를 ImagePin으로 변환
+          List<ImagePin>? initialPins;
+          final pinsData = data['pins'] as List?;
+          if (pinsData != null) {
+            initialPins = pinsData.map((p) {
+              if (p is ImagePin) {
+                return p;
+              } else if (p is Map<String, dynamic>) {
+                return ImagePin.fromJson(p);
+              } else if (p is Map) {
+                return ImagePin.fromJson(Map<String, dynamic>.from(p));
+              }
+              return null;
+            }).whereType<ImagePin>().toList();
+          }
+          
           return ImageAnnotationPage(
             initialImagePath: data['imagePath'] as String?,
-            initialPins: (data['pins'] as List?)?.cast<ImagePin>(),
+            initialPins: initialPins,
             onComplete: data['onComplete'] as Function(String, List<ImagePin>)?,
           );
         },

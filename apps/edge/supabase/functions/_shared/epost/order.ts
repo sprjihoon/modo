@@ -1,0 +1,185 @@
+/**
+ * 소포신청 관련 API
+ * 소포신청, 확인, 취소 등
+ */
+
+import { getEPostConfig } from './config.ts';
+import { callEPostAPI, parseXmlValue } from './client.ts';
+import type {
+  InsertOrderParams,
+  InsertOrderResponse,
+  GetResInfoParams,
+  GetResInfoResponse,
+  CancelOrderParams,
+  CancelOrderResponse,
+} from './types.ts';
+
+/**
+ * 소포신청(픽업요청) - 메인 함수
+ * API ID: SHPAPI-C02-01
+ */
+export async function insertOrder(params: InsertOrderParams): Promise<InsertOrderResponse> {
+  const config = getEPostConfig();
+
+  // custNo 검증 및 정리 (공백 제거)
+  const custNo = (params.custNo || config.custNo).trim();
+  if (!custNo || custNo.length === 0) {
+    throw new Error('고객번호(custNo)가 유효하지 않습니다. EPOST_CUSTOMER_ID 환경 변수를 확인하세요.');
+  }
+
+  console.log('🔍 고객번호 확인:', {
+    paramCustNo: params.custNo,
+    configCustNo: config.custNo,
+    finalCustNo: custNo,
+    custNoLength: custNo.length,
+  });
+
+  // 기본값 설정 및 타입 검증
+  const requestParams: Record<string, any> = {
+    ...params,
+    custNo: custNo, // 검증된 고객번호 사용
+    weight: typeof params.weight === 'number' ? params.weight : (params.weight || 2),
+    volume: typeof params.volume === 'number' ? params.volume : (params.volume || 60),
+    microYn: params.microYn === 'Y' || params.microYn === 'N' ? params.microYn : 'N',
+    testYn: params.testYn === 'Y' || params.testYn === 'N' ? params.testYn : 'N',
+    printYn: params.printYn === 'Y' || params.printYn === 'N' ? params.printYn : 'Y',
+  };
+  
+  // 숫자 필드 검증 및 정수 변환
+  if (typeof requestParams.weight !== 'number' || requestParams.weight <= 0) {
+    requestParams.weight = 2;
+  } else {
+    requestParams.weight = Math.floor(requestParams.weight);
+  }
+  
+  if (typeof requestParams.volume !== 'number' || requestParams.volume <= 0) {
+    requestParams.volume = 60;
+  } else {
+    requestParams.volume = Math.floor(requestParams.volume);
+  }
+  
+  console.log('✅ 최종 요청 파라미터:', JSON.stringify(requestParams, null, 2));
+  console.log('🔍 숫자 필드 확인:', {
+    weight: requestParams.weight,
+    weightType: typeof requestParams.weight,
+    volume: requestParams.volume,
+    volumeType: typeof requestParams.volume,
+    testYn: requestParams.testYn,
+  });
+
+  // testYn이 'Y'이면 암호화 없이 호출 (테스트 모드)
+  const needsEncryption = requestParams.testYn !== 'Y';
+  console.log('🔐 암호화 필요 여부:', needsEncryption, '(testYn:', requestParams.testYn, ')');
+  
+  // regData에 포함할 파라미터 (testYn 제외)
+  const regDataParams = { ...requestParams };
+  delete regDataParams.testYn;
+  
+  const xml = await callEPostAPI('api.InsertOrder.jparcel', regDataParams, needsEncryption, requestParams.testYn);
+
+  // XML 파싱 (CDATA 섹션 처리)
+  const result: InsertOrderResponse = {
+    reqNo: parseXmlValue(xml, 'reqNo') || '',
+    resNo: parseXmlValue(xml, 'resNo') || '',
+    regiNo: parseXmlValue(xml, 'regiNo') || '',
+    orderNo: parseXmlValue(xml, 'orderNo') || undefined,
+    regiPoNm: parseXmlValue(xml, 'regiPoNm') || parseXmlValue(xml, 'regipoNm') || '', // 대소문자 모두 지원
+    resDate: parseXmlValue(xml, 'resDate') || '',
+    price: parseXmlValue(xml, 'price') || '0',
+    vTelNo: parseXmlValue(xml, 'vTelNo') || undefined,
+    insuFee: parseXmlValue(xml, 'insuFee') || undefined,
+    islandAddFee: parseXmlValue(xml, 'islandAddFee') || undefined,
+    arrCnpoNm: parseXmlValue(xml, 'arrCnpoNm') || undefined,
+    delivPoNm: parseXmlValue(xml, 'delivPoNm') || undefined,
+    delivAreaCd: parseXmlValue(xml, 'delivAreaCd') || undefined,
+  };
+  
+  // 필수 필드 검증
+  if (!result.regiNo) {
+    throw new Error('운송장번호(regiNo)를 받지 못했습니다.');
+  }
+
+  console.log('✅ 소포신청 성공:', result.regiNo);
+  return result;
+}
+
+/**
+ * 소포신청 확인 (배송추적)
+ * API ID: SHPAPI-R02-01
+ */
+export async function getResInfo(params: GetResInfoParams): Promise<GetResInfoResponse> {
+  const config = getEPostConfig();
+
+  const xml = await callEPostAPI('api.GetResInfo.jparcel', {
+    ...params,
+    custNo: config.custNo,
+  }, true);
+
+  // XML 파싱
+  const result: GetResInfoResponse = {
+    reqNo: parseXmlValue(xml, 'reqNo') || '',
+    resNo: parseXmlValue(xml, 'resNo') || '',
+    regiNo: parseXmlValue(xml, 'regiNo') || '',
+    regiPoNm: parseXmlValue(xml, 'regiPoNm') || '',
+    resDate: parseXmlValue(xml, 'resDate') || '',
+    price: parseXmlValue(xml, 'price') || '0',
+    vTelNo: parseXmlValue(xml, 'vTelNo') || undefined,
+    treatStusCd: parseXmlValue(xml, 'treatStusCd') || '00',
+  };
+
+  return result;
+}
+
+/**
+ * 소포신청 취소
+ * API ID: SHPAPI-U02-01
+ */
+export async function cancelOrder(params: CancelOrderParams): Promise<CancelOrderResponse> {
+  const config = getEPostConfig();
+
+  const xml = await callEPostAPI('api.GetResCancelCmd.jparcel', {
+    ...params,
+    custNo: config.custNo,
+  }, true);
+
+  // XML 파싱
+  const result: CancelOrderResponse = {
+    reqNo: parseXmlValue(xml, 'reqNo') || '',
+    resNo: parseXmlValue(xml, 'resNo') || '',
+    cancelRegiNo: parseXmlValue(xml, 'cancelRegiNo') || '',
+    cancelDate: parseXmlValue(xml, 'cancelDate') || '',
+    canceledYn: (parseXmlValue(xml, 'canceledYn') as 'Y' | 'N' | 'D') || 'N',
+    regiNo: parseXmlValue(xml, 'regiNo') || undefined,
+    notCancelReason: parseXmlValue(xml, 'notCancelReason') || undefined,
+  };
+
+  return result;
+}
+
+/**
+ * 접수중지 지역 우편번호 조회
+ * API ID: COMAPI-R02-01
+ */
+export async function getStoppedZipCodes(zipCd?: string): Promise<any[]> {
+  const config = getEPostConfig();
+  
+  const params: Record<string, string> = {};
+  if (zipCd) {
+    params.zipCd = zipCd;
+  }
+
+  const xml = await callEPostAPI('api.GetStoppedZipCd.jparcel', params, false);
+
+  // 간단한 XML 파싱 (실제로는 XML 파서 라이브러리 사용 권장)
+  // 여기서는 정규식으로 간단히 처리
+  return [];
+}
+
+/**
+ * 배송 추적 정보 조회 (우체국 추적 서비스)
+ * 실제 배송 추적은 우체국 추적 서비스를 사용
+ */
+export function getTrackingUrl(regiNo: string): string {
+  return `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${regiNo}`;
+}
+

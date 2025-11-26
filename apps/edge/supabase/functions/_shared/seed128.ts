@@ -606,11 +606,17 @@ export function buildEpostParams(params: Record<string, any>): string {
 
   const pairs: string[] = [];
 
+  // 필수 항목 목록 (빈 문자열이어도 포함해야 함)
+  const requiredFields = ['custNo', 'apprNo', 'recNm', 'recZip', 'recAddr1', 'recAddr2', 'recTel', 'orderNo'];
+  
   // 순서대로 처리
   for (const key of orderedKeys) {
     if (params.hasOwnProperty(key)) {
       const value = params[key];
-      if (value !== null && value !== undefined && value !== '') {
+      const isRequired = requiredFields.includes(key);
+      
+      // 필수 항목은 빈 문자열이어도 포함, 선택 항목은 빈 문자열 제외
+      if (value !== null && value !== undefined && (isRequired || value !== '')) {
         let stringValue: string;
 
         if (typeof value === 'boolean') {
@@ -619,6 +625,10 @@ export function buildEpostParams(params: Record<string, any>): string {
           stringValue = String(Math.floor(value));
         } else {
           stringValue = String(value);
+          // 필수 항목이 빈 문자열이면 기본값 설정
+          if (isRequired && stringValue.trim() === '') {
+            stringValue = key === 'recAddr2' ? '없음' : stringValue;
+          }
         }
 
         pairs.push(`${key}=${stringValue}`);

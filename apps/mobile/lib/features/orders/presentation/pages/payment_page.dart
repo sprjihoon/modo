@@ -121,8 +121,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         orderId: widget.orderId,
         pickupAddress: _orderData!['pickup_address'],
         pickupPhone: _orderData!['pickup_phone'] ?? '010-1234-5678',
+        pickupZipcode: _orderData!['pickup_zipcode'] as String?,
         deliveryAddress: _orderData!['delivery_address'],
         deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
+        deliveryZipcode: _orderData!['delivery_zipcode'] as String?,
         customerName: _orderData!['customer_name'],
       );
 
@@ -182,8 +184,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         orderId: widget.orderId,
         pickupAddress: _orderData!['pickup_address'] ?? '테스트 주소',
         pickupPhone: _orderData!['pickup_phone'] ?? '010-1234-5678',
+        pickupZipcode: _orderData!['pickup_zipcode'] as String?,
         deliveryAddress: _orderData!['delivery_address'] ?? '테스트 주소',
         deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
+        deliveryZipcode: _orderData!['delivery_zipcode'] as String?,
         customerName: _orderData!['customer_name'] ?? '테스트 고객',
         testMode: testMode,
       );

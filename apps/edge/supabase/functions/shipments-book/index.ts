@@ -9,7 +9,7 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { insertOrder, mockInsertOrder, getApprovalNumber, type InsertOrderParams } from '../_shared/epost.ts';
+import { insertOrder, mockInsertOrder, getApprovalNumber, type InsertOrderParams } from '../_shared/epost/index.ts';
 
 interface ShipmentBookRequest {
   order_id: string;
@@ -66,6 +66,14 @@ Deno.serve(async (req) => {
       delivery_message,
       test_mode,
     } = body;
+
+    // 센터(도착지) 기본 정보 - 환경변수 우선, 없으면 하드코딩된 기본값 사용
+    const CENTER_FORCE = (Deno.env.get('CENTER_FORCE') || 'true').toLowerCase() === 'true';
+    const CENTER_RECIPIENT_NAME = Deno.env.get('CENTER_RECIPIENT_NAME') || '모두의수선';
+    const CENTER_ZIPCODE = Deno.env.get('CENTER_ZIPCODE') || '41142';
+    const CENTER_ADDRESS1 = Deno.env.get('CENTER_ADDRESS1') || '대구광역시 동구 동촌로 1';
+    const CENTER_ADDRESS2 = Deno.env.get('CENTER_ADDRESS2') || '동대구우체국 2층 소포실 모두의수선';
+    const CENTER_PHONE = (Deno.env.get('CENTER_PHONE') || '01000000000').replace(/-/g, '').substring(0, 12);
 
     // 필수 필드 검증
     if (!order_id || !customer_name) {
@@ -141,25 +149,104 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 주소 정보 검증 및 기본값 설정
-    if (!pickupInfo.address || !deliveryInfo.address) {
-      console.warn('⚠️ 주소 정보 누락 - 테스트 기본값 사용');
+    // 주소 정보 검증 및 기본값/센터 강제 설정
+    // 1) 픽업 주소가 비어 있으면 간단한 기본값 보강 (사용자 입력이 필수인 영역이라 최대한 그대로 둠)
+    if (!pickupInfo.address) {
       pickupInfo = {
-        address: pickupInfo.address || '서울특별시 강남구 테헤란로 123',
-        detail: pickupInfo.detail || '(테스트용 주소)',
-        zipcode: pickupInfo.zipcode || '06234',
-        phone: pickupInfo.phone || '01012345678',
-      };
-      deliveryInfo = {
-        address: deliveryInfo.address || '서울특별시 강남구 테헤란로 123',
-        detail: deliveryInfo.detail || '(테스트용 주소)',
-        zipcode: deliveryInfo.zipcode || '06234',
-        phone: deliveryInfo.phone || '01012345678',
+        address: pickupInfo.address || '고객 수거지 주소 미입력',
+        detail: pickupInfo.detail || '',
+        zipcode: pickupInfo.zipcode || '',
+        phone: pickupInfo.phone || '01000000000',
       };
     }
 
+    // 2) 도착지는 기본적으로 "센터 주소"를 사용 (DB에 설정되어 있으면 DB 우선)
+    if (CENTER_FORCE || !deliveryInfo.address) {
+      // DB에서 ops_center_settings 조회 (있으면 사용)
+      try {
+        const { data: centerRow } = await supabase
+          .from('ops_center_settings')
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+        if (centerRow) {
+          deliveryInfo = {
+            address: centerRow.address1 || CENTER_ADDRESS1,
+            detail: centerRow.address2 || CENTER_ADDRESS2,
+            zipcode: centerRow.zipcode || CENTER_ZIPCODE,
+            phone: (centerRow.phone || CENTER_PHONE).toString(),
+          };
+        } else {
+          deliveryInfo = {
+            address: CENTER_ADDRESS1,
+            detail: CENTER_ADDRESS2,
+            zipcode: CENTER_ZIPCODE,
+            phone: CENTER_PHONE,
+          };
+        }
+      } catch (_) {
+        deliveryInfo = {
+          address: CENTER_ADDRESS1,
+          detail: CENTER_ADDRESS2,
+          zipcode: CENTER_ZIPCODE,
+          phone: CENTER_PHONE,
+        };
+      }
+    }
+
+    // 필수 필드 검증: 우편번호는 필수
+    if (!deliveryInfo.zipcode || deliveryInfo.zipcode.trim() === '') {
+      console.error('❌ 배송지 우편번호가 없습니다:', {
+        delivery_zipcode,
+        delivery_address_id,
+        deliveryInfo,
+      });
+      return errorResponse('배송지 우편번호(delivery_zipcode)가 필수입니다. 주소 정보를 확인하세요.', 400, 'MISSING_ZIPCODE');
+    }
+
+    // 우편번호 형식 검증 (5자리 숫자)
+    const zipcodeRegex = /^\d{5}$/;
+    const trimmedZipcode = deliveryInfo.zipcode.trim();
+    if (!zipcodeRegex.test(trimmedZipcode)) {
+      console.warn('⚠️ 우편번호 형식이 올바르지 않습니다:', trimmedZipcode);
+      // 하이픈 제거 후 재확인
+      const cleanedZipcode = trimmedZipcode.replace(/[-\s]/g, '');
+      if (zipcodeRegex.test(cleanedZipcode)) {
+        deliveryInfo.zipcode = cleanedZipcode;
+        console.log('✅ 우편번호 정리됨:', cleanedZipcode);
+      } else {
+        return errorResponse(`우편번호 형식이 올바르지 않습니다: ${trimmedZipcode} (5자리 숫자 필요)`, 400, 'INVALID_ZIPCODE');
+      }
+    } else {
+      deliveryInfo.zipcode = trimmedZipcode;
+    }
+
+    console.log('✅ 배송지 정보 검증 완료:', {
+      address: deliveryInfo.address,
+      zipcode: deliveryInfo.zipcode,
+      phone: deliveryInfo.phone,
+    });
+
     // 우체국 소포신청 파라미터 구성
-    const custNo = Deno.env.get('EPOST_CUSTOMER_ID') || 'vovok1122';
+    const custNoEnv = Deno.env.get('EPOST_CUSTOMER_ID');
+    if (!custNoEnv || custNoEnv.trim() === '') {
+      console.error('❌ EPOST_CUSTOMER_ID 환경 변수가 설정되지 않았습니다.');
+      return errorResponse('EPOST_CUSTOMER_ID 환경 변수가 설정되지 않았습니다. Supabase Dashboard → Settings → Edge Functions → Secrets에서 설정하세요.', 500, 'MISSING_ENV');
+    }
+    
+    const custNo = custNoEnv.trim();
+    console.log('🔍 고객번호 확인:', {
+      custNo: custNo,
+      custNoLength: custNo.length,
+      hasWhitespace: custNo !== custNoEnv,
+      envValue: custNoEnv, // 원본 값도 로그에 출력
+      trimmedValue: custNo, // 공백 제거된 값
+    });
+    
+    // 고객번호 형식 경고
+    if (custNo === 'vovok1122') {
+      console.warn('⚠️ 기본 테스트 고객번호를 사용 중입니다. 실제 우체국 API 계약 시 발급받은 고객번호로 변경하세요.');
+    }
     
     // 계약 승인번호 조회 (최초 1회)
     let apprNo = Deno.env.get('EPOST_APPROVAL_NO');
@@ -185,10 +272,12 @@ Deno.serve(async (req) => {
       orderNo: order_id,                      // 주문 ID를 주문번호로 사용
       
       // 수취인 정보
-      recNm: customer_name,
-      recZip: deliveryInfo.zipcode,
+      recNm: customer_name || CENTER_RECIPIENT_NAME,
+      recZip: deliveryInfo.zipcode.trim(), // 우편번호 (필수, 5자리 숫자)
       recAddr1: deliveryInfo.address,
-      recAddr2: deliveryInfo.detail,
+      recAddr2: (deliveryInfo.detail && deliveryInfo.detail.trim() !== '') 
+        ? deliveryInfo.detail.trim() 
+        : '없음', // 상세주소가 없으면 "없음"으로 설정 (우체국 API 필수 항목)
       recTel: deliveryInfo.phone.replace(/-/g, '').substring(0, 12),
       
       // 상품 정보
@@ -339,6 +428,7 @@ Deno.serve(async (req) => {
             location: epostResponse.regiPoNm,
             reqNo: epostResponse.reqNo,
             resNo: epostResponse.resNo,
+            apprNo: epostParams.apprNo, // 취소 시 사용할 승인번호 저장
           }],
         })
         .eq('order_id', order_id)
@@ -375,6 +465,7 @@ Deno.serve(async (req) => {
             location: epostResponse.regiPoNm,
             reqNo: epostResponse.reqNo,
             resNo: epostResponse.resNo,
+            apprNo: epostParams.apprNo, // 취소 시 사용할 승인번호 저장
           }],
         })
         .select()

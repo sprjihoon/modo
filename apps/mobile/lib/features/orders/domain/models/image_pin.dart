@@ -60,16 +60,28 @@ class ImagePin {
 
   /// JSON에서 생성
   factory ImagePin.fromJson(Map<String, dynamic> json) {
-    return ImagePin(
-      id: json['id'] as String,
-      relativePosition: Offset(
-        (json['relative_x'] as num).toDouble(),
-        (json['relative_y'] as num).toDouble(),
-      ),
-      memo: json['memo'] as String? ?? '',
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
-    );
+    try {
+      return ImagePin(
+        id: json['id'] as String? ?? const Uuid().v4(),
+        relativePosition: Offset(
+          ((json['relative_x'] ?? json['x'] ?? 0.5) as num).toDouble(),
+          ((json['relative_y'] ?? json['y'] ?? 0.5) as num).toDouble(),
+        ),
+        memo: json['memo'] as String? ?? '',
+        createdAt: json['created_at'] != null 
+            ? DateTime.parse(json['created_at'] as String)
+            : DateTime.now(),
+        updatedAt: json['updated_at'] != null
+            ? DateTime.parse(json['updated_at'] as String)
+            : DateTime.now(),
+      );
+    } catch (e) {
+      // 파싱 실패 시 기본값으로 생성
+      return ImagePin(
+        relativePosition: const Offset(0.5, 0.5),
+        memo: '',
+      );
+    }
   }
 
   @override

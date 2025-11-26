@@ -8,7 +8,7 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { cancelOrder } from '../_shared/epost.ts';
+import { cancelOrder } from '../_shared/epost/index.ts';
 
 interface ShipmentCancelRequest {
   order_id: string;
@@ -54,45 +54,77 @@ Deno.serve(async (req) => {
       return errorResponse('이미 집하완료된 소포는 취소할 수 없습니다', 400, 'CANNOT_CANCEL');
     }
 
-    // 주문 정보 조회 (apprNo 가져오기)
+    // 주문 정보 조회
     const { data: order } = await supabase
       .from('orders')
       .select('*')
       .eq('id', order_id)
       .single();
 
-    // 계약 승인번호 (환경변수 또는 기본값)
+    // 계약 고객번호
     const custNo = Deno.env.get('EPOST_CUSTOMER_ID') || '';
-    const apprNo = Deno.env.get('EPOST_APPROVAL_NO') || '0000000000';
 
-    // tracking_events에서 reqNo, resNo 가져오기
+    // tracking_events에서 reqNo, resNo, apprNo 가져오기
     const trackingEvents = (shipment.tracking_events as any[]) || [];
     const firstEvent = trackingEvents[0] || {};
     const reqNo = firstEvent.reqNo || '';
     const resNo = firstEvent.resNo || '';
+    // 수거 예약 시 사용한 승인번호 사용 (중요: 환경변수와 다를 수 있음)
+    const apprNo = firstEvent.apprNo || Deno.env.get('EPOST_APPROVAL_NO') || '0000000000';
+
+    console.log('🔍 취소 파라미터 확인:', {
+      reqNo,
+      resNo,
+      apprNo,
+      regiNo: shipment.pickup_tracking_no || shipment.tracking_no,
+    });
+
+    // reqYmd: 소포신청 등록일자 (YYYYMMDD 형식)
+    // pickup_requested_at 또는 created_at에서 가져오기
+    let reqYmd = '';
+    if (shipment.pickup_requested_at) {
+      const date = new Date(shipment.pickup_requested_at);
+      reqYmd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+    } else if (shipment.created_at) {
+      const date = new Date(shipment.created_at);
+      reqYmd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+    } else {
+      // 기본값: 오늘 날짜
+      const today = new Date();
+      reqYmd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+    }
+
+    console.log('📅 신청일자(reqYmd):', reqYmd);
 
     // 우체국 API 취소 호출
     let cancelResult;
     try {
       cancelResult = await cancelOrder({
         custNo,
-        apprNo,
+        apprNo, // tracking_events에서 가져온 승인번호 사용
         reqType: '1',
         reqNo,
         resNo,
         regiNo: shipment.pickup_tracking_no || shipment.tracking_no,
+        reqYmd, // 소포신청 등록일자 추가
         delYn: delete_after_cancel ? 'Y' : 'N',
       });
 
       console.log('✅ 우체국 소포신청 취소 성공:', cancelResult.canceledYn);
+      
+      // 우체국 API 응답 확인
+      if (!cancelResult || !cancelResult.canceledYn) {
+        console.warn('⚠️ 우체국 API 응답에 canceledYn이 없습니다:', cancelResult);
+      }
     } catch (e) {
       console.error('❌ 우체국 취소 실패:', e.message);
       
-      // 우체국 API 실패해도 DB는 업데이트
-      // (이미 처리가 진행된 경우 등)
-      if (e.message.includes('취소')) {
-        return errorResponse(e.message, 400, 'CANCEL_FAILED');
-      }
+      // 우체국 API 실패 시 에러 반환 (DB 업데이트하지 않음)
+      return errorResponse(
+        `우체국 전산 취소 실패: ${e.message || '알 수 없는 오류'}`,
+        500,
+        'EPOST_CANCEL_FAILED'
+      );
     }
 
     // shipments 테이블 업데이트

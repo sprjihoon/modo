@@ -100,8 +100,6 @@ class OrderService {
       debugPrint('✅ 주문 생성 성공: ${order['id']}');
       
       return order;
-
-      return order;
     } catch (e) {
       throw Exception('주문 생성 실패: $e');
     }
@@ -115,16 +113,28 @@ class OrderService {
         throw Exception('로그인이 필요합니다');
       }
 
-      final orders = await _supabase
+      // orders 테이블만 조회 (tracking_no는 orders 테이블에 있음)
+      final response = await _supabase
           .from('orders')
-          .select('''
-            *,
-            shipments (*),
-            payments (*)
-          ''')
+          .select('*')
           .order('created_at', ascending: false);
 
-      return List<Map<String, dynamic>>.from(orders);
+      // 타입 안전하게 변환
+      final orders = (response as List).map((order) {
+        final orderMap = Map<String, dynamic>.from(order as Map);
+        final trackingNo = orderMap['tracking_no'] as String?;
+        
+        return <String, dynamic>{
+          ...orderMap,
+          'shipments': trackingNo != null ? <Map<String, dynamic>>[{
+            'tracking_no': trackingNo,
+            'pickup_tracking_no': trackingNo,
+            'order_id': orderMap['id'],
+          }] : <Map<String, dynamic>>[],
+        };
+      }).toList();
+
+      return orders;
     } catch (e) {
       throw Exception('주문 조회 실패: $e');
     }
@@ -133,19 +143,71 @@ class OrderService {
   /// 주문 상세 조회
   Future<Map<String, dynamic>> getOrderDetail(String orderId) async {
     try {
-      final order = await _supabase
+      debugPrint('🔍 주문 상세 조회 시작: $orderId');
+      
+      // orders 테이블만 조회
+      final response = await _supabase
           .from('orders')
-          .select('''
-            *,
-            shipments (*),
-            payments (*)
-          ''')
+          .select('*')
           .eq('id', orderId)
           .single();
 
-      return order;
+      debugPrint('✅ 주문 조회 성공: ${response['id']}');
+
+      // 타입 안전하게 변환
+      final order = Map<String, dynamic>.from(response as Map);
+      final trackingNo = order['tracking_no'] as String?;
+
+      // shipments 정보는 orders.tracking_no로 대체
+      final result = {
+        ...order,
+        'shipments': trackingNo != null ? [{
+          'tracking_no': trackingNo,
+          'pickup_tracking_no': trackingNo,
+          'order_id': orderId,
+        }] : <Map<String, dynamic>>[],
+      };
+      
+      debugPrint('✅ 주문 상세 데이터 준비 완료');
+      return result;
     } catch (e) {
+      debugPrint('❌ 주문 상세 조회 오류: $e');
       throw Exception('주문 상세 조회 실패: $e');
+    }
+  }
+
+  /// 배송추적 조회 (Edge Function 호출)
+  Future<Map<String, dynamic>> trackShipment(String trackingNo) async {
+    try {
+      debugPrint('📦 배송추적 조회 시작: $trackingNo');
+      
+      // POST 요청으로 body에 tracking_no 전달
+      final response = await _supabase.functions.invoke(
+        'shipments-track',
+        body: {'tracking_no': trackingNo},
+      );
+
+      debugPrint('✅ 배송추적 응답: ${response.data}');
+
+      if (response.data != null) {
+        // 응답이 성공인지 확인
+        final data = Map<String, dynamic>.from(response.data);
+        if (data.containsKey('error')) {
+          throw Exception(data['error'] as String? ?? '배송추적 정보를 가져올 수 없습니다');
+        }
+        return data;
+      } else {
+        throw Exception('배송추적 정보를 가져올 수 없습니다');
+      }
+    } on FunctionException catch (e) {
+      debugPrint('❌ FunctionException: ${e.status} - ${e.toString()}');
+      if (e.status == 404) {
+        throw Exception('배송추적 기능이 아직 배포되지 않았습니다. 관리자에게 문의하세요.');
+      }
+      throw Exception('배송추적 조회 실패: ${e.toString()}');
+    } catch (e) {
+      debugPrint('❌ 배송추적 조회 오류: $e');
+      throw Exception('배송추적 조회 실패: $e');
     }
   }
 
@@ -175,6 +237,42 @@ class OrderService {
     }
   }
 
+  /// 수거 취소 (Edge Function 호출)
+  Future<Map<String, dynamic>> cancelShipment(String orderId, {bool deleteAfterCancel = false}) async {
+    try {
+      debugPrint('🚫 수거 취소 시작: $orderId');
+      
+      final response = await _supabase.functions.invoke(
+        'shipments-cancel',
+        body: {
+          'order_id': orderId,
+          'delete_after_cancel': deleteAfterCancel,
+        },
+      );
+
+      debugPrint('✅ 수거 취소 응답: ${response.data}');
+
+      if (response.data != null) {
+        final data = Map<String, dynamic>.from(response.data);
+        if (data.containsKey('error')) {
+          throw Exception(data['error'] as String? ?? '수거 취소 실패');
+        }
+        return data;
+      } else {
+        throw Exception('수거 취소 정보를 가져올 수 없습니다');
+      }
+    } on FunctionException catch (e) {
+      debugPrint('❌ FunctionException: ${e.status} - ${e.toString()}');
+      if (e.status == 404) {
+        throw Exception('수거 취소 기능이 아직 배포되지 않았습니다. 관리자에게 문의하세요.');
+      }
+      throw Exception('수거 취소 실패: ${e.toString()}');
+    } catch (e) {
+      debugPrint('❌ 수거 취소 오류: $e');
+      throw Exception('수거 취소 실패: $e');
+    }
+  }
+
   /// 수거예약 (Edge Function 호출)
   Future<Map<String, dynamic>> bookShipment({
     required String orderId,
@@ -183,14 +281,15 @@ class OrderService {
     required String deliveryAddress,
     required String deliveryPhone,
     required String customerName,
+    String? pickupZipcode,  // 수거지 우편번호
+    String? deliveryZipcode, // 배송지 우편번호 (필수)
     bool testMode = false,  // 실제 우체국 API 사용: false, Mock: true
   }) async {
     try {
       debugPrint('📦 수거예약 시작 (testMode: $testMode)');
+      debugPrint('📍 배송지 우편번호: $deliveryZipcode');
       
-      final response = await _supabase.functions.invoke(
-        'shipments-book',
-        body: {
+      final body = <String, dynamic>{
           'order_id': orderId,
           'pickup_address': pickupAddress,
           'pickup_phone': pickupPhone,
@@ -198,7 +297,21 @@ class OrderService {
           'delivery_phone': deliveryPhone,
           'customer_name': customerName,
           'test_mode': testMode,  // 실제 API 사용 여부
-        },
+      };
+      
+      // 우편번호 추가 (배송지 우편번호는 필수)
+      if (pickupZipcode != null && pickupZipcode.isNotEmpty) {
+        body['pickup_zipcode'] = pickupZipcode;
+      }
+      if (deliveryZipcode != null && deliveryZipcode.isNotEmpty) {
+        body['delivery_zipcode'] = deliveryZipcode;
+      } else {
+        debugPrint('⚠️ 배송지 우편번호가 없습니다!');
+      }
+      
+      final response = await _supabase.functions.invoke(
+        'shipments-book',
+        body: body,
       );
 
       if (response.data['success'] != true) {

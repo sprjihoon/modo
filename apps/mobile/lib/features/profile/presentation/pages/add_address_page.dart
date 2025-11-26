@@ -69,10 +69,11 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
 
     try {
       final addressService = AddressService();
+      Map<String, dynamic>? savedAddress;
       
       if (widget.existingAddress == null) {
-        // 배송지 추가
-        await addressService.addAddress(
+        // 배송지 추가 - 저장 후 새로 추가된 배송지 정보 받기
+        savedAddress = await addressService.addAddress(
           label: _labelController.text,
           recipientName: _nameController.text,
           recipientPhone: _phoneController.text,
@@ -83,7 +84,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
         );
       } else {
         // 배송지 수정
-        await addressService.updateAddress(
+        savedAddress = await addressService.updateAddress(
           addressId: widget.existingAddress!['id'] as String,
           label: _labelController.text,
           recipientName: _nameController.text,
@@ -106,7 +107,8 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
             backgroundColor: const Color(0xFF00C896),
           ),
         );
-        context.pop(true); // 성공 결과 반환
+        // 저장된 배송지 정보를 반환 (선택 모드에서 자동 선택을 위해)
+        context.pop(savedAddress);
       }
     } catch (e) {
       if (mounted) {

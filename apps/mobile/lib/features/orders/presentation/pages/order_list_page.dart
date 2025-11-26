@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../../services/order_service.dart';
 
 /// 주문 목록 화면
 class OrderListPage extends ConsumerStatefulWidget {
@@ -15,7 +16,10 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _searchController = TextEditingController();
+  final _orderService = OrderService();
   
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _allOrders = [];
   int _currentPage = 1;
   final int _itemsPerPage = 10;
   String _selectedPeriod = '전체'; // 전체, 1개월, 3개월, 6개월
@@ -23,7 +27,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     
     // 탭 변경 시 페이지 리셋
     _tabController.addListener(() {
@@ -33,6 +37,29 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
         });
       }
     });
+    
+    _loadOrders();
+  }
+
+  Future<void> _loadOrders() async {
+    try {
+      setState(() => _isLoading = true);
+      final orders = await _orderService.getMyOrders();
+      setState(() {
+        _allOrders = orders;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('주문 목록 조회 실패: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -50,20 +77,31 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
         title: const Text('주문 내역'),
         elevation: 0,
         backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.home_outlined, color: Colors.black),
-          onPressed: () => context.go('/'),
-          tooltip: '홈으로',
+        toolbarHeight: 60, // 공간은 확보하되 기본에 가깝게
+        centerTitle: true,
+        leadingWidth: 56, // leading 영역 넓힘 (잘림 방지)
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: IconButton(
+            icon: const Icon(Icons.home_outlined, color: Colors.black, size: 24),
+            onPressed: () => context.go('/home'), // 홈 화면으로 직접 이동
+            tooltip: '홈으로',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            splashRadius: 24,
+          ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black),
-            onPressed: () {
-              setState(() {
-                // 주문 목록 새로고침
-              });
-            },
-            tooltip: '새로고침',
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.black, size: 24),
+              onPressed: _loadOrders,
+              tooltip: '새로고침',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              splashRadius: 24,
+            ),
           ),
         ],
         bottom: PreferredSize(
@@ -78,6 +116,15 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                   decoration: InputDecoration(
                     hintText: '주문 검색...',
                     prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {});
+                            },
+                          )
+                        : null,
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
@@ -86,6 +133,11 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
+                  onChanged: (value) {
+                    setState(() {
+                      _currentPage = 1; // 검색 시 첫 페이지로
+                    });
+                  },
                 ),
               ),
               // 날짜 필터
@@ -140,6 +192,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                   Tab(text: '수선중'),
                   Tab(text: '출고완료'),
                   Tab(text: '완료'),
+                  Tab(text: '취소'),
                 ],
               ),
             ],
@@ -157,6 +210,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                 _buildOrderList(context, 2),
                 _buildOrderList(context, 3),
                 _buildOrderList(context, 4),
+                _buildOrderList(context, 5), // 취소 탭
               ],
             ),
           ),
@@ -167,14 +221,84 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
   }
 
   Widget _buildOrderList(BuildContext context, int? statusFilter) {
-    // Mock 전체 주문 데이터 (페이징 테스트용 15개)
-    final allOrders = List.generate(15, (index) => index);
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    // 상태 필터링
+    List<Map<String, dynamic>> filteredOrders = _allOrders;
+    
+    if (statusFilter != null) {
+      // statusFilter: 0=BOOKED, 1=INBOUND, 2=PROCESSING, 3=READY_TO_SHIP, 4=DELIVERED, 5=CANCELLED
+      final statusMap = {
+        0: 'BOOKED',
+        1: 'INBOUND',
+        2: 'PROCESSING',
+        3: 'READY_TO_SHIP',
+        4: 'DELIVERED',
+        5: 'CANCELLED', // 취소 탭 추가
+      };
+      final targetStatus = statusMap[statusFilter];
+      if (targetStatus != null) {
+        filteredOrders = _allOrders.where((order) {
+          final orderStatus = order['status'] as String? ?? 'BOOKED';
+          return orderStatus == targetStatus;
+        }).toList();
+      }
+    }
+    
+    // 검색 필터링
+    if (_searchController.text.isNotEmpty) {
+      final searchText = _searchController.text.toLowerCase();
+      filteredOrders = filteredOrders.where((order) {
+        final itemName = (order['item_name'] ?? '').toString().toLowerCase();
+        final orderNumber = (order['order_number'] ?? '').toString().toLowerCase();
+        return itemName.contains(searchText) || orderNumber.contains(searchText);
+      }).toList();
+    }
     
     // 페이징 계산
-    final totalPages = (allOrders.length / _itemsPerPage).ceil();
-    final startIndex = (_currentPage - 1) * _itemsPerPage;
-    final endIndex = (startIndex + _itemsPerPage).clamp(0, allOrders.length);
-    final displayedOrders = allOrders.sublist(startIndex, endIndex);
+    final totalPages = filteredOrders.isEmpty ? 1 : (filteredOrders.length / _itemsPerPage).ceil();
+    // 현재 페이지가 총 페이지 수를 초과하지 않도록 제한
+    final safeCurrentPage = _currentPage.clamp(1, totalPages);
+    if (safeCurrentPage != _currentPage) {
+      // 페이지가 범위를 벗어났으면 첫 페이지로 리셋
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _currentPage = 1);
+        }
+      });
+    }
+    final startIndex = ((safeCurrentPage - 1) * _itemsPerPage).clamp(0, filteredOrders.length);
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, filteredOrders.length);
+    final displayedOrders = startIndex < filteredOrders.length 
+        ? filteredOrders.sublist(startIndex, endIndex)
+        : <Map<String, dynamic>>[];
+    
+    if (filteredOrders.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inbox_outlined,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '주문 내역이 없습니다',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     
     return Column(
       children: [
@@ -184,20 +308,21 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
           child: Row(
             children: [
               Text(
-                '총 ${allOrders.length}건',
+                '총 ${filteredOrders.length}건',
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey.shade600,
                 ),
               ),
               const Spacer(),
-              Text(
-                '$_currentPage / $totalPages 페이지',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
+              if (totalPages > 1)
+                Text(
+                  '$_currentPage / $totalPages 페이지',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -291,30 +416,61 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     );
   }
 
-  Widget _buildOrderCard(BuildContext context, int index) {
-    final statuses = ['수거예약', '입고완료', '수선중', '출고완료', '배송완료'];
-    final colors = [
-      Colors.blue,
-      Colors.orange,
-      Colors.purple,
-      Colors.green,
-      Colors.grey.shade600,
-    ];
-    final icons = [
-      Icons.schedule_outlined,
-      Icons.inventory_outlined,
-      Icons.content_cut_rounded,
-      Icons.done_all_outlined,
-      Icons.check_circle_outline,
-    ];
+  Widget _buildOrderCard(BuildContext context, Map<String, dynamic> order) {
+    final statusMap = {
+      'BOOKED': {'label': '수거예약', 'color': Colors.blue, 'icon': Icons.schedule_outlined},
+      'INBOUND': {'label': '입고완료', 'color': Colors.orange, 'icon': Icons.inventory_outlined},
+      'PROCESSING': {'label': '수선중', 'color': Colors.purple, 'icon': Icons.content_cut_rounded},
+      'READY_TO_SHIP': {'label': '출고완료', 'color': Colors.green, 'icon': Icons.done_all_outlined},
+      'DELIVERED': {'label': '배송완료', 'color': Colors.grey.shade600, 'icon': Icons.check_circle_outline},
+      'CANCELLED': {'label': '수거취소', 'color': Colors.red, 'icon': Icons.cancel_outlined},
+    };
+    
+    final status = order['status'] as String? ?? 'BOOKED';
+    final statusInfo = statusMap[status] ?? statusMap['BOOKED']!;
+    final statusLabel = statusInfo['label'] as String;
+    final statusColor = statusInfo['color'] as Color;
+    final statusIcon = statusInfo['icon'] as IconData;
+    
+    // shipments 정보에서 송장번호 가져오기
+    final shipments = order['shipments'] as List<dynamic>?;
+    final shipment = shipments != null && shipments.isNotEmpty 
+        ? shipments.first as Map<String, dynamic>
+        : null;
+    final trackingNo = shipment?['pickup_tracking_no'] ?? 
+                       shipment?['tracking_no'] ?? 
+                       order['tracking_no'];
+    
+    // 날짜 포맷팅
+    final createdAt = order['created_at'] as String?;
+    String dateStr = '';
+    if (createdAt != null) {
+      try {
+        final date = DateTime.parse(createdAt);
+        dateStr = '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+      } catch (e) {
+        dateStr = '날짜 없음';
+      }
+    }
+    
+    // 가격 포맷팅
+    final totalPrice = order['total_price'] as num? ?? 0;
+    final priceStr = '₩${totalPrice.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    )}';
 
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       elevation: 0,
       child: InkWell(
-        onTap: () {
-          context.push('/orders/${index + 1}');
+        onTap: () async {
+          await context.push('/orders/${order['id']}');
+          if (mounted) {
+            // 상세에서 돌아오면 최신 데이터로 새로고침
+            _loadOrders();
+          }
         },
         borderRadius: BorderRadius.circular(16),
         child: Container(
@@ -336,24 +492,24 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: colors[index % colors.length].withOpacity(0.1),
+                        color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            icons[index % icons.length],
+                            statusIcon,
                             size: 14,
-                            color: colors[index % colors.length],
+                            color: statusColor,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            statuses[index % statuses.length],
+                            statusLabel,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: colors[index % colors.length],
+                              color: statusColor,
                             ),
                           ),
                         ],
@@ -361,24 +517,25 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '2024.01.${(index + 1).toString().padLeft(2, '0')}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
+                  if (dateStr.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        dateStr,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -388,12 +545,12 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: colors[index % colors.length].withOpacity(0.1),
+                      color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       Icons.checkroom_rounded,
-                      color: colors[index % colors.length],
+                      color: statusColor,
                       size: 28,
                     ),
                   ),
@@ -403,33 +560,39 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '청바지 기장 수선 ${index + 1}',
+                          order['item_name'] as String? ?? '수선 항목',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.local_shipping_outlined,
-                              size: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                'MOCK17061744001${index.toString().padLeft(2, '0')}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                  fontFamily: 'monospace',
+                        if (trackingNo != null) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.local_shipping_outlined,
+                                size: 14,
+                                color: Colors.grey.shade600,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  trackingNo.toString(),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                    fontFamily: 'monospace',
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -456,10 +619,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                       ),
                     ),
                     Text(
-                      '₩${((index + 1) * 15000).toString().replaceAllMapped(
-                        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                        (Match m) => '${m[1]},',
-                      )}',
+                      priceStr,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
