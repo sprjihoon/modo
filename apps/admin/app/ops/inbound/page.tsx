@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Scan, Package, Search, FileText } from "lucide-react";
+import { Scan, Package, Search, FileText, Printer } from "lucide-react";
 import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin } from "@/components/ops/work-order-sheet";
+import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import WebcamRecorder from "@/components/ops/WebcamRecorder";
 // ============================================
 // 타입 정의
@@ -128,6 +129,7 @@ export default function InboundPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showWorkOrderPreview, setShowWorkOrderPreview] = useState(false);
+  const [showShippingLabel, setShowShippingLabel] = useState(false);
   const [showInboundVideo, setShowInboundVideo] = useState(false);
 
   // 송장 조회 함수 (실제 DB 연동)
@@ -487,6 +489,20 @@ export default function InboundPage() {
             작업지시서 미리보기
           </button>
 
+          {/* 출고 송장 라벨 출력 */}
+          <button
+            disabled={!result || !result.outboundTrackingNo}
+            onClick={() => setShowShippingLabel(true)}
+            className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
+              result && result.outboundTrackingNo
+                ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            <Printer className="h-5 w-5" suppressHydrationWarning />
+            출고 송장 라벨 출력
+          </button>
+
           {/* 입고 처리 */}
           <button
             disabled={!result || result.status === "INBOUND" || isProcessing}
@@ -579,6 +595,53 @@ export default function InboundPage() {
                   }}
                 />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 출고 송장 라벨 다이얼로그 */}
+      {showShippingLabel && result && result.outboundTrackingNo && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 print:bg-white print:p-0"
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto print:max-w-none print:max-h-none print:shadow-none print:rounded-none">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center print:hidden">
+              <h2 className="text-lg font-semibold">출고 송장 라벨</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  인쇄
+                </button>
+                <button
+                  onClick={() => setShowShippingLabel(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+            <div className="p-4 print:p-0 flex justify-center">
+              <ShippingLabelSheet
+                data={{
+                  trackingNo: result.outboundTrackingNo,
+                  senderName: "모두의수선",
+                  senderZipcode: "41142",
+                  senderAddress: "대구광역시 동구 동촌로 1 동대구우체국 2층 소포실",
+                  senderPhone: "010-2723-9490",
+                  recipientName: result.customerName,
+                  recipientZipcode: "", // TODO: 고객 우편번호
+                  recipientAddress: result.deliveryAddress,
+                  recipientPhone: result.customerPhone || "",
+                  goodsName: result.itemName,
+                  weight: 2,
+                  orderNumber: result.orderId.substring(0, 13),
+                  memo: result.summary,
+                  specialInstructions: "수선 완료품입니다. 조심히 다뤄주세요.",
+                }}
+              />
             </div>
           </div>
         </div>
