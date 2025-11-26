@@ -223,7 +223,13 @@ export default function InboundPage() {
       }
 
       console.log("✅ 입고 처리 완료");
-      alert("입고 처리가 완료되었습니다!");
+      
+      // 출고 송장번호 표시
+      if (data.outboundTrackingNo) {
+        alert(`입고 처리 완료!\n\n출고 송장번호: ${data.outboundTrackingNo}\n\n작업지시서를 출력하세요.`);
+      } else {
+        alert("입고 처리가 완료되었습니다!\n\n⚠️ 출고 송장 생성 실패 (수동 발급 필요)");
+      }
 
       // 결과 새로고침
       await handleLookup();
