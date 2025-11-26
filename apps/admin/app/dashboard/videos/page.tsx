@@ -21,6 +21,7 @@ export default function VideosPage() {
   const [search, setSearch] = useState("");
   const [videos, setVideos] = useState<MediaVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedVideo, setSelectedVideo] = useState<MediaVideo | null>(null);
 
   useEffect(() => {
     loadVideos();
@@ -162,9 +163,9 @@ export default function VideosPage() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => window.open(videoUrl, "_blank")}
+                      onClick={() => setSelectedVideo(video)}
                     >
-                      <ExternalLink className="h-4 w-4 mr-2" />
+                      <Play className="h-4 w-4 mr-2" />
                       재생
                     </Button>
                   </div>
@@ -203,6 +204,63 @@ export default function VideosPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Video Player Modal */}
+      {selectedVideo && (
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedVideo(null)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-semibold">{getVideoTypeLabel(selectedVideo.type)} 영상</h2>
+                <p className="text-sm text-gray-500">송장: {selectedVideo.final_waybill_no}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedVideo(null)}
+              >
+                닫기
+              </Button>
+            </div>
+            <div className="p-4">
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <video
+                  src={getVideoUrl(selectedVideo)}
+                  controls
+                  autoPlay
+                  className="w-full h-full"
+                >
+                  브라우저가 비디오를 지원하지 않습니다.
+                </video>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-500">Provider</p>
+                  <p className="font-medium">{selectedVideo.provider}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Video ID</p>
+                  <p className="font-mono text-xs truncate">{selectedVideo.path}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">업로드 시간</p>
+                  <p className="font-medium">{new Date(selectedVideo.created_at).toLocaleString('ko-KR')}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">타입</p>
+                  <p className="font-medium">{selectedVideo.type}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
