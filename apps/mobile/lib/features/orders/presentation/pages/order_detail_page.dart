@@ -1795,19 +1795,30 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
 
   Future<void> _loadVideoUrls() async {
     try {
-      final fwbn =
-          _shipmentData?['delivery_tracking_no'] ?? _shipmentData?['tracking_no'] ?? _shipmentData?['outbound_tracking_no'];
-      if (fwbn == null || (fwbn is String && fwbn.isEmpty)) {
+      // final_waybill_no 후보: delivery_tracking_no, tracking_no, orderId
+      final candidates = [
+        _shipmentData?['delivery_tracking_no'],
+        _shipmentData?['tracking_no'],
+        _shipmentData?['outbound_tracking_no'],
+        _orderData?['id'], // orderId도 포함
+      ].where((v) => v != null && (v is String) && v.isNotEmpty).toList();
+      
+      if (candidates.isEmpty) {
+        debugPrint('❌ final_waybill_no 후보가 없습니다');
         return;
       }
+
+      debugPrint('🔍 영상 조회 시도: $candidates');
 
       final supabase = Supabase.instance.client;
       final videos = await supabase
           .from('media')
           .select('type, path, provider')
-          .eq('final_waybill_no', fwbn)
+          .inFilter('final_waybill_no', candidates)
           .inFilter('type', ['inbound_video', 'outbound_video'])
           .order('created_at', ascending: false);
+      
+      debugPrint('📹 조회된 영상: ${videos.length}개');
 
       String? inboundUrl;
       String? outboundUrl;
