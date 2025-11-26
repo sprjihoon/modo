@@ -1806,7 +1806,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           .from('media')
           .select('type, path, provider')
           .eq('final_waybill_no', fwbn)
-          .in_('type', ['inbound_video', 'outbound_video'])
+          .inFilter('type', ['inbound_video', 'outbound_video'])
           .order('created_at', ascending: false);
 
       String? inboundUrl;
