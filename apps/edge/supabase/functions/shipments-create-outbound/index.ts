@@ -121,16 +121,24 @@ Deno.serve(async (req) => {
       volume: 60,
       microYn: 'N',
       delivMsg: '수선 완료품입니다. 확인 부탁드립니다.',
-      testYn: 'N', // 실제 운송장 발급
+      testYn: 'Y', // 임시: 테스트 모드 (실제 송장 발급 안 됨, 디버깅용)
       printYn: 'Y', // 운송장 출력
     };
 
     console.log('📮 우체국 API 호출 (출고 송장):', outboundParams.orderNo);
+    console.log('📋 파라미터 상세:', JSON.stringify(outboundParams, null, 2));
 
-    // 6. 우체국 API 호출
-    const epostResult = await insertOrder(outboundParams);
-
-    console.log('✅ 출고 송장 생성 성공:', epostResult.regiNo);
+    // 6. 우체국 API 호출 (테스트 모드)
+    let epostResult;
+    try {
+      // 임시: mock 모드 사용
+      const { mockInsertOrder } = await import('../_shared/epost/mock.ts');
+      epostResult = await mockInsertOrder(outboundParams);
+      console.log('✅ 출고 송장 생성 성공 (MOCK):', epostResult.regiNo);
+    } catch (apiError: any) {
+      console.error('❌ 우체국 API 호출 실패:', apiError);
+      throw new Error(`우체국 API 오류: ${apiError.message}`);
+    }
 
     // 7. shipments 테이블 업데이트
     const { error: updateError } = await supabase
