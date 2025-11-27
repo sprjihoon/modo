@@ -79,6 +79,14 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
         (videoRef.current as any).srcObject = stream;
         await videoRef.current.play();
       }
+      
+      // Canvas 초기화
+      if (canvasRef.current && videoRef.current) {
+        const canvas = canvasRef.current;
+        const video = videoRef.current;
+        canvas.width = 640;
+        canvas.height = 360;
+      }
     } catch (e: any) {
       setError(e.message || "카메라 미리보기에 실패했습니다.");
     }
