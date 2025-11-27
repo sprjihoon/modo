@@ -217,22 +217,19 @@ export function ShippingLabelSheet({ data }: Props) {
         {renderText('senderPhone', data.senderPhone)}
 
         {/* --- 3. 받는 분 --- */}
-        {/* 우편번호 바코드 (가짜) */}
-        <div style={{
-          position: "absolute",
-          left: `${COORDS.recipientZipcodeBar[0]}px`,
-          top: `${COORDS.recipientZipcodeBar[1]}px`,
-          width: `${COORDS.recipientZipcodeBar[2]}px`,
-          height: `${COORDS.recipientZipcodeBar[3]}px`,
-          backgroundColor: "#eee", // 실제 바코드 대신 회색 박스
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "10px",
-          color: "#666",
-        }}>
-          Zipcode Barcode
-        </div>
+        {/* 우편번호 바코드 */}
+        <img
+          src={`https://barcode.tec-it.com/barcode.ashx?data=${data.recipientZipcode}&code=Code128&translate-esc=on`}
+          alt="우편번호 바코드"
+          style={{
+            position: "absolute",
+            left: `${COORDS.recipientZipcodeBar[0]}px`,
+            top: `${COORDS.recipientZipcodeBar[1]}px`,
+            width: `${COORDS.recipientZipcodeBar[2]}px`,
+            height: `${COORDS.recipientZipcodeBar[3]}px`,
+            objectFit: "contain",
+          }}
+        />
         
         {renderText('recipientZipcode', data.recipientZipcode, { fontSize: "14px", fontWeight: "bold" })}
         {renderText('totalQuantity', `${data.totalQuantity}개`)}
@@ -254,19 +251,18 @@ export function ShippingLabelSheet({ data }: Props) {
         {renderItemsList()}
         
         {/* --- 6. 운송장 바코드 --- */}
-        <div style={{
-          position: "absolute",
-          left: `${COORDS.trackingNoBarcode[0]}px`,
-          top: `${COORDS.trackingNoBarcode[1]}px`,
-          width: `${COORDS.trackingNoBarcode[2]}px`,
-          height: `${COORDS.trackingNoBarcode[3]}px`,
-          // 실제 바코드는 라이브러리 사용 권장 (예: react-barcode)
-          // 여기서는 CSS로 바코드 느낌만 냄
-          backgroundImage: "linear-gradient(to right, #000 2px, transparent 2px, #000 4px, transparent 4px, #000 8px, transparent 8px)",
-          backgroundSize: "10px 100%",
-        }}>
-          {/* 바코드 라이브러리 연동 시 여기에 배치 */}
-        </div>
+        <img
+          src={`https://barcode.tec-it.com/barcode.ashx?data=${data.trackingNo}&code=Code128&translate-esc=on&dpi=203`}
+          alt="운송장 바코드"
+          style={{
+            position: "absolute",
+            left: `${COORDS.trackingNoBarcode[0]}px`,
+            top: `${COORDS.trackingNoBarcode[1]}px`,
+            width: `${COORDS.trackingNoBarcode[2]}px`,
+            height: `${COORDS.trackingNoBarcode[3]}px`,
+            objectFit: "contain",
+          }}
+        />
         
         {renderText('trackingNoBottom', data.trackingNo, { 
           fontSize: "16px", 
