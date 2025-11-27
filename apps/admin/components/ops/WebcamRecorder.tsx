@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 type Props = {
   orderId: string;
@@ -93,76 +93,66 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
   };
 
   // Canvas에 비디오 + 오버레이 그리기
-  const drawFrame = () => {
-    // recorderRef로 직접 확인 (recording 상태는 비동기 업데이트 지연 문제)
-    if (!videoRef.current || !canvasRef.current || !recorderRef.current || recorderRef.current.state !== "recording") {
+  const drawFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const recorder = recorderRef.current;
+    
+    // 녹화 중단 조건
+    if (!video || !canvas || !recorder || recorder.state !== "recording") {
       return;
     }
     
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
     const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      console.error("❌ Canvas context 없음");
-      return;
-    }
+    if (!ctx) return;
 
     // 비디오 프레임 그리기
-    try {
-      if (video.readyState >= 2 && video.videoWidth > 0) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      } else {
-        // 비디오 준비 안 됨, 빈 프레임
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-    } catch (e) {
-      // drawImage 실패, 검은 화면
-      ctx.fillStyle = "#000";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    // 현재 시간 오버레이
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("ko-KR");
-    const timeStr = now.toLocaleTimeString("ko-KR");
-    
-    // 녹화 시간 계산
-    const elapsed = Math.floor((Date.now() - recordStartTimeRef.current) / 1000);
-    const minutes = Math.floor(elapsed / 60);
-    const seconds = elapsed % 60;
-    const durationStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-
-    // 배경 + 텍스트 그리기
-    ctx.font = "16px Arial";
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.fillRect(10, 10, 200, 60);
-    
-    ctx.fillStyle = "#fff";
-    ctx.fillText(dateStr, 20, 30);
-    ctx.fillText(timeStr, 20, 50);
-    
-    // 녹화 시간 (우측 상단)
-    ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
-    ctx.fillRect(canvas.width - 120, 10, 110, 30);
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 18px Arial";
-    ctx.fillText(`⏺ ${durationStr}`, canvas.width - 110, 32);
-
-    // Duration 상태 업데이트 (초 단위로만, 성능 최적화)
-    if (elapsed !== recordDuration) {
-      setRecordDuration(elapsed);
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      ctx.drawImage(video, 0, 0, 640, 360);
       
-      // maxDuration 도달 시 자동 종료
-      if (maxDuration && elapsed >= maxDuration) {
-        stopRecord();
-        return;
-      }
+      // 현재 시간 오버레이
+      const now = new Date();
+      const dateStr = now.toLocaleDateString("ko-KR");
+      const timeStr = now.toLocaleTimeString("ko-KR");
+      
+      // 녹화 시간 계산
+      const elapsed = Math.floor((Date.now() - recordStartTimeRef.current) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      const durationStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+      // 배경 + 텍스트 그리기
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.fillRect(10, 10, 200, 60);
+      
+      ctx.fillStyle = "#fff";
+      ctx.fillText(dateStr, 20, 30);
+      ctx.fillText(timeStr, 20, 50);
+      
+      // 녹화 시간 (우측 상단)
+      ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
+      ctx.fillRect(canvas.width - 120, 10, 110, 30);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 18px Arial";
+      ctx.fillText(`⏺ ${durationStr}`, canvas.width - 110, 32);
+
+      // Duration 상태 업데이트
+      setRecordDuration(prev => {
+        if (prev !== elapsed) {
+          // maxDuration 도달 시 자동 종료
+          if (maxDuration && elapsed >= maxDuration) {
+            setTimeout(() => stopRecord(), 0);
+          }
+          return elapsed;
+        }
+        return prev;
+      });
     }
     
     // 다음 프레임 요청
     animationFrameRef.current = requestAnimationFrame(drawFrame);
-  };
+  }, [maxDuration]);
 
   const startRecord = async () => {
     if (!mediaStreamRef.current || !canvasRef.current || !videoRef.current) return;
