@@ -101,8 +101,20 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // 비디오가 준비되지 않았으면 다음 프레임 대기
+    if (video.readyState < 2) {
+      animationFrameRef.current = requestAnimationFrame(drawFrame);
+      return;
+    }
+
     // 비디오 프레임 그리기
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    try {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    } catch (e) {
+      // drawImage 실패 시 다음 프레임 대기
+      animationFrameRef.current = requestAnimationFrame(drawFrame);
+      return;
+    }
 
     // 현재 시간 오버레이
     const now = new Date();
