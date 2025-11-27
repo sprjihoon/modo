@@ -92,96 +92,17 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
     }
   };
 
-  // Canvas에 비디오 + 오버레이 그리기
-  const drawFrame = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const recorder = recorderRef.current;
-    
-    // 녹화 중단 조건
-    if (!video || !canvas || !recorder || recorder.state !== "recording") {
-      return;
-    }
-    
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // 비디오 프레임 그리기
-    if (video.readyState >= 2 && video.videoWidth > 0) {
-      ctx.drawImage(video, 0, 0, 640, 360);
-      
-      // 현재 시간 오버레이
-      const now = new Date();
-      const dateStr = now.toLocaleDateString("ko-KR");
-      const timeStr = now.toLocaleTimeString("ko-KR");
-      
-      // 녹화 시간 계산
-      const elapsed = Math.floor((Date.now() - recordStartTimeRef.current) / 1000);
-      const minutes = Math.floor(elapsed / 60);
-      const seconds = elapsed % 60;
-      const durationStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-
-      // 배경 + 텍스트 그리기
-      ctx.font = "16px Arial";
-      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-      ctx.fillRect(10, 10, 200, 60);
-      
-      ctx.fillStyle = "#fff";
-      ctx.fillText(dateStr, 20, 30);
-      ctx.fillText(timeStr, 20, 50);
-      
-      // 녹화 시간 (우측 상단)
-      ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
-      ctx.fillRect(canvas.width - 120, 10, 110, 30);
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 18px Arial";
-      ctx.fillText(`⏺ ${durationStr}`, canvas.width - 110, 32);
-
-      // Duration 상태 업데이트
-      setRecordDuration(prev => {
-        if (prev !== elapsed) {
-          // maxDuration 도달 시 자동 종료
-          if (maxDuration && elapsed >= maxDuration) {
-            setTimeout(() => stopRecord(), 0);
-          }
-          return elapsed;
-        }
-        return prev;
-      });
-    }
-    
-    // 다음 프레임 요청
-    animationFrameRef.current = requestAnimationFrame(drawFrame);
-  }, [maxDuration]);
 
   const startRecord = async () => {
-    if (!mediaStreamRef.current || !canvasRef.current || !videoRef.current) return;
+    if (!mediaStreamRef.current) return;
     try {
       chunksRef.current = [];
       recordStartTimeRef.current = Date.now();
       setRecordDuration(0);
       
-      // Canvas 준비 확인
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const ctx = canvas.getContext("2d");
-      
-      if (!ctx) {
-        throw new Error("Canvas context를 가져올 수 없습니다");
-      }
-      
-      console.log("🎬 녹화 시작 준비:", {
-        videoReady: video.readyState,
-        canvasSize: `${canvas.width}x${canvas.height}`,
-        videoSize: `${video.videoWidth}x${video.videoHeight}`,
-      });
-      
-      // Canvas 스트림 생성
-      const canvasStream = canvas.captureStream(24);
-      
       const mimeType =
         MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
-      const rec = new MediaRecorder(canvasStream, {
+      const rec = new MediaRecorder(mediaStreamRef.current, {
         mimeType,
         videoBitsPerSecond: 700_000,
       });
@@ -189,26 +110,29 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
         if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
       };
       rec.onstop = () => {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-          animationFrameRef.current = null;
-        }
         const b = new Blob(chunksRef.current, { type: "video/webm" });
         setBlob(b);
       };
       recorderRef.current = rec;
-      setRecording(true);
       rec.start();
+      setRecording(true);
       
-      console.log("✅ 녹화 시작, drawFrame 호출");
-      // 프레임 그리기 시작 (약간 지연 후)
-      setTimeout(() => {
-        if (recorderRef.current && recorderRef.current.state === "recording") {
-          drawFrame();
+      // Duration 업데이트용 interval
+      const durationInterval = setInterval(() => {
+        if (!recorderRef.current || recorderRef.current.state !== "recording") {
+          clearInterval(durationInterval);
+          return;
         }
-      }, 100);
+        const elapsed = Math.floor((Date.now() - recordStartTimeRef.current) / 1000);
+        setRecordDuration(elapsed);
+        
+        // maxDuration 도달 시 자동 종료
+        if (maxDuration && elapsed >= maxDuration) {
+          clearInterval(durationInterval);
+          stopRecord();
+        }
+      }, 1000);
     } catch (e: any) {
-      console.error("❌ 녹화 시작 실패:", e);
       setError(e.message || "녹화 시작 실패");
     }
   };
@@ -312,21 +236,22 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       </div>
 
       <div className="relative">
-        {/* 미리보기: video, 녹화 중: canvas */}
-        <video 
-          ref={videoRef} 
-          className="w-full rounded border" 
-          muted 
-          playsInline 
-          style={{ display: recording ? 'none' : 'block' }}
-        />
-        <canvas 
-          ref={canvasRef} 
-          width={640} 
-          height={360} 
-          className="w-full rounded border" 
-          style={{ display: recording ? 'block' : 'none' }}
-        />
+        <video ref={videoRef} className="w-full rounded border" muted playsInline />
+        {/* 녹화 중 오버레이 */}
+        {recording && (
+          <>
+            {/* 날짜/시간 (좌상단) */}
+            <div className="absolute top-3 left-3 bg-black bg-opacity-70 text-white px-3 py-2 rounded text-xs leading-tight">
+              <div>{new Date().toLocaleDateString("ko-KR")}</div>
+              <div className="mt-1">{new Date().toLocaleTimeString("ko-KR")}</div>
+            </div>
+            {/* REC + 녹화시간 (우상단) */}
+            <div className="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+              REC {recordDuration}초
+            </div>
+          </>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
