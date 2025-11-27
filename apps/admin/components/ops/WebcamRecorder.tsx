@@ -94,12 +94,8 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
 
   // Canvas에 비디오 + 오버레이 그리기
   const drawFrame = () => {
-    if (!videoRef.current || !canvasRef.current || !recording) {
-      console.log("⏸️ drawFrame 중단:", { 
-        hasVideo: !!videoRef.current, 
-        hasCanvas: !!canvasRef.current, 
-        recording 
-      });
+    // recorderRef로 직접 확인 (recording 상태는 비동기 업데이트 지연 문제)
+    if (!videoRef.current || !canvasRef.current || !recorderRef.current || recorderRef.current.state !== "recording") {
       return;
     }
     
