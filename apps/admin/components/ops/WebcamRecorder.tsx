@@ -299,10 +299,18 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       <div className="relative">
         <video ref={videoRef} className="w-full rounded border" muted playsInline />
         {recording && (
-          <div className="absolute top-2 left-2 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
-            <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-            REC {recordDuration}초
-          </div>
+          <>
+            {/* REC 표시 (우상단) */}
+            <div className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+              REC {recordDuration}초
+            </div>
+            {/* 날짜/시간 (좌상단) */}
+            <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white px-3 py-2 rounded text-xs">
+              <div>{new Date().toLocaleDateString("ko-KR")}</div>
+              <div>{new Date().toLocaleTimeString("ko-KR")}</div>
+            </div>
+          </>
         )}
       </div>
 
