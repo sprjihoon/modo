@@ -107,20 +107,19 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       return;
     }
 
-    // 비디오가 준비되지 않았으면 다음 프레임 대기
-    if (video.readyState < 2) {
-      animationFrameRef.current = requestAnimationFrame(drawFrame);
-      return;
-    }
-
     // 비디오 프레임 그리기
     try {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      } else {
+        // 비디오 준비 안 됨, 빈 프레임
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
     } catch (e) {
-      console.warn("⚠️ drawImage 실패:", e);
-      // drawImage 실패 시 다음 프레임 대기
-      animationFrameRef.current = requestAnimationFrame(drawFrame);
-      return;
+      // drawImage 실패, 검은 화면
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     // 현재 시간 오버레이
