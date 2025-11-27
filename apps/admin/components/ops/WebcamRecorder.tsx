@@ -94,12 +94,22 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
 
   // Canvas에 비디오 + 오버레이 그리기
   const drawFrame = () => {
-    if (!videoRef.current || !canvasRef.current || !recording) return;
+    if (!videoRef.current || !canvasRef.current || !recording) {
+      console.log("⏸️ drawFrame 중단:", { 
+        hasVideo: !!videoRef.current, 
+        hasCanvas: !!canvasRef.current, 
+        recording 
+      });
+      return;
+    }
     
     const canvas = canvasRef.current;
     const video = videoRef.current;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      console.error("❌ Canvas context 없음");
+      return;
+    }
 
     // 비디오가 준비되지 않았으면 다음 프레임 대기
     if (video.readyState < 2) {
@@ -111,6 +121,7 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
     try {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     } catch (e) {
+      console.warn("⚠️ drawImage 실패:", e);
       // drawImage 실패 시 다음 프레임 대기
       animationFrameRef.current = requestAnimationFrame(drawFrame);
       return;
@@ -155,15 +166,33 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
   };
 
   const startRecord = async () => {
-    if (!mediaStreamRef.current) return;
+    if (!mediaStreamRef.current || !canvasRef.current || !videoRef.current) return;
     try {
       chunksRef.current = [];
       recordStartTimeRef.current = Date.now();
       setRecordDuration(0);
       
+      // Canvas 준비 확인
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const ctx = canvas.getContext("2d");
+      
+      if (!ctx) {
+        throw new Error("Canvas context를 가져올 수 없습니다");
+      }
+      
+      console.log("🎬 녹화 시작 준비:", {
+        videoReady: video.readyState,
+        canvasSize: `${canvas.width}x${canvas.height}`,
+        videoSize: `${video.videoWidth}x${video.videoHeight}`,
+      });
+      
+      // Canvas 스트림 생성
+      const canvasStream = canvas.captureStream(24);
+      
       const mimeType =
         MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
-      const rec = new MediaRecorder(mediaStreamRef.current, {
+      const rec = new MediaRecorder(canvasStream, {
         mimeType,
         videoBitsPerSecond: 700_000,
       });
@@ -171,6 +200,10 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
         if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
       };
       rec.onstop = () => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
         const b = new Blob(chunksRef.current, { type: "video/webm" });
         setBlob(b);
       };
@@ -178,22 +211,11 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       rec.start();
       setRecording(true);
       
-      // Duration 카운터 시작
-      const interval = setInterval(() => {
-        if (!recorderRef.current || recorderRef.current.state !== "recording") {
-          clearInterval(interval);
-          return;
-        }
-        const elapsed = Math.floor((Date.now() - recordStartTimeRef.current) / 1000);
-        setRecordDuration(elapsed);
-        
-        // maxDuration 도달 시 자동 종료
-        if (maxDuration && elapsed >= maxDuration) {
-          stopRecord();
-          clearInterval(interval);
-        }
-      }, 1000);
+      console.log("✅ 녹화 시작, drawFrame 호출");
+      // 프레임 그리기 시작
+      drawFrame();
     } catch (e: any) {
+      console.error("❌ 녹화 시작 실패:", e);
       setError(e.message || "녹화 시작 실패");
     }
   };
@@ -297,21 +319,21 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       </div>
 
       <div className="relative">
-        <video ref={videoRef} className="w-full rounded border" muted playsInline />
-        {recording && (
-          <>
-            {/* REC 표시 (우상단) */}
-            <div className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
-              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-              REC {recordDuration}초
-            </div>
-            {/* 날짜/시간 (좌상단) */}
-            <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white px-3 py-2 rounded text-xs">
-              <div>{new Date().toLocaleDateString("ko-KR")}</div>
-              <div>{new Date().toLocaleTimeString("ko-KR")}</div>
-            </div>
-          </>
-        )}
+        {/* 미리보기: video, 녹화 중: canvas */}
+        <video 
+          ref={videoRef} 
+          className="w-full rounded border" 
+          muted 
+          playsInline 
+          style={{ display: recording ? 'none' : 'block' }}
+        />
+        <canvas 
+          ref={canvasRef} 
+          width={640} 
+          height={360} 
+          className="w-full rounded border" 
+          style={{ display: recording ? 'block' : 'none' }}
+        />
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
