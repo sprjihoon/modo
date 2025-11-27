@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import '../../utils/adaptive_duration_calculator.dart';
 
 /// 입고/출고 영상을 좌우로 나란히 재생하는 위젯
+/// Adaptive Target Duration으로 재생 속도 자동 조절
 class SideBySideVideoPlayer extends StatefulWidget {
   final String inboundVideoUrl;
   final String outboundVideoUrl;
@@ -49,11 +51,36 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
 
       if (!mounted || _isDisposed) return;
 
+      // Duration 가져오기
+      final inboundDuration = inbound.value.duration.inSeconds.toDouble();
+      final outboundDuration = outbound.value.duration.inSeconds.toDouble();
+
+      debugPrint('📹 입고 영상 길이: ${inboundDuration}초');
+      debugPrint('📹 출고 영상 길이: ${outboundDuration}초');
+
+      // Adaptive Target Duration 계산
+      final result = AdaptiveDurationCalculator.calculate(
+        inboundDuration: inboundDuration,
+        outboundDuration: outboundDuration,
+      );
+
+      final targetDuration = result['targetDuration']!;
+      final inboundSpeed = result['inboundSpeed']!;
+      final outboundSpeed = result['outboundSpeed']!;
+
+      debugPrint('🎯 Target Duration: ${targetDuration.toStringAsFixed(1)}초');
+      debugPrint('⚡ 입고 속도: ${inboundSpeed.toStringAsFixed(2)}x');
+      debugPrint('⚡ 출고 속도: ${outboundSpeed.toStringAsFixed(2)}x');
+
+      // 재생 속도 설정
+      await inbound.setPlaybackSpeed(inboundSpeed);
+      await outbound.setPlaybackSpeed(outboundSpeed);
+
       // 설정
       inbound.setLooping(false);
-      inbound.setVolume(0.5); // 입고 영상 볼륨 낮춤
+      inbound.setVolume(0.5);
       outbound.setLooping(false);
-      outbound.setVolume(0.5); // 출고 영상 볼륨 낮춤
+      outbound.setVolume(0.5);
 
       setState(() {});
 
