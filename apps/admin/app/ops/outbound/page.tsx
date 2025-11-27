@@ -17,11 +17,14 @@ export default function OutboundPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
+  const [inboundDurations, setInboundDurations] = useState<Record<number, number>>({});
 
   const handleLookup = async () => {
     if (!trackingNo.trim()) return;
     setIsLoading(true);
     setResult(null);
+    setInboundDurations({});
     try {
       const res = await fetch(`/api/ops/shipments/${encodeURIComponent(trackingNo.trim())}`);
       const json = await res.json();
@@ -36,8 +39,28 @@ export default function OutboundPage() {
         status: shipment.status,
       };
       setResult(found);
+      
+      // 입고 영상 duration 조회
+      await loadInboundDurations(shipment.pickup_tracking_no || shipment.tracking_no);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadInboundDurations = async (pickupTrackingNo: string) => {
+    try {
+      const res = await fetch(`/api/ops/video/durations?trackingNo=${pickupTrackingNo}&type=inbound_video`);
+      const json = await res.json();
+      if (json.success && json.durations) {
+        const durationsMap: Record<number, number> = {};
+        json.durations.forEach((item: any) => {
+          durationsMap[item.sequence] = item.duration_seconds;
+        });
+        setInboundDurations(durationsMap);
+        console.log("✅ 입고 영상 duration 로드:", durationsMap);
+      }
+    } catch (e) {
+      console.warn("⚠️ 입고 duration 조회 실패:", e);
     }
   };
 
@@ -97,16 +120,43 @@ export default function OutboundPage() {
       {/* 액션 */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="space-y-3">
-          <button
-            disabled={!result}
-            onClick={() => setShowVideo(true)}
-            className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
-              result ? "bg-purple-600 text-white hover:bg-purple-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            <Video className="h-5 w-5" />
-            출고 영상 촬영
-          </button>
+          {/* 출고 영상 촬영 - 아이템별 */}
+          {result && (() => {
+            const itemCount = Object.keys(inboundDurations).length || 1;
+            
+            return (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700 mb-2">
+                  출고 영상 촬영 ({itemCount}개 아이템)
+                </div>
+                {Array.from({ length: itemCount }, (_, i) => {
+                  const seq = i + 1;
+                  const inboundDuration = inboundDurations[seq];
+                  
+                  return (
+                    <button
+                      key={seq}
+                      onClick={() => {
+                        setCurrentVideoSequence(seq);
+                        setShowVideo(true);
+                      }}
+                      className="w-full px-6 py-3 rounded-lg font-medium flex items-center justify-between bg-purple-600 text-white hover:bg-purple-700"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Video className="h-5 w-5" />
+                        {seq}번 아이템 촬영
+                      </span>
+                      {inboundDuration && (
+                        <span className="text-sm bg-white/20 px-2 py-1 rounded">
+                          입고: {inboundDuration}초
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           <button
             onClick={handleShipped}
@@ -136,10 +186,11 @@ export default function OutboundPage() {
             <div className="p-4">
               <WebcamRecorder
                 orderId={result.orderId}
-                onUploaded={() => {
+                sequence={currentVideoSequence}
+                maxDuration={inboundDurations[currentVideoSequence]}
+                onUploaded={(videoId, duration) => {
                   setShowVideo(false);
-                  // 병합 워커는 스토리지 이벤트로 자동 트리거된다고 가정
-                  alert("출고 영상이 저장되었습니다. 병합이 곧 진행됩니다.");
+                  alert(`${currentVideoSequence}번 아이템 출고 영상이 저장되었습니다. (${duration}초)`);
                 }}
                 onClose={() => setShowVideo(false)}
               />

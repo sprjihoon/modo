@@ -133,6 +133,7 @@ export default function InboundPage() {
   const [showWorkOrderPreview, setShowWorkOrderPreview] = useState(false);
   const [showShippingLabel, setShowShippingLabel] = useState(false);
   const [showInboundVideo, setShowInboundVideo] = useState(false);
+  const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
 
   // 송장 조회 함수 (실제 DB 연동)
   const handleLookup = async () => {
@@ -467,16 +468,41 @@ export default function InboundPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">처리 옵션</h2>
         
         <div className="space-y-3">
-          {/* 입고 영상 촬영 */}
-          <button
-            disabled={!result}
-            onClick={() => setShowInboundVideo(true)}
-            className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
-              result ? "bg-purple-600 text-white hover:bg-purple-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            입고 영상 촬영
-          </button>
+          {/* 입고 영상 촬영 - 아이템별 */}
+          {result && (() => {
+            const itemCount = Math.max(
+              result.images?.length || 0,
+              result.repairParts?.length || 0,
+              result.imagesWithPins?.length || 0,
+              1
+            );
+            
+            return (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700 mb-2">
+                  입고 영상 촬영 ({itemCount}개 아이템)
+                </div>
+                {Array.from({ length: itemCount }, (_, i) => {
+                  const seq = i + 1;
+                  const itemName = result.repairParts?.[i] || `${seq}번 아이템`;
+                  
+                  return (
+                    <button
+                      key={seq}
+                      onClick={() => {
+                        setCurrentVideoSequence(seq);
+                        setShowInboundVideo(true);
+                      }}
+                      className="w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-purple-600 text-white hover:bg-purple-700"
+                    >
+                      <span className="text-lg">📹</span>
+                      {seq}번 {itemName} 촬영
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
           {/* 작업지시서 미리보기 */}
           <button
             disabled={!result}
@@ -662,9 +688,10 @@ export default function InboundPage() {
             <div className="p-4">
               <WebcamRecorder
                 orderId={result.orderId}
-                onUploaded={() => {
+                sequence={currentVideoSequence}
+                onUploaded={(videoId, duration) => {
                   setShowInboundVideo(false);
-                  alert("영상이 저장되었습니다.");
+                  alert(`${currentVideoSequence}번 아이템 영상이 저장되었습니다. (${duration}초)`);
                 }}
                 onClose={() => setShowInboundVideo(false)}
               />
