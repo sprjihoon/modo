@@ -155,18 +155,15 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
   };
 
   const startRecord = async () => {
-    if (!mediaStreamRef.current || !canvasRef.current) return;
+    if (!mediaStreamRef.current) return;
     try {
       chunksRef.current = [];
       recordStartTimeRef.current = Date.now();
       setRecordDuration(0);
       
-      // Canvas 스트림 생성
-      const canvasStream = canvasRef.current.captureStream(24);
-      
       const mimeType =
         MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
-      const rec = new MediaRecorder(canvasStream, {
+      const rec = new MediaRecorder(mediaStreamRef.current, {
         mimeType,
         videoBitsPerSecond: 700_000,
       });
@@ -174,10 +171,6 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
         if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
       };
       rec.onstop = () => {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-          animationFrameRef.current = null;
-        }
         const b = new Blob(chunksRef.current, { type: "video/webm" });
         setBlob(b);
       };
@@ -185,8 +178,21 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       rec.start();
       setRecording(true);
       
-      // 프레임 그리기 시작
-      drawFrame();
+      // Duration 카운터 시작
+      const interval = setInterval(() => {
+        if (!recorderRef.current || recorderRef.current.state !== "recording") {
+          clearInterval(interval);
+          return;
+        }
+        const elapsed = Math.floor((Date.now() - recordStartTimeRef.current) / 1000);
+        setRecordDuration(elapsed);
+        
+        // maxDuration 도달 시 자동 종료
+        if (maxDuration && elapsed >= maxDuration) {
+          stopRecord();
+          clearInterval(interval);
+        }
+      }, 1000);
     } catch (e: any) {
       setError(e.message || "녹화 시작 실패");
     }
@@ -291,8 +297,13 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       </div>
 
       <div className="relative">
-        <video ref={videoRef} className="w-full rounded border" muted playsInline style={{ display: recording ? 'none' : 'block' }} />
-        <canvas ref={canvasRef} width={640} height={360} className="w-full rounded border" style={{ display: recording ? 'block' : 'none' }} />
+        <video ref={videoRef} className="w-full rounded border" muted playsInline />
+        {recording && (
+          <div className="absolute top-2 left-2 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
+            <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+            REC {recordDuration}초
+          </div>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
