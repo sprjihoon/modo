@@ -4,11 +4,14 @@ import { useEffect, useRef, useState } from "react";
 
 type Props = {
   orderId: string;
-  onUploaded?: (url: string) => void;
+  onUploaded?: (url: string, duration: number) => void;
   onClose?: () => void;
+  maxDuration?: number; // 최대 녹화 시간 (초), 설정 시 자동 종료
+  sequence?: number; // 촬영 순서 (1, 2, 3...)
+  existingVideoId?: string; // 재촬영 시 삭제할 기존 영상 ID
 };
 
-export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) {
+export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDuration, sequence = 1, existingVideoId }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -121,6 +124,13 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) 
     ctx.fillText(`⏺ ${durationStr}`, canvas.width - 110, 32);
 
     setRecordDuration(elapsed);
+    
+    // maxDuration 도달 시 자동 종료
+    if (maxDuration && elapsed >= maxDuration) {
+      stopRecord();
+      return;
+    }
+    
     animationFrameRef.current = requestAnimationFrame(drawFrame);
   };
 
@@ -171,8 +181,24 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) 
     if (!blob) return;
     try {
       setUploading(true);
+      
+      // 기존 영상 삭제 (재촬영인 경우)
+      if (existingVideoId) {
+        try {
+          await fetch("/api/ops/video/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ videoId: existingVideoId }),
+          });
+          console.log("🗑️ 기존 영상 삭제:", existingVideoId);
+        } catch (deleteError) {
+          console.warn("⚠️ 기존 영상 삭제 실패 (계속 진행):", deleteError);
+        }
+      }
+      
       const arrayBuffer = await blob.arrayBuffer();
       const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      
       // Determine stream upload endpoint based on current path
       let endpoint = "/api/ops/inbound/stream-upload";
       try {
@@ -188,12 +214,14 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) 
           orderId,
           base64,
           mimeType: "video/webm",
+          sequence,
+          durationSeconds: recordDuration,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "업로드 실패");
-      onUploaded?.(json.videoId || "");
-      alert("업로드 완료 (Cloudflare Stream)");
+      onUploaded?.(json.videoId || "", recordDuration);
+      alert(`업로드 완료 (${recordDuration}초)`);
     } catch (e: any) {
       alert(e.message || "업로드 실패");
     } finally {
@@ -203,6 +231,30 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose }: Props) 
 
   return (
     <div className="space-y-3">
+      {/* 안내 메시지 */}
+      {maxDuration && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            ⏱️ 입고 영상과 동일하게 <strong>{maxDuration}초</strong>로 촬영됩니다.
+            {maxDuration}초 후 자동 종료됩니다.
+          </p>
+        </div>
+      )}
+      {existingVideoId && (
+        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            🔄 재촬영 모드: 업로드 시 기존 영상이 삭제됩니다.
+          </p>
+        </div>
+      )}
+      {sequence > 1 && (
+        <div className="p-2 bg-gray-50 border border-gray-200 rounded">
+          <p className="text-xs text-gray-600">
+            📹 {sequence}번째 아이템 촬영 중
+          </p>
+        </div>
+      )}
+      
       <div className="flex items-center gap-2">
         <label className="text-sm">카메라</label>
         <select

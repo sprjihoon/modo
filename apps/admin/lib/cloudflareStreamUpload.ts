@@ -25,7 +25,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 export async function uploadToCloudflareStream(
 	blob: Blob,
 	finalWaybillNo: string,
-	type: string
+	type: string,
+	sequence: number = 1,
+	durationSeconds?: number
 ): Promise<string> {
 	if (!CF_ACCOUNT_ID || !CF_STREAM_TOKEN) {
 		throw new Error("Cloudflare Stream credentials are not configured (CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_STREAM_TOKEN).");
@@ -93,6 +95,8 @@ export async function uploadToCloudflareStream(
 				type,
 				provider: "cloudflare",
 				path: videoIdFromSign,
+				sequence,
+				duration_seconds: durationSeconds,
 			});
 		if (error) {
 			// Do not fail the whole flow; log via thrown error for visibility

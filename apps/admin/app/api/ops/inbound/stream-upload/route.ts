@@ -5,10 +5,12 @@ import { uploadToCloudflareStream } from "@/lib/cloudflareStreamUpload";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { orderId, base64, mimeType } = body as {
+    const { orderId, base64, mimeType, sequence, durationSeconds } = body as {
       orderId: string;
       base64: string;
       mimeType?: string;
+      sequence?: number;
+      durationSeconds?: number;
     };
 
     if (!orderId || !base64) {
@@ -38,8 +40,14 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(base64, "base64");
     const blob = new Blob([buffer], { type: mimeType || "video/webm" });
 
-    const videoId = await uploadToCloudflareStream(blob, finalWaybillNo, "inbound_video");
-    return NextResponse.json({ success: true, videoId });
+    const videoId = await uploadToCloudflareStream(
+      blob, 
+      finalWaybillNo, 
+      "inbound_video",
+      sequence || 1,
+      durationSeconds
+    );
+    return NextResponse.json({ success: true, videoId, duration: durationSeconds });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Stream upload failed" }, { status: 500 });
   }
