@@ -17,6 +17,8 @@ export async function POST(request: NextRequest) {
 
     // 1. 출고 송장 생성 (Edge Function 호출)
     let outboundTrackingNo: string | null = null;
+    let outboundErrorMsg: string | null = null; // 에러 메시지 저장용
+
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -39,11 +41,19 @@ export async function POST(request: NextRequest) {
         outboundTrackingNo = outboundResult.data?.trackingNo || null;
         console.log("✅ 출고 송장 생성 성공:", outboundTrackingNo);
       } else {
+        // 에러 응답 파싱
         const errorText = await outboundResponse.text();
         console.error("❌ 출고 송장 생성 실패:", errorText);
+        try {
+          const errorJson = JSON.parse(errorText);
+          outboundErrorMsg = errorJson.error || errorText;
+        } catch {
+          outboundErrorMsg = errorText;
+        }
       }
     } catch (outboundError: any) {
       console.error("❌ Edge Function 호출 오류:", outboundError.message);
+      outboundErrorMsg = outboundError.message;
     }
 
     // 2. shipments 테이블 업데이트
@@ -74,6 +84,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "입고 처리가 완료되었습니다",
       outboundTrackingNo,
+      error: outboundErrorMsg, // 에러 메시지 전달
     });
   } catch (error: any) {
     console.error("입고 처리 오류:", error);

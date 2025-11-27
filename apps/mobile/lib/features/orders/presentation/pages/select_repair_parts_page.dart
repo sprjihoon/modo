@@ -419,6 +419,42 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
     final parentName = parentItem['name'] as String;
     final currentItems = ref.read(repairItemsProvider);
     
+    debugPrint('🔍 현재 항목 수: ${currentItems.length}');
+    
+    // 이미지 데이터를 명시적 필드 추출로 저장 (순환 참조 완전 차단)
+    final List<Map<String, dynamic>> imageDataCopy = [];
+    if (widget.imagesWithPins != null) {
+      for (var img in widget.imagesWithPins!) {
+        final imagePath = img['imagePath'] as String;
+        final pinsData = img['pins'] as List?;
+        
+        // pins를 완전히 새로운 List로 생성
+        final pins = <Map<String, dynamic>>[];
+        if (pinsData != null) {
+          for (var pin in pinsData) {
+            if (pin is Map) {
+              // 각 필드를 primitive 값으로 추출
+              pins.add({
+                'id': pin['id']?.toString() ?? '',
+                'relative_x': (pin['relative_x'] as num?)?.toDouble() ?? 0.5,
+                'relative_y': (pin['relative_y'] as num?)?.toDouble() ?? 0.5,
+                'memo': pin['memo']?.toString() ?? '',
+                'created_at': pin['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+                'updated_at': pin['updated_at']?.toString() ?? DateTime.now().toIso8601String(),
+              });
+            }
+          }
+        }
+        
+        imageDataCopy.add({
+          'imagePath': imagePath,
+          'pins': pins,
+        });
+      }
+    }
+    
+    debugPrint('📸 이미지 데이터 복사 완료: ${imageDataCopy.length}장');
+    
     final newItems = selectedSubItems.map((subItem) {
       final subItemName = subItem['name'] as String;
       final subItemPrice = subItem['price'] as int? ?? (parentItem['price'] as int);
@@ -433,20 +469,40 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
         'price': subItemPrice,
         'scope': '전체',
         'measurement': '선택 완료',
-        'imagesWithPins': widget.imagesWithPins, // 이 수선 항목의 사진과 핀 정보
+        // 이미지 데이터 복사본 저장 (순환 참조 없음)
+        'itemImages': imageDataCopy,
       };
     }).toList();
     
     // 기존 항목에 새 항목 추가
     final allItems = [...currentItems, ...newItems];
-    ref.read(repairItemsProvider.notifier).setItems(allItems);
+    debugPrint('➕ 총 항목 수: ${allItems.length}');
+    
+    try {
+      // Provider에 저장 (JSON 깊은 복사 적용)
+      ref.read(repairItemsProvider.notifier).setItems(allItems);
+      debugPrint('✅ Provider 저장 성공');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Provider 저장 실패: $e');
+      debugPrint('❌ Stack: $stackTrace');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('데이터 저장 실패: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
     
     // RepairConfirmationPage로 직접 이동
     if (mounted) {
       context.push('/repair-confirmation', extra: {
         'repairItems': allItems,
         'imageUrls': widget.imageUrls,
-        'imagesWithPins': widget.imagesWithPins,
       },);
     }
   }
@@ -625,6 +681,41 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                                             // 수치 입력 불필요 + 세부 항목 없음 → 바로 추가
                                             debugPrint('✅ 바로 확인 페이지로 이동...');
                                             final currentItems = ref.read(repairItemsProvider);
+                                            debugPrint('🔍 현재 항목 수: ${currentItems.length}');
+                                            
+                                            // 이미지 데이터를 명시적 필드 추출로 저장 (순환 참조 완전 차단)
+                                            final List<Map<String, dynamic>> imageDataCopy = [];
+                                            if (widget.imagesWithPins != null) {
+                                              for (var img in widget.imagesWithPins!) {
+                                                final imagePath = img['imagePath'] as String;
+                                                final pinsData = img['pins'] as List?;
+                                                
+                                                // pins를 완전히 새로운 List로 생성
+                                                final pins = <Map<String, dynamic>>[];
+                                                if (pinsData != null) {
+                                                  for (var pin in pinsData) {
+                                                    if (pin is Map) {
+                                                      // 각 필드를 primitive 값으로 추출
+                                                      pins.add({
+                                                        'id': pin['id']?.toString() ?? '',
+                                                        'relative_x': (pin['relative_x'] as num?)?.toDouble() ?? 0.5,
+                                                        'relative_y': (pin['relative_y'] as num?)?.toDouble() ?? 0.5,
+                                                        'memo': pin['memo']?.toString() ?? '',
+                                                        'created_at': pin['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+                                                        'updated_at': pin['updated_at']?.toString() ?? DateTime.now().toIso8601String(),
+                                                      });
+                                                    }
+                                                  }
+                                                }
+                                                
+                                                imageDataCopy.add({
+                                                  'imagePath': imagePath,
+                                                  'pins': pins,
+                                                });
+                                              }
+                                            }
+                                            
+                                            debugPrint('📸 이미지 데이터 복사 완료: ${imageDataCopy.length}장');
                                             
                                             final repairItem = {
                                               'id': '${displayName}_${DateTime.now().millisecondsSinceEpoch}',
@@ -636,18 +727,39 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                                               'price': price,
                                               'scope': '전체',
                                               'measurement': '선택 완료',
-                                              'imagesWithPins': widget.imagesWithPins, // 사진과 핀 정보
+                                              // 이미지 데이터 복사본 저장 (순환 참조 없음)
+                                              'itemImages': imageDataCopy,
                                             };
                                             
                                             // 기존 항목에 새 항목 추가
                                             final allItems = [...currentItems, repairItem];
-                                            ref.read(repairItemsProvider.notifier).setItems(allItems);
+                                            debugPrint('➕ 총 항목 수: ${allItems.length}');
                                             
+                                            try {
+                                              // Provider에 저장 (JSON 깊은 복사 적용)
+                                              ref.read(repairItemsProvider.notifier).setItems(allItems);
+                                              debugPrint('✅ Provider 저장 성공');
+                                            } catch (e, stackTrace) {
+                                              debugPrint('❌ Provider 저장 실패: $e');
+                                              debugPrint('❌ Stack: $stackTrace');
+                                              
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text('데이터 저장 실패: $e'),
+                                                    backgroundColor: Colors.red,
+                                                    duration: const Duration(seconds: 5),
+                                                  ),
+                                                );
+                                              }
+                                              return;
+                                            }
+                                            
+                                            // RepairConfirmationPage로 이동
                                             if (mounted) {
                                               context.push('/repair-confirmation', extra: {
                                                 'repairItems': allItems,
                                                 'imageUrls': widget.imageUrls,
-                                                'imagesWithPins': widget.imagesWithPins,
                                               },);
                                             }
                                           }

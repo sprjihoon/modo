@@ -685,7 +685,45 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                           }
                         }
                         
+                        // 고유 ID 생성
+                        final itemId = '${widget.repairPart}_${DateTime.now().millisecondsSinceEpoch}';
+                        
+                        // 이미지 데이터를 명시적 필드 추출로 저장 (순환 참조 완전 차단)
+                        final List<Map<String, dynamic>> imageDataCopy = [];
+                        if (widget.imagesWithPins != null) {
+                          for (var img in widget.imagesWithPins!) {
+                            final imagePath = img['imagePath'] as String;
+                            final pinsData = img['pins'] as List?;
+                            
+                            // pins를 완전히 새로운 List로 생성
+                            final pins = <Map<String, dynamic>>[];
+                            if (pinsData != null) {
+                              for (var pin in pinsData) {
+                                if (pin is Map) {
+                                  // 각 필드를 primitive 값으로 추출
+                                  pins.add({
+                                    'id': pin['id']?.toString() ?? '',
+                                    'relative_x': (pin['relative_x'] as num?)?.toDouble() ?? 0.5,
+                                    'relative_y': (pin['relative_y'] as num?)?.toDouble() ?? 0.5,
+                                    'memo': pin['memo']?.toString() ?? '',
+                                    'created_at': pin['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+                                    'updated_at': pin['updated_at']?.toString() ?? DateTime.now().toIso8601String(),
+                                  });
+                                }
+                              }
+                            }
+                            
+                            imageDataCopy.add({
+                              'imagePath': imagePath,
+                              'pins': pins,
+                            });
+                          }
+                        }
+                        
+                        debugPrint('📸 이미지 데이터 복사 완료: ${imageDataCopy.length}장');
+                        
                         final repairItem = {
+                          'id': itemId,
                           'repairPart': widget.repairPart,
                           'priceRange': widget.price != null 
                             ? '${widget.price.toString().replaceAllMapped(
@@ -698,15 +736,14 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                           'measurement': measurements,
                           'selectedParts': _selectedSubParts.map((p) => p['name']).toList(),
                           'detailedMeasurements': detailedMeasurements,
-                          'imagesWithPins': widget.imagesWithPins, // 이 수선 항목의 사진과 핀 정보
+                          // 이미지 데이터 복사본 저장 (순환 참조 없음)
+                          'itemImages': imageDataCopy,
                         };
                         
                         // 현재 Provider의 항목을 가져와서 새 항목 추가 (중복 방지)
                         final currentItems = ref.read(repairItemsProvider);
                         
-                        // 고유 ID 생성하여 중복 체크
-                        final itemId = '${repairItem['repairPart']}_${DateTime.now().millisecondsSinceEpoch}';
-                        repairItem['id'] = itemId;
+                        debugPrint('🔍 현재 항목 수: ${currentItems.length}');
                         
                         // 이미 같은 항목이 있는지 확인 (repairPart로 체크)
                         final existingIndex = currentItems.indexWhere(
@@ -719,14 +756,35 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                           // 이미 존재하면 교체
                           allItems = List.from(currentItems);
                           allItems[existingIndex] = repairItem;
+                          debugPrint('🔄 기존 항목 교체: index $existingIndex');
                         } else {
                           // 새 항목 추가
                           allItems = [...currentItems, repairItem];
+                          debugPrint('➕ 새 항목 추가');
                         }
                         
-                        ref.read(repairItemsProvider.notifier).setItems(allItems);
-                        
                         debugPrint('📝 수치 입력 완료! 항목 수: ${allItems.length}');
+                        
+                        try {
+                          // Provider에 저장 (JSON 깊은 복사 적용)
+                          ref.read(repairItemsProvider.notifier).setItems(allItems);
+                          debugPrint('✅ Provider 저장 성공');
+                        } catch (e, stackTrace) {
+                          debugPrint('❌ Provider 저장 실패: $e');
+                          debugPrint('❌ Stack: $stackTrace');
+                          
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('데이터 저장 실패: $e'),
+                                backgroundColor: Colors.red,
+                                duration: const Duration(seconds: 5),
+                              ),
+                            );
+                          }
+                          return;
+                        }
+                        
                         debugPrint('🔄 등록 확인 페이지로 이동 중...');
                         
                         // RepairConfirmationPage로 직접 이동
@@ -734,7 +792,6 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                           context.push('/repair-confirmation', extra: {
                             'repairItems': allItems,
                             'imageUrls': widget.imageUrls,
-                            'imagesWithPins': widget.imagesWithPins,
                           },);
                         } else {
                           debugPrint('⚠️ mounted가 false입니다!');

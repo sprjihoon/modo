@@ -9,6 +9,7 @@ type LookupResult = {
   orderId: string;
   trackingNo?: string;
   status: string;
+  repairItems?: Array<{ id: string; repairPart: string; }>; // 수선 항목들
 };
 
 export default function OutboundPage() {
@@ -18,6 +19,7 @@ export default function OutboundPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
+  const [currentItemName, setCurrentItemName] = useState<string>(""); // 촬영 중인 아이템 이름
   const [inboundDurations, setInboundDurations] = useState<Record<number, number>>({});
 
   const handleLookup = async () => {
@@ -27,21 +29,88 @@ export default function OutboundPage() {
     setInboundDurations({});
     try {
       const res = await fetch(`/api/ops/shipments/${encodeURIComponent(trackingNo.trim())}`);
-      const json = await res.json();
+      
+      // 응답을 텍스트로 받아서 안전하게 파싱
+      const responseText = await res.text();
+      let json: any;
+      
+      try {
+        json = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ JSON 파싱 실패:', parseError);
+        setResult(null);
+        return;
+      }
+      
       if (!res.ok || !json?.data) {
         setResult(null);
         return;
       }
-      const { shipment } = json.data;
+      
+      const shipmentData = json.data.shipment;
+      const orderData = json.data.order;
+      
+      // 필요한 필드만 안전하게 추출
+      console.log('📦 Order ID:', orderData?.id);
+      
+      // images_with_pins를 기반으로 아이템 개수 파악
+      let imagesWithPinsCount = 0;
+      let repairPartsCount = 0;
+      
+      if (Array.isArray(orderData?.images_with_pins)) {
+        imagesWithPinsCount = orderData.images_with_pins.length;
+      }
+      if (Array.isArray(orderData?.repair_parts)) {
+        repairPartsCount = orderData.repair_parts.length;
+      }
+      
+      console.log('📦 images_with_pins:', imagesWithPinsCount, '개');
+      console.log('📦 repair_parts:', repairPartsCount, '개');
+      
+      // 배열 복사 (원본과 완전히 분리)
+      const imagesWithPins = imagesWithPinsCount > 0 ? [...orderData.images_with_pins] : [];
+      const repairParts = repairPartsCount > 0 ? [...orderData.repair_parts] : [];
+      
+      // 아이템 목록 생성 (완전히 새로운 primitive 값만 사용)
+      const parsedItems: Array<{ id: string; repairPart: string }> = [];
+      
+      if (Array.isArray(imagesWithPins) && imagesWithPins.length > 0) {
+        // images_with_pins를 기반으로 아이템 생성 (필드 명시 추출)
+        for (let idx = 0; idx < imagesWithPins.length; idx++) {
+          const img = imagesWithPins[idx];
+          const repairPart = repairParts[idx] || `아이템 ${idx + 1}`;
+          
+          parsedItems.push({
+            id: `item_${idx + 1}`,
+            repairPart: String(repairPart), // 문자열로 명시 변환
+          });
+        }
+      } else if (Array.isArray(repairParts) && repairParts.length > 0) {
+        // repair_parts만 있으면 그것 기반으로 생성
+        for (let idx = 0; idx < repairParts.length; idx++) {
+          parsedItems.push({
+            id: `item_${idx + 1}`,
+            repairPart: String(repairParts[idx]),
+          });
+        }
+      }
+      
+      // 완전히 새로운 객체 생성 (primitive 값만 사용)
       const found: LookupResult = {
-        orderId: shipment.order_id,
-        trackingNo: shipment.tracking_no,
-        status: shipment.status,
+        orderId: String(shipmentData.order_id || ''),
+        trackingNo: String(shipmentData.tracking_no || ''),
+        status: String(shipmentData.status || ''),
+        repairItems: parsedItems,
       };
+      
+      console.log(`✅ 주문 조회 완료: ${parsedItems.length}개 아이템`);
+      
+      // state 업데이트 (완전히 새로운 객체)
       setResult(found);
       
       // 입고 영상 duration 조회
-      await loadInboundDurations(shipment.pickup_tracking_no || shipment.tracking_no);
+      const pickupTrackingNo = shipmentData.pickup_tracking_no || shipmentData.tracking_no;
+      await loadInboundDurations(pickupTrackingNo);
     } finally {
       setIsLoading(false);
     }
@@ -109,12 +178,64 @@ export default function OutboundPage() {
             조회
           </button>
         </div>
-        {result && (
-          <div className="mt-4 text-sm text-gray-700">
-            <div>Order: {result.orderId}</div>
-            <div>현재 상태: {result.status}</div>
-          </div>
-        )}
+        {result && (() => {
+          // 렌더링 시점에 값 추출 (순환 참조 방지)
+          const orderId = result.orderId;
+          const status = result.status;
+          const trackingNo = result.trackingNo;
+          const items = result.repairItems || [];
+          const itemCount = items.length;
+          
+          return (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-500">주문번호:</span>
+                  <div className="font-medium text-gray-900">{orderId}</div>
+                </div>
+                <div>
+                  <span className="text-gray-500">현재 상태:</span>
+                  <div className="font-medium text-gray-900">{status}</div>
+                </div>
+                <div>
+                  <span className="text-gray-500">송장번호:</span>
+                  <div className="font-medium text-gray-900">{trackingNo}</div>
+                </div>
+                <div>
+                  <span className="text-gray-500">수선 아이템:</span>
+                  <div className="font-medium text-purple-600">
+                    {itemCount}개
+                  </div>
+                </div>
+              </div>
+              
+              {/* 아이템 목록 */}
+              {itemCount > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="text-xs text-gray-500 mb-2">수선 항목:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {items.map((item, i) => {
+                      const itemId = item.id;
+                      const itemName = item.repairPart;
+                      
+                      return (
+                        <span
+                          key={`tag-${i}-${itemId}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium"
+                        >
+                          <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded text-xs">
+                            {i + 1}
+                          </span>
+                          {itemName}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* 액션 */}
@@ -122,38 +243,88 @@ export default function OutboundPage() {
         <div className="space-y-3">
           {/* 출고 영상 촬영 - 아이템별 */}
           {result && (() => {
-            const itemCount = Object.keys(inboundDurations).length || 1;
+            // 렌더링 시점에 모든 값을 추출 (순환 참조 방지)
+            const items = result.repairItems || [];
+            const durations = { ...inboundDurations };
+            const itemCount = items.length || Object.keys(durations).length || 1;
+            
+            console.log(`🎬 버튼 렌더링: ${itemCount}개 아이템`);
             
             return (
               <div className="space-y-2">
-                <div className="text-sm font-medium text-gray-700 mb-2">
-                  출고 영상 촬영 ({itemCount}개 아이템)
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-medium text-gray-700">
+                    출고 영상 촬영
+                  </div>
+                  <div className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full font-medium">
+                    {itemCount}개 아이템
+                  </div>
                 </div>
-                {Array.from({ length: itemCount }, (_, i) => {
-                  const seq = i + 1;
-                  const inboundDuration = inboundDurations[seq];
-                  
-                  return (
+                
+                {items.length > 0 ? (
+                  // repair_items 정보가 있으면 각 아이템 이름 표시
+                  items.map((item, i) => {
+                    const seq = i + 1;
+                    const inboundDuration = durations[seq];
+                    const itemId = item.id;
+                    const itemName = item.repairPart;
+                    
+                    return (
                     <button
-                      key={seq}
+                      key={`item-${seq}-${itemId}`}
                       onClick={() => {
+                        console.log(`🎬 ${seq}번 촬영 시작: ${itemName}`);
                         setCurrentVideoSequence(seq);
+                        setCurrentItemName(itemName);
                         setShowVideo(true);
                       }}
-                      className="w-full px-6 py-3 rounded-lg font-medium flex items-center justify-between bg-purple-600 text-white hover:bg-purple-700"
+                      className="w-full px-6 py-3 rounded-lg font-medium flex items-center justify-between bg-purple-600 text-white hover:bg-purple-700 transition-colors"
                     >
-                      <span className="flex items-center gap-2">
-                        <Video className="h-5 w-5" />
-                        {seq}번 아이템 촬영
-                      </span>
-                      {inboundDuration && (
-                        <span className="text-sm bg-white/20 px-2 py-1 rounded">
-                          입고: {inboundDuration}초
+                        <span className="flex items-center gap-3">
+                          <Video className="h-5 w-5" />
+                          <div className="text-left">
+                            <div className="font-bold">{seq}번 아이템 출고 촬영</div>
+                            <div className="text-xs text-purple-200">{itemName}</div>
+                          </div>
                         </span>
-                      )}
-                    </button>
-                  );
-                })}
+                        {inboundDuration && (
+                          <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                            입고 {inboundDuration}초
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })
+                ) : (
+                  // repair_items 정보가 없으면 기본 버튼
+                  Array.from({ length: itemCount }, (_, i) => {
+                    const seq = i + 1;
+                    const inboundDuration = durations[seq];
+                    
+                    return (
+                      <button
+                      key={`seq-${seq}`}
+                      onClick={() => {
+                        console.log(`🎬 ${seq}번 촬영 시작`);
+                        setCurrentVideoSequence(seq);
+                        setCurrentItemName(`${seq}번 아이템`);
+                        setShowVideo(true);
+                      }}
+                      className="w-full px-6 py-3 rounded-lg font-medium flex items-center justify-between bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                    >
+                        <span className="flex items-center gap-2">
+                          <Video className="h-5 w-5" />
+                          {seq}번 아이템 출고 촬영
+                        </span>
+                        {inboundDuration && (
+                          <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                            입고 {inboundDuration}초
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
               </div>
             );
           })()}
@@ -174,30 +345,66 @@ export default function OutboundPage() {
       </div>
 
       {/* 출고 영상 다이얼로그 */}
-      {showVideo && result && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
-              <h2 className="text-lg font-semibold">출고 영상 촬영</h2>
-              <button onClick={() => setShowVideo(false)} className="px-3 py-2 bg-gray-200 rounded">
-                닫기
-              </button>
-            </div>
-            <div className="p-4">
-              <WebcamRecorder
-                orderId={result.orderId}
-                sequence={currentVideoSequence}
-                maxDuration={inboundDurations[currentVideoSequence]}
-                onUploaded={(videoId, duration) => {
-                  setShowVideo(false);
-                  alert(`${currentVideoSequence}번 아이템 출고 영상이 저장되었습니다. (${duration}초)`);
-                }}
-                onClose={() => setShowVideo(false)}
-              />
+      {showVideo && result && (() => {
+        // 렌더링 시점에 값을 추출 (클로저 순환 참조 방지)
+        const seq = currentVideoSequence;
+        const itemName = currentItemName;
+        const duration = inboundDurations[seq];
+        const orderIdValue = result.orderId;
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    출고 영상 촬영 - {seq}번 아이템
+                  </h2>
+                  {itemName && (
+                    <p className="text-sm text-purple-600 mt-1">
+                      {itemName}
+                    </p>
+                  )}
+                  {duration && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      💡 입고 영상: {duration}초 (참고용)
+                    </p>
+                  )}
+                </div>
+                <button 
+                  onClick={() => {
+                    console.log('🚪 다이얼로그 닫기');
+                    setShowVideo(false);
+                  }} 
+                  className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
+              <div className="p-4">
+                <WebcamRecorder
+                  orderId={orderIdValue}
+                  sequence={seq}
+                  maxDuration={duration}
+                  onUploaded={(videoId, uploadDuration) => {
+                    console.log(`✅ ${seq}번 업로드 완료: ${videoId}`);
+                    
+                    setShowVideo(false);
+                    
+                    setTimeout(() => {
+                      alert(`✅ ${itemName || `${seq}번 아이템`} 출고 영상이 저장되었습니다.\n\n영상 길이: ${uploadDuration}초\n영상 ID: ${videoId}`);
+                    }, 100);
+                  }}
+                  onClose={() => {
+                    console.log('🚪 WebcamRecorder 닫기');
+                    setShowVideo(false);
+                  }}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

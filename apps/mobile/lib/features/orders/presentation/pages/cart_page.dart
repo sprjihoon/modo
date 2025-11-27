@@ -502,24 +502,19 @@ class _CartPageState extends ConsumerState<CartPage> {
     // 선택된 항목들을 하나로 합침
     final allRepairItems = <Map<String, dynamic>>[];
     final allImageUrls = <String>[];
-    final allImagesWithPins = <Map<String, dynamic>>[];
     
     for (var item in selectedItems) {
-      allRepairItems.add(item.repairItem); // 각 카드에 1개 항목만 있음
+      allRepairItems.add(item.repairItem); // 각 repairItem에 itemImages가 포함됨
       allImageUrls.addAll(item.imageUrls);
-      if (item.imagesWithPins != null) {
-        allImagesWithPins.addAll(item.imagesWithPins!);
-      }
     }
     
     // 중복 제거
     final uniqueImageUrls = allImageUrls.toSet().toList();
     
-    // 수거신청 페이지로 이동
+    // 수거신청 페이지로 이동 (itemImages는 각 repairItem에 포함되어 있음)
     context.push('/pickup-request', extra: {
       'repairItems': allRepairItems,
       'imageUrls': uniqueImageUrls,
-      'imagesWithPins': allImagesWithPins.isEmpty ? null : allImagesWithPins,
       'cartItemIds': selectedItems.map((item) => item.id).toList(), // 결제 완료 후 제거용
     });
   }

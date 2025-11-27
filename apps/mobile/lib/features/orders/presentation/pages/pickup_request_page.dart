@@ -29,6 +29,15 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   final _addressController = TextEditingController();
   final _addressDetailController = TextEditingController();
   final _zipcodeController = TextEditingController();
+  
+  // 배송지 정보 (신규 컨트롤러)
+  bool _isDeliveryAddressSame = true; // 수거지와 배송지 동일 여부
+  final _deliveryRecipientNameController = TextEditingController();
+  final _deliveryRecipientPhoneController = TextEditingController();
+  final _deliveryAddressController = TextEditingController();
+  final _deliveryAddressDetailController = TextEditingController();
+  final _deliveryZipcodeController = TextEditingController();
+  
   final _requestController = TextEditingController();
   final _promotionCodeController = TextEditingController();
   
@@ -94,6 +103,13 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     _addressController.dispose();
     _addressDetailController.dispose();
     _zipcodeController.dispose();
+    
+    _deliveryRecipientNameController.dispose();
+    _deliveryRecipientPhoneController.dispose();
+    _deliveryAddressController.dispose();
+    _deliveryAddressDetailController.dispose();
+    _deliveryZipcodeController.dispose();
+    
     _requestController.dispose();
     _promotionCodeController.dispose();
     super.dispose();
@@ -122,7 +138,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     }
   }
   
-  /// 배송지 변경
+  /// 배송지 변경 (수거지)
   Future<void> _changeAddress() async {
     final result = await context.push<Map<String, dynamic>>(
       '/profile/addresses',
@@ -130,7 +146,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     );
     
     if (result != null && mounted) {
-      // 선택된 배송지 정보 업데이트
+      // 선택된 수거지 정보 업데이트
       setState(() {
         _selectedAddressId = result['id'] as String;
         _recipientNameController.text = result['recipient_name'] as String? ?? '';
@@ -138,15 +154,42 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         _addressController.text = result['address'] as String? ?? '';
         _addressDetailController.text = result['address_detail'] as String? ?? '';
         _zipcodeController.text = result['zipcode'] as String? ?? '';
+        
+        // 배송지도 동일하게 설정되어 있다면 함께 업데이트
+        if (_isDeliveryAddressSame) {
+          _deliveryRecipientNameController.text = result['recipient_name'] as String? ?? '';
+          _deliveryRecipientPhoneController.text = result['recipient_phone'] as String? ?? '';
+          _deliveryAddressController.text = result['address'] as String? ?? '';
+          _deliveryAddressDetailController.text = result['address_detail'] as String? ?? '';
+          _deliveryZipcodeController.text = result['zipcode'] as String? ?? '';
+        }
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('배송지가 변경되었습니다'),
+          content: Text('주소가 변경되었습니다'),
           backgroundColor: Color(0xFF00C896),
           duration: Duration(seconds: 2),
         ),
       );
+    }
+  }
+  
+  /// 배송지 검색 (수선 후 받을 곳)
+  Future<void> _searchDeliveryAddress() async {
+    final result = await context.push<Map<String, dynamic>>(
+      '/profile/addresses',
+      extra: {'isSelectionMode': true},
+    );
+    
+    if (result != null && mounted) {
+      setState(() {
+        _deliveryRecipientNameController.text = result['recipient_name'] as String? ?? '';
+        _deliveryRecipientPhoneController.text = result['recipient_phone'] as String? ?? '';
+        _deliveryAddressController.text = result['address'] as String? ?? '';
+        _deliveryAddressDetailController.text = result['address_detail'] as String? ?? '';
+        _deliveryZipcodeController.text = result['zipcode'] as String? ?? '';
+      });
     }
   }
   
@@ -220,11 +263,26 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     if (_addressController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('배송지를 선택해주세요'),
+          content: Text('수거지를 선택해주세요'),
           backgroundColor: Colors.red,
         ),
       );
       return;
+    }
+    
+    // 배송지가 다른 경우 유효성 검사
+    if (!_isDeliveryAddressSame) {
+      if (_deliveryAddressController.text.isEmpty || 
+          _deliveryRecipientNameController.text.isEmpty || 
+          _deliveryRecipientPhoneController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('배송지 정보를 모두 입력해주세요'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
     }
     
     setState(() => _isLoading = true);
@@ -232,6 +290,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     try {
       debugPrint('🔧 주문 생성 시작...');
       debugPrint('수선 항목 개수: ${widget.repairItems.length}');
+      debugPrint('배송지 동일 여부: $_isDeliveryAddressSame');
       
       // 주문 정보 구성
       final itemNames = widget.repairItems
@@ -245,7 +304,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       // clothing_type 추출 (한글 그대로 사용)
       String clothingType = '기타';
       if (widget.repairItems.isNotEmpty) {
-        final imagesWithPins = widget.repairItems[0]['imagesWithPins'];
+        final imagesWithPins = widget.repairItems[0]['itemImages']; // itemImages로 변경
         if (imagesWithPins is List && imagesWithPins.isNotEmpty) {
           clothingType = imagesWithPins[0]['clothingType'] ?? '기타';
         }
@@ -273,9 +332,13 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       // 모든 수선 항목의 사진과 핀을 모음
       final allImagesWithPins = <Map<String, dynamic>>[];
       for (var repairItem in widget.repairItems) {
-        final itemImages = repairItem['imagesWithPins'] as List<Map<String, dynamic>>?;
+        final itemImages = repairItem['itemImages'] as List?; // itemImages로 변경
         if (itemImages != null) {
-          allImagesWithPins.addAll(itemImages);
+          for (var img in itemImages) {
+            if (img is Map) {
+              allImagesWithPins.add(Map<String, dynamic>.from(img));
+            }
+          }
         }
       }
       
@@ -292,12 +355,20 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         itemDescription: itemDescription,
         basePrice: totalPrice,
         totalPrice: finalTotalPrice, // 프로모션 할인 적용된 최종 금액
+        
+        // 수거지 정보
         pickupAddress: _addressController.text,
         pickupAddressDetail: _addressDetailController.text,
         pickupZipcode: _zipcodeController.text,
-        deliveryAddress: _addressController.text, // 수거지 = 배송지
-        deliveryAddressDetail: _addressDetailController.text,
-        deliveryZipcode: _zipcodeController.text,
+        // recipientName, recipientPhone은 아래에서 배송지 기준으로 설정됨
+        
+        // 배송지 정보 (조건부 설정)
+        deliveryAddress: _isDeliveryAddressSame ? _addressController.text : _deliveryAddressController.text,
+        deliveryAddressDetail: _isDeliveryAddressSame ? _addressDetailController.text : _deliveryAddressDetailController.text,
+        deliveryZipcode: _isDeliveryAddressSame ? _zipcodeController.text : _deliveryZipcodeController.text,
+        // TODO: API에 deliveryRecipientName, deliveryRecipientPhone 필드가 있다면 추가해야 함
+        // 현재는 recipientName, recipientPhone을 공통으로 사용하는 구조일 수 있음
+        
         imageUrls: widget.imageUrls,
         imagesWithPins: allImagesWithPins, // 모든 의류의 핀 정보
         notes: _requestController.text,
@@ -307,8 +378,10 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         promotionCodeId: _appliedPromotion?['id'] as String?, // 프로모션 코드 ID
         promotionDiscountAmount: _appliedPromotion?['discount_amount'] as int?, // 할인 금액
         originalTotalPrice: _appliedPromotion != null ? totalPrice : null, // 할인 전 원래 금액
-        recipientName: _recipientNameController.text, // 수취인 이름
-        recipientPhone: _recipientPhoneController.text, // 수취인 전화번호
+        
+        // 수취인 정보 (배송지 기준)
+        recipientName: _isDeliveryAddressSame ? _recipientNameController.text : _deliveryRecipientNameController.text,
+        recipientPhone: _isDeliveryAddressSame ? _recipientPhoneController.text : _deliveryRecipientPhoneController.text,
       );
       
       debugPrint('✅ 주문 생성 완료: ${order['id']}');
@@ -651,6 +724,186 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                         color: Colors.grey.shade600,
                       ),
                     ),
+                    const SizedBox(height: 24),
+                    
+                    // 배송지 동일 여부 체크박스
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _isDeliveryAddressSame = !_isDeliveryAddressSame;
+                          // 동일하게 설정하면 수거지 정보를 배송지에 복사
+                          if (_isDeliveryAddressSame) {
+                            _deliveryRecipientNameController.text = _recipientNameController.text;
+                            _deliveryRecipientPhoneController.text = _recipientPhoneController.text;
+                            _deliveryAddressController.text = _addressController.text;
+                            _deliveryAddressDetailController.text = _addressDetailController.text;
+                            _deliveryZipcodeController.text = _zipcodeController.text;
+                          }
+                        });
+                      },
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: _isDeliveryAddressSame,
+                              onChanged: (value) {
+                                setState(() {
+                                  _isDeliveryAddressSame = value ?? true;
+                                  if (_isDeliveryAddressSame) {
+                                    _deliveryRecipientNameController.text = _recipientNameController.text;
+                                    _deliveryRecipientPhoneController.text = _recipientPhoneController.text;
+                                    _deliveryAddressController.text = _addressController.text;
+                                    _deliveryAddressDetailController.text = _addressDetailController.text;
+                                    _deliveryZipcodeController.text = _zipcodeController.text;
+                                  }
+                                });
+                              },
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              activeColor: const Color(0xFF00C896),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              '수선 수거지와 수선 후 배송받을 주소지가 동일합니다.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // 배송지 입력 폼 (다를 경우 표시)
+                    if (!_isDeliveryAddressSame) ...[
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            '배송받을 주소',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _searchDeliveryAddress,
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(50, 30),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              '주소 검색',
+                              style: TextStyle(
+                                color: Color(0xFF00C896),
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // 받는 분 이름
+                      TextField(
+                        controller: _deliveryRecipientNameController,
+                        decoration: InputDecoration(
+                          labelText: '받는 분',
+                          hintText: '이름을 입력하세요',
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // 받는 분 연락처
+                      TextField(
+                        controller: _deliveryRecipientPhoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          labelText: '연락처',
+                          hintText: '010-0000-0000',
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // 주소
+                      TextField(
+                        controller: _deliveryAddressController,
+                        readOnly: true,
+                        maxLines: 2,
+                        onTap: _searchDeliveryAddress,
+                        decoration: InputDecoration(
+                          hintText: '주소를 검색하세요',
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // 상세주소
+                      TextField(
+                        controller: _deliveryAddressDetailController,
+                        decoration: InputDecoration(
+                          hintText: '상세주소를 입력하세요',
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF00C896), width: 2),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                      ),
+                    ],
+                    
                     const SizedBox(height: 32),
                     
                     // 배송 요청사항

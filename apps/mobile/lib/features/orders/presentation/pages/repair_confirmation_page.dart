@@ -8,13 +8,11 @@ import '../../providers/cart_provider.dart';
 
 /// 수선 확인 페이지 (선택한 항목 및 가격 표시)
 class RepairConfirmationPage extends ConsumerStatefulWidget {
-  final List<Map<String, dynamic>> repairItems; // 선택한 수선 항목들
+  final List<Map<String, dynamic>> repairItems; // 선택한 수선 항목들 (itemImages 포함)
   final List<String> imageUrls;
-  final List<Map<String, dynamic>>? imagesWithPins; // 핀 정보 포함
   
   const RepairConfirmationPage({
     required this.repairItems, required this.imageUrls, super.key,
-    this.imagesWithPins,
   });
 
   @override
@@ -30,8 +28,11 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
     super.initState();
     // 페이지 로드 시 Provider를 현재 페이지의 항목으로 정확히 설정 (중복 방지)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Provider를 완전히 교체 (누적하지 않음)
+      debugPrint('📝 RepairConfirmation 초기화: ${widget.repairItems.length}개 항목');
+      
+      // Provider를 완전히 교체 (setItems에서 자동으로 깊은 복사됨)
       ref.read(repairItemsProvider.notifier).setItems(widget.repairItems);
+      
       // 처음에는 모든 항목 선택
       setState(() {
         for (int i = 0; i < widget.repairItems.length; i++) {
@@ -124,7 +125,6 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
       context.pushReplacement('/repair-confirmation', extra: {
         'repairItems': updatedItems,
         'imageUrls': widget.imageUrls,
-        'imagesWithPins': widget.imagesWithPins,
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -139,7 +139,8 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
   
   /// 의류 상세 페이지 표시
   void _showRepairItemDetail(BuildContext context, Map<String, dynamic> item, int index) {
-    final itemImages = item['imagesWithPins'] as List<Map<String, dynamic>>?;
+    // 항목에 저장된 이미지 데이터 사용
+    final itemImages = item['itemImages'] as List<Map<String, dynamic>>?;
     
     showModalBottomSheet(
       context: context,
@@ -362,7 +363,6 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                 context.pushReplacement('/repair-confirmation', extra: {
                   'repairItems': updatedItems,
                   'imageUrls': widget.imageUrls,
-                  'imagesWithPins': widget.imagesWithPins,
                 });
               }
             },
@@ -463,7 +463,6 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
     ref.read(cartProvider.notifier).addToCart(
       repairItems: selectedItems,
       imageUrls: widget.imageUrls,
-      imagesWithPins: widget.imagesWithPins,
     );
     
     // Provider 초기화
@@ -491,12 +490,15 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
   
   /// 다른 의류 추가하기
   void _addAnotherClothing() {
-    // 현재 모든 항목을 Provider에 저장
+    debugPrint('🔄 다른 의류 추가: 현재 ${widget.repairItems.length}개 항목 유지');
+    
+    // Provider에 저장 (setItems에서 자동으로 깊은 복사됨)
     ref.read(repairItemsProvider.notifier).setItems(widget.repairItems);
     
     // 현재 페이지를 닫고 의류 선택 페이지로 이동
+    // 새로운 의류는 빈 이미지 리스트로 시작 (독립적인 세션)
     context.pop();
-    context.push('/select-clothing-type', extra: widget.imageUrls);
+    context.push('/select-clothing-type', extra: <String>[]);
   }
   
   // 선택된 항목의 총 가격 계산
@@ -696,7 +698,10 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                       children: widget.repairItems.asMap().entries.map((entry) {
                         final index = entry.key;
                         final item = entry.value;
-                        final itemImages = item['imagesWithPins'] as List<Map<String, dynamic>>?;
+                        
+                        // 항목에 저장된 이미지 데이터 사용
+                        final itemImages = item['itemImages'] as List<Map<String, dynamic>>?;
+                        
                   final isSelected = _selectedItemIndices.contains(index);
                   
                   return InkWell(

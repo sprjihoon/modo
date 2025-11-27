@@ -3,16 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 장바구니 항목 모델 (개별 수선 항목)
 class CartItem {
   final String id;
-  final Map<String, dynamic> repairItem; // 단일 수선 항목
+  final Map<String, dynamic> repairItem; // 단일 수선 항목 (itemImages 포함)
   final List<String> imageUrls;
-  final List<Map<String, dynamic>>? imagesWithPins;
   final DateTime addedAt;
 
   CartItem({
     required this.id,
     required this.repairItem,
     required this.imageUrls,
-    this.imagesWithPins,
     DateTime? addedAt,
   }) : addedAt = addedAt ?? DateTime.now();
 
@@ -40,7 +38,6 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
   void addToCart({
     required List<Map<String, dynamic>> repairItems,
     required List<String> imageUrls,
-    List<Map<String, dynamic>>? imagesWithPins,
   }) {
     // 각 수선 항목을 개별 CartItem으로 변환
     int baseTimestamp = DateTime.now().millisecondsSinceEpoch;
@@ -48,9 +45,8 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
     for (int i = 0; i < repairItems.length; i++) {
       final item = CartItem(
         id: '${baseTimestamp + i}',
-        repairItem: repairItems[i],
+        repairItem: repairItems[i],  // repairItem에 itemImages가 포함됨
         imageUrls: imageUrls,
-        imagesWithPins: imagesWithPins,
       );
       state = [...state, item];
     }

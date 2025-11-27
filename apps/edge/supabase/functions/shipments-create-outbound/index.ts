@@ -77,16 +77,25 @@ Deno.serve(async (req) => {
       phone: centerSettings?.phone || '01027239490',
     };
 
-    // 4. 계약 승인번호 조회
-    const apprNo = await getApprovalNumber();
+    // 4. 고객번호 설정 (하드코딩)
+    const custNo = '0005085217';
+    console.log('🔑 고객번호 설정:', custNo);
 
-    // 5. 출고 송장 생성 파라미터
-    // custNo 직접 가져오기
-    const custNo = Deno.env.get('EPOST_CUSTOMER_ID')?.trim() || '';
-    if (!custNo) {
-      throw new Error('EPOST_CUSTOMER_ID 환경변수가 설정되지 않았습니다.');
+    // 5. 계약 승인번호 조회
+    const apprNo = await getApprovalNumber(custNo);
+
+    // 6. 출고 송장 생성 파라미터 검증
+    // 수취인 정보 (고객 배송지)
+    const recNm = order.customer_name || '고객';
+    const recZip = (order.delivery_zipcode || '').replace(/-/g, ''); // 하이픈 제거
+    const recAddr1 = order.delivery_address || '';
+    const recAddr2 = order.delivery_address_detail || '';
+    const recMob = (order.customer_phone || order.delivery_phone || '').replace(/-/g, ''); // 하이픈 제거
+
+    if (!recZip || !recAddr1 || !recMob) {
+      return errorResponse('배송지 정보(우편번호, 주소, 연락처)가 누락되었습니다.', 400);
     }
-    
+
     console.log('🔑 고객번호 확인:', { custNo, length: custNo.length });
     
     const outboundParams: InsertOrderParams = {
@@ -94,23 +103,23 @@ Deno.serve(async (req) => {
       apprNo,
       payType: '1', // 선불
       reqType: '1', // 일반소포
-      officeSer: '3000134', // 공급지코드 (센터 우체국)
+      officeSer: '251132110', // 공급지코드 (센터 우체국)
       orderNo: `OUT-${orderId.substring(0, 8)}-${Date.now()}`,
       
       // 수취인 정보 (고객 배송지)
-      recNm: order.customer_name || '고객',
-      recZip: order.delivery_zipcode || '',
-      recAddr1: order.delivery_address || '',
-      recAddr2: order.delivery_address_detail || '',
-      recMob: order.customer_phone || order.delivery_phone || '',
+      recNm,
+      recZip,
+      recAddr1,
+      recAddr2,
+      recMob,
       
       // 발송인 정보 (센터)
       ordCompNm: centerInfo.name,
       ordNm: centerInfo.name,
-      ordZip: centerInfo.zipcode,
+      ordZip: centerInfo.zipcode.replace(/-/g, ''),
       ordAddr1: centerInfo.address1,
       ordAddr2: centerInfo.address2,
-      ordMob: centerInfo.phone,
+      ordMob: centerInfo.phone.replace(/-/g, ''),
       
       // 상품 정보
       contCd: '025', // 의류/패션잡화
@@ -137,7 +146,15 @@ Deno.serve(async (req) => {
     } catch (apiError: any) {
       console.error('❌ 우체국 API 호출 실패:', apiError);
       console.error('에러 상세:', apiError.message);
-      throw new Error(`우체국 API 오류: ${apiError.message}`);
+      
+      // API 호출 실패 시에도 성공 응답(200)을 보내되, error 필드를 포함하여 클라이언트가 알 수 있게 함
+      // 또는 500 에러를 던져서 클라이언트가 catch 하도록 함
+      return errorResponse(`우체국 API 오류: ${apiError.message}`, 500);
+    }
+
+    if (!epostResult || !epostResult.regiNo) {
+      console.error('❌ 우체국 API 응답에 운송장번호가 없습니다:', epostResult);
+      return errorResponse('우체국 API 응답 오류 (운송장번호 없음)', 500);
     }
 
     // 7. shipments 테이블 업데이트
@@ -145,7 +162,8 @@ Deno.serve(async (req) => {
       .from('shipments')
       .update({
         delivery_tracking_no: epostResult.regiNo,
-        outbound_tracking_no: epostResult.regiNo, // 호환성
+        // API 응답 저장 (도착지 코드 등)
+        delivery_info: epostResult,
         updated_at: new Date().toISOString(),
       })
       .eq('order_id', orderId);

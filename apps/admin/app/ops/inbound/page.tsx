@@ -13,8 +13,10 @@ type ShipmentData = {
   outboundTrackingNo?: string; // 출고송장번호 (tracking_no)
   customerName: string;
   customerPhone?: string; // 고객 전화번호
+  customerZipcode?: string; // 고객 우편번호 (추가)
   brandName?: string;
   status: string;
+  deliveryInfo?: any; // 우체국 API 응답 정보
   summary: string; // 수선요청 요약
   pickupAddress: string;
   deliveryAddress: string;
@@ -55,7 +57,7 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
     }
 
     const { shipment, order } = result.data;
-    console.log("📦 조회 성공:", { shipment, order });
+    console.log("📦 조회 성공 - Order ID:", order?.id, "Shipment:", shipment?.tracking_no);
 
     if (!shipment || !order) {
       console.error("❌ 필수 데이터 누락:", { shipment, order });
@@ -102,12 +104,34 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
                                    ? shipment.tracking_no
                                    : undefined);
 
+    // images_with_pins 데이터 확인 로그
+    if (order.images_with_pins) {
+      console.log("📌 images_with_pins 데이터:", JSON.stringify(order.images_with_pins, null, 2));
+    } else {
+      console.log("📌 images_with_pins 데이터 없음");
+    }
+
+    // images_with_pins 처리 (JSON 문자열일 경우 파싱)
+    let imagesWithPinsData = [];
+    if (Array.isArray(order.images_with_pins)) {
+      imagesWithPinsData = order.images_with_pins;
+    } else if (typeof order.images_with_pins === 'string') {
+      try {
+        imagesWithPinsData = JSON.parse(order.images_with_pins);
+      } catch (e) {
+        console.error("images_with_pins 파싱 실패:", e);
+      }
+    }
+
     return {
       trackingNo: inboundTrackingNo, // 입고송장번호
       outboundTrackingNo: outboundTrackingNo, // 출고송장번호
       customerName: order.customer_name || "고객명 없음",
       customerPhone: order.customer_phone || undefined,
+      customerZipcode: order.delivery_zipcode, // 우편번호 매핑
+      brandName: "브랜드 없음", // TODO: 브랜드 정보 추가 필요
       status: shipment.status || order.status || "UNKNOWN",
+      deliveryInfo: shipment.delivery_info, // API 응답 저장
       summary: order.item_description || order.item_name || "수선 요청 정보 없음",
       pickupAddress: pickupAddr || "주소 없음",
       deliveryAddress: deliveryAddr || "주소 없음",
@@ -116,7 +140,7 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       repairParts: Array.isArray(order.repair_parts) ? order.repair_parts : [],
       images: imageUrls,
       pinsCount: totalPins,
-      imagesWithPins: Array.isArray(order.images_with_pins) ? order.images_with_pins : [], // 원본 데이터 저장
+      imagesWithPins: imagesWithPinsData, // 수정된 데이터 사용
     };
   } catch (error) {
     console.error("Shipment 조회 중 오류:", error);
@@ -153,7 +177,7 @@ export default function InboundPage() {
       if (shipment) {
         setResult(shipment);
         setNotFound(false);
-        console.log("✅ 조회 성공:", shipment);
+        console.log("✅ 조회 성공 - Order ID:", shipment.orderId, "Items:", shipment.repairParts?.length || 0);
       } else {
         setResult(null);
         setNotFound(true);
@@ -224,16 +248,19 @@ export default function InboundPage() {
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || "입고 처리 실패");
+        console.error("❌ 입고 처리 응답 에러:", data);
+        throw new Error(data.error || `입고 처리 실패: ${JSON.stringify(data)}`);
       }
 
-      console.log("✅ 입고 처리 완료");
+      console.log("✅ 입고 처리 완료:", data);
       
       // 출고 송장번호 표시
       if (data.outboundTrackingNo) {
         alert(`입고 처리 완료!\n\n출고 송장번호: ${data.outboundTrackingNo}\n\n작업지시서를 출력하세요.`);
       } else {
-        alert("입고 처리가 완료되었습니다!\n\n⚠️ 출고 송장 생성 실패 (수동 발급 필요)");
+        // data.error가 있으면 함께 표시
+        const errorMsg = data.error ? `\n\n사유: ${data.error}` : "";
+        alert(`입고 처리가 완료되었습니다!\n\n⚠️ 출고 송장 생성 실패 (수동 발급 필요)${errorMsg}`);
       }
 
       // 결과 새로고침
@@ -655,19 +682,39 @@ export default function InboundPage() {
               <ShippingLabelSheet
                 data={{
                   trackingNo: result.outboundTrackingNo,
-                  senderName: "모두의수선",
-                  senderZipcode: "41142",
-                  senderAddress: "대구광역시 동구 동촌로 1 동대구우체국 2층 소포실",
-                  senderPhone: "010-2723-9490",
+                  
+                  // 주문 정보
+                  orderDate: new Date().toLocaleDateString('ko-KR'),
                   recipientName: result.customerName,
-                  recipientZipcode: "", // TODO: 고객 우편번호
+                  sellerName: "모두의수선",
+                  orderNumber: result.orderId.substring(0, 13),
+                  
+                  // 보내는 분
+                  senderAddress: "대구광역시 동구 동촌로 1 동대구우체국 2층 소포실",
+                  senderName: "모두의수선",
+                  senderPhone: "010-2723-9490",
+                  
+                  // 받는 분
+                  recipientZipcode: result.customerZipcode || "",
                   recipientAddress: result.deliveryAddress,
                   recipientPhone: result.customerPhone || "",
-                  goodsName: result.itemName,
-                  weight: 2,
-                  orderNumber: result.orderId.substring(0, 13),
+                  
+                  // 상품 정보
+                  totalQuantity: result.repairParts?.length || 1,
+                  itemsList: (result.repairParts || [result.itemName]).join('\n'),
                   memo: result.summary,
-                  specialInstructions: "수선 완료품입니다. 조심히 다뤄주세요.",
+                  
+                  // 기타
+                  weight: "2kg",
+                  volume: "60cm",
+                  
+                  // 우체국 분류 코드 (API 응답에서 매핑)
+                  // arrCnpoNm: 도착 집중국 (예: 동대구)
+                  // delivPoNm: 배달 우체국 (예: 수성)
+                  // delivAreaCd: 배달 구역 (예: A01)
+                  deliveryPlaceCode: result.deliveryInfo?.arrCnpoNm || "도착국",
+                  deliveryTeamCode: result.deliveryInfo?.delivPoNm || "배달국",
+                  deliverySequence: result.deliveryInfo?.delivAreaCd || "코스",
                 }}
               />
             </div>
@@ -676,29 +723,49 @@ export default function InboundPage() {
       )}
 
       {/* 입고 영상 촬영 다이얼로그 */}
-      {showInboundVideo && result && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
-              <h2 className="text-lg font-semibold">입고 영상 촬영</h2>
-              <button onClick={() => setShowInboundVideo(false)} className="px-3 py-2 bg-gray-200 rounded">
-                닫기
-              </button>
-            </div>
-            <div className="p-4">
-              <WebcamRecorder
-                orderId={result.orderId}
-                sequence={currentVideoSequence}
-                onUploaded={(videoId, duration) => {
-                  setShowInboundVideo(false);
-                  alert(`${currentVideoSequence}번 아이템 영상이 저장되었습니다. (${duration}초)`);
-                }}
-                onClose={() => setShowInboundVideo(false)}
-              />
+      {showInboundVideo && result && (() => {
+        // 렌더링 시점에 값을 추출 (클로저 순환 참조 방지)
+        const seq = currentVideoSequence;
+        const orderIdValue = result.orderId;
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+                <h2 className="text-lg font-semibold">입고 영상 촬영 - {seq}번 아이템</h2>
+                <button 
+                  onClick={() => {
+                    console.log('🚪 입고 다이얼로그 닫기');
+                    setShowInboundVideo(false);
+                  }} 
+                  className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
+              <div className="p-4">
+                <WebcamRecorder
+                  orderId={orderIdValue}
+                  sequence={seq}
+                  onUploaded={(videoId, duration) => {
+                    console.log(`✅ 입고 ${seq}번 업로드 완료: ${videoId}`);
+                    
+                    setShowInboundVideo(false);
+                    
+                    setTimeout(() => {
+                      alert(`✅ ${seq}번 아이템 입고 영상이 저장되었습니다.\n\n영상 길이: ${duration}초\n영상 ID: ${videoId}`);
+                    }, 100);
+                  }}
+                  onClose={() => {
+                    console.log('🚪 입고 WebcamRecorder 닫기');
+                    setShowInboundVideo(false);
+                  }}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

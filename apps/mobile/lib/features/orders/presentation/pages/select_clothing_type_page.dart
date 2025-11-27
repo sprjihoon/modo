@@ -28,11 +28,9 @@ class SelectClothingTypePage extends ConsumerStatefulWidget {
 class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage> {
   String? _selectedType;
   String? _selectedCategoryId;
-  final List<Map<String, dynamic>> _capturedImagesWithPins = [];
   final _repairService = RepairService();
   
   List<Map<String, dynamic>> _clothingTypes = [];
-  bool _isLoading = true;
   bool _isNavigating = false; // 네비게이션 중 플래그
 
   @override
@@ -50,6 +48,8 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
   
    /// 핀 마킹 페이지로 이동 (카메라 촬영 후 자동 진입)
    Future<void> _navigateToImageAnnotation(String imageUrl, String clothingType) async {
+     debugPrint('📸 핀 마킹 이동 - 새 촬영 세션');
+     
      // 핀 마킹 페이지로 바로 이동
      final result = await context.push<Map<String, dynamic>>(
        '/image-annotation',
@@ -62,23 +62,70 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
      
      // 핀 완료 후 수선 부위 선택으로 이동
      if (result != null && mounted) {
-       _capturedImagesWithPins.add({
-         'imagePath': result['imagePath'] as String,
-         'pins': result['pins'] ?? [],
-         'clothingType': clothingType,
-       });
+       debugPrint('📸 핀 마킹 완료 (from camera)');
        
-       final imageUrls = _capturedImagesWithPins
-           .map((e) => e['imagePath'] as String)
-           .toList();
-       
-       // 카테고리 페이지를 교체하면서 수선 부위 선택으로 이동
-       context.pushReplacement('/select-repair-parts', extra: {
-         'imageUrls': imageUrls,
-         'imagesWithPins': _capturedImagesWithPins,
-         'categoryId': _selectedCategoryId,
-         'categoryName': _selectedType,
-       });
+       try {
+         // 필요한 필드만 명시적으로 추출 (순환 참조 완전 차단)
+         final imagePath = result['imagePath'] as String;
+         final pinsData = result['pins'] as List?;
+         
+         debugPrint('📍 imagePath: $imagePath');
+         debugPrint('📍 pins 개수: ${pinsData?.length ?? 0}');
+         
+         // pins를 완전히 새로운 List로 생성
+         final pins = <Map<String, dynamic>>[];
+         if (pinsData != null) {
+           for (var pin in pinsData) {
+             if (pin is Map) {
+               // 각 필드를 primitive 값으로 추출
+               pins.add({
+                 'id': pin['id']?.toString() ?? '',
+                 'relative_x': (pin['relative_x'] as num?)?.toDouble() ?? 0.5,
+                 'relative_y': (pin['relative_y'] as num?)?.toDouble() ?? 0.5,
+                 'memo': pin['memo']?.toString() ?? '',
+                 'created_at': pin['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+                 'updated_at': pin['updated_at']?.toString() ?? DateTime.now().toIso8601String(),
+               });
+             }
+           }
+         }
+         
+         debugPrint('✅ 핀 복사 완료: ${pins.length}개');
+         
+         // 완전히 새로운 데이터 구조 생성
+         final currentSessionImages = <Map<String, dynamic>>[{
+           'imagePath': imagePath,
+           'pins': pins,
+           'clothingType': clothingType,
+         }];
+         
+         debugPrint('✅ 세션 이미지 생성 완료');
+         
+         // 카테고리 페이지를 교체하면서 수선 부위 선택으로 이동
+         context.pushReplacement('/select-repair-parts', extra: {
+           'imageUrls': [imagePath],
+           'imagesWithPins': currentSessionImages,
+           'categoryId': _selectedCategoryId,
+           'categoryName': _selectedType,
+         });
+       } catch (e, stackTrace) {
+         debugPrint('❌ 데이터 처리 오류: $e');
+         debugPrint('❌ Stack: $stackTrace');
+         
+         setState(() {
+           _isNavigating = false;
+         });
+         
+         if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(
+               content: Text('데이터 처리 오류: $e'),
+               backgroundColor: Colors.red,
+               duration: const Duration(seconds: 5),
+             ),
+           );
+         }
+       }
      }
    }
   
@@ -89,14 +136,10 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
       if (mounted) {
         setState(() {
           _clothingTypes = categories;
-          _isLoading = false;
         });
       }
     } catch (e) {
       debugPrint('카테고리 로드 실패: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 
@@ -251,32 +294,78 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
          },
        );
        
-       // 5. 핀 완료 후 수선 부위 선택으로 이동 (오버레이 계속 유지)
-       if (result != null && mounted) {
-         _capturedImagesWithPins.add({
-           'imagePath': result['imagePath'] as String,
-           'pins': result['pins'] ?? [],
-           'clothingType': clothingType,
-         });
-         
-         final imageUrls = _capturedImagesWithPins
-             .map((e) => e['imagePath'] as String)
-             .toList();
-         
-         // pushReplacement로 카테고리 페이지 교체
-         // 주의: 오버레이는 dispose될 때 자동으로 사라짐
-         context.pushReplacement('/select-repair-parts', extra: {
-           'imageUrls': imageUrls,
-           'imagesWithPins': _capturedImagesWithPins,
-           'categoryId': _selectedCategoryId,
-           'categoryName': _selectedType,
-         });
-       } else if (mounted) {
-         // 취소 시 오버레이 제거
-         setState(() {
-           _isNavigating = false;
-         });
-       }
+      // 5. 핀 완료 후 수선 부위 선택으로 이동 (오버레이 계속 유지)
+      if (result != null && mounted) {
+        debugPrint('📸 핀 마킹 완료');
+        
+        try {
+          // 필요한 필드만 명시적으로 추출 (순환 참조 완전 차단)
+          final imagePath = result['imagePath'] as String;
+          final pinsData = result['pins'] as List?;
+          
+          debugPrint('📍 imagePath: $imagePath');
+          debugPrint('📍 pins 개수: ${pinsData?.length ?? 0}');
+          
+          // pins를 완전히 새로운 List로 생성
+          final pins = <Map<String, dynamic>>[];
+          if (pinsData != null) {
+            for (var pin in pinsData) {
+              if (pin is Map) {
+                // 각 필드를 primitive 값으로 추출
+                pins.add({
+                  'id': pin['id']?.toString() ?? '',
+                  'relative_x': (pin['relative_x'] as num?)?.toDouble() ?? 0.5,
+                  'relative_y': (pin['relative_y'] as num?)?.toDouble() ?? 0.5,
+                  'memo': pin['memo']?.toString() ?? '',
+                  'created_at': pin['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+                  'updated_at': pin['updated_at']?.toString() ?? DateTime.now().toIso8601String(),
+                });
+              }
+            }
+          }
+          
+          debugPrint('✅ 핀 복사 완료: ${pins.length}개');
+          
+          // 완전히 새로운 데이터 구조 생성
+          final currentSessionImages = <Map<String, dynamic>>[{
+            'imagePath': imagePath,
+            'pins': pins,
+            'clothingType': clothingType,
+          }];
+          
+          debugPrint('✅ 세션 이미지 생성 완료');
+          
+          // pushReplacement로 카테고리 페이지 교체
+          context.pushReplacement('/select-repair-parts', extra: {
+            'imageUrls': [imagePath],
+            'imagesWithPins': currentSessionImages,
+            'categoryId': _selectedCategoryId,
+            'categoryName': _selectedType,
+          });
+        } catch (e, stackTrace) {
+          debugPrint('❌ 데이터 처리 오류: $e');
+          debugPrint('❌ Stack: $stackTrace');
+          
+          setState(() {
+            _isNavigating = false;
+          });
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('데이터 처리 오류: $e'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+        }
+      } else if (mounted) {
+        // 취소 시 오버레이 제거
+        setState(() {
+          _isNavigating = false;
+        });
+      }
      } catch (e) {
        if (mounted) {
          setState(() {

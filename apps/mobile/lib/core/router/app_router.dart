@@ -134,15 +134,35 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'comparison-video',
         builder: (context, state) {
           final extra = state.extra;
-          String inboundUrl = '';
-          String outboundUrl = '';
+          
           if (extra is Map<String, dynamic>) {
-            inboundUrl = extra['inboundUrl'] as String? ?? '';
-            outboundUrl = extra['outboundUrl'] as String? ?? '';
+            // 여러 아이템 순차 재생
+            if (extra.containsKey('videoItems')) {
+              final videoItems = extra['videoItems'] as List<Map<String, String>>?;
+              if (videoItems != null && videoItems.isNotEmpty) {
+                return ComparisonVideoPlayerPage(
+                  videoItems: videoItems,
+                );
+              }
+            }
+            
+            // 단일 아이템 (레거시)
+            final inboundUrl = extra['inboundUrl'] as String? ?? '';
+            final outboundUrl = extra['outboundUrl'] as String? ?? '';
+            
+            if (inboundUrl.isNotEmpty && outboundUrl.isNotEmpty) {
+              return ComparisonVideoPlayerPage(
+                inboundVideoUrl: inboundUrl,
+                outboundVideoUrl: outboundUrl,
+              );
+            }
           }
-          return ComparisonVideoPlayerPage(
-            inboundVideoUrl: inboundUrl,
-            outboundVideoUrl: outboundUrl,
+          
+          // 데이터 없으면 에러 페이지
+          return const Scaffold(
+            body: Center(
+              child: Text('영상을 찾을 수 없습니다'),
+            ),
           );
         },
       ),
@@ -246,7 +266,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           return RepairConfirmationPage(
             repairItems: data['repairItems'] as List<Map<String, dynamic>>? ?? [],
             imageUrls: data['imageUrls'] as List<String>? ?? [],
-            imagesWithPins: data['imagesWithPins'] as List<Map<String, dynamic>>?,
           );
         },
       ),

@@ -42,9 +42,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   // 우체국 API 취소 응답 정보 저장
   Map<String, dynamic>? _cancelInfo;
   
-  // 입고/출고 영상 URL
+  // 입고/출고 영상 URL (단일)
   String? _inboundVideoUrl;
   String? _outboundVideoUrl;
+  
+  // 여러 아이템의 영상 쌍 (순차 재생용)
+  List<Map<String, String>> _videoItems = [];
 
   @override
   void initState() {
@@ -1720,13 +1723,25 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
 
   Widget _buildComparisonVideoCard(BuildContext context) {
     final hasBoth = _inboundVideoUrl != null && _outboundVideoUrl != null;
+    final hasMultipleItems = _videoItems.length > 1;
+    
     return InkWell(
       onTap: hasBoth
           ? () {
-              context.push('/comparison-video', extra: {
-                'inboundUrl': _inboundVideoUrl,
-                'outboundUrl': _outboundVideoUrl,
-              });
+              if (hasMultipleItems) {
+                // 여러 아이템: 순차 재생
+                debugPrint('🎬 ${_videoItems.length}개 아이템 순차 재생');
+                context.push('/comparison-video', extra: {
+                  'videoItems': _videoItems,
+                });
+              } else {
+                // 단일 아이템: 기존 방식
+                debugPrint('🎬 단일 아이템 재생');
+                context.push('/comparison-video', extra: {
+                  'inboundUrl': _inboundVideoUrl,
+                  'outboundUrl': _outboundVideoUrl,
+                });
+              }
             }
           : null,
       borderRadius: BorderRadius.circular(12),
@@ -1847,23 +1862,26 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       final supabase = Supabase.instance.client;
       final videos = await supabase
           .from('media')
-          .select('type, path, provider, final_waybill_no')
+          .select('type, path, provider, final_waybill_no, sequence')
           .inFilter('final_waybill_no', candidates)
           .inFilter('type', ['inbound_video', 'outbound_video'])
-          .order('created_at', ascending: false);
+          .order('sequence', ascending: true);  // sequence 순서대로
       
       debugPrint('📹 조회된 영상: ${videos.length}개');
       if (videos.isNotEmpty) {
-        debugPrint('📹 영상 상세: ${videos.map((v) => '${v['type']}(${v['final_waybill_no']})').join(', ')}');
+        debugPrint('📹 영상 상세: ${videos.map((v) => '${v['type']}#${v['sequence']}(${v['final_waybill_no']})').join(', ')}');
       }
 
-      String? inboundUrl;
-      String? outboundUrl;
+      // sequence별로 영상 그룹화
+      final Map<int, Map<String, String>> videosBySequence = {};
+      String? firstInboundUrl;
+      String? firstOutboundUrl;
 
       for (final video in videos) {
         final type = video['type'] as String?;
         final path = video['path'] as String? ?? '';
         final provider = video['provider'] as String? ?? '';
+        final sequence = video['sequence'] as int? ?? 1;
         
         String? url;
         if (path.startsWith('http')) {
@@ -1873,17 +1891,44 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           url = 'https://videodelivery.net/$path/manifest/video.m3u8';
         }
 
-        if (type == 'inbound_video' && url != null) {
-          inboundUrl = url;
-        } else if (type == 'outbound_video' && url != null) {
-          outboundUrl = url;
+        if (url != null) {
+          // sequence별로 저장
+          videosBySequence[sequence] ??= {};
+          
+          if (type == 'inbound_video') {
+            videosBySequence[sequence]!['inbound'] = url;
+            firstInboundUrl ??= url;  // 첫 번째 입고 영상
+          } else if (type == 'outbound_video') {
+            videosBySequence[sequence]!['outbound'] = url;
+            firstOutboundUrl ??= url;  // 첫 번째 출고 영상
+          }
         }
       }
 
+      // 모든 아이템의 영상 쌍을 리스트로 변환
+      final videoItems = <Map<String, String>>[];
+      final sortedSequences = videosBySequence.keys.toList()..sort();
+      
+      for (final seq in sortedSequences) {
+        final inbound = videosBySequence[seq]!['inbound'];
+        final outbound = videosBySequence[seq]!['outbound'];
+        
+        // 입고/출고 둘 다 있는 경우만 추가
+        if (inbound != null && outbound != null) {
+          videoItems.add({
+            'inbound': inbound,
+            'outbound': outbound,
+          });
+        }
+      }
+      
+      debugPrint('🎬 완성된 영상 쌍: ${videoItems.length}개');
+
       if (mounted) {
         setState(() {
-          _inboundVideoUrl = inboundUrl;
-          _outboundVideoUrl = outboundUrl;
+          _inboundVideoUrl = firstInboundUrl;
+          _outboundVideoUrl = firstOutboundUrl;
+          _videoItems = videoItems;
         });
       }
     } catch (e) {

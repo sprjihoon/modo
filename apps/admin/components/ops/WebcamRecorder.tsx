@@ -144,8 +144,14 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
 
   const upload = async () => {
     if (!blob) return;
+    
+    const currentSequence = sequence;
+    const currentDuration = recordDuration;
+    const currentOrderId = orderId;
+    
     try {
       setUploading(true);
+      console.log(`📤 ${currentSequence}번 아이템 업로드 시작`);
       
       // 기존 영상 삭제 (재촬영인 경우)
       if (existingVideoId) {
@@ -162,7 +168,22 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       }
       
       const arrayBuffer = await blob.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      console.log(`📦 ArrayBuffer 생성: ${(uint8Array.length / 1024).toFixed(2)}KB`);
+      
+      // Base64 변환 (큰 배열에 안전한 방법)
+      let binary = '';
+      const chunkSize = 8192; // 8KB 청크로 분할
+      
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      
+      const base64 = btoa(binary);
+      
+      console.log(`✅ Base64 변환 완료: ${(base64.length / 1024).toFixed(2)}KB`);
       
       // Determine stream upload endpoint based on current path
       let endpoint = "/api/ops/inbound/stream-upload";
@@ -172,22 +193,36 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
         }
       } catch {}
 
+      console.log(`📡 업로드 중: ${endpoint}`);
+
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orderId,
+          orderId: currentOrderId,
           base64,
           mimeType: "video/webm",
-          sequence,
-          durationSeconds: recordDuration,
+          sequence: currentSequence,
+          durationSeconds: currentDuration,
         }),
       });
+      
       const json = await res.json();
+      console.log(`📥 서버 응답:`, json.success, json.videoId);
+      
       if (!res.ok) throw new Error(json?.error || "업로드 실패");
-      onUploaded?.(json.videoId || "", recordDuration);
-      alert(`업로드 완료 (${recordDuration}초)`);
+      
+      console.log(`✅ ${currentSequence}번 업로드 완료`);
+      
+      // 콜백 호출 (순환 참조 없는 primitive 값만 전달)
+      if (onUploaded) {
+        const videoId = json.videoId || "";
+        onUploaded(videoId, currentDuration);
+      }
+      
+      alert(`업로드 완료 (${currentDuration}초)`);
     } catch (e: any) {
+      console.error(`❌ ${currentSequence}번 업로드 실패:`, e);
       alert(e.message || "업로드 실패");
     } finally {
       setUploading(false);
