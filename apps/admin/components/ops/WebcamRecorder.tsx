@@ -149,14 +149,18 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
     ctx.font = "bold 18px Arial";
     ctx.fillText(`⏺ ${durationStr}`, canvas.width - 110, 32);
 
-    setRecordDuration(elapsed);
-    
-    // maxDuration 도달 시 자동 종료
-    if (maxDuration && elapsed >= maxDuration) {
-      stopRecord();
-      return;
+    // Duration 상태 업데이트 (초 단위로만, 성능 최적화)
+    if (elapsed !== recordDuration) {
+      setRecordDuration(elapsed);
+      
+      // maxDuration 도달 시 자동 종료
+      if (maxDuration && elapsed >= maxDuration) {
+        stopRecord();
+        return;
+      }
     }
     
+    // 다음 프레임 요청
     animationFrameRef.current = requestAnimationFrame(drawFrame);
   };
 
