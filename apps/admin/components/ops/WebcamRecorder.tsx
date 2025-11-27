@@ -208,12 +208,16 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
         setBlob(b);
       };
       recorderRef.current = rec;
-      rec.start();
       setRecording(true);
+      rec.start();
       
       console.log("✅ 녹화 시작, drawFrame 호출");
-      // 프레임 그리기 시작
-      drawFrame();
+      // 프레임 그리기 시작 (약간 지연 후)
+      setTimeout(() => {
+        if (recorderRef.current && recorderRef.current.state === "recording") {
+          drawFrame();
+        }
+      }, 100);
     } catch (e: any) {
       console.error("❌ 녹화 시작 실패:", e);
       setError(e.message || "녹화 시작 실패");
