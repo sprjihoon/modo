@@ -1,15 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { OrderTimeline } from "@/components/orders/order-timeline";
-import { VideoUpload } from "@/components/orders/video-upload";
 import { StatusChangeDialog } from "@/components/orders/status-change-dialog";
 import { PaymentRefundDialog } from "@/components/orders/payment-refund-dialog";
 import { TrackingManageDialog } from "@/components/orders/tracking-manage-dialog";
-import { Package, Truck, User, CreditCard, History, ExternalLink } from "lucide-react";
+import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play } from "lucide-react";
 
 interface OrderDetailPageProps {
   params: {
@@ -17,39 +17,115 @@ interface OrderDetailPageProps {
   };
 }
 
+interface MediaVideo {
+  id: string;
+  final_waybill_no: string;
+  type: string;
+  provider: string;
+  path: string;
+  sequence?: number;
+  created_at: string;
+}
+
 export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const router = useRouter();
+  const [order, setOrder] = useState<any | null>(null);
+  const [videos, setVideos] = useState<MediaVideo[]>([]);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(true);
+  const [selectedVideo, setSelectedVideo] = useState<MediaVideo | null>(null);
   
-  // TODO: Fetch order data from Supabase
-  const order = {
-    id: params.id,
-    customerName: "홍길동",
-    customerEmail: "customer@example.com",
-    customerPhone: "010-1234-5678",
-    item: "청바지 기장 수선",
-    description: "기장을 3cm 줄여주세요",
-    trackingNo: "MOCK1706174400123",
-    labelUrl: "https://mock.epost.go.kr/label/MOCK1706174400123.pdf",
-    status: "PROCESSING",
-    amount: 15000,
-    paymentMethod: "신용카드",
-    paymentId: "PAY-2024-0001",
-    paymentStatus: "COMPLETED",
-    createdAt: "2024.01.15 14:30",
-    pickupAddress: "서울시 강남구 테헤란로 123",
-    deliveryAddress: "서울시 강남구 테헤란로 123",
+  // Load order data from API
+  useEffect(() => {
+    loadOrder();
+  }, [params.id]);
+
+  const loadOrder = async () => {
+    setIsLoadingOrder(true);
+    try {
+      const response = await fetch(`/api/orders/${params.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.order) {
+          console.log('📦 주문 데이터 로드:', data.order);
+          setOrder(data.order);
+          setVideos(data.order.videos || []);
+        }
+      }
+    } catch (error) {
+      console.error('주문 로드 실패:', error);
+    } finally {
+      setIsLoadingOrder(false);
+    }
   };
 
-  // Mock payment history
+  const getVideoUrl = (video: MediaVideo) => {
+    if (video.provider === 'cloudflare') {
+      // Cloudflare Stream HLS URL (모바일 앱과 동일하게)
+      return `https://customer-wn4smwc3lzqmm79i.cloudflarestream.com/${video.path}/manifest/video.m3u8`;
+    }
+    return video.path;
+  };
+
+  const getVideoTypeLabel = (type: string) => {
+    if (type === 'inbound_video') return '입고';
+    if (type === 'outbound_video') return '출고';
+    return type;
+  };
+
+  if (isLoadingOrder) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">주문을 찾을 수 없습니다.</p>
+        <Button onClick={() => router.push('/dashboard/orders')} className="mt-4">
+          주문 목록으로
+        </Button>
+      </div>
+    );
+  }
+
+  // Format order data for display
+  const displayOrder = {
+    id: order.id,
+    customerName: order.customer_name || '고객명 없음',
+    customerEmail: order.customer_email || '',
+    customerPhone: order.customer_phone || '',
+    item: order.item_name || `${order.clothing_type || ''} - ${order.repair_type || ''}`,
+    description: order.item_description || order.item_name || '',
+    trackingNo: order.tracking_no || order.shipment?.pickup_tracking_no || '',
+    deliveryTrackingNo: order.shipment?.delivery_tracking_no,
+    labelUrl: null as string | null,
+    status: order.status,
+    amount: order.total_price || 0,
+    paymentMethod: order.payment_method || '신용카드',
+    paymentId: order.payment_key || order.id,
+    paymentStatus: order.payment_status || 'COMPLETED',
+    createdAt: new Date(order.created_at).toLocaleString('ko-KR'),
+    pickupAddress: [order.pickup_address, order.pickup_address_detail].filter(Boolean).join(' ') || '주소 없음',
+    deliveryAddress: [order.delivery_address, order.delivery_address_detail].filter(Boolean).join(' ') || '주소 없음',
+  };
+
+  // Payment history
   const paymentHistory = [
     {
-      id: "PAY-2024-0001",
+      id: displayOrder.paymentId,
       type: "결제",
-      amount: 15000,
+      amount: displayOrder.amount,
       status: "완료",
-      date: "2024.01.15 14:30",
+      date: displayOrder.createdAt,
     },
   ];
+
+  // Separate videos by type
+  const inboundVideos = videos.filter(v => v.type === 'inbound_video').sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  const outboundVideos = videos.filter(v => v.type === 'outbound_video').sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
   // if (!order) {
   //   router.push('/dashboard/orders');
@@ -62,31 +138,31 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         <div>
           <h1 className="text-3xl font-bold">주문 상세</h1>
           <div className="flex items-center gap-3 mt-2">
-            <p className="text-muted-foreground">{order.id}</p>
-            {order.trackingNo && (
+            <p className="text-muted-foreground">{displayOrder.id}</p>
+            {displayOrder.trackingNo && (
               <Badge variant="outline" className="font-mono text-sm">
-                송장: {order.trackingNo}
+                송장: {displayOrder.trackingNo}
               </Badge>
             )}
           </div>
         </div>
         <div className="flex gap-2">
-          {order.labelUrl && (
-            <Button variant="outline" onClick={() => window.open(order.labelUrl, '_blank')}>
+          {displayOrder.labelUrl && (
+            <Button variant="outline" onClick={() => window.open(displayOrder.labelUrl!, '_blank')}>
               송장 출력
             </Button>
           )}
           <StatusChangeDialog
-            orderId={order.id}
-            trackingNo={order.trackingNo}
-            currentStatus={order.status}
-            onStatusChanged={() => window.location.reload()}
+            orderId={displayOrder.id}
+            trackingNo={displayOrder.trackingNo}
+            currentStatus={displayOrder.status}
+            onStatusChanged={() => loadOrder()}
           />
         </div>
       </div>
 
       {/* Timeline */}
-      <OrderTimeline status={order.status} />
+      <OrderTimeline status={displayOrder.status} />
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Order Info */}
@@ -100,19 +176,19 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">수선 항목</p>
-              <p className="font-medium">{order.item}</p>
+              <p className="font-medium">{displayOrder.item}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">상세 설명</p>
-              <p className="font-medium">{order.description}</p>
+              <p className="font-medium">{displayOrder.description}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">주문 일시</p>
-              <p className="font-medium">{order.createdAt}</p>
+              <p className="font-medium">{displayOrder.createdAt}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">상태</p>
-              <Badge>수선중</Badge>
+              <Badge>{displayOrder.status}</Badge>
             </div>
           </CardContent>
         </Card>
@@ -128,15 +204,15 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">고객명</p>
-              <p className="font-medium">{order.customerName}</p>
+              <p className="font-medium">{displayOrder.customerName}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">이메일</p>
-              <p className="font-medium">{order.customerEmail}</p>
+              <p className="font-medium">{displayOrder.customerEmail}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">연락처</p>
-              <p className="font-medium">{order.customerPhone}</p>
+              <p className="font-medium">{displayOrder.customerPhone}</p>
             </div>
           </CardContent>
         </Card>
@@ -149,13 +225,13 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 <CreditCard className="h-5 w-5" />
                 결제 정보
               </CardTitle>
-              {order.paymentStatus === "COMPLETED" && (
+              {displayOrder.paymentStatus === "COMPLETED" && (
                 <PaymentRefundDialog
-                  orderId={order.id}
-                  paymentId={order.paymentId}
-                  originalAmount={order.amount}
-                  paymentMethod={order.paymentMethod}
-                  onRefunded={() => window.location.reload()}
+                  orderId={displayOrder.id}
+                  paymentId={displayOrder.paymentId}
+                  originalAmount={displayOrder.amount}
+                  paymentMethod={displayOrder.paymentMethod}
+                  onRefunded={() => loadOrder()}
                 />
               )}
             </div>
@@ -163,33 +239,33 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground">결제 금액</p>
-              <p className="text-2xl font-bold">₩{order.amount.toLocaleString()}</p>
+              <p className="text-2xl font-bold">₩{displayOrder.amount.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">결제 방법</p>
-              <p className="font-medium">{order.paymentMethod}</p>
+              <p className="font-medium">{displayOrder.paymentMethod}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">결제 상태</p>
               <Badge
                 variant={
-                  order.paymentStatus === "COMPLETED"
+                  displayOrder.paymentStatus === "COMPLETED"
                     ? "default"
-                    : order.paymentStatus === "PENDING"
+                    : displayOrder.paymentStatus === "PENDING"
                     ? "secondary"
                     : "destructive"
                 }
               >
-                {order.paymentStatus === "COMPLETED"
+                {displayOrder.paymentStatus === "COMPLETED"
                   ? "결제 완료"
-                  : order.paymentStatus === "PENDING"
+                  : displayOrder.paymentStatus === "PENDING"
                   ? "결제 대기"
                   : "결제 실패"}
               </Badge>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">결제 ID</p>
-              <p className="font-medium font-mono text-sm">{order.paymentId}</p>
+              <p className="font-medium font-mono text-sm">{displayOrder.paymentId}</p>
             </div>
           </CardContent>
         </Card>
@@ -203,10 +279,10 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 배송 정보
               </CardTitle>
               <TrackingManageDialog
-                orderId={order.id}
-                pickupTrackingNo={order.trackingNo}
-                deliveryTrackingNo={undefined}
-                onUpdated={() => window.location.reload()}
+                orderId={displayOrder.id}
+                pickupTrackingNo={displayOrder.trackingNo}
+                deliveryTrackingNo={displayOrder.deliveryTrackingNo}
+                onUpdated={() => loadOrder()}
               />
             </div>
           </CardHeader>
@@ -214,13 +290,13 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             <div>
               <p className="text-sm text-muted-foreground mb-1">수거 운송장번호</p>
               <div className="flex items-center gap-2">
-                <p className="font-medium font-mono text-sm">{order.trackingNo || "-"}</p>
-                {order.trackingNo && (
+                <p className="font-medium font-mono text-sm">{displayOrder.trackingNo || "-"}</p>
+                {displayOrder.trackingNo && (
                   <>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => navigator.clipboard.writeText(order.trackingNo)}
+                      onClick={() => navigator.clipboard.writeText(displayOrder.trackingNo)}
                     >
                       복사
                     </Button>
@@ -228,7 +304,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                       size="sm"
                       variant="outline"
                       onClick={() => window.open(
-                        `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${order.trackingNo}`,
+                        `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${displayOrder.trackingNo}`,
                         '_blank'
                       )}
                     >
@@ -244,14 +320,14 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
               <p className="text-sm text-muted-foreground mb-1">배송 운송장번호</p>
               <div className="flex items-center gap-2">
                 <p className="font-medium font-mono text-sm text-muted-foreground">
-                  {order.deliveryTrackingNo || "출고 시 발급"}
+                  {displayOrder.deliveryTrackingNo || "출고 시 발급"}
                 </p>
-                {order.deliveryTrackingNo && (
+                {displayOrder.deliveryTrackingNo && (
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => window.open(
-                      `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${order.deliveryTrackingNo}`,
+                      `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${displayOrder.deliveryTrackingNo}`,
                       '_blank'
                     )}
                   >
@@ -269,11 +345,11 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             
             <div>
               <p className="text-sm text-muted-foreground">수거지</p>
-              <p className="font-medium text-sm">{order.pickupAddress}</p>
+              <p className="font-medium text-sm">{displayOrder.pickupAddress}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">배송지</p>
-              <p className="font-medium text-sm">{order.deliveryAddress}</p>
+              <p className="font-medium text-sm">{displayOrder.deliveryAddress}</p>
             </div>
           </CardContent>
         </Card>
@@ -331,8 +407,147 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         </CardContent>
       </Card>
 
-      {/* Video Upload */}
-      <VideoUpload orderId={order.id} trackingNo={order.trackingNo} />
+      {/* Inbound Videos */}
+      {inboundVideos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5 text-blue-600" />
+              입고 영상
+            </CardTitle>
+            <CardDescription>입고 시 촬영된 영상입니다</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              {inboundVideos.map((video) => (
+                <Card key={video.id} className="overflow-hidden border-blue-200">
+                  <div className="relative aspect-video bg-gray-900 flex items-center justify-center">
+                    <Video className="h-12 w-12 text-gray-600" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setSelectedVideo(video)}
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        재생
+                      </Button>
+                    </div>
+                    {video.sequence && (
+                      <div className="absolute top-2 left-2">
+                        <Badge className="bg-blue-600">#{video.sequence}</Badge>
+                      </div>
+                    )}
+                  </div>
+                  <CardContent className="p-3">
+                    <p className="font-medium text-sm">입고 영상 {video.sequence ? `#${video.sequence}` : ''}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(video.created_at).toLocaleDateString('ko-KR')}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Outbound Videos */}
+      {outboundVideos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5 text-green-600" />
+              출고 영상
+            </CardTitle>
+            <CardDescription>출고 시 촬영된 영상입니다</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              {outboundVideos.map((video) => (
+                <Card key={video.id} className="overflow-hidden border-green-200">
+                  <div className="relative aspect-video bg-gray-900 flex items-center justify-center">
+                    <Video className="h-12 w-12 text-gray-600" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setSelectedVideo(video)}
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        재생
+                      </Button>
+                    </div>
+                    {video.sequence && (
+                      <div className="absolute top-2 left-2">
+                        <Badge className="bg-green-600">#{video.sequence}</Badge>
+                      </div>
+                    )}
+                  </div>
+                  <CardContent className="p-3">
+                    <p className="font-medium text-sm">출고 영상 {video.sequence ? `#${video.sequence}` : ''}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(video.created_at).toLocaleDateString('ko-KR')}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Video Player Modal */}
+      {selectedVideo && (
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedVideo(null)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-semibold">{getVideoTypeLabel(selectedVideo.type)} 영상</h2>
+                <p className="text-sm text-gray-500">
+                  {selectedVideo.sequence && `#${selectedVideo.sequence} • `}
+                  {new Date(selectedVideo.created_at).toLocaleString('ko-KR')}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedVideo(null)}
+              >
+                닫기
+              </Button>
+            </div>
+            <div className="p-4">
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <video
+                  src={getVideoUrl(selectedVideo)}
+                  controls
+                  autoPlay
+                  className="w-full h-full"
+                >
+                  브라우저가 비디오를 지원하지 않습니다.
+                </video>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-500">Provider</p>
+                  <p className="font-medium">{selectedVideo.provider}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Video ID</p>
+                  <p className="font-mono text-xs truncate">{selectedVideo.path}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

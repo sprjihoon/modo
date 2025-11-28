@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,21 +67,17 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          promotion_codes:promotion_code_id (code, discount_type, discount_value)
-        `)
-        .order('created_at', { ascending: false });
+      // 관리자 API를 통해 모든 주문 조회 (RLS 우회)
+      const response = await fetch('/api/orders');
+      const result = await response.json();
 
-      if (error) {
-        console.error('주문 로드 실패:', error);
-        throw error;
+      if (!response.ok || !result.success) {
+        console.error('주문 로드 실패:', result.error);
+        throw new Error(result.error || '주문 조회 실패');
       }
       
-      console.log('Loaded orders:', data);
-      setAllOrders(data || []);
+      console.log('Loaded orders:', result.data);
+      setAllOrders(result.data || []);
     } catch (error: any) {
       console.error('주문 조회 실패:', error);
     } finally {

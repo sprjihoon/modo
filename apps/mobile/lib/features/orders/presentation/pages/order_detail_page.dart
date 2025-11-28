@@ -1610,19 +1610,21 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             _buildComparisonVideoCard(context),
           ],
           
-          // 개별 영상
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildVideoCard(context, '입고 영상', true, hasInboundVideo),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildVideoCard(context, '출고 영상', false, hasOutboundVideo),
-              ),
-            ],
-          ),
+          // 개별 영상 (전후 비교 영상이 있을 때는 숨기기)
+          if (!hasBothVideos) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildVideoCard(context, '입고 영상', true, hasInboundVideo),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildVideoCard(context, '출고 영상', false, hasOutboundVideo),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
