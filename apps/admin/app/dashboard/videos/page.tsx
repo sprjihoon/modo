@@ -15,6 +15,8 @@ interface MediaVideo {
   provider: string;
   path: string;
   created_at: string;
+  pickup_tracking_no?: string;  // 추가: 입고 송장번호
+  delivery_tracking_no?: string;  // 추가: 출고 송장번호
 }
 
 export default function VideosPage() {
@@ -60,10 +62,19 @@ export default function VideosPage() {
   };
 
   const filteredVideos = videos.filter(
-    (video) =>
-      video.final_waybill_no.toLowerCase().includes(search.toLowerCase()) ||
-      video.type.toLowerCase().includes(search.toLowerCase())
+    (video) => {
+      const searchLower = search.toLowerCase();
+      return (
+        video.final_waybill_no?.toLowerCase().includes(searchLower) ||
+        video.type?.toLowerCase().includes(searchLower) ||
+        video.pickup_tracking_no?.toLowerCase().includes(searchLower) ||
+        video.delivery_tracking_no?.toLowerCase().includes(searchLower)
+      );
+    }
   );
+
+  console.log('🎬 검색어:', search);
+  console.log('🎬 필터링된 영상:', filteredVideos.length, '/ 전체:', videos.length);
 
   return (
     <div className="space-y-6">
