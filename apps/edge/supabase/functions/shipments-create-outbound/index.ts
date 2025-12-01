@@ -10,7 +10,7 @@
 
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { insertOrder, getApprovalNumber, type InsertOrderParams } from '../_shared/epost/index.ts';
+import { insertOrder, getApprovalNumber, getDeliveryCode, type InsertOrderParams } from '../_shared/epost/index.ts';
 
 interface CreateOutboundRequest {
   orderId: string;
@@ -157,13 +157,28 @@ Deno.serve(async (req) => {
       return errorResponse('우체국 API 응답 오류 (운송장번호 없음)', 500);
     }
 
+    // 6-1. 집배코드 조회 (배송지 우편번호로 상세 분류 코드 조회)
+    let deliveryCodeInfo = {};
+    if (order.delivery_zipcode) {
+      try {
+        console.log('🔍 집배코드 조회 시작, 우편번호:', order.delivery_zipcode);
+        deliveryCodeInfo = await getDeliveryCode({ zipcode: order.delivery_zipcode });
+        console.log('✅ 집배코드 조회 성공:', deliveryCodeInfo);
+      } catch (codeError: any) {
+        console.warn('⚠️ 집배코드 조회 실패 (계속 진행):', codeError.message);
+      }
+    }
+
     // 7. shipments 테이블 업데이트
     const { error: updateError } = await supabase
       .from('shipments')
       .update({
         delivery_tracking_no: epostResult.regiNo,
-        // API 응답 저장 (도착지 코드 등)
-        delivery_info: epostResult,
+        // API 응답과 집배코드 정보 병합하여 저장
+        delivery_info: {
+          ...epostResult,
+          ...deliveryCodeInfo,
+        },
         updated_at: new Date().toISOString(),
       })
       .eq('order_id', orderId);

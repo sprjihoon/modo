@@ -58,6 +58,12 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
 
     const { shipment, order } = result.data;
     console.log("📦 조회 성공 - Order ID:", order?.id, "Shipment:", shipment?.tracking_no);
+    console.log("👤 고객 정보:", {
+      customer_name: order?.customer_name,
+      customer_phone: order?.customer_phone,
+      item_name: order?.item_name,
+    });
+    console.log("📋 delivery_info:", shipment?.delivery_info);
 
     if (!shipment || !order) {
       console.error("❌ 필수 데이터 누락:", { shipment, order });
@@ -158,6 +164,7 @@ export default function InboundPage() {
   const [showShippingLabel, setShowShippingLabel] = useState(false);
   const [showInboundVideo, setShowInboundVideo] = useState(false);
   const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
+  const [showBoxOpenVideo, setShowBoxOpenVideo] = useState(false);
 
   // 송장 조회 함수 (실제 DB 연동)
   const handleLookup = async () => {
@@ -495,6 +502,20 @@ export default function InboundPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">처리 옵션</h2>
         
         <div className="space-y-3">
+          {/* 박스 오픈 영상 촬영 */}
+          <button
+            disabled={!result}
+            onClick={() => setShowBoxOpenVideo(true)}
+            className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
+              result
+                ? "bg-orange-600 text-white hover:bg-orange-700"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            <span className="text-lg">📦</span>
+            박스 오픈 영상 촬영 (CS 확인용)
+          </button>
+
           {/* 입고 영상 촬영 - 아이템별 */}
           {result && (() => {
             const itemCount = Math.max(
@@ -684,14 +705,19 @@ export default function InboundPage() {
                   trackingNo: result.outboundTrackingNo,
                   
                   // 주문 정보
-                  orderDate: new Date().toLocaleDateString('ko-KR'),
+                  orderDate: new Date().toLocaleDateString('ko-KR', { 
+                    year: 'numeric', 
+                    month: 'numeric', 
+                    day: 'numeric' 
+                  }).replace(/\./g, '.').trim(), // "2025. 1. 1." 형식
                   recipientName: result.customerName,
-                  sellerName: "모두의수선",
-                  orderNumber: result.orderId.substring(0, 13),
+                  sellerName: "텔리언",
+                  // 주문번호: 우체국 API의 resNo(소포 예약번호)의 마지막 6자리 사용
+                  orderNumber: result.deliveryInfo?.resNo?.substring(result.deliveryInfo.resNo.length - 6) || result.orderId.substring(0, 6),
                   
-                  // 보내는 분
-                  senderAddress: "대구광역시 동구 동촌로 1 동대구우체국 2층 소포실",
-                  senderName: "모두의수선",
+                  // 보내는 분 (이지어드민 송장과 동일하게)
+                  senderAddress: "대구 동구 동촌로 1 (인석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실",
+                  senderName: "텔리언",
                   senderPhone: "010-2723-9490",
                   
                   // 받는 분
@@ -709,12 +735,18 @@ export default function InboundPage() {
                   volume: "60cm",
                   
                   // 우체국 분류 코드 (API 응답에서 매핑)
-                  // arrCnpoNm: 도착 집중국 (예: 동대구)
-                  // delivPoNm: 배달 우체국 (예: 수성)
-                  // delivAreaCd: 배달 구역 (예: A01)
-                  deliveryPlaceCode: result.deliveryInfo?.arrCnpoNm || "도착국",
-                  deliveryTeamCode: result.deliveryInfo?.delivPoNm || "배달국",
-                  deliverySequence: result.deliveryInfo?.delivAreaCd || "코스",
+                  // arrCnpoNm: 도착 집중국 (예: "대구M")
+                  // delivPoNm: 배달 우체국 (예: "동대구")
+                  // delivAreaCd: 배달 구역 (예: "A01" 또는 "-560-")
+                  deliveryPlaceCode: result.deliveryInfo?.arrCnpoNm || "",
+                  deliveryTeamCode: result.deliveryInfo?.delivPoNm || "",
+                  deliverySequence: result.deliveryInfo?.delivAreaCd || "",
+                  
+                  // 집배코드조회 API에서 받는 상세 분류 코드 (경1 701 56 05)
+                  sortCode1: result.deliveryInfo?.sortCode1 || "",
+                  sortCode2: result.deliveryInfo?.sortCode2 || "",
+                  sortCode3: result.deliveryInfo?.sortCode3 || "",
+                  sortCode4: result.deliveryInfo?.sortCode4 || "",
                 }}
               />
             </div>
@@ -759,6 +791,55 @@ export default function InboundPage() {
                   onClose={() => {
                     console.log('🚪 입고 WebcamRecorder 닫기');
                     setShowInboundVideo(false);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 박스 오픈 영상 촬영 다이얼로그 */}
+      {showBoxOpenVideo && result && (() => {
+        const orderIdValue = result.orderId;
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+                <h2 className="text-lg font-semibold">📦 박스 오픈 영상 촬영 (CS 확인용)</h2>
+                <button 
+                  onClick={() => {
+                    console.log('🚪 박스 오픈 다이얼로그 닫기');
+                    setShowBoxOpenVideo(false);
+                  }} 
+                  className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
+              <div className="p-4">
+                <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-800">
+                    📦 <strong>박스 오픈 영상</strong>은 고객에게 보여주는 영상이 아닌, CS 분쟁 발생 시 확인용으로 사용됩니다.<br />
+                    박스를 개봉하는 전 과정을 촬영해주세요.
+                  </p>
+                </div>
+                <WebcamRecorder
+                  orderId={orderIdValue}
+                  sequence={0}
+                  onUploaded={(videoId, duration) => {
+                    console.log(`✅ 박스 오픈 영상 업로드 완료: ${videoId}`);
+                    
+                    setShowBoxOpenVideo(false);
+                    
+                    setTimeout(() => {
+                      alert(`✅ 박스 오픈 영상이 저장되었습니다.\n\n영상 길이: ${duration}초\n영상 ID: ${videoId}\n\n※ 이 영상은 CS 확인용으로만 사용됩니다.`);
+                    }, 100);
+                  }}
+                  onClose={() => {
+                    console.log('🚪 박스 오픈 WebcamRecorder 닫기');
+                    setShowBoxOpenVideo(false);
                   }}
                 />
               </div>

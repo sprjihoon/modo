@@ -12,6 +12,8 @@ import type {
   GetResInfoResponse,
   CancelOrderParams,
   CancelOrderResponse,
+  DeliveryCodeParams,
+  DeliveryCodeResponse,
 } from './types.ts';
 
 /**
@@ -173,6 +175,91 @@ export async function getStoppedZipCodes(zipCd?: string): Promise<any[]> {
   // 간단한 XML 파싱 (실제로는 XML 파서 라이브러리 사용 권장)
   // 여기서는 정규식으로 간단히 처리
   return [];
+}
+
+/**
+ * 우체국명 조회
+ * 공공데이터포털 - 우체국명 조회 API
+ * API 키: c9199c6be5cf67e8b1764577878692
+ */
+export async function getPostOfficeInfo(params: PostOfficeParams): Promise<PostOfficeResponse> {
+  const apiKey = Deno.env.get('EPOST_POST_OFFICE_API_KEY') || 'c9199c6be5cf67e8b1764577878692';
+  
+  try {
+    const url = new URL('http://openapi.epost.go.kr/postal/retrievePostNmList');
+    url.searchParams.append('serviceKey', apiKey);
+    url.searchParams.append('postcd', params.zipcode.substring(0, 3)); // 우편번호 앞 3자리
+    url.searchParams.append('numOfRows', '1');
+    
+    console.log('🔍 우체국명 조회 API 호출:', url.toString());
+    
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`우체국명 조회 API HTTP Error: ${response.status}`);
+    }
+    
+    const xmlText = await response.text();
+    console.log('📥 우체국명 조회 응답:', xmlText);
+    
+    return {
+      postOfficeName: parseXmlValue(xmlText, 'postOfficeName') || undefined,
+      zipcode: parseXmlValue(xmlText, 'zipcode') || undefined,
+      address: parseXmlValue(xmlText, 'address') || undefined,
+    };
+  } catch (error: any) {
+    console.warn('⚠️ 우체국명 조회 실패:', error);
+    return {};
+  }
+}
+
+/**
+ * 집배코드 조회
+ * 공공데이터포털 - 집배구 구분코드 조회서비스
+ * API 키: c9199c6be5cf67e8e1764577163889
+ */
+export async function getDeliveryCode(params: DeliveryCodeParams): Promise<DeliveryCodeResponse> {
+  const apiKey = Deno.env.get('EPOST_DELIVERY_CODE_API_KEY') || 'c9199c6be5cf67e8e1764577163889';
+  
+  try {
+    // 공공데이터포털 집배코드조회 API 호출
+    const url = new URL('http://openapi.epost.go.kr/postal/retrieveNewAdressAreaCd');
+    url.searchParams.append('serviceKey', apiKey);
+    url.searchParams.append('srchwrd', params.zipcode); // 우편번호로 검색
+    url.searchParams.append('numOfRows', '1');
+    url.searchParams.append('pageNo', '1');
+    
+    console.log('🔍 집배코드조회 API 호출:', url.toString());
+    
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`집배코드조회 API HTTP Error: ${response.status}`);
+    }
+    
+    const xmlText = await response.text();
+    console.log('📥 집배코드조회 응답:', xmlText);
+    
+    // XML 파싱
+    const result: DeliveryCodeResponse = {
+      arrCnpoNm: parseXmlValue(xmlText, 'sopoArrcnpoNm') || undefined,
+      delivPoNm: parseXmlValue(xmlText, 'delivPoNm') || undefined,
+      delivAreaCd: parseXmlValue(xmlText, 'dlvyareacd') || undefined,
+      // 추가 분류 코드 (필드명은 실제 응답에 따라 조정 필요)
+      sortCode1: parseXmlValue(xmlText, 'sortCode1') || undefined,
+      sortCode2: parseXmlValue(xmlText, 'sortCode2') || undefined,
+      sortCode3: parseXmlValue(xmlText, 'sortCode3') || undefined,
+      sortCode4: parseXmlValue(xmlText, 'sortCode4') || undefined,
+    };
+    
+    console.log('✅ 집배코드 조회 성공:', result);
+    return result;
+  } catch (error: any) {
+    console.error('❌ 집배코드 조회 실패:', error);
+    // 실패해도 빈 객체 반환 (필수 아님)
+    return {};
+  }
 }
 
 /**

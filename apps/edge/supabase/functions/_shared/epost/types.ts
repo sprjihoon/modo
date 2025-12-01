@@ -97,6 +97,48 @@ export interface GetResInfoResponse {
 }
 
 /**
+ * 우체국명 조회 파라미터
+ * 공공데이터포털 - 우체국명 조회 API
+ * API 키: c9199c6be5cf67e8b1764577878692
+ */
+export interface PostOfficeParams {
+  zipcode: string;     // 우편번호 (5자리)
+}
+
+/**
+ * 우체국명 조회 응답
+ */
+export interface PostOfficeResponse {
+  postOfficeName?: string;  // 우체국명
+  zipcode?: string;         // 우편번호
+  address?: string;         // 주소
+}
+
+/**
+ * 집배코드 조회 파라미터
+ * 공공데이터포털 - 집배구 구분코드 조회서비스
+ * API 키: c9199c6be5cf67e8e1764577163889
+ */
+export interface DeliveryCodeParams {
+  zipcode: string;     // 우편번호 (5자리)
+}
+
+/**
+ * 집배코드 조회 응답
+ */
+export interface DeliveryCodeResponse {
+  postOffice?: string;      // 배달 우체국
+  deliveryArea?: string;    // 집배구 코드
+  sortCode1?: string;       // 분류 코드 1 (경1)
+  sortCode2?: string;       // 분류 코드 2 (701)
+  sortCode3?: string;       // 분류 코드 3 (56)
+  sortCode4?: string;       // 분류 코드 4 (05)
+  arrCnpoNm?: string;       // 도착 집중국
+  delivPoNm?: string;       // 배달 우체국
+  delivAreaCd?: string;     // 배달 지역 코드
+}
+
+/**
  * 소포신청 취소 파라미터
  * API ID: SHPAPI-U02-01
  */

@@ -27,19 +27,34 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
   const [blob, setBlob] = useState<Blob | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const init = async () => {
       try {
+        console.log("🔍 카메라 장치 목록 조회 중...");
         const list = await navigator.mediaDevices.enumerateDevices();
         const videoInputs = list.filter((d) => d.kind === "videoinput");
+        console.log("📹 카메라 장치 발견:", videoInputs.length, "개");
+        
+        if (videoInputs.length === 0) {
+          throw new Error("카메라 장치를 찾을 수 없습니다.");
+        }
+        
         setDevices(videoInputs);
+        
+        // deviceId가 있는 카메라 찾기
         const preferred =
-          videoInputs.find((d) => /usb|webcam|camera/i.test(d.label))?.deviceId ||
-          videoInputs[0]?.deviceId;
+          videoInputs.find((d) => d.deviceId && /usb|webcam|camera/i.test(d.label))?.deviceId ||
+          videoInputs.find((d) => d.deviceId)?.deviceId ||
+          "default"; // deviceId가 없으면 "default" 사용
+        
+        console.log("✅ 선택된 카메라:", preferred);
         setDeviceId(preferred);
       } catch (e: any) {
+        console.error("❌ 카메라 장치 조회 실패:", e);
         setError(e.message || "카메라 장치를 찾을 수 없습니다.");
+        setLoading(false);
       }
     };
     init();
@@ -49,8 +64,14 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
   }, []);
 
   useEffect(() => {
-    if (!deviceId) return;
-    startPreview();
+    if (!deviceId || deviceId === "") {
+      console.log("⏸️ deviceId 없음, 카메라 시작 대기");
+      return;
+    }
+    console.log("🚀 deviceId 변경 감지, 카메라 시작:", deviceId);
+    startPreview().catch((e) => {
+      console.error("❌ startPreview 실패:", e);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
@@ -63,21 +84,68 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
 
   const startPreview = async () => {
     try {
+      setLoading(true);
       stopStream();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          deviceId,
-          width: { ideal: 640 },
-          height: { ideal: 360 },
-          frameRate: { ideal: 24, max: 24 },
-        },
-        audio: false,
-      });
+      setError(null);
+      
+      console.log("🎥 카메라 시작 시도, deviceId:", deviceId);
+      
+      // 타임아웃을 20초로 늘려서 사용자가 권한 대화상자를 확인할 시간 확보
+      const getUserMediaWithTimeout = async (constraints: MediaStreamConstraints, timeout = 20000) => {
+        return Promise.race([
+          navigator.mediaDevices.getUserMedia(constraints),
+          new Promise<MediaStream>((_, reject) => 
+            setTimeout(() => reject(new Error("카메라 접근 시간이 초과되었습니다. 브라우저 주소창에서 카메라 권한을 허용해주세요.")), timeout)
+          )
+        ]);
+      };
+
+      let stream: MediaStream | null = null;
+
+      // 1차 시도: 가장 단순한 제약 조건으로 시도 (기본 카메라)
+      try {
+        console.log("🎥 1차 시도: 기본 카메라 (제약 조건 최소화)");
+        stream = await getUserMediaWithTimeout({
+          video: true,
+          audio: false,
+        });
+        console.log("✅ 1차 시도 성공");
+      } catch (e: any) {
+        console.warn("⚠️ 1차 시도 실패:", e.message);
+        
+        // 2차 시도: deviceId가 있고 "default"가 아니면 해당 카메라 시도
+        if (deviceId && deviceId !== "default") {
+          try {
+            console.log("🎥 2차 시도: deviceId 사용:", deviceId);
+            stream = await getUserMediaWithTimeout({
+              video: {
+                deviceId: { ideal: deviceId },
+              },
+              audio: false,
+            });
+            console.log("✅ 2차 시도 성공");
+          } catch (e2: any) {
+            console.warn("⚠️ 2차 시도 실패:", e2.message);
+            // 최종적으로 원래 에러를 throw
+            throw e;
+          }
+        } else {
+          throw e;
+        }
+      }
+
+      if (!stream) {
+        throw new Error("카메라 스트림을 가져올 수 없습니다.");
+      }
+
+      console.log("✅ 카메라 스트림 획득 성공");
       mediaStreamRef.current = stream;
+      
       if (videoRef.current) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (videoRef.current as any).srcObject = stream;
         await videoRef.current.play();
+        console.log("✅ 비디오 재생 시작");
       }
       
       // Canvas 초기화
@@ -87,8 +155,65 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
         canvas.width = 640;
         canvas.height = 360;
       }
+      
+      // 권한을 받은 후 장치 목록 다시 조회 (실제 카메라 이름 가져오기)
+      try {
+        const updatedList = await navigator.mediaDevices.enumerateDevices();
+        const updatedVideoInputs = updatedList.filter((d) => d.kind === "videoinput");
+        if (updatedVideoInputs.length > 0) {
+          console.log("🔄 카메라 목록 업데이트:", updatedVideoInputs.length, "개");
+          setDevices(updatedVideoInputs);
+          
+          // 현재 사용 중인 카메라 ID 찾기
+          const currentTrack = stream.getVideoTracks()[0];
+          const currentDeviceId = currentTrack?.getSettings()?.deviceId;
+          if (currentDeviceId) {
+            console.log("📹 현재 사용 중인 카메라:", currentDeviceId);
+            setDeviceId(currentDeviceId);
+          }
+        }
+      } catch (e) {
+        console.warn("⚠️ 카메라 목록 업데이트 실패:", e);
+      }
+      
+      setLoading(false);
+      console.log("✅ 카메라 준비 완료");
     } catch (e: any) {
-      setError(e.message || "카메라 미리보기에 실패했습니다.");
+      setLoading(false);
+      let errorMessage = "카메라 미리보기에 실패했습니다.";
+      
+      if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
+        errorMessage = "카메라 권한이 거부되었습니다. 브라우저 주소창 왼쪽의 🔒 아이콘을 클릭하여 카메라 권한을 '허용'으로 변경하고 페이지를 새로고침해주세요.";
+      } else if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") {
+        errorMessage = "카메라 장치를 찾을 수 없습니다. 카메라가 컴퓨터에 연결되어 있는지 확인해주세요.";
+      } else if (e.name === "NotReadableError" || e.name === "TrackStartError") {
+        errorMessage = "카메라가 다른 프로그램에서 사용 중입니다. Zoom, Teams, Skype 등 카메라를 사용하는 프로그램을 모두 종료한 후 다시 시도해주세요.";
+      } else if (e.name === "OverconstrainedError") {
+        errorMessage = "선택한 카메라가 요구사항을 충족하지 못합니다. 다른 카메라를 선택해주세요.";
+      } else if (e.name === "AbortError" || (e.message && e.message.includes("Timeout starting video source"))) {
+        errorMessage = `카메라가 응답하지 않습니다. 아래 방법을 시도해보세요:
+
+1️⃣ 다른 프로그램에서 카메라를 사용 중이라면 모두 종료하세요
+   (Zoom, Teams, Skype, OBS, Discord 등)
+
+2️⃣ Windows 카메라 앱으로 카메라가 작동하는지 확인하세요
+   (시작 > 카메라 검색 후 실행)
+
+3️⃣ USB 카메라라면 다시 연결해보세요
+   (케이블을 뽑았다가 다시 연결)
+
+4️⃣ 브라우저를 완전히 닫고 다시 열어보세요
+   (모든 Chrome/Edge 창을 닫고 재시작)
+
+5️⃣ 컴퓨터를 재시작해보세요`;
+      } else if (e.message && e.message.includes("초과")) {
+        errorMessage = e.message + "\n\n브라우저 주소창 왼쪽에 카메라 권한 요청 팝업이 표시되었다면 '허용'을 클릭해주세요.";
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      
+      console.error("❌ 카메라 시작 실패:", e.name, e.message, e);
+      setError(errorMessage);
     }
   };
 
@@ -231,6 +356,21 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
 
   return (
     <div className="space-y-3">
+      {/* 카메라 권한 안내 */}
+      {loading && !error && (
+        <div className="p-3 bg-blue-50 border-2 border-blue-300 rounded-lg animate-pulse">
+          <div className="flex items-start gap-2">
+            <span className="text-lg">🎥</span>
+            <div>
+              <p className="text-sm text-blue-900 font-semibold">카메라 권한 요청 중...</p>
+              <p className="text-xs text-blue-700 mt-1">
+                브라우저에서 카메라 권한을 요청하는 팝업이 나타나면 <strong>"허용"</strong>을 클릭해주세요.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* 안내 메시지 */}
       {maxDuration && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -272,6 +412,17 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
 
       <div className="relative">
         <video ref={videoRef} className="w-full rounded border" muted playsInline />
+        
+        {/* 로딩 중 오버레이 */}
+        {loading && (
+          <div className="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center rounded">
+            <div className="text-center text-white">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-3"></div>
+              <p className="text-sm">카메라 준비 중...</p>
+            </div>
+          </div>
+        )}
+        
         {/* 녹화 중 오버레이 */}
         {recording && (
           <>
@@ -289,13 +440,38 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
         )}
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div className="flex-1">
+              <p className="text-sm text-red-800 font-semibold mb-3 whitespace-pre-line">{error}</p>
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  onClick={startPreview}
+                  className="px-6 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors"
+                >
+                  🔄 다시 시도
+                </button>
+                <a
+                  href="ms-settings:privacy-webcam"
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                  title="Windows 카메라 설정 열기"
+                >
+                  ⚙️ Windows 카메라 설정
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         {!recording ? (
           <button
             onClick={startRecord}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2"
+            disabled={loading || !!error || !mediaStreamRef.current}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             <span className="text-xl">⏺</span>
             녹화 시작

@@ -40,11 +40,15 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(base64, "base64");
     const blob = new Blob([buffer], { type: mimeType || "video/webm" });
 
+    // sequence=0은 박스 오픈 영상 (CS 확인용)
+    const videoType = sequence === 0 ? "box_open_video" : "inbound_video";
+    console.log(`📹 영상 타입: ${videoType} (sequence: ${sequence})`);
+
     const videoId = await uploadToCloudflareStream(
       blob, 
       finalWaybillNo, 
-      "inbound_video",
-      sequence || 1,
+      videoType,
+      sequence || 0,
       durationSeconds
     );
     return NextResponse.json({ success: true, videoId, duration: durationSeconds });

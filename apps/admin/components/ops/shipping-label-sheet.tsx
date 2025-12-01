@@ -18,7 +18,8 @@ export interface ShippingLabelData {
   orderDate: string;        // 2: 송장출력일
   recipientName: string;    // 9, 28: 수령자명
   sellerName: string;       // 11: 판매처 (모두의수선)
-  orderNumber: string;      // 14: 주문번호
+  orderNumber: string;      // 14: 주문번호 (짧은 형식)
+  customerOrderId?: string; // 고객 주문처 UUID
   
   // 보내는 분 (송화인)
   senderAddress: string;    // 19: 송화인주소
@@ -42,9 +43,15 @@ export interface ShippingLabelData {
   deliveryCode?: string;    // 배송코드
   
   // 우체국 분류 코드 (상단 큰 글씨)
-  deliveryPlaceCode?: string; // 배송코드2 (도착 집중국)
-  deliveryTeamCode?: string;  // 배송코드3 (배달 팀)
-  deliverySequence?: string;  // 배송코드4 (배달 순서)
+  deliveryPlaceCode?: string; // 배송코드2 (도착 집중국) - arrCnpoNm
+  deliveryTeamCode?: string;  // 배송코드3 (배달 우체국) - delivPoNm
+  deliverySequence?: string;  // 배송코드4 (배달 순서) - delivAreaCd
+  
+  // 집배코드조회 API에서 받는 상세 분류 코드
+  sortCode1?: string;  // 경1
+  sortCode2?: string;  // 701
+  sortCode3?: string;  // 56
+  sortCode4?: string;  // 05
 }
 
 interface Props {
@@ -80,10 +87,15 @@ const COORDS: Record<string, Coord> = {
   trackingNoBarcode: [547, 434, 300, 70],  // 35
   trackingNoBottom: [604, 508, 200, 20],   // 36
   
-  // 분류 코드 (상단)
-  deliveryPlaceCode: [444, 70, 120, 20],   // 3: 배송코드2
-  deliveryTeamCode: [611, 70, 120, 20],    // 5: 배송코드3
-  deliverySequence: [511, 13, 120, 50],    // 4: 배송코드4 (가장 큼)
+  // 분류 코드 (상단) - 이지어드민 송장 기준
+  sortCode1: [300, 30, 80, 30],            // 경1 (좌측)
+  sortCode2: [400, 30, 80, 30],            // 701
+  sortCode3: [500, 30, 80, 30],            // 56
+  sortCode4: [600, 30, 80, 30],            // 05 (우측)
+  
+  deliverySequence: [511, 13, 120, 50],    // -560- (가장 큼, 중앙 상단)
+  deliveryPlaceCode: [444, 70, 120, 20],   // 대구M (중앙)
+  deliveryTeamCode: [611, 70, 120, 20],    // 동대구 (우측)
   
   memo: [13, 566, 800, 22],                // 37
 };
@@ -97,6 +109,17 @@ const FONT_STYLE = {
 };
 
 export function ShippingLabelSheet({ data }: Props) {
+  // 운송장 번호 포맷팅 (xxxxx-xxxx-xxxx 형식)
+  const formatTrackingNo = (trackingNo: string) => {
+    if (!trackingNo) return '';
+    // 13자리 숫자를 5-4-4 형식으로 변환
+    const cleaned = trackingNo.replace(/[^0-9]/g, '');
+    if (cleaned.length === 13) {
+      return `${cleaned.substring(0, 5)}-${cleaned.substring(5, 9)}-${cleaned.substring(9, 13)}`;
+    }
+    return trackingNo;
+  };
+
   // 좌표 기반 텍스트 렌더링 헬퍼
   const renderText = (key: string, text: string | number | undefined, style: React.CSSProperties = {}) => {
     const coord = COORDS[key];
@@ -129,23 +152,41 @@ export function ShippingLabelSheet({ data }: Props) {
     const coord = COORDS['itemsList'];
     const [x, y, w, h] = coord;
     
+    // 상품 목록을 번호 매기기
+    const items = data.itemsList.split('\n').filter(Boolean);
+    const formattedList = items.map((item, idx) => `${idx + 1}. ${item}`).join('\n');
+    
     return (
-      <div
-        style={{
+      <>
+        {/* "품목 (총 N개)" 레이블 */}
+        <div style={{
           position: "absolute",
           left: `${x}px`,
-          top: `${y}px`,
-          width: `${w}px`,
-          height: `${h}px`,
-          overflow: "hidden",
+          top: `${y - 25}px`,
           ...FONT_STYLE,
-          fontSize: "11px",
-          whiteSpace: "pre-wrap", // 줄바꿈 허용
-          border: "1px solid transparent", // 디버깅용
-        }}
-      >
-        {data.itemsList}
-      </div>
+          fontSize: "12px",
+          fontWeight: "bold"
+        }}>
+          품목 (총 {items.length}개)
+        </div>
+        
+        {/* 상품 목록 */}
+        <div
+          style={{
+            position: "absolute",
+            left: `${x}px`,
+            top: `${y}px`,
+            width: `${w}px`,
+            height: `${h}px`,
+            overflow: "hidden",
+            ...FONT_STYLE,
+            fontSize: "11px",
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {formattedList}
+        </div>
+      </>
     );
   };
 
@@ -193,30 +234,110 @@ export function ShippingLabelSheet({ data }: Props) {
         }}
       >
         {/* --- 1. 상단 정보 --- */}
-        {renderText('orderDate', data.orderDate)}
+        {/* 0차 출력 표시 */}
+        <div style={{ 
+          position: "absolute", 
+          left: "20px", 
+          top: "20px", 
+          ...FONT_STYLE,
+          fontSize: "14px",
+          fontWeight: "bold"
+        }}>
+          0차 출력
+        </div>
+        
+        {renderText('orderDate', `신청일: ${data.orderDate}`)}
         {renderText('recipientNameTop', data.recipientName)}
         {renderText('sellerName', data.sellerName)}
-        {renderText('orderNumber', data.orderNumber)}
+        {renderText('orderNumber', `주문번호: ${data.orderNumber}`)}
         
-        {/* 분류 코드 (가장 중요) */}
-        {renderText('deliveryPlaceCode', data.deliveryPlaceCode, { fontSize: "16px", fontWeight: "bold" })}
-        {renderText('deliveryTeamCode', data.deliveryTeamCode, { fontSize: "16px", fontWeight: "bold" })}
-        {renderText('deliverySequence', data.deliverySequence, { fontSize: "35px", fontWeight: "bold" })}
+        {/* 상단 분류 코드 - 우체국 자동 분류용 */}
+        {/* 상세 분류 코드: 경1 701 56 05 */}
+        {data.sortCode1 && renderText('sortCode1', data.sortCode1, { 
+          fontSize: "24px", 
+          fontWeight: "bold",
+          textAlign: "center" 
+        })}
+        {data.sortCode2 && renderText('sortCode2', data.sortCode2, { 
+          fontSize: "24px", 
+          fontWeight: "bold",
+          textAlign: "center" 
+        })}
+        {data.sortCode3 && renderText('sortCode3', data.sortCode3, { 
+          fontSize: "24px", 
+          fontWeight: "bold",
+          textAlign: "center" 
+        })}
+        {data.sortCode4 && renderText('sortCode4', data.sortCode4, { 
+          fontSize: "24px", 
+          fontWeight: "bold",
+          textAlign: "center" 
+        })}
         
-        {/* 중량/용적/요금 (고정값 또는 데이터) */}
-        <div style={{ position: "absolute", left: "20px", top: "181px", ...FONT_STYLE }}>
-          중량:{data.weight || "2kg"} 용적:{data.volume || "60cm"}
+        {/* 배달 지역 코드: -560- (가운데 크게) */}
+        {data.deliverySequence && renderText('deliverySequence', data.deliverySequence, { 
+          fontSize: "40px", 
+          fontWeight: "900",
+          textAlign: "center",
+          letterSpacing: "1px"
+        })}
+        
+        {/* 도착 집중국과 배달 우체국: 대구M 동대구 */}
+        {data.deliveryPlaceCode && renderText('deliveryPlaceCode', data.deliveryPlaceCode, { 
+          fontSize: "18px", 
+          fontWeight: "bold",
+          textAlign: "center" 
+        })}
+        {data.deliveryTeamCode && renderText('deliveryTeamCode', data.deliveryTeamCode, { 
+          fontSize: "18px", 
+          fontWeight: "bold",
+          textAlign: "center" 
+        })}
+        
+        {/* 주문인 정보 */}
+        <div style={{ position: "absolute", left: "20px", top: "100px", ...FONT_STYLE, fontSize: "11px" }}>
+          주문인: {data.recipientName}
         </div>
-        <div style={{ position: "absolute", left: "261px", top: "181px", ...FONT_STYLE }}>
-          신용
+        <div style={{ position: "absolute", left: "20px", top: "115px", ...FONT_STYLE, fontSize: "11px" }}>
+          고객 주문처: {data.sellerName} 수기
+        </div>
+        {data.orderNumber && (
+          <div style={{ position: "absolute", left: "20px", top: "133px", ...FONT_STYLE, fontSize: "11px" }}>
+            주문번호: {data.orderNumber}
+          </div>
+        )}
+        
+        {/* 중량/용적/요금 */}
+        <div style={{ position: "absolute", left: "20px", top: "153px", ...FONT_STYLE, fontSize: "11px" }}>
+          중량:{data.weight || "2kg"} 용적:{data.volume || "60cm"} 요금: 신용 0
         </div>
 
         {/* --- 2. 보내는 분 --- */}
+        <div style={{ 
+          position: "absolute", 
+          left: "350px", 
+          top: "85px", 
+          ...FONT_STYLE,
+          fontSize: "14px",
+          fontWeight: "bold"
+        }}>
+          보내는 분
+        </div>
         {renderText('senderAddress', data.senderAddress, { whiteSpace: "normal", fontSize: "13px" })}
         {renderText('senderName', data.senderName)}
         {renderText('senderPhone', data.senderPhone)}
 
         {/* --- 3. 받는 분 --- */}
+        <div style={{ 
+          position: "absolute", 
+          left: "350px", 
+          top: "195px", 
+          ...FONT_STYLE,
+          fontSize: "14px",
+          fontWeight: "bold"
+        }}>
+          받는 분
+        </div>
         {/* 우편번호 바코드 */}
         <img
           src={`https://barcode.tec-it.com/barcode.ashx?data=${data.recipientZipcode}&code=Code128&translate-esc=on`}
@@ -232,7 +353,7 @@ export function ShippingLabelSheet({ data }: Props) {
         />
         
         {renderText('recipientZipcode', data.recipientZipcode, { fontSize: "14px", fontWeight: "bold" })}
-        {renderText('totalQuantity', `${data.totalQuantity}개`)}
+        {renderText('totalQuantity', `[총 ${data.totalQuantity}개]`)}
         
         {renderText('recipientAddress', data.recipientAddress, { 
           whiteSpace: "normal", 
@@ -242,10 +363,21 @@ export function ShippingLabelSheet({ data }: Props) {
         })}
         {renderText('recipientName', data.recipientName, { fontSize: "16px", fontWeight: "bold" })}
         {renderText('recipientPhone', data.recipientPhone, { fontSize: "14px" })}
-        {renderText('recipientTel', data.recipientTel || data.recipientPhone, { fontSize: "14px" })}
+        {/* 받는 분 전화번호 2번째 줄 (동일 번호) */}
+        {renderText('recipientTel', data.recipientPhone, { fontSize: "14px" })}
         
         {/* --- 4. 운송장 번호 --- */}
-        {renderText('trackingNoText', data.trackingNo, { fontSize: "14px", fontWeight: "bold" })}
+        {/* 등기번호 레이블과 값 */}
+        <div style={{ 
+          position: "absolute", 
+          left: "378px", 
+          top: "335px", 
+          ...FONT_STYLE,
+          fontSize: "11px"
+        }}>
+          등기번호:
+        </div>
+        {renderText('trackingNoText', formatTrackingNo(data.trackingNo), { fontSize: "14px", fontWeight: "bold" })}
         
         {/* --- 5. 상품 리스트 --- */}
         {renderItemsList()}
@@ -264,12 +396,26 @@ export function ShippingLabelSheet({ data }: Props) {
           }}
         />
         
-        {renderText('trackingNoBottom', data.trackingNo, { 
+        {renderText('trackingNoBottom', formatTrackingNo(data.trackingNo), { 
           fontSize: "16px", 
           fontWeight: "bold", 
           textAlign: "center",
           letterSpacing: "2px" 
         })}
+        
+        {/* 출력된 송장 표시 */}
+        <div style={{ 
+          position: "absolute", 
+          left: "13px", 
+          top: "530px", 
+          ...FONT_STYLE,
+          fontSize: "12px",
+          fontWeight: "bold",
+          textAlign: "center",
+          width: "780px"
+        }}>
+          ★글로박스에서 출력된 송장입니다.★
+        </div>
         
         {/* --- 7. 메모 --- */}
         {renderText('memo', data.memo, { fontSize: "11px" })}

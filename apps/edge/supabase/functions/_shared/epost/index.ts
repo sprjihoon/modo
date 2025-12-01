@@ -28,6 +28,8 @@ export type {
   GetResInfoResponse,
   CancelOrderParams,
   CancelOrderResponse,
+  DeliveryCodeParams,
+  DeliveryCodeResponse,
 } from './types.ts';
 
 // 설정
@@ -43,6 +45,7 @@ export {
   cancelOrder,
   getStoppedZipCodes,
   getTrackingUrl,
+  getDeliveryCode,
 } from './order.ts';
 
 // 승인번호 조회
