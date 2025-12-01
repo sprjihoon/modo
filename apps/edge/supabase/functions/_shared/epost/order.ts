@@ -74,8 +74,17 @@ export async function insertOrder(params: InsertOrderParams): Promise<InsertOrde
   console.log('🔐 암호화 필요 여부:', needsEncryption, '(testYn:', requestParams.testYn, ')');
   
   // regData에 포함할 파라미터 (testYn 제외)
+  // ⚠️ 중요: testYn은 regData에 포함하지 않고 URL 파라미터로만 사용
   const regDataParams = { ...requestParams };
+  const hadTestYn = 'testYn' in regDataParams;
   delete regDataParams.testYn;
+  
+  console.log('🔍 개발 체크 - regData 파라미터:', {
+    hadTestYn,
+    testYnRemoved: !('testYn' in regDataParams),
+    regDataKeys: Object.keys(regDataParams),
+    testYnValue: requestParams.testYn,
+  });
   
   const xml = await callEPostAPI('api.InsertOrder.jparcel', regDataParams, needsEncryption, requestParams.testYn);
 
@@ -112,24 +121,110 @@ export async function insertOrder(params: InsertOrderParams): Promise<InsertOrde
 export async function getResInfo(params: GetResInfoParams): Promise<GetResInfoResponse> {
   const config = getEPostConfig();
 
-  const xml = await callEPostAPI('api.GetResInfo.jparcel', {
-    ...params,
+  console.log('🔍 getResInfo API 호출 시작 (상세):', {
     custNo: config.custNo,
-  }, true);
+    reqType: params.reqType,
+    orderNo: params.orderNo,
+    reqYmd: params.reqYmd,
+    endpoint: 'api.GetResInfo.jparcel',
+  });
 
-  // XML 파싱
-  const result: GetResInfoResponse = {
-    reqNo: parseXmlValue(xml, 'reqNo') || '',
-    resNo: parseXmlValue(xml, 'resNo') || '',
-    regiNo: parseXmlValue(xml, 'regiNo') || '',
-    regiPoNm: parseXmlValue(xml, 'regiPoNm') || '',
-    resDate: parseXmlValue(xml, 'resDate') || '',
-    price: parseXmlValue(xml, 'price') || '0',
-    vTelNo: parseXmlValue(xml, 'vTelNo') || undefined,
-    treatStusCd: parseXmlValue(xml, 'treatStusCd') || '00',
-  };
+  try {
+    console.log('🌐 callEPostAPI 호출 시작...');
+    console.log('📊 callEPostAPI 파라미터:', {
+      endpoint: 'api.GetResInfo.jparcel',
+      params: {
+        ...params,
+        custNo: config.custNo,
+      },
+      useEncryption: true
+    });
 
-  return result;
+    const xml = await callEPostAPI('api.GetResInfo.jparcel', {
+      ...params,
+      custNo: config.custNo,
+    }, true);
+    console.log('✅ callEPostAPI 호출 성공');
+    console.log('📄 반환된 XML 길이:', xml?.length || 'undefined');
+
+    console.log('📥 getResInfo API 응답 (XML 길이):', xml.length);
+    console.log('📥 getResInfo API 응답 (XML 미리보기):', xml.substring(0, 300));
+
+    // XML 파싱
+    console.log('🔄 XML 파싱 시작...');
+    console.log('🔍 XML에서 treatStusCd 찾기:', xml.includes('treatStusCd'));
+
+    const treatStusCd = parseXmlValue(xml, 'treatStusCd');
+    console.log('📋 파싱된 treatStusCd:', treatStusCd);
+
+    const result: GetResInfoResponse = {
+      reqNo: parseXmlValue(xml, 'reqNo') || '',
+      resNo: parseXmlValue(xml, 'resNo') || '',
+      regiNo: parseXmlValue(xml, 'regiNo') || '',
+      regiPoNm: parseXmlValue(xml, 'regiPoNm') || '',
+      resDate: parseXmlValue(xml, 'resDate') || '',
+      price: parseXmlValue(xml, 'price') || '0',
+      vTelNo: parseXmlValue(xml, 'vTelNo') || undefined,
+      treatStusCd: treatStusCd || '00',
+    };
+
+    console.log('📊 파싱된 모든 필드:', {
+      reqNo: result.reqNo,
+      resNo: result.resNo,
+      regiNo: result.regiNo,
+      regiPoNm: result.regiPoNm,
+      resDate: result.resDate,
+      price: result.price,
+      vTelNo: result.vTelNo,
+      treatStusCd: result.treatStusCd,
+    });
+
+    console.log('✅ getResInfo API 파싱 완료 (상세):', {
+      reqNo: result.reqNo,
+      resNo: result.resNo,
+      regiNo: result.regiNo,
+      treatStusCd: result.treatStusCd,
+      regiPoNm: result.regiPoNm,
+      resDate: result.resDate,
+    });
+
+    console.log('✅ getResInfo API 전체 결과:', JSON.stringify(result, null, 2));
+
+    return result;
+  } catch (error) {
+    console.error('❌ getResInfo API 호출 중 에러 발생:', {
+      error: error,
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+      type: typeof error,
+      constructor: error?.constructor?.name,
+      params: {
+        custNo: config.custNo,
+        reqType: params.reqType,
+        orderNo: params.orderNo,
+        reqYmd: params.reqYmd,
+      },
+      config: {
+        custNo: config.custNo,
+        apiKey: config.apiKey ? '***' + config.apiKey.slice(-4) : 'NOT_SET',
+        securityKey: config.securityKey ? '***' + config.securityKey.slice(-4) : 'NOT_SET',
+      }
+    });
+
+    // 추가 디버깅 정보
+    if (error?.message?.includes('fetch')) {
+      console.error('❌ 네트워크 관련 에러로 추정');
+    } else if (error?.message?.includes('XML')) {
+      console.error('❌ XML 파싱 관련 에러로 추정');
+    } else if (error?.message?.includes('timeout')) {
+      console.error('❌ 타임아웃 에러로 추정');
+    } else if (error?.name === 'AbortError') {
+      console.error('❌ 요청이 취소되었거나 타임아웃됨');
+    }
+
+    throw error;
+  }
 }
 
 /**

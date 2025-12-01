@@ -42,6 +42,7 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
   String? _selectedPinId;
   String? _draggingPinId; // 드래그 중인 핀
   Size? _baseCanvasSize; // 최초 탭 시의 캔버스 크기(안정된 기준)
+  bool _isBaseCanvasSizeInitialized = false; // 초기화 완료 플래그
 
   @override
   void initState() {
@@ -57,6 +58,7 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
         _pins = List.from(widget.initialPins);
         _selectedPinId = null;
         _baseCanvasSize = null; // 이미지 변경 시 기준 리셋
+        _isBaseCanvasSizeInitialized = false; // 초기화 플래그도 리셋
       });
     }
   }
@@ -75,15 +77,24 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
       return;
     }
 
-    // 최초 탭 시의 캔버스 크기를 고정해 이후 뷰 인셋(키보드/바텀시트) 변화에도
-    // 절대 좌표 계산이 흔들리지 않도록 함
-    _baseCanvasSize ??= Size(constraints.maxWidth, constraints.maxHeight);
-
-    // 상대 좌표로 변환 (0.0 ~ 1.0) - 고정된 기준 크기 사용
+    // 상대 좌표로 변환 (0.0 ~ 1.0) - 현재 탭 시점의 constraints 기준
+    // _baseCanvasSize를 사용하지 않고 현재 constraints 기준으로 상대 좌표 계산
+    // 왜냐하면 탭 이벤트(details.localPosition)는 현재 화면 크기 기준이기 때문
+    final currentWidth = constraints.maxWidth;
+    final currentHeight = constraints.maxHeight;
+    
     final relativePosition = Offset(
-      (details.localPosition.dx / _baseCanvasSize!.width).clamp(0.0, 1.0),
-      (details.localPosition.dy / _baseCanvasSize!.height).clamp(0.0, 1.0),
+      (details.localPosition.dx / currentWidth).clamp(0.0, 1.0),
+      (details.localPosition.dy / currentHeight).clamp(0.0, 1.0),
     );
+
+    // 최초 탭 시의 캔버스 크기 고정 (이후 렌더링 시 사용)
+    if (_baseCanvasSize == null) {
+      _baseCanvasSize = Size(currentWidth, currentHeight);
+      _isBaseCanvasSizeInitialized = true;
+    }
+
+    print('📍 Pin added at: ${details.localPosition} -> relative: $relativePosition');
 
     // 임시 핀 추가 - 즉시 추가하여 위치 고정
     final newPin = ImagePin(
@@ -125,26 +136,34 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
     if (result != null) {
       if (result['action'] == 'save') {
         final memo = result['memo'] as String;
-        setState(() {
-          if (pin != null) {
-            // 기존 핀에 메모 추가/수정
-            final index = _pins.indexWhere((p) => p.id == pin.id);
-            if (index != -1) {
-              _pins[index] = pin.copyWith(memo: memo);
+        // 메모 저장 시 핀 위치는 변경하지 않고 메모만 업데이트
+        // 즉시 업데이트하여 위치 변경 방지
+        if (mounted) {
+          setState(() {
+            if (pin != null) {
+              // 기존 핀에 메모 추가/수정 (위치는 그대로 유지)
+              final index = _pins.indexWhere((p) => p.id == pin.id);
+              if (index != -1) {
+                // relativePosition은 변경하지 않고 memo만 업데이트
+                _pins[index] = _pins[index].copyWith(memo: memo);
+                print('📝 Memo saved for pin ${pin.id}: "$memo"');
+              }
             }
-          }
-          _selectedPinId = null;
-        });
+            _selectedPinId = null;
+          });
 
-        widget.onPinsChanged?.call(_pins);
+          widget.onPinsChanged?.call(_pins);
+        }
       }
       // 삭제는 onDelete 콜백에서 처리됨
     } else {
       // 취소된 경우: 핀은 유지하되 선택 상태만 해제
       // 메모가 없는 핀도 표시되도록 유지 (사용자가 나중에 메모를 추가할 수 있음)
-      setState(() {
-        _selectedPinId = null;
-      });
+      if (mounted) {
+        setState(() {
+          _selectedPinId = null;
+        });
+      }
     }
   }
 
@@ -227,6 +246,14 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        // 레이아웃이 처음 계산될 때 _baseCanvasSize 설정 (한 번만 설정)
+        if (!_isBaseCanvasSizeInitialized && constraints.maxWidth > 0 && constraints.maxHeight > 0) {
+          _baseCanvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+          _isBaseCanvasSizeInitialized = true;
+          // 디버그 로그
+          print('🖼️ Base canvas size initialized: $_baseCanvasSize');
+        }
+        
         return Stack(
           children: [
             // 이미지 (탭 감지용) - 실제 이미지 크기를 측정하기 위해 GlobalKey 사용
@@ -275,8 +302,17 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
     final isSelected = _selectedPinId == pin.id;
     final isDragging = _draggingPinId == pin.id;
 
-    final baseWidth = _baseCanvasSize?.width ?? constraints.maxWidth;
-    final baseHeight = _baseCanvasSize?.height ?? constraints.maxHeight;
+    // _baseCanvasSize가 설정되지 않은 경우 현재 constraints 사용
+    // 주의: 핀을 렌더링할 때는 항상 현재 화면 크기(constraints)를 기준으로 해야 함
+    // _baseCanvasSize는 핀을 처음 찍을 때 상대 좌표를 계산하기 위한 기준일 뿐,
+    // 화면 크기가 변하면(예: 키보드/바텀시트로 인해) 핀도 그 비율에 맞춰 이동해야 함
+    final currentWidth = constraints.maxWidth;
+    final currentHeight = constraints.maxHeight;
+
+    // 디버그: 핀 위치 계산 로깅
+    if (isSelected) {
+      print('📍 Pin ${pin.id} position calculation: relative=${pin.relativePosition}, currentSize=${Size(currentWidth, currentHeight)}');
+    }
 
     // 핀의 실제 크기 (PinMarker의 최대 크기 + 여유 공간)
     // PinMarker: 최대 32px (선택 시 외곽 링) + 라벨 높이
@@ -285,17 +321,17 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
     const dragAreaSize = 80.0; // 드래그 영역 크기
     
     // 상대 위치를 절대 위치로 변환 (핀 중심점 기준)
-    // relativePosition은 0.0~1.0 범위이므로 정확히 계산
-    final pinLeft = pin.relativePosition.dx * baseWidth;
-    final pinTop = pin.relativePosition.dy * baseHeight;
+    // relativePosition은 0.0~1.0 범위이므로 현재 화면 크기에 비례하여 계산
+    final pinLeft = pin.relativePosition.dx * currentWidth;
+    final pinTop = pin.relativePosition.dy * currentHeight;
     
     // Positioned의 left/top는 왼쪽 상단 모서리 기준이므로, 핀 중심점에서 오프셋을 빼야 함
     final positionedLeft = pinLeft - pinSize;
     final positionedTop = pinTop - pinSize;
     
     // 경계 체크: 드래그 영역이 이미지 밖으로 나가지 않도록
-    final clampedLeft = positionedLeft.clamp(0.0, baseWidth - dragAreaSize);
-    final clampedTop = positionedTop.clamp(0.0, baseHeight - dragAreaSize);
+    final clampedLeft = positionedLeft.clamp(0.0, currentWidth - dragAreaSize);
+    final clampedTop = positionedTop.clamp(0.0, currentHeight - dragAreaSize);
 
     return Positioned(
       left: clampedLeft,

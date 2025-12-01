@@ -49,8 +49,12 @@ export async function callEPostAPI(
   let url = `${baseUrl}/${endpoint}?key=${config.apiKey}`;
   
   // testYn이 'Y'이면 URL 파라미터로 추가
+  // ⚠️ 중요: testYn='N'일 때는 URL 파라미터로 추가하지 않음 (실제 수거예약 등록을 위해)
   if (testYn === 'Y') {
     url += '&testYn=Y';
+    console.log('🔍 testYn=Y로 URL 파라미터 추가됨 (테스트 모드)');
+  } else if (testYn === 'N') {
+    console.log('🔍 testYn=N이므로 URL 파라미터에 추가하지 않음 (실제 수거예약 등록 모드)');
   }
 
   if (needsEncryption) {
@@ -155,25 +159,76 @@ export async function callEPostAPI(
   }
 
   console.log('🌐 우체국 API 호출:', endpoint);
-  console.log('📡 URL:', url.substring(0, 100) + '...');
+  console.log('📡 URL (전체):', url);
+  console.log('📡 URL (미리보기):', url.substring(0, 150) + '...');
+  console.log('🔍 개발 체크 - URL 파라미터:', {
+    hasTestYn: url.includes('testYn='),
+    testYnValue: url.includes('testYn=Y') ? 'Y' : url.includes('testYn=N') ? 'N' : '없음',
+    hasRegData: url.includes('regData='),
+  });
 
   // HTTP 호출 (GET/POST 둘 다 지원)
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Connection': 'keep-alive',
-      'Host': 'ship.epost.go.kr',
-      'User-Agent': 'Apache-HttpClient/4.5.1 (Java/1.8.0_91)',
-      'Accept': 'application/xml, text/xml',
-    },
+  console.log('🚀 fetch 호출 시작...');
+  console.log('📡 최종 URL:', url);
+
+  // 타임아웃 설정 (30초)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.error('⏰ fetch 타임아웃 발생 (30초)');
+    controller.abort();
+  }, 30000);
+
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Connection': 'keep-alive',
+        'Host': 'ship.epost.go.kr',
+        'User-Agent': 'Apache-HttpClient/4.5.1 (Java/1.8.0_91)',
+        'Accept': 'application/xml, text/xml',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId); // 타임아웃 취소
+    console.log('✅ fetch 호출 성공');
+
+  } catch (fetchError: any) {
+    clearTimeout(timeoutId); // 타임아웃 취소
+    console.error('❌ fetch 호출 중 에러 발생:', {
+      error: fetchError,
+      message: fetchError?.message,
+      name: fetchError?.name,
+      type: typeof fetchError,
+      isAbortError: fetchError?.name === 'AbortError',
+    });
+
+    if (fetchError?.name === 'AbortError') {
+      throw new Error('EPost API 타임아웃: 30초 내에 응답이 없습니다.');
+    } else {
+      throw new Error(`EPost API 네트워크 에러: ${fetchError?.message || '알 수 없는 네트워크 오류'}`);
+    }
+  }
+
+  console.log('📥 HTTP 응답 상태:', {
+    status: response.status,
+    statusText: response.statusText,
+    ok: response.ok,
+    headers: Object.fromEntries(response.headers.entries())
   });
 
   if (!response.ok) {
-    throw new Error(`EPost API HTTP Error: ${response.status}`);
+    const errorText = await response.text();
+    console.error('❌ HTTP 에러 응답:', errorText);
+    throw new Error(`EPost API HTTP Error: ${response.status} - ${errorText}`);
   }
 
   // XML 응답 파싱
+  console.log('📄 response.text() 호출 시작...');
   const xmlText = await response.text();
+  console.log('📥 우체국 응답 길이:', xmlText.length);
   console.log('📥 우체국 응답 (XML 전체):', xmlText);
 
   // 에러 체크 (다양한 형식 지원)

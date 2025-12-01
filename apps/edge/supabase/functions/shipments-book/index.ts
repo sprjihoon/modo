@@ -9,7 +9,7 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { insertOrder, mockInsertOrder, getApprovalNumber, type InsertOrderParams } from '../_shared/epost/index.ts';
+import { insertOrder, mockInsertOrder, getApprovalNumber, getResInfo, type InsertOrderParams } from '../_shared/epost/index.ts';
 
 interface ShipmentBookRequest {
   order_id: string;
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     const CENTER_ZIPCODE = Deno.env.get('CENTER_ZIPCODE') || '41142';
     const CENTER_ADDRESS1 = Deno.env.get('CENTER_ADDRESS1') || '대구광역시 동구 동촌로 1';
     const CENTER_ADDRESS2 = Deno.env.get('CENTER_ADDRESS2') || '동대구우체국 2층 소포실 모두의수선';
-    const CENTER_PHONE = (Deno.env.get('CENTER_PHONE') || '01000000000').replace(/-/g, '').substring(0, 12);
+    const CENTER_PHONE = (Deno.env.get('CENTER_PHONE') || '01027239490').replace(/-/g, '').substring(0, 12);
 
     // 필수 필드 검증
     if (!order_id || !customer_name) {
@@ -170,13 +170,27 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
         if (centerRow) {
+          const centerPhone = centerRow.phone 
+            ? centerRow.phone.toString().replace(/-/g, '').substring(0, 12)
+            : CENTER_PHONE;
+          console.log('📞 센터 전화번호 설정:', {
+            dbPhone: centerRow.phone,
+            envPhone: Deno.env.get('CENTER_PHONE'),
+            finalPhone: centerPhone,
+            source: centerRow.phone ? 'DB (ops_center_settings)' : Deno.env.get('CENTER_PHONE') ? '환경변수' : '기본값',
+          });
           deliveryInfo = {
             address: centerRow.address1 || CENTER_ADDRESS1,
             detail: centerRow.address2 || CENTER_ADDRESS2,
             zipcode: centerRow.zipcode || CENTER_ZIPCODE,
-            phone: (centerRow.phone || CENTER_PHONE).toString(),
+            phone: centerPhone,
           };
         } else {
+          console.log('📞 센터 전화번호 설정:', {
+            envPhone: Deno.env.get('CENTER_PHONE'),
+            finalPhone: CENTER_PHONE,
+            source: Deno.env.get('CENTER_PHONE') ? '환경변수' : '기본값',
+          });
           deliveryInfo = {
             address: CENTER_ADDRESS1,
             detail: CENTER_ADDRESS2,
@@ -184,7 +198,13 @@ Deno.serve(async (req) => {
             phone: CENTER_PHONE,
           };
         }
-      } catch (_) {
+      } catch (err) {
+        console.warn('⚠️ ops_center_settings 조회 실패, 기본값 사용:', err);
+        console.log('📞 센터 전화번호 설정:', {
+          envPhone: Deno.env.get('CENTER_PHONE'),
+          finalPhone: CENTER_PHONE,
+          source: Deno.env.get('CENTER_PHONE') ? '환경변수' : '기본값',
+        });
         deliveryInfo = {
           address: CENTER_ADDRESS1,
           detail: CENTER_ADDRESS2,
@@ -263,6 +283,30 @@ Deno.serve(async (req) => {
 
     // epostParams 생성
     // 참고: testYn은 실제 API 호출 시 URL 파라미터로 사용되지만, regData에는 포함하지 않음
+    
+    // 🔍 수거예약일 설정 및 검증
+    // 우체국 API는 resDate를 응답으로 반환하지만, 요청 시 날짜를 지정할 수 있는 파라미터가 있을 수 있습니다.
+    // 현재는 우체국 API가 자동으로 설정하지만, 응답에서 받은 resDate를 확인하여 이상한 날짜인지 검증합니다.
+    // 참고: 오늘 예약하면 보통 내일 픽업이 정상이며, 일요일은 픽업 안됨
+    const today = new Date();
+    const todayYmd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+    
+    // 내일 날짜 계산 (일요일 제외)
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    // 일요일이면 월요일로 변경 (일요일 = 0)
+    if (tomorrow.getDay() === 0) {
+      tomorrow.setDate(tomorrow.getDate() + 1);
+    }
+    const tomorrowYmd = `${tomorrow.getFullYear()}${String(tomorrow.getMonth() + 1).padStart(2, '0')}${String(tomorrow.getDate()).padStart(2, '0')}`;
+    
+    console.log('📅 날짜 정보:', {
+      오늘: todayYmd,
+      내일: tomorrowYmd,
+      오늘요일: ['일', '월', '화', '수', '목', '금', '토'][today.getDay()],
+      내일요일: ['일', '월', '화', '수', '목', '금', '토'][tomorrow.getDay()],
+    });
+    
     const epostParams: InsertOrderParams = {
       custNo,
       apprNo,
@@ -341,6 +385,12 @@ Deno.serve(async (req) => {
         hasSecurityKey,
         hasApiKey,
         willUseMock: test_mode || !hasSecurityKey,
+        testYn: epostParams.testYn,
+        warning: test_mode 
+          ? '⚠️ 테스트 모드입니다. 실제 수거예약이 등록되지 않습니다.'
+          : epostParams.testYn === 'N'
+          ? '✅ testYn=N으로 설정되었습니다. 하지만 실제 수거예약이 등록되려면 우체국과의 계약이 완료되어야 합니다.'
+          : '⚠️ testYn=Y로 설정되었습니다. 실제 수거예약이 등록되지 않습니다.',
       });
 
       if (test_mode || !hasSecurityKey) {
@@ -353,8 +403,175 @@ Deno.serve(async (req) => {
         console.log('API 파라미터:', JSON.stringify(epostParams, null, 2));
         
         try {
+          // 🔍 개발 체크: testYn 파라미터 확인
+          console.log('🔍 개발 체크 - testYn 파라미터:', {
+            test_mode,
+            testYn: epostParams.testYn,
+            expected: test_mode ? 'Y' : 'N',
+            isCorrect: epostParams.testYn === (test_mode ? 'Y' : 'N'),
+          });
+          
+          // 🔍 개발 체크: API 호출 전 파라미터 검증
+          console.log('🔍 개발 체크 - API 호출 전 파라미터 검증:', {
+            custNo: epostParams.custNo,
+            apprNo: epostParams.apprNo,
+            orderNo: epostParams.orderNo,
+            recNm: epostParams.recNm,
+            recZip: epostParams.recZip,
+            recAddr1: epostParams.recAddr1,
+            recTel: epostParams.recTel,
+            testYn: epostParams.testYn,
+            officeSer: epostParams.officeSer,
+            weight: epostParams.weight,
+            volume: epostParams.volume,
+          });
+          
           epostResponse = await insertOrder(epostParams);
           console.log('✅ 실제 API 응답:', JSON.stringify(epostResponse, null, 2));
+          
+          // 🔍 개발 체크: API 응답 검증 및 예약일시 확인
+          const resDateYmd = epostResponse.resDate ? epostResponse.resDate.substring(0, 8) : '';
+          const resDateObj = resDateYmd ? new Date(
+            parseInt(resDateYmd.substring(0, 4)),
+            parseInt(resDateYmd.substring(4, 6)) - 1,
+            parseInt(resDateYmd.substring(6, 8))
+          ) : null;
+          const resDateDayOfWeek = resDateObj ? resDateObj.getDay() : null;
+          const resDateDayName = resDateDayOfWeek !== null ? ['일', '월', '화', '수', '목', '금', '토'][resDateDayOfWeek] : null;
+          
+          // 예약일시 검증: 내일부터 가능하며, 일요일은 제외
+          // 오늘 예약하면 보통 내일 픽업이 정상이며, 일요일은 픽업 안됨
+          const isResDateValid = resDateYmd && (
+            resDateYmd >= tomorrowYmd && // 내일 이후여야 함
+            resDateDayOfWeek !== 0 // 일요일이 아니어야 함
+          );
+          
+          console.log('🔍 개발 체크 - API 응답 검증:', {
+            hasRegiNo: !!epostResponse.regiNo,
+            hasResNo: !!epostResponse.resNo,
+            hasResDate: !!epostResponse.resDate,
+            regiNo: epostResponse.regiNo,
+            resNo: epostResponse.resNo,
+            resDate: epostResponse.resDate,
+            resDateYmd: resDateYmd,
+            resDateDayOfWeek: resDateDayOfWeek,
+            resDateDayName: resDateDayName,
+            todayYmd: todayYmd,
+            tomorrowYmd: tomorrowYmd,
+            isResDateValid: isResDateValid,
+            regiPoNm: epostResponse.regiPoNm,
+            testYn: epostParams.testYn,
+          });
+          
+          // ⚠️ 예약일시가 이상한 경우 경고
+          if (!isResDateValid && resDateYmd) {
+            const issues: string[] = [];
+            if (resDateYmd < tomorrowYmd) {
+              issues.push(`예약일시(${resDateYmd})가 내일(${tomorrowYmd})보다 이전입니다.`);
+            }
+            if (resDateDayOfWeek === 0) {
+              issues.push(`예약일시(${resDateYmd})가 일요일입니다. 일요일은 픽업이 불가능합니다.`);
+            }
+            
+            console.warn('⚠️ 예약일시가 이상합니다:', {
+              예약일시: resDateYmd,
+              예약일시요일: resDateDayName,
+              오늘날짜: todayYmd,
+              내일날짜: tomorrowYmd,
+              문제점: issues.join(' '),
+              경고: '예약일시는 내일 이후여야 하며, 일요일은 제외되어야 합니다.',
+            });
+          } else if (isResDateValid) {
+            console.log('✅ 예약일시가 정상입니다:', {
+              예약일시: resDateYmd,
+              예약일시요일: resDateDayName,
+              내일날짜: tomorrowYmd,
+            });
+          }
+          
+          // 🔍 개발 체크: 수거예약 확인 API 호출
+          // 실제 수거예약이 등록되었는지 확인하기 위해 getResInfo API 호출
+          if (epostParams.testYn === 'N' && epostResponse.resNo && epostResponse.resDate) {
+            try {
+              const reqYmd = epostResponse.resDate.substring(0, 8); // YYYYMMDD
+              console.log('🔍 수거예약 상태 확인 API 호출:', {
+                custNo: epostParams.custNo,
+                reqType: '1',
+                orderNo: epostParams.orderNo,
+                reqYmd,
+                resNo: epostResponse.resNo,
+                resDate: epostResponse.resDate,
+              });
+              
+              console.log('⏳ getResInfo API 호출 시작...');
+              console.log('⏳ getResInfo API 호출 파라미터:', JSON.stringify({
+                custNo: epostParams.custNo,
+                reqType: '1',
+                orderNo: epostParams.orderNo,
+                reqYmd,
+              }, null, 2));
+
+              console.log('🚀 getResInfo 함수 호출 직전...');
+              const resInfo = await getResInfo({
+                custNo: epostParams.custNo,
+                reqType: '1', // 1:일반소포
+                orderNo: epostParams.orderNo,
+                reqYmd,
+              });
+              console.log('✅ getResInfo 함수 호출 완료!');
+              
+              console.log('✅ getResInfo API 호출 성공!');
+              console.log('✅ getResInfo API 응답 데이터:', JSON.stringify(resInfo, null, 2));
+              console.log('✅ 수거예약 상태 확인 결과:', {
+                reqNo: resInfo.reqNo,
+                resNo: resInfo.resNo,
+                regiNo: resInfo.regiNo,
+                treatStusCd: resInfo.treatStusCd,
+                treatStusMeaning: {
+                  '00': '신청준비',
+                  '01': '소포신청',
+                  '02': '운송장출력',
+                  '03': '집하완료',
+                  '04': '배송중',
+                  '05': '배송완료',
+                }[resInfo.treatStusCd] || '알 수 없음',
+                regiPoNm: resInfo.regiPoNm,
+                resDate: resInfo.resDate,
+              });
+              
+              // 수거예약 상태가 '00' (신청준비) 또는 '01' (소포신청)이면 실제 수거예약이 등록된 것
+              if (resInfo.treatStusCd === '00' || resInfo.treatStusCd === '01') {
+                console.log('✅ 수거예약이 정상적으로 등록되었습니다.');
+              } else {
+                console.warn('⚠️ 수거예약 상태가 예상과 다릅니다:', resInfo.treatStusCd);
+              }
+            } catch (resInfoError: any) {
+              console.error('❌ 수거예약 상태 확인 API 호출 실패!');
+              console.error('❌ 에러 상세 정보:', {
+                error: resInfoError,
+                message: resInfoError?.message || '알 수 없는 오류',
+                stack: resInfoError?.stack,
+                name: resInfoError?.name,
+                cause: resInfoError?.cause,
+                toString: resInfoError?.toString(),
+              });
+              console.error('❌ 호출 파라미터:', {
+                custNo: epostParams.custNo,
+                reqType: '1',
+                orderNo: epostParams.orderNo,
+                reqYmd: epostResponse.resDate.substring(0, 8),
+              });
+              // 수거예약 상태 확인 실패해도 계속 진행 (경고만 출력)
+            }
+          } else {
+            console.log('⚠️ 수거예약 상태 확인 API 호출 건너뜀:', {
+              reason: epostParams.testYn === 'Y' 
+                ? 'testYn=Y이므로 테스트 모드입니다.'
+                : !epostResponse.resNo || !epostResponse.resDate
+                ? 'resNo 또는 resDate가 없습니다.'
+                : '알 수 없는 이유',
+            });
+          }
         } catch (insertError) {
           console.error('❌ insertOrder 함수 실패:', {
             error: insertError,
