@@ -140,17 +140,11 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
       }
       // 삭제는 onDelete 콜백에서 처리됨
     } else {
-      // 취소된 경우: 메모가 없는 새 핀이면 삭제
-      if (pin != null && pin.memo.isEmpty) {
-        setState(() {
-          _pins.removeWhere((p) => p.id == pin.id);
-        });
-        widget.onPinsChanged?.call(_pins);
-      } else {
-        setState(() {
-          _selectedPinId = null;
-        });
-      }
+      // 취소된 경우: 핀은 유지하되 선택 상태만 해제
+      // 메모가 없는 핀도 표시되도록 유지 (사용자가 나중에 메모를 추가할 수 있음)
+      setState(() {
+        _selectedPinId = null;
+      });
     }
   }
 
