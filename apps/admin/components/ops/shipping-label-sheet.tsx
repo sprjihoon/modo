@@ -120,6 +120,29 @@ export function ShippingLabelSheet({ data }: Props) {
     return trackingNo;
   };
 
+  // 운송장 번호에서 분류 코드 추출
+  const extractSortCodes = (trackingNo: string) => {
+    if (!trackingNo) return { code1: '', code2: '', code3: '', code4: '' };
+    const cleaned = trackingNo.replace(/[^0-9]/g, '');
+    
+    if (cleaned.length === 13) {
+      // 예: 6896770065497 → 701 56 05
+      // 패턴: 68967 - 7006 - 5497
+      //            ↓701  ↓56  ↓05 (각 그룹에서 추출)
+      const part2 = cleaned.substring(5, 9);   // 7006
+      const part3 = cleaned.substring(9, 13);  // 5497
+      
+      return {
+        code1: '경1',                           // 고정값 (지역에 따라 다를 수 있음)
+        code2: part2.substring(0, 3),          // 700 → 701로 변환 필요?
+        code3: part2.substring(3),             // 6 → 56?
+        code4: part3.substring(0, 2),          // 54 → 05?
+      };
+    }
+    
+    return { code1: '', code2: '', code3: '', code4: '' };
+  };
+
   // 좌표 기반 텍스트 렌더링 헬퍼
   const renderText = (key: string, text: string | number | undefined, style: React.CSSProperties = {}) => {
     const coord = COORDS[key];
