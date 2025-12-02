@@ -47,10 +47,24 @@ export interface ShippingLabelData {
   sortCode2?: string;  // 701
   sortCode3?: string;  // 56
   sortCode4?: string;  // 05
+  printAreaCd?: string; // 인쇄용 집배코드 (우체국 API: printAreaCd) - 예: "경1 701 56 05"
+}
+
+interface LabelLayoutElement {
+  fieldKey: string;
+  x: number; // mm 단위
+  y: number; // mm 단위
+  width: number; // mm 단위
+  height: number; // mm 단위
+  fontSize: number;
+  isBold: boolean;
+  borderColor?: string;
+  type: "text" | "barcode";
 }
 
 interface Props {
   data: ShippingLabelData;
+  customLayout?: LabelLayoutElement[]; // 저장된 레이아웃 (선택적)
 }
 
 // 좌표 타입: [x, y, width, height]
@@ -103,39 +117,175 @@ const FONT_STYLE = {
   color: "#000",
 };
 
-export function ShippingLabelSheet({ data }: Props) {
-  // 운송장 번호 포맷팅 (xxxxx-xxxx-xxxx 형식)
-  const formatTrackingNo = (trackingNo: string) => {
-    if (!trackingNo) return '';
-    // 13자리 숫자를 5-4-4 형식으로 변환
-    const cleaned = trackingNo.replace(/[^0-9]/g, '');
-    if (cleaned.length === 13) {
-      return `${cleaned.substring(0, 5)}-${cleaned.substring(5, 9)}-${cleaned.substring(9, 13)}`;
-    }
-    return trackingNo;
+// mm를 픽셀로 변환 (96 DPI 기준)
+const mmToPx = (mm: number) => mm * (96 / 25.4);
+
+// 운송장 번호 포맷팅 (xxxxx-xxxx-xxxx 형식)
+const formatTrackingNo = (trackingNo: string) => {
+  if (!trackingNo) return '';
+  const cleaned = trackingNo.replace(/[^0-9]/g, '');
+  if (cleaned.length === 13) {
+    return `${cleaned.substring(0, 5)}-${cleaned.substring(5, 9)}-${cleaned.substring(9, 13)}`;
+  }
+  return trackingNo;
+};
+
+// 실제 데이터 매핑 함수 (저장된 레이아웃 사용 시)
+const mapFieldToActualValue = (fieldKey: string, orderData: ShippingLabelData): string => {
+  const mapping: Record<string, (data: ShippingLabelData) => string> = {
+    output_label: () => "0차 출력",
+    sorting_code_large: (data) => {
+      // printAreaCd 우선 사용 (우체국 API에서 제공하는 인쇄용 집배코드)
+      if (data.printAreaCd) {
+        return data.printAreaCd;
+      }
+      // printAreaCd가 없으면 sortCode 조합
+      if (data.sortCode1 && data.sortCode2 && data.sortCode3 && data.sortCode4) {
+        return `${data.sortCode1} ${data.sortCode2} ${data.sortCode3} ${data.sortCode4}`;
+      }
+      return "";
+    },
+    delivery_center_info: (data) => {
+      const parts = [];
+      if (data.deliveryPlaceCode) parts.push(data.deliveryPlaceCode);
+      if (data.deliveryTeamCode) parts.push(data.deliveryTeamCode);
+      if (data.deliverySequence) {
+        let seq = data.deliverySequence;
+        if (!seq.includes('-')) seq = `-${seq}-`;
+        parts.push(seq);
+      }
+      return parts.join(' ');
+    },
+    order_date: (data) => `신청일: ${data.orderDate || ''}`,
+    orderer_name: (data) => `주문인: ${data.recipientName || ''}`,
+    customer_order_source: (data) => `고객 주문처: 틸리언 수기`,
+    order_number: (data) => `주문번호: ${data.orderNumber || ''}`,
+    package_info: (data) => `중량:${data.weight || '2'}kg 용적:${data.volume || '60'}cm 요금: 신용 0`,
+    zipcode_barcode: (data) => data.recipientZipcode || "",
+    total_quantity: (data) => `[총 ${data.totalQuantity || 1}개]`,
+    items_list: (data) => {
+      if (data.itemsList) {
+        const items = data.itemsList.split('\n').filter(Boolean);
+        return items.map((item, idx) => `${idx + 1}. ${item}`).join('\n');
+      }
+      return "1. 거래물품-1개";
+    },
+    sender_address: (data) => data.senderAddress || "",
+    sender_name: (data) => data.senderName || "틸리언",
+    sender_phone: (data) => data.senderPhone || "",
+    receiver_address: (data) => data.recipientAddress || "",
+    receiver_name: (data) => data.recipientName || "",
+    receiver_phone: (data) => data.recipientPhone || "",
+    tracking_no_text: (data) => `등기번호: ${formatTrackingNo(data.trackingNo)}`,
+    waybill_statement: (data) => "모두의수선에서 제공되는 서비스입니다.",
+    tracking_no_barcode: (data) => data.trackingNo || "",
+    bottom_info: (data) => `[총 ${data.totalQuantity || 1}개] [0회 재출력]`,
   };
 
-  // 운송장 번호에서 분류 코드 추출
-  const extractSortCodes = (trackingNo: string) => {
-    if (!trackingNo) return { code1: '', code2: '', code3: '', code4: '' };
-    const cleaned = trackingNo.replace(/[^0-9]/g, '');
-    
-    if (cleaned.length === 13) {
-      // 예: 6896770065497 → 701 56 05
-      // 패턴: 68967 - 7006 - 5497
-      //            ↓701  ↓56  ↓05 (각 그룹에서 추출)
-      const part2 = cleaned.substring(5, 9);   // 7006
-      const part3 = cleaned.substring(9, 13);  // 5497
-      
-      return {
-        code1: '경1',                           // 고정값 (지역에 따라 다를 수 있음)
-        code2: part2.substring(0, 3),          // 700 → 701로 변환 필요?
-        code3: part2.substring(3),             // 6 → 56?
-        code4: part3.substring(0, 2),          // 54 → 05?
-      };
-    }
-    
-    return { code1: '', code2: '', code3: '', code4: '' };
+  const mapper = mapping[fieldKey];
+  return mapper ? mapper(orderData) : "";
+};
+
+export function ShippingLabelSheet({ data, customLayout }: Props) {
+  // 디버깅: 집배코드 데이터 확인 (API/Supabase에서 가져온 실제 데이터)
+  console.log('📋 ShippingLabelSheet 데이터 (API/Supabase에서 가져온 실제 값):', {
+    sortCode1: data.sortCode1, // 우체국 API: sortCode1
+    sortCode2: data.sortCode2, // 우체국 API: sortCode2
+    sortCode3: data.sortCode3, // 우체국 API: sortCode3
+    sortCode4: data.sortCode4, // 우체국 API: sortCode4
+    deliverySequence: data.deliverySequence, // 우체국 API: delivAreaCd
+    deliveryPlaceCode: data.deliveryPlaceCode, // 우체국 API: arrCnpoNm
+    deliveryTeamCode: data.deliveryTeamCode, // 우체국 API: delivPoNm
+    trackingNo: data.trackingNo, // Supabase: delivery_tracking_no 또는 regiNo
+    recipientZipcode: data.recipientZipcode, // Supabase: delivery_zipcode
+    recipientAddress: data.recipientAddress, // Supabase: delivery_address
+    recipientName: data.recipientName, // Supabase: customer_name
+    recipientPhone: data.recipientPhone, // Supabase: customer_phone
+    hasCustomLayout: !!customLayout,
+  });
+
+  // 저장된 레이아웃이 있으면 사용, 없으면 기존 하드코딩된 좌표 사용
+  const useCustomLayout = customLayout && customLayout.length > 0;
+
+  // 저장된 레이아웃으로 렌더링
+  const renderCustomLayout = () => {
+    if (!useCustomLayout) return null;
+
+    // 캔버스 크기 (800px x 1200px 기준)
+    const canvasWidth = 800;
+    const canvasHeight = 1200;
+    const scaleFactor = canvasWidth / mmToPx(171); // 171mm = 가로
+
+    return (
+      <>
+        {customLayout.map((element, index) => {
+          // mm를 픽셀로 변환 (스케일 팩터 적용)
+          const x = mmToPx(element.x) * scaleFactor;
+          const y = mmToPx(element.y) * scaleFactor;
+          const width = mmToPx(element.width) * scaleFactor;
+          const height = mmToPx(element.height) * scaleFactor;
+
+          // 실제 데이터 값 가져오기
+          const actualValue = mapFieldToActualValue(element.fieldKey, data);
+
+          if (!actualValue) return null;
+
+          if (element.type === "barcode") {
+            // 바코드 렌더링
+            return (
+              <div
+                key={`${element.fieldKey}-${index}`}
+                style={{
+                  position: "absolute",
+                  left: `${x}px`,
+                  top: `${y}px`,
+                  width: `${width}px`,
+                  height: `${height}px`,
+                  overflow: "hidden",
+                }}
+              >
+                <img
+                  src={`https://barcode.tec-it.com/barcode.ashx?data=${actualValue}&code=Code128&translate-esc=on&showastext=off&dpi=203`}
+                  alt={`${element.fieldKey} 바코드`}
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                />
+              </div>
+            );
+          } else {
+            // 텍스트 렌더링
+            return (
+              <div
+                key={`${element.fieldKey}-${index}`}
+                style={{
+                  position: "absolute",
+                  left: `${x}px`,
+                  top: `${y}px`,
+                  width: `${width}px`,
+                  height: `${height}px`,
+                  ...FONT_STYLE,
+                  fontSize: `${element.fontSize}px`,
+                  fontWeight: element.isBold ? "bold" : "normal",
+                  whiteSpace: "pre-wrap",
+                  overflow: "hidden",
+                  wordBreak: "break-word",
+                  border: element.borderColor ? `2px solid ${element.borderColor}` : "none",
+                  padding: element.borderColor ? "2px" : "0",
+                  printColorAdjust: "exact",
+                  WebkitPrintColorAdjust: "exact",
+                }}
+              >
+                {actualValue}
+              </div>
+            );
+          }
+        })}
+      </>
+    );
   };
 
   // 좌표 기반 텍스트 렌더링 헬퍼
@@ -243,21 +393,31 @@ export function ShippingLabelSheet({ data }: Props) {
             page-break-after: avoid !important;
           }
           .shipping-label-content {
-            /* 인쇄 시 안정적인 크기 조정 */
+            /* 인쇄 시 안정적인 크기 조정 - 우체국 C형 (168mm x 107mm) */
             /* 800px x 1200px를 168mm x 107mm에 맞추기 */
             /* 168mm ≈ 635px, 107mm ≈ 404px (96dpi 기준) */
             /* 가로: 404/800 = 0.505, 세로: 635/1200 = 0.529 */
             /* 가로에 맞추면: 0.505 사용 (가로가 더 작으므로) */
             width: 800px !important;
             height: 1200px !important;
-            zoom: 0.505 !important; /* 가로에 맞춰서 조정 (107mm에 맞춤) */
-            -webkit-transform: scale(0.505) !important; /* 웹킷 브라우저용 */
-            transform: scale(0.505) !important;
+            /* 인쇄 시 스케일 조정 제거 - 브라우저가 자동으로 맞춤 */
+            transform: none !important;
+            -webkit-transform: none !important;
             transform-origin: top left !important;
             -webkit-transform-origin: top left !important;
-            overflow: hidden !important; /* 테두리 밖으로 나가지 않도록 */
+            overflow: visible !important; /* 집배코드가 잘리지 않도록 */
             page-break-inside: avoid !important;
             border: none !important; /* 인쇄 시 테두리 제거 */
+            background: white !important; /* 배경색 명시 */
+            /* 인쇄 시 크기 조정 */
+            max-width: 168mm !important;
+            max-height: 107mm !important;
+          }
+          
+          /* 집배코드 인쇄 시 색상 유지 */
+          .shipping-label-content > div {
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
           }
           .shipping-label-container {
             border: none !important; /* 인쇄 시 테두리 제거 */
@@ -271,7 +431,7 @@ export function ShippingLabelSheet({ data }: Props) {
       `}</style>
 
       {/* 라벨 배경 및 데이터 */}
-      {/* 168mm x 107mm 사이즈로 출력되도록 설정 */}
+      {/* 우체국 C형: 168mm x 107mm 사이즈로 출력되도록 설정 */}
       <div
         className="shipping-label-content"
         style={{
@@ -283,21 +443,28 @@ export function ShippingLabelSheet({ data }: Props) {
           border: "1px solid #ddd", // 화면에서 보이는 테두리 (인쇄 시 제거됨)
           /* 화면에서 볼 때 스케일 조정 */
           transform: "scale(0.8)", 
-          transformOrigin: "top left"
+          transformOrigin: "top left",
+          printColorAdjust: "exact", // 인쇄 시 색상 유지
+          WebkitPrintColorAdjust: "exact",
         }}
       >
-        {/* --- 1. 상단 정보 --- */}
-        {/* 0차 출력 표시 */}
-        <div style={{ 
-          position: "absolute", 
-          left: "20px", 
-          top: "20px", 
-          ...FONT_STYLE,
-          fontSize: "14px",
-          fontWeight: "bold"
-        }}>
-          0차 출력
-        </div>
+        {/* 저장된 레이아웃이 있으면 사용, 없으면 기존 하드코딩된 좌표 사용 */}
+        {useCustomLayout ? (
+          renderCustomLayout()
+        ) : (
+          <>
+            {/* --- 1. 상단 정보 --- */}
+            {/* 0차 출력 표시 */}
+            <div style={{ 
+              position: "absolute", 
+              left: "20px", 
+              top: "20px", 
+              ...FONT_STYLE,
+              fontSize: "14px",
+              fontWeight: "bold"
+            }}>
+              0차 출력
+            </div>
         
         {/* CSV 기준: 항목 2 - 송장출력일 (12px) */}
         {renderText('orderDate', `신청일: ${data.orderDate}`, { fontSize: "12px" })}
@@ -308,26 +475,34 @@ export function ShippingLabelSheet({ data }: Props) {
         {/* CSV 기준: 항목 14 - 주문번호 (12px) */}
         {renderText('orderNumber', `주문번호: ${data.orderNumber}`, { fontSize: "12px" })}
         
-        {/* 상단 분류 코드 - 이지어드민 형태: "경1 701 56 05" 한 줄에 균등하게 크게 표시 */}
-        {/* 이지어드민 기준: 상단에 한 줄로 크게 표시, 잘림 방지 */}
-        {data.sortCode1 && data.sortCode2 && data.sortCode3 && data.sortCode4 && (
+        {/* 상단 집배코드 - 우체국 표준 형식: "A1 110 02 09 - 021 -" */}
+        {/* ① 집중국·물류센터 번호 ② 배달국(센터) 번호 ③ 집배팀 번호 ④ 집배구 번호 ⑤ 구분코스 */}
+        {(data.sortCode1 || data.sortCode2 || data.sortCode3 || data.sortCode4) && (
           <div style={{
             position: "absolute",
             left: "363px", // CSV 기준 sortCode1의 X 좌표
             top: "12px",   // CSV 기준 sortCode1의 Y 좌표
-            width: "500px", // 더 넓은 너비로 "05" 잘림 방지
+            width: "500px", // 더 넓은 너비로 잘림 방지
             maxWidth: "none", // 최대 너비 제한 제거
             ...FONT_STYLE,
             fontSize: "35px",
-            fontWeight: "normal",
+            fontWeight: "bold", // 굵게 표시
             letterSpacing: "6px", // 코드 간 간격 조정
             whiteSpace: "nowrap",
             lineHeight: "1",
             overflow: "visible",
             textAlign: "left",
-            zIndex: 10
+            zIndex: 10,
+            color: "#000",
+            printColorAdjust: "exact", // 인쇄 시 색상 유지
+            WebkitPrintColorAdjust: "exact",
           }}>
-            {data.sortCode1} {data.sortCode2} {data.sortCode3} {data.sortCode4}
+            {/* 우체국 표준 형식: A1 110 02 09 - 021 - */}
+            {/* ① 집중국·물류센터 번호 ② 배달국(센터) 번호 ③ 집배팀 번호 ④ 집배구 번호 ⑤ 구분코스 */}
+            {[data.sortCode1, data.sortCode2, data.sortCode3, data.sortCode4]
+              .filter(Boolean)
+              .join(' ')}
+            {data.deliverySequence && ` ${data.deliverySequence}`}
           </div>
         )}
         
@@ -515,34 +690,36 @@ export function ShippingLabelSheet({ data }: Props) {
         {/* --- 7. 메모 --- CSV 기준: 항목 37 - 메모 (13px) */}
         {renderText('memo', data.memo, { fontSize: "13px" })}
         
-        {/* 배경 그리드 (디버깅용 - 주석 처리) */}
-        {/* 
-        <div style={{
-          position: "absolute",
-          inset: 0,
-          border: "1px solid red",
-          pointerEvents: "none",
-          zIndex: 100,
-        }}>
-          {Object.entries(COORDS).map(([key, [x, y, w, h]]) => (
-            <div
-              key={key}
-              style={{
-                position: "absolute",
-                left: x,
-                top: y,
-                width: w,
-                height: h,
-                border: "1px dashed rgba(255,0,0,0.3)",
-                fontSize: "8px",
-                color: "red",
-              }}
-            >
-              {key}
+            {/* 배경 그리드 (디버깅용 - 주석 처리) */}
+            {/* 
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              border: "1px solid red",
+              pointerEvents: "none",
+              zIndex: 100,
+            }}>
+              {Object.entries(COORDS).map(([key, [x, y, w, h]]) => (
+                <div
+                  key={key}
+                  style={{
+                    position: "absolute",
+                    left: x,
+                    top: y,
+                    width: w,
+                    height: h,
+                    border: "1px dashed rgba(255,0,0,0.3)",
+                    fontSize: "8px",
+                    color: "red",
+                  }}
+                >
+                  {key}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        */}
+            */}
+          </>
+        )}
       </div>
     </div>
   );

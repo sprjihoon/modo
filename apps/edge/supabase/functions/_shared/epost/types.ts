@@ -121,6 +121,7 @@ export interface PostOfficeResponse {
  */
 export interface DeliveryCodeParams {
   zipcode: string;     // 우편번호 (5자리)
+  address?: string;    // 주소 (선택적, 정확도 향상)
 }
 
 /**

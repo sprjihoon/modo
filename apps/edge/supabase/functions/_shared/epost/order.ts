@@ -317,11 +317,15 @@ export async function getDeliveryCode(params: DeliveryCodeParams): Promise<Deliv
   
   try {
     // 공공데이터포털 집배코드조회 API 호출
+    // API 문서: https://www.epost.go.kr/opendata/opendata.html
+    // option=001: 인쇄용 집배코드(printAreaCd) 추가 출력
     const url = new URL('http://openapi.epost.go.kr/postal/retrieveNewAdressAreaCd');
     url.searchParams.append('serviceKey', apiKey);
-    url.searchParams.append('srchwrd', params.zipcode); // 우편번호로 검색
-    url.searchParams.append('numOfRows', '1');
-    url.searchParams.append('pageNo', '1');
+    url.searchParams.append('target', 'delivArea'); // 고정값
+    url.searchParams.append('zip', params.zipcode); // 우편번호
+    url.searchParams.append('addr', params.address || ''); // 주소 (선택적)
+    url.searchParams.append('mdiv', '1'); // 1: 소포, 2: 통상
+    url.searchParams.append('option', '001'); // 001: 인쇄용 집배코드(printAreaCd) 추가 출력
     
     console.log('🔍 집배코드조회 API 호출:', url.toString());
     

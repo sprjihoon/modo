@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Scissors,
   Ticket,
+  FileText,
 } from "lucide-react";
 
 const navItems = [
@@ -66,6 +67,11 @@ const navItems = [
     title: "설정",
     href: "/dashboard/settings",
     icon: Settings,
+  },
+  {
+    title: "송장 레이아웃",
+    href: "/ops/label-editor",
+    icon: FileText,
   },
 ];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Scan, Package, Search, FileText, Printer } from "lucide-react";
 import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin } from "@/components/ops/work-order-sheet";
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
@@ -27,6 +27,7 @@ type ShipmentData = {
   images?: string[]; // 이미지 URL 배열
   pinsCount?: number; // 총 핀 개수
   imagesWithPins?: any[]; // images_with_pins 원본 데이터
+  order?: any; // 주문 정보 전체 (created_at, weight, volume, total_amount, payment_method 등)
 };
 
 // ============================================
@@ -64,7 +65,18 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       customer_phone: order?.customer_phone,
       item_name: order?.item_name,
     });
-    console.log("📋 delivery_info:", shipment?.delivery_info);
+    // delivery_info 파싱 (JSON 문자열인 경우)
+    let deliveryInfo = shipment?.delivery_info;
+    if (deliveryInfo && typeof deliveryInfo === 'string') {
+      try {
+        deliveryInfo = JSON.parse(deliveryInfo);
+        console.log("📋 delivery_info 파싱 성공:", deliveryInfo);
+      } catch (e) {
+        console.warn("⚠️ delivery_info 파싱 실패:", e);
+        deliveryInfo = null;
+      }
+    }
+    console.log("📋 delivery_info:", deliveryInfo);
 
     if (!shipment || !order) {
       console.error("❌ 필수 데이터 누락:", { shipment, order });
@@ -103,13 +115,25 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
 
     // 입고송장번호와 출고송장번호 구분
     const inboundTrackingNo = shipment.pickup_tracking_no || shipment.tracking_no || "";
-    const outboundTrackingNo = shipment.delivery_tracking_no || 
-                                shipment.outbound_tracking_no || 
-                                (shipment.tracking_no && 
-                                 shipment.pickup_tracking_no && 
-                                 shipment.tracking_no !== shipment.pickup_tracking_no
-                                   ? shipment.tracking_no
-                                   : undefined);
+    
+    // 출고송장번호: delivery_tracking_no 우선, 없으면 delivery_info에서 regiNo 확인
+    let outboundTrackingNo = shipment.delivery_tracking_no || 
+                              shipment.outbound_tracking_no;
+    
+    // delivery_info에서 송장번호 확인 (우체국 API 응답)
+    if (!outboundTrackingNo && shipment.delivery_info) {
+      const deliveryInfo = typeof shipment.delivery_info === 'string' 
+        ? JSON.parse(shipment.delivery_info) 
+        : shipment.delivery_info;
+      outboundTrackingNo = deliveryInfo?.regiNo || deliveryInfo?.trackingNo;
+    }
+    
+    // 마지막 fallback: tracking_no가 pickup_tracking_no와 다르면 출고송장으로 간주
+    if (!outboundTrackingNo && shipment.tracking_no && 
+        shipment.pickup_tracking_no && 
+        shipment.tracking_no !== shipment.pickup_tracking_no) {
+      outboundTrackingNo = shipment.tracking_no;
+    }
 
     // images_with_pins 데이터 확인 로그
     if (order.images_with_pins) {
@@ -138,7 +162,7 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       customerZipcode: order.delivery_zipcode, // 우편번호 매핑
       brandName: "브랜드 없음", // TODO: 브랜드 정보 추가 필요
       status: shipment.status || order.status || "UNKNOWN",
-      deliveryInfo: shipment.delivery_info, // API 응답 저장
+      deliveryInfo: deliveryInfo || shipment.delivery_info, // 파싱된 delivery_info 사용
       summary: order.item_description || order.item_name || "수선 요청 정보 없음",
       pickupAddress: pickupAddr || "주소 없음",
       deliveryAddress: deliveryAddr || "주소 없음",
@@ -148,6 +172,7 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       images: imageUrls,
       pinsCount: totalPins,
       imagesWithPins: imagesWithPinsData, // 수정된 데이터 사용
+      order: order, // 주문 정보 전체 추가 (주문일, 중량, 용적 등)
     };
   } catch (error) {
     console.error("Shipment 조회 중 오류:", error);
@@ -159,6 +184,23 @@ export default function InboundPage() {
   const [trackingNo, setTrackingNo] = useState("");
   const [result, setResult] = useState<ShipmentData | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [labelLayout, setLabelLayout] = useState<any[] | null>(null); // 저장된 레이아웃
+
+  // 저장된 레이아웃 불러오기
+  useEffect(() => {
+    const loadLayout = async () => {
+      try {
+        const response = await fetch("/api/admin/settings/label-layout");
+        const data = await response.json();
+        if (data.success && data.layout) {
+          setLabelLayout(data.layout);
+        }
+      } catch (error) {
+        console.error("레이아웃 로드 실패:", error);
+      }
+    };
+    loadLayout();
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showWorkOrderPreview, setShowWorkOrderPreview] = useState(false);
@@ -702,6 +744,7 @@ export default function InboundPage() {
             </div>
             <div className="p-4 print:p-0 flex justify-center">
               <ShippingLabelSheet
+                customLayout={labelLayout}
                 data={(() => {
                   console.log('🔍 원본 deliveryInfo:', result.deliveryInfo);
                   console.log('🔍 고객 우편번호:', result.customerZipcode);
@@ -709,34 +752,52 @@ export default function InboundPage() {
                   // 집배코드 정보: result.deliveryInfo에 실제 DB/API 조회 결과가 있으면 우선 사용
                   let deliveryCode = result.deliveryInfo || {};
                   
-                  // deliveryInfo에 실제 조회된 값이 있는지 확인
-                  const hasRealData = deliveryCode.sortCode1 || deliveryCode.delivAreaCd || deliveryCode.courseNo;
+                  // deliveryInfo가 객체인지 확인 (null, undefined, 빈 객체 체크)
+                  const hasDeliveryInfo = deliveryCode && 
+                                         typeof deliveryCode === 'object' && 
+                                         Object.keys(deliveryCode).length > 0;
+                  
+                  // 실제 조회된 값이 있는지 확인 (우체국 API나 DB에서 조회된 값)
+                  const hasRealData = hasDeliveryInfo && (
+                    deliveryCode.sortCode1 || 
+                    deliveryCode.sortCode2 || 
+                    deliveryCode.sortCode3 || 
+                    deliveryCode.sortCode4 ||
+                    deliveryCode.delivAreaCd || 
+                    deliveryCode.courseNo ||
+                    deliveryCode.arrCnpoNm ||
+                    deliveryCode.delivPoNm ||
+                    deliveryCode.regiNo // 송장번호도 확인
+                  );
                   
                   console.log('🔍 deliveryInfo 확인:', {
-                    hasSortCode1: !!deliveryCode.sortCode1,
+                    hasDeliveryInfo,
+                    hasRealData,
+                    deliveryInfo: deliveryCode,
                     sortCode1: deliveryCode.sortCode1,
                     sortCode2: deliveryCode.sortCode2,
                     sortCode3: deliveryCode.sortCode3,
                     sortCode4: deliveryCode.sortCode4,
                     delivAreaCd: deliveryCode.delivAreaCd,
                     courseNo: deliveryCode.courseNo,
-                    hasRealData
+                    arrCnpoNm: deliveryCode.arrCnpoNm,
+                    delivPoNm: deliveryCode.delivPoNm,
+                    regiNo: deliveryCode.regiNo,
                   });
                   
-                  // deliveryInfo에 집배코드가 없으면 클라이언트에서 조회 (fallback)
-                  // 하지만 실제 조회된 값이 있으면 하드코딩된 fallback을 사용하지 않음
+                  // 실제 조회된 값이 없을 때만 fallback 사용 (하드코딩 방지)
                   if (!hasRealData && result.customerZipcode) {
-                    console.log('⚠️ 집배코드 정보 없음, 우편번호로 조회 (fallback):', result.customerZipcode);
-                    // lookupDeliveryCode 함수 사용 (하드코딩된 fallback)
-                    const lookupResult = lookupDeliveryCode(result.customerZipcode);
-                    if (lookupResult) {
-                      deliveryCode = { ...lookupResult };
-                      console.log('✅ 집배코드 fallback 조회 성공:', deliveryCode);
-                    } else {
-                      console.warn('⚠️ 집배코드 조회 실패, 기본값 사용');
-                    }
+                    console.warn('⚠️ 집배코드 정보 없음 - 실제 DB/API 조회 필요:', {
+                      customerZipcode: result.customerZipcode,
+                      deliveryInfo: deliveryCode,
+                    });
+                    // fallback은 사용하지 않고 경고만 표시
+                    // 실제로는 출고 송장 생성 시 집배코드가 조회되어야 함
+                    console.warn('⚠️ 하드코딩된 fallback 사용하지 않음 - 출고 송장 생성 시 집배코드 조회 필요');
                   } else if (hasRealData) {
                     console.log('✅ 실제 조회된 집배코드 사용:', deliveryCode);
+                  } else {
+                    console.warn('⚠️ 집배코드 정보 없음 - 빈 값 사용');
                   }
                   
                   // delivAreaCd가 없으면 courseNo에서 변환
@@ -785,33 +846,97 @@ export default function InboundPage() {
                   });
                   
                   // 실제 우체국 API에서 받은 송장번호 확인
+                  // deliveryInfo에서 regiNo 확인 (우체국 API 응답)
+                  const deliveryTrackingNo = result.deliveryInfo?.regiNo || 
+                                             result.deliveryInfo?.trackingNo ||
+                                             result.outboundTrackingNo;
+                  
                   console.log('📦 출고 송장번호 확인:', {
                     outboundTrackingNo: result.outboundTrackingNo,
-                    deliveryTrackingNo: result.deliveryInfo?.regiNo,
-                    source: result.outboundTrackingNo ? 'shipment.delivery_tracking_no' : 'none'
+                    deliveryInfoRegiNo: result.deliveryInfo?.regiNo,
+                    deliveryInfoTrackingNo: result.deliveryInfo?.trackingNo,
+                    finalTrackingNo: deliveryTrackingNo,
+                    source: result.deliveryInfo?.regiNo ? 'deliveryInfo.regiNo' : 
+                            result.outboundTrackingNo ? 'shipment.delivery_tracking_no' : 'none'
                   });
                   
-                  return {
-                    trackingNo: result.outboundTrackingNo || '',
-                    
-                    // 주문 정보
-                    orderDate: new Date().toLocaleDateString('ko-KR', { 
+                  if (!deliveryTrackingNo) {
+                    console.error('❌ 출고 송장번호 없음 - 송장 출력 불가');
+                    alert('출고 송장번호가 없습니다. 출고 송장을 먼저 생성해주세요.');
+                    return null;
+                  }
+                  
+                  // 주문 정보 가져오기 (result.order에서 가져오기)
+                  const orderData = (result as any).order || {};
+                  
+                  // 주문일 포맷팅 (created_at 사용)
+                  const formatOrderDate = (dateString?: string) => {
+                    if (!dateString) return new Date().toLocaleDateString('ko-KR', { 
                       year: 'numeric', 
                       month: 'numeric', 
                       day: 'numeric' 
-                    }).replace(/\./g, '.').trim(),
+                    }).replace(/\./g, '.').trim();
+                    
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('ko-KR', { 
+                      year: 'numeric', 
+                      month: 'numeric', 
+                      day: 'numeric' 
+                    }).replace(/\./g, '.').trim();
+                  };
+
+                  // 출고 주소지 (company_info에서 가져오기, 없으면 기본값)
+                  const senderAddress = companyInfo?.address || 
+                    "대구 동구 동촌로 1 (인석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실";
+                  const senderName = companyInfo?.company_name?.split('(')[0].trim() || "모두의수선";
+                  const senderPhone = companyInfo?.phone || "010-2723-9490";
+
+                  return {
+                    trackingNo: deliveryTrackingNo || '',
+                    
+                    // 주문 정보 (실제 DB 값 사용)
+                    orderDate: formatOrderDate(orderData.created_at),
                     recipientName: result.customerName,
-                    sellerName: "모두의수선",
-                    orderNumber: result.deliveryInfo?.resNo?.substring(result.deliveryInfo.resNo.length - 6) || result.orderId.substring(0, 6),
+                    sellerName: senderName,
+                    orderNumber: result.deliveryInfo?.resNo?.substring(result.deliveryInfo.resNo.length - 6) || 
+                                result.orderId.substring(0, 6),
                     
-                    // 보내는 분
-                    senderAddress: "대구 동구 동촌로 1 (인석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실",
-                    senderName: "모두의수선",
-                    senderPhone: "010-2723-9490",
+                    // 보내는 분 (company_info에서 가져온 값)
+                    senderAddress: senderAddress,
+                    senderName: senderName,
+                    senderPhone: senderPhone,
                     
+                    // 받는 분 (수거지와 배송지가 동일한지 확인)
+                    // "수거지와 배송지가 동일합니다" 플래그 확인
+                    // 플래그가 true(동일)이면: 수거지 주소 사용 (주문자가 수거 신청한 주소)
+                    // 플래그가 false(다름)이면: 배송지 주소 사용 (받아볼 수 있는 주소)
+                    const isSameAddress = orderData.is_pickup_delivery_same !== false && 
+                                         orderData.is_same_address !== false; // 기본값은 true (동일)
+                    
+                    const recipientAddress = isSameAddress 
+                      ? result.pickupAddress  // 수거지와 배송지가 동일하면 수거지 주소 사용 (수거 신청 주소)
+                      : result.deliveryAddress; // 다르면 배송지 주소 사용 (받아볼 수 있는 주소)
+                    
+                    // 우편번호도 동일하게 처리
+                    const recipientZipcode = isSameAddress
+                      ? orderData.pickup_zipcode || result.customerZipcode || ""
+                      : orderData.delivery_zipcode || result.customerZipcode || "";
+                    
+                    console.log("📍 받는 사람 주소 결정:", {
+                      isSameAddress,
+                      is_pickup_delivery_same: orderData.is_pickup_delivery_same,
+                      is_same_address: orderData.is_same_address,
+                      pickupAddress: result.pickupAddress,
+                      deliveryAddress: result.deliveryAddress,
+                      finalAddress: recipientAddress,
+                      pickupZipcode: orderData.pickup_zipcode,
+                      deliveryZipcode: orderData.delivery_zipcode,
+                      finalZipcode: recipientZipcode,
+                    });
+
                     // 받는 분
-                    recipientZipcode: result.customerZipcode || "",
-                    recipientAddress: result.deliveryAddress,
+                    recipientZipcode: recipientZipcode,
+                    recipientAddress: recipientAddress,
                     recipientPhone: result.customerPhone || "",
                     
                     // 상품 정보
@@ -819,9 +944,9 @@ export default function InboundPage() {
                     itemsList: (result.repairParts || [result.itemName]).join('\n'),
                     memo: result.summary,
                     
-                    // 기타
-                    weight: "2kg",
-                    volume: "60cm",
+                    // 기타 (주문 정보에서 가져오기, 없으면 기본값)
+                    weight: orderData.weight ? `${orderData.weight}kg` : "2kg",
+                    volume: orderData.volume ? `${orderData.volume}cm` : "60cm",
                     
                     // 우체국 분류 코드
                     deliveryPlaceCode: deliveryCode.arrCnpoNm || "",
@@ -846,6 +971,7 @@ export default function InboundPage() {
                     sortCode2: deliveryCode.sortCode2 || "",
                     sortCode3: deliveryCode.sortCode3 || "",
                     sortCode4: deliveryCode.sortCode4 || "",
+                    printAreaCd: deliveryCode.printAreaCd || "", // 우체국 API: 인쇄용 집배코드
                   };
                 })()}
               />

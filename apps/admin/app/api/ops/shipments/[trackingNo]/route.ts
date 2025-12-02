@@ -104,10 +104,39 @@ export async function GET(
       );
     }
 
+    // delivery_info가 JSON 문자열인 경우 파싱
+    let deliveryInfo = resolvedShipment.delivery_info;
+    if (typeof deliveryInfo === 'string') {
+      try {
+        deliveryInfo = JSON.parse(deliveryInfo);
+      } catch (e) {
+        console.warn('⚠️ delivery_info 파싱 실패:', e);
+        deliveryInfo = null;
+      }
+    }
+
+    // 송장번호 확인 및 정리
+    const deliveryTrackingNo = resolvedShipment.delivery_tracking_no || 
+                               resolvedShipment.outbound_tracking_no || 
+                               null;
+
+    console.log('📦 Shipment 데이터 확인:', {
+      delivery_tracking_no: resolvedShipment.delivery_tracking_no,
+      outbound_tracking_no: resolvedShipment.outbound_tracking_no,
+      tracking_no: resolvedShipment.tracking_no,
+      pickup_tracking_no: resolvedShipment.pickup_tracking_no,
+      delivery_info: deliveryInfo,
+      delivery_info_type: typeof resolvedShipment.delivery_info,
+    });
+
     return NextResponse.json({
       success: true,
       data: {
-        shipment: resolvedShipment,
+        shipment: {
+          ...resolvedShipment,
+          delivery_info: deliveryInfo, // 파싱된 delivery_info 사용
+          delivery_tracking_no: deliveryTrackingNo, // 명시적으로 설정
+        },
         order,
       },
     });

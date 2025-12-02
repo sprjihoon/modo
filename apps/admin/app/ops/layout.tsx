@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Package, Wrench, Send, Cpu } from "lucide-react";
+import { Home, Package, Wrench, Send, Cpu, FileText } from "lucide-react";
 
 const navigation = [
   { name: "입고", href: "/ops/inbound", icon: Package },
   { name: "작업", href: "/ops/work", icon: Wrench },
   { name: "출고", href: "/ops/outbound", icon: Send },
   { name: "장비", href: "/ops/devices", icon: Cpu },
+  { name: "송장 레이아웃", href: "/ops/label-editor", icon: FileText },
 ];
 
 export default function OpsLayout({ children }: { children: React.ReactNode }) {

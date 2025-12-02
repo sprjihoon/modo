@@ -180,7 +180,14 @@ Deno.serve(async (req) => {
           } else {
             // 방법 3: 우체국 API 조회 (최종 fallback)
             console.log('⚠️ 로컬 매핑에도 없음, 우체국 API 조회 시도...');
-            deliveryCodeInfo = await getDeliveryCode({ zipcode: order.delivery_zipcode });
+            const deliveryAddr = [
+              order.delivery_address,
+              order.delivery_address_detail,
+            ].filter(Boolean).join(" ");
+            deliveryCodeInfo = await getDeliveryCode({ 
+              zipcode: order.delivery_zipcode,
+              address: deliveryAddr 
+            });
             console.log('✅ 집배코드 API 조회 성공:', deliveryCodeInfo);
           }
         }
