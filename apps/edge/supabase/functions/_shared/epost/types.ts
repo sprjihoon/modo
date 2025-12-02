@@ -125,17 +125,20 @@ export interface DeliveryCodeParams {
 
 /**
  * 집배코드 조회 응답
+ * 우체국 공공데이터 API 응답 필드 (공식 문서 기준)
  */
 export interface DeliveryCodeResponse {
-  postOffice?: string;      // 배달 우체국
-  deliveryArea?: string;    // 집배구 코드
+  arrCnpoNm?: string;       // 도착집중국명(소포) - 예: "대구M"
+  delivPoNm?: string;       // 배달우체국명(소포) - 예: "동대구"
+  delivAreaCd?: string;     // 집배코드(소포) - 예: "-560-"
+  printAreaCd?: string;     // 인쇄용 집배코드 - 예: "경1 701 56 05"
+  courseNo?: string;        // 구분 코스 (v1.4)
+  
+  // 파싱된 분류 코드
   sortCode1?: string;       // 분류 코드 1 (경1)
   sortCode2?: string;       // 분류 코드 2 (701)
   sortCode3?: string;       // 분류 코드 3 (56)
   sortCode4?: string;       // 분류 코드 4 (05)
-  arrCnpoNm?: string;       // 도착 집중국
-  delivPoNm?: string;       // 배달 우체국
-  delivAreaCd?: string;     // 배달 지역 코드
 }
 
 /**

@@ -315,14 +315,25 @@ Deno.serve(async (req) => {
       officeSer: office_ser || Deno.env.get('EPOST_OFFICE_SER') || '251132110', // 공급지 코드
       orderNo: order_id,                      // 주문 ID를 주문번호로 사용
       
-      // 수취인 정보
-      recNm: customer_name || CENTER_RECIPIENT_NAME,
-      recZip: deliveryInfo.zipcode.trim(), // 우편번호 (필수, 5자리 숫자)
-      recAddr1: deliveryInfo.address,
+      // 발송인 정보 (고객 - 수거지 주소)
+      // 수거신청: 고객이 보내는 사람이므로 고객 주소를 발송인으로 설정
+      ordNm: customer_name,
+      ordZip: pickupInfo.zipcode ? pickupInfo.zipcode.trim().replace(/-/g, '') : '',
+      ordAddr1: pickupInfo.address || '고객 수거지 주소',
+      ordAddr2: (pickupInfo.detail && pickupInfo.detail.trim() !== '') 
+        ? pickupInfo.detail.trim() 
+        : '',
+      ordMob: pickupInfo.phone ? pickupInfo.phone.replace(/-/g, '').substring(0, 12) : '',
+      
+      // 수취인 정보 (센터 - 도착지 주소)
+      // 수거신청: 센터가 받는 사람이므로 센터 주소를 수취인으로 설정
+      recNm: CENTER_RECIPIENT_NAME,
+      recZip: deliveryInfo.zipcode.trim(), // 센터 우편번호 (필수, 5자리 숫자)
+      recAddr1: deliveryInfo.address, // 센터 주소
       recAddr2: (deliveryInfo.detail && deliveryInfo.detail.trim() !== '') 
         ? deliveryInfo.detail.trim() 
         : '없음', // 상세주소가 없으면 "없음"으로 설정 (우체국 API 필수 항목)
-      recTel: deliveryInfo.phone.replace(/-/g, '').substring(0, 12),
+      recTel: deliveryInfo.phone.replace(/-/g, '').substring(0, 12), // 센터 전화번호
       
       // 상품 정보
       contCd: '025',                          // 025: 의류/패션잡화
@@ -361,13 +372,19 @@ Deno.serve(async (req) => {
       allKeys: Object.keys(epostParams),
     });
 
-    console.log('📦 우체국 소포신청 요청:', {
+    console.log('📦 우체국 소포신청 요청 (수거신청):', {
       orderNo: epostParams.orderNo,
-      recNm: epostParams.recNm,
-      recZip: epostParams.recZip,
-      recAddr1: epostParams.recAddr1,
-      recTel: epostParams.recTel,
-      // testYn 제외 (실제 API에서 사용 안 함)
+      // 발송인 (고객 - 수거지)
+      발송인명: epostParams.ordNm,
+      발송인우편번호: epostParams.ordZip,
+      발송인주소: epostParams.ordAddr1,
+      발송인전화: epostParams.ordMob,
+      // 수취인 (센터 - 도착지)
+      수취인명: epostParams.recNm,
+      수취인우편번호: epostParams.recZip,
+      수취인주소: epostParams.recAddr1,
+      수취인전화: epostParams.recTel,
+      // 기타
       custNo: epostParams.custNo,
       apprNo: epostParams.apprNo,
       weight: epostParams.weight,

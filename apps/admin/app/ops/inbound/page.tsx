@@ -5,6 +5,7 @@ import { Scan, Package, Search, FileText, Printer } from "lucide-react";
 import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin } from "@/components/ops/work-order-sheet";
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import WebcamRecorder from "@/components/ops/WebcamRecorder";
+import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
 // ============================================
 // 타입 정의
 // ============================================
@@ -701,53 +702,152 @@ export default function InboundPage() {
             </div>
             <div className="p-4 print:p-0 flex justify-center">
               <ShippingLabelSheet
-                data={{
-                  trackingNo: result.outboundTrackingNo,
+                data={(() => {
+                  console.log('🔍 원본 deliveryInfo:', result.deliveryInfo);
+                  console.log('🔍 고객 우편번호:', result.customerZipcode);
                   
-                  // 주문 정보
-                  orderDate: new Date().toLocaleDateString('ko-KR', { 
-                    year: 'numeric', 
-                    month: 'numeric', 
-                    day: 'numeric' 
-                  }).replace(/\./g, '.').trim(), // "2025. 1. 1." 형식
-                  recipientName: result.customerName,
-                  sellerName: "텔리언",
-                  // 주문번호: 우체국 API의 resNo(소포 예약번호)의 마지막 6자리 사용
-                  orderNumber: result.deliveryInfo?.resNo?.substring(result.deliveryInfo.resNo.length - 6) || result.orderId.substring(0, 6),
+                  // 집배코드 정보: result.deliveryInfo에 실제 DB/API 조회 결과가 있으면 우선 사용
+                  let deliveryCode = result.deliveryInfo || {};
                   
-                  // 보내는 분 (이지어드민 송장과 동일하게)
-                  senderAddress: "대구 동구 동촌로 1 (인석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실",
-                  senderName: "텔리언",
-                  senderPhone: "010-2723-9490",
+                  // deliveryInfo에 실제 조회된 값이 있는지 확인
+                  const hasRealData = deliveryCode.sortCode1 || deliveryCode.delivAreaCd || deliveryCode.courseNo;
                   
-                  // 받는 분
-                  recipientZipcode: result.customerZipcode || "",
-                  recipientAddress: result.deliveryAddress,
-                  recipientPhone: result.customerPhone || "",
+                  console.log('🔍 deliveryInfo 확인:', {
+                    hasSortCode1: !!deliveryCode.sortCode1,
+                    sortCode1: deliveryCode.sortCode1,
+                    sortCode2: deliveryCode.sortCode2,
+                    sortCode3: deliveryCode.sortCode3,
+                    sortCode4: deliveryCode.sortCode4,
+                    delivAreaCd: deliveryCode.delivAreaCd,
+                    courseNo: deliveryCode.courseNo,
+                    hasRealData
+                  });
                   
-                  // 상품 정보
-                  totalQuantity: result.repairParts?.length || 1,
-                  itemsList: (result.repairParts || [result.itemName]).join('\n'),
-                  memo: result.summary,
+                  // deliveryInfo에 집배코드가 없으면 클라이언트에서 조회 (fallback)
+                  // 하지만 실제 조회된 값이 있으면 하드코딩된 fallback을 사용하지 않음
+                  if (!hasRealData && result.customerZipcode) {
+                    console.log('⚠️ 집배코드 정보 없음, 우편번호로 조회 (fallback):', result.customerZipcode);
+                    // lookupDeliveryCode 함수 사용 (하드코딩된 fallback)
+                    const lookupResult = lookupDeliveryCode(result.customerZipcode);
+                    if (lookupResult) {
+                      deliveryCode = { ...lookupResult };
+                      console.log('✅ 집배코드 fallback 조회 성공:', deliveryCode);
+                    } else {
+                      console.warn('⚠️ 집배코드 조회 실패, 기본값 사용');
+                    }
+                  } else if (hasRealData) {
+                    console.log('✅ 실제 조회된 집배코드 사용:', deliveryCode);
+                  }
                   
-                  // 기타
-                  weight: "2kg",
-                  volume: "60cm",
+                  // delivAreaCd가 없으면 courseNo에서 변환
+                  if (!deliveryCode.delivAreaCd && deliveryCode.courseNo) {
+                    deliveryCode.delivAreaCd = `-${deliveryCode.courseNo}-`;
+                  }
                   
-                  // 우체국 분류 코드 (API 응답에서 매핑)
-                  // arrCnpoNm: 도착 집중국 (예: "대구M")
-                  // delivPoNm: 배달 우체국 (예: "동대구")
-                  // delivAreaCd: 배달 구역 (예: "A01" 또는 "-560-")
-                  deliveryPlaceCode: result.deliveryInfo?.arrCnpoNm || "",
-                  deliveryTeamCode: result.deliveryInfo?.delivPoNm || "",
-                  deliverySequence: result.deliveryInfo?.delivAreaCd || "",
+                  // delivAreaCd 정리: 숫자만 있으면 하이픈 추가, 잘못된 값 제거
+                  if (deliveryCode.delivAreaCd) {
+                    // "-경1 7 0 1 4 8 0 5 -" 같은 잘못된 형식 제거
+                    const cleanDelivAreaCd = deliveryCode.delivAreaCd.trim();
+                    // 숫자만 포함된 경우에만 처리 (한글, 공백 등이 포함되면 무시)
+                    if (/^[\d-]+$/.test(cleanDelivAreaCd.replace(/-/g, ''))) {
+                      // 하이픈이 없으면 추가
+                      if (!cleanDelivAreaCd.includes('-')) {
+                        deliveryCode.delivAreaCd = `-${cleanDelivAreaCd}-`;
+                      } else {
+                        deliveryCode.delivAreaCd = cleanDelivAreaCd;
+                      }
+                    } else {
+                      // 잘못된 형식이면 빈 문자열로 설정
+                      console.warn('⚠️ 잘못된 delivAreaCd 형식:', deliveryCode.delivAreaCd);
+                      deliveryCode.delivAreaCd = '';
+                    }
+                  }
                   
-                  // 집배코드조회 API에서 받는 상세 분류 코드 (경1 701 56 05)
-                  sortCode1: result.deliveryInfo?.sortCode1 || "",
-                  sortCode2: result.deliveryInfo?.sortCode2 || "",
-                  sortCode3: result.deliveryInfo?.sortCode3 || "",
-                  sortCode4: result.deliveryInfo?.sortCode4 || "",
-                }}
+                  // 실제 조회된 데이터가 있으면 로그 출력
+                  if (hasRealData) {
+                    console.log('✅ 실제 조회된 집배코드 사용:', {
+                      sortCode1: deliveryCode.sortCode1,
+                      sortCode2: deliveryCode.sortCode2,
+                      sortCode3: deliveryCode.sortCode3,
+                      sortCode4: deliveryCode.sortCode4,
+                      delivAreaCd: deliveryCode.delivAreaCd
+                    });
+                  }
+                  
+                  console.log('📋 최종 송장 데이터:', {
+                    sortCode1: deliveryCode.sortCode1,
+                    sortCode2: deliveryCode.sortCode2,
+                    sortCode3: deliveryCode.sortCode3,
+                    sortCode4: deliveryCode.sortCode4,
+                    delivAreaCd: deliveryCode.delivAreaCd,
+                    arrCnpoNm: deliveryCode.arrCnpoNm,
+                    delivPoNm: deliveryCode.delivPoNm,
+                  });
+                  
+                  // 실제 우체국 API에서 받은 송장번호 확인
+                  console.log('📦 출고 송장번호 확인:', {
+                    outboundTrackingNo: result.outboundTrackingNo,
+                    deliveryTrackingNo: result.deliveryInfo?.regiNo,
+                    source: result.outboundTrackingNo ? 'shipment.delivery_tracking_no' : 'none'
+                  });
+                  
+                  return {
+                    trackingNo: result.outboundTrackingNo || '',
+                    
+                    // 주문 정보
+                    orderDate: new Date().toLocaleDateString('ko-KR', { 
+                      year: 'numeric', 
+                      month: 'numeric', 
+                      day: 'numeric' 
+                    }).replace(/\./g, '.').trim(),
+                    recipientName: result.customerName,
+                    sellerName: "모두의수선",
+                    orderNumber: result.deliveryInfo?.resNo?.substring(result.deliveryInfo.resNo.length - 6) || result.orderId.substring(0, 6),
+                    
+                    // 보내는 분
+                    senderAddress: "대구 동구 동촌로 1 (인석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실",
+                    senderName: "모두의수선",
+                    senderPhone: "010-2723-9490",
+                    
+                    // 받는 분
+                    recipientZipcode: result.customerZipcode || "",
+                    recipientAddress: result.deliveryAddress,
+                    recipientPhone: result.customerPhone || "",
+                    
+                    // 상품 정보
+                    totalQuantity: result.repairParts?.length || 1,
+                    itemsList: (result.repairParts || [result.itemName]).join('\n'),
+                    memo: result.summary,
+                    
+                    // 기타
+                    weight: "2kg",
+                    volume: "60cm",
+                    
+                    // 우체국 분류 코드
+                    deliveryPlaceCode: deliveryCode.arrCnpoNm || "",
+                    deliveryTeamCode: deliveryCode.delivPoNm || "",
+                    // deliverySequence는 delivAreaCd만 사용 (sortCode 조합이 아님!)
+                    deliverySequence: (() => {
+                      let seq = deliveryCode.delivAreaCd || (deliveryCode.courseNo ? `-${deliveryCode.courseNo}-` : "");
+                      // 잘못된 형식 필터링: sortCode들이 조합된 경우 제거
+                      if (seq && (seq.includes('경') || seq.includes('A') || seq.includes('부') || seq.includes('광') || seq.includes('충'))) {
+                        console.warn('⚠️ deliverySequence에 잘못된 값 감지:', seq);
+                        seq = ''; // 잘못된 값 제거
+                      }
+                      // 숫자만 있으면 하이픈 추가
+                      if (seq && !seq.includes('-') && /^\d+$/.test(seq)) {
+                        seq = `-${seq}-`;
+                      }
+                      return seq;
+                    })(),
+                    
+                    // 집배코드 상세 (경1 701 56 05)
+                    sortCode1: deliveryCode.sortCode1 || "",
+                    sortCode2: deliveryCode.sortCode2 || "",
+                    sortCode3: deliveryCode.sortCode3 || "",
+                    sortCode4: deliveryCode.sortCode4 || "",
+                  };
+                })()}
               />
             </div>
           </div>

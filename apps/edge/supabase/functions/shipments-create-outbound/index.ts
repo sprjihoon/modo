@@ -11,6 +11,8 @@
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { insertOrder, getApprovalNumber, getDeliveryCode, type InsertOrderParams } from '../_shared/epost/index.ts';
+import { lookupDeliveryCode } from '../_shared/epost/delivery-code-file-lookup.ts';
+import { lookupDeliveryCodeFromDB } from '../_shared/epost/delivery-code-db-lookup.ts';
 
 interface CreateOutboundRequest {
   orderId: string;
@@ -158,12 +160,30 @@ Deno.serve(async (req) => {
     }
 
     // 6-1. 집배코드 조회 (배송지 우편번호로 상세 분류 코드 조회)
-    let deliveryCodeInfo = {};
+    let deliveryCodeInfo: any = {};
     if (order.delivery_zipcode) {
       try {
         console.log('🔍 집배코드 조회 시작, 우편번호:', order.delivery_zipcode);
-        deliveryCodeInfo = await getDeliveryCode({ zipcode: order.delivery_zipcode });
-        console.log('✅ 집배코드 조회 성공:', deliveryCodeInfo);
+        
+        // 방법 1: Supabase DB 조회 (가장 정확, 34,396개 우편번호)
+        const dbLookup = await lookupDeliveryCodeFromDB(supabase, order.delivery_zipcode);
+        if (dbLookup) {
+          deliveryCodeInfo = dbLookup;
+          console.log('✅ 집배코드 DB 조회 성공:', deliveryCodeInfo);
+        } else {
+          // 방법 2: 로컬 매핑 조회 (fallback)
+          console.log('⚠️ DB에 없음, 로컬 매핑 조회 시도...');
+          const localLookup = lookupDeliveryCode(order.delivery_zipcode);
+          if (localLookup) {
+            deliveryCodeInfo = localLookup;
+            console.log('✅ 집배코드 로컬 조회 성공:', deliveryCodeInfo);
+          } else {
+            // 방법 3: 우체국 API 조회 (최종 fallback)
+            console.log('⚠️ 로컬 매핑에도 없음, 우체국 API 조회 시도...');
+            deliveryCodeInfo = await getDeliveryCode({ zipcode: order.delivery_zipcode });
+            console.log('✅ 집배코드 API 조회 성공:', deliveryCodeInfo);
+          }
+        }
       } catch (codeError: any) {
         console.warn('⚠️ 집배코드 조회 실패 (계속 진행):', codeError.message);
       }

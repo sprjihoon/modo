@@ -334,18 +334,52 @@ export async function getDeliveryCode(params: DeliveryCodeParams): Promise<Deliv
     }
     
     const xmlText = await response.text();
-    console.log('📥 집배코드조회 응답:', xmlText);
+    console.log('📥 집배코드조회 응답 (전체):', xmlText);
+    console.log('📥 집배코드조회 응답 (길이):', xmlText.length);
     
     // XML 파싱
+    // 우체국 공공데이터 API 응답 필드명 (공식 문서 확인됨):
+    // - arrCnpoNm: 도착집중국명(소포) - 예: "대구M"
+    // - delivPoNm: 배달우체국명(소포) - 예: "동대구"
+    // - delivAreaCd: 집배코드(소포) - 예: "560"
+    // - printAreaCd: 인쇄용 집배코드
+    // - courseNo: 구분 코스 (v1.4)
+    
+    const arrCnpoNm = parseXmlValue(xmlText, 'arrCnpoNm') || undefined;
+    const delivPoNm = parseXmlValue(xmlText, 'delivPoNm') || undefined;
+    const delivAreaCd = parseXmlValue(xmlText, 'delivAreaCd') || undefined;
+    const printAreaCd = parseXmlValue(xmlText, 'printAreaCd') || undefined;
+    const courseNo = parseXmlValue(xmlText, 'courseNo') || undefined;
+    
+    // 분류코드는 printAreaCd 또는 delivAreaCd를 파싱하여 추출
+    // printAreaCd가 "경1 701 56 05" 형식으로 올 수 있음
+    let sortCode1, sortCode2, sortCode3, sortCode4;
+    
+    if (printAreaCd) {
+      // printAreaCd를 공백으로 분리하여 분류코드 추출
+      const parts = printAreaCd.trim().split(/\s+/);
+      sortCode1 = parts[0] || undefined;
+      sortCode2 = parts[1] || undefined;
+      sortCode3 = parts[2] || undefined;
+      sortCode4 = parts[3] || undefined;
+      console.log('📋 printAreaCd 파싱:', { printAreaCd, parts, sortCode1, sortCode2, sortCode3, sortCode4 });
+    }
+    
+    // 또는 개별 필드로 제공될 수 있음
+    if (!sortCode1) sortCode1 = parseXmlValue(xmlText, 'sortCode1') || undefined;
+    if (!sortCode2) sortCode2 = parseXmlValue(xmlText, 'sortCode2') || undefined;
+    if (!sortCode3) sortCode3 = parseXmlValue(xmlText, 'sortCode3') || undefined;
+    if (!sortCode4) sortCode4 = parseXmlValue(xmlText, 'sortCode4') || undefined;
+    
     const result: DeliveryCodeResponse = {
-      arrCnpoNm: parseXmlValue(xmlText, 'sopoArrcnpoNm') || undefined,
-      delivPoNm: parseXmlValue(xmlText, 'delivPoNm') || undefined,
-      delivAreaCd: parseXmlValue(xmlText, 'dlvyareacd') || undefined,
-      // 추가 분류 코드 (필드명은 실제 응답에 따라 조정 필요)
-      sortCode1: parseXmlValue(xmlText, 'sortCode1') || undefined,
-      sortCode2: parseXmlValue(xmlText, 'sortCode2') || undefined,
-      sortCode3: parseXmlValue(xmlText, 'sortCode3') || undefined,
-      sortCode4: parseXmlValue(xmlText, 'sortCode4') || undefined,
+      arrCnpoNm,
+      delivPoNm,
+      delivAreaCd: delivAreaCd ? `-${delivAreaCd}-` : undefined, // -560- 형식으로 변환
+      printAreaCd,
+      sortCode1,
+      sortCode2,
+      sortCode3,
+      sortCode4,
     };
     
     console.log('✅ 집배코드 조회 성공:', result);
