@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../services/repair_service.dart';
 import '../../../../services/image_service.dart';
+import '../../../../core/utils/snackbar_util.dart';
 
 /// 수선 의류 종류 선택 페이지
 class SelectClothingTypePage extends ConsumerStatefulWidget {
@@ -112,21 +113,19 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
          debugPrint('❌ 데이터 처리 오류: $e');
          debugPrint('❌ Stack: $stackTrace');
          
-         setState(() {
-           _isNavigating = false;
-         });
-         
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(
-               content: Text('데이터 처리 오류: $e'),
-               backgroundColor: Colors.red,
-               duration: const Duration(seconds: 5),
-             ),
-           );
-         }
-       }
-     }
+        setState(() {
+          _isNavigating = false;
+        });
+        
+        if (mounted) {
+          SnackBarUtil.showError(
+            context,
+            message: '데이터 처리 오류: $e',
+            duration: const Duration(seconds: 5),
+          );
+        }
+      }
+   }
    }
   
   /// DB에서 카테고리 로드
@@ -351,12 +350,10 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
           });
           
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('데이터 처리 오류: $e'),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 5),
-              ),
+            SnackBarUtil.showError(
+              context,
+              message: '데이터 처리 오류: $e',
+              duration: const Duration(seconds: 5),
             );
           }
         }
@@ -371,12 +368,10 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
          setState(() {
            _isNavigating = false;
          });
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-             content: Text('사진 추가 실패: $e'),
-             backgroundColor: Colors.red.shade400,
-           ),
-         );
+        SnackBarUtil.showError(
+          context,
+          message: '사진 추가 실패: $e',
+        );
        }
      }
    }
@@ -525,52 +520,32 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
       ),
         ),
         
-        // 풀스크린 로딩 오버레이 (네비게이션 중일 때)
+        // 네비게이션 중 로딩 오버레이 (단일 오버레이만 표시)
         if (_isNavigating)
           Positioned.fill(
             child: Container(
-              color: Colors.white,
+              color: Colors.black.withOpacity(0.5),
               child: Center(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C896)),
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      '핀 마킹 화면으로 이동 중...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
+                    RichText(
+                      text: const TextSpan(
+                        text: '화면 전환 중...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-      ),
-      ),
-        // 네비게이션 중 로딩 오버레이
-        if (_isNavigating)
-          Container(
-            color: Colors.black.withOpacity(0.5),
-            child: const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    '화면 전환 중...',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
