@@ -185,21 +185,31 @@ export default function InboundPage() {
   const [result, setResult] = useState<ShipmentData | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [labelLayout, setLabelLayout] = useState<any[] | null>(null); // 저장된 레이아웃
+  const [companyInfo, setCompanyInfo] = useState<any>(null); // 회사 정보 (출고 주소지)
 
-  // 저장된 레이아웃 불러오기
+  // 저장된 레이아웃 및 회사 정보 불러오기
   useEffect(() => {
-    const loadLayout = async () => {
+    const loadData = async () => {
       try {
-        const response = await fetch("/api/admin/settings/label-layout");
-        const data = await response.json();
-        if (data.success && data.layout) {
-          setLabelLayout(data.layout);
+        // 레이아웃 로드
+        const layoutResponse = await fetch("/api/admin/settings/label-layout");
+        const layoutData = await layoutResponse.json();
+        if (layoutData.success && layoutData.layout) {
+          setLabelLayout(layoutData.layout);
+        }
+
+        // 회사 정보 로드 (출고 주소지)
+        const companyResponse = await fetch("/api/admin/settings/company-info");
+        const companyData = await companyResponse.json();
+        if (companyData.success && companyData.data) {
+          setCompanyInfo(companyData.data);
+          console.log("🏢 회사 정보 로드 완료:", companyData.data);
         }
       } catch (error) {
-        console.error("레이아웃 로드 실패:", error);
+        console.error("데이터 로드 실패:", error);
       }
     };
-    loadLayout();
+    loadData();
   }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -886,10 +896,48 @@ export default function InboundPage() {
                   };
 
                   // 출고 주소지 (company_info에서 가져오기, 없으면 기본값)
+                  // 회사 정보가 있으면 우선 사용
                   const senderAddress = companyInfo?.address || 
                     "대구 동구 동촌로 1 (인석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실";
-                  const senderName = companyInfo?.company_name?.split('(')[0].trim() || "모두의수선";
+                  const senderName = companyInfo?.company_name 
+                    ? companyInfo.company_name.split('(')[0].trim() 
+                    : "모두의수선";
                   const senderPhone = companyInfo?.phone || "010-2723-9490";
+                  
+                  console.log("🏢 보낸분 정보 (회사 정보):", {
+                    companyInfo,
+                    senderAddress,
+                    senderName,
+                    senderPhone,
+                  });
+
+                  // 받는 분 (수거지와 배송지가 동일한지 확인)
+                  // "수거지와 배송지가 동일합니다" 플래그 확인
+                  // 플래그가 true(동일)이면: 수거지 주소 사용 (주문자가 수거 신청한 주소)
+                  // 플래그가 false(다름)이면: 배송지 주소 사용 (받아볼 수 있는 주소)
+                  const isSameAddress = orderData.is_pickup_delivery_same !== false && 
+                                       orderData.is_same_address !== false; // 기본값은 true (동일)
+                  
+                  const recipientAddress = isSameAddress 
+                    ? result.pickupAddress  // 수거지와 배송지가 동일하면 수거지 주소 사용 (수거 신청 주소)
+                    : result.deliveryAddress; // 다르면 배송지 주소 사용 (받아볼 수 있는 주소)
+                  
+                  // 우편번호도 동일하게 처리
+                  const recipientZipcode = isSameAddress
+                    ? orderData.pickup_zipcode || result.customerZipcode || ""
+                    : orderData.delivery_zipcode || result.customerZipcode || "";
+                  
+                  console.log("📍 받는 사람 주소 결정:", {
+                    isSameAddress,
+                    is_pickup_delivery_same: orderData.is_pickup_delivery_same,
+                    is_same_address: orderData.is_same_address,
+                    pickupAddress: result.pickupAddress,
+                    deliveryAddress: result.deliveryAddress,
+                    finalAddress: recipientAddress,
+                    pickupZipcode: orderData.pickup_zipcode,
+                    deliveryZipcode: orderData.delivery_zipcode,
+                    finalZipcode: recipientZipcode,
+                  });
 
                   return {
                     trackingNo: deliveryTrackingNo || '',
@@ -897,51 +945,28 @@ export default function InboundPage() {
                     // 주문 정보 (실제 DB 값 사용)
                     orderDate: formatOrderDate(orderData.created_at),
                     recipientName: result.customerName,
-                    sellerName: senderName,
+                    sellerName: senderName, // 회사명 사용
                     orderNumber: result.deliveryInfo?.resNo?.substring(result.deliveryInfo.resNo.length - 6) || 
                                 result.orderId.substring(0, 6),
+                    customerOrderSource: senderName, // 고객 주문처에도 회사명 사용
                     
                     // 보내는 분 (company_info에서 가져온 값)
                     senderAddress: senderAddress,
                     senderName: senderName,
                     senderPhone: senderPhone,
                     
-                    // 받는 분 (수거지와 배송지가 동일한지 확인)
-                    // "수거지와 배송지가 동일합니다" 플래그 확인
-                    // 플래그가 true(동일)이면: 수거지 주소 사용 (주문자가 수거 신청한 주소)
-                    // 플래그가 false(다름)이면: 배송지 주소 사용 (받아볼 수 있는 주소)
-                    const isSameAddress = orderData.is_pickup_delivery_same !== false && 
-                                         orderData.is_same_address !== false; // 기본값은 true (동일)
-                    
-                    const recipientAddress = isSameAddress 
-                      ? result.pickupAddress  // 수거지와 배송지가 동일하면 수거지 주소 사용 (수거 신청 주소)
-                      : result.deliveryAddress; // 다르면 배송지 주소 사용 (받아볼 수 있는 주소)
-                    
-                    // 우편번호도 동일하게 처리
-                    const recipientZipcode = isSameAddress
-                      ? orderData.pickup_zipcode || result.customerZipcode || ""
-                      : orderData.delivery_zipcode || result.customerZipcode || "";
-                    
-                    console.log("📍 받는 사람 주소 결정:", {
-                      isSameAddress,
-                      is_pickup_delivery_same: orderData.is_pickup_delivery_same,
-                      is_same_address: orderData.is_same_address,
-                      pickupAddress: result.pickupAddress,
-                      deliveryAddress: result.deliveryAddress,
-                      finalAddress: recipientAddress,
-                      pickupZipcode: orderData.pickup_zipcode,
-                      deliveryZipcode: orderData.delivery_zipcode,
-                      finalZipcode: recipientZipcode,
-                    });
-
                     // 받는 분
                     recipientZipcode: recipientZipcode,
                     recipientAddress: recipientAddress,
                     recipientPhone: result.customerPhone || "",
                     
-                    // 상품 정보
+                    // 상품 정보 (실제 수선 아이템 수 반영)
+                    // repairParts 배열의 길이가 실제 수선 건수
                     totalQuantity: result.repairParts?.length || 1,
-                    itemsList: (result.repairParts || [result.itemName]).join('\n'),
+                    // 실제 수선 아이템들을 리스트로 표시
+                    itemsList: result.repairParts && result.repairParts.length > 0
+                      ? result.repairParts.map((part: string, idx: number) => `${idx + 1}. ${part}`).join('\n')
+                      : result.itemName || "거래물품",
                     memo: result.summary,
                     
                     // 기타 (주문 정보에서 가져오기, 없으면 기본값)

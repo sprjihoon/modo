@@ -212,7 +212,7 @@ const DEFAULT_FIELDS: FieldConfig[] = [
 ];
 
 // 초기 레이아웃 (샘플 이미지 기반으로 미리 배치)
-const getInitialLayout = (canvasWidth: number, canvasHeight: number): LabelElement[] => {
+const getInitialLayout = (canvasWidth: number, canvasHeight: number, companyInfo?: any): LabelElement[] => {
   const labelWidth = canvasWidth - mmToPx(10);
   const labelHeight = canvasHeight - mmToPx(10);
   
@@ -220,34 +220,40 @@ const getInitialLayout = (canvasWidth: number, canvasHeight: number): LabelEleme
   const scale = labelWidth / mmToPx(LABEL_WIDTH_MM);
   const scaleFont = (size: number) => Math.max(10, size * scale * 0.8); // 최소 10px, 스케일 조정
   
+  // 회사 정보에서 보낸분 정보 가져오기
+  const senderAddress = companyInfo?.address || "대구 동구 동촌로 1 (입석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실";
+  const senderName = companyInfo?.company_name?.split('(')[0].trim() || "틸리언";
+  const senderPhone = companyInfo?.phone || "010-2723-9490";
+  
   return [
     // 상단
     { fieldKey: "output_label", label: "0차 출력", exampleValue: "0차 출력", x: labelWidth / 2 - 40, y: 10, width: 80, height: 20, fontSize: scaleFont(14), isBold: true, type: "text" },
-    { fieldKey: "sorting_code_large", label: "집배코드 (큰 글씨)", exampleValue: "경1 701 48 05", x: labelWidth - 250, y: 5, width: 240, height: 45, fontSize: scaleFont(35), isBold: true, type: "text" },
-    { fieldKey: "delivery_center_info", label: "도착집중국 정보", exampleValue: "대구M 동대구 -480-", x: labelWidth - 200, y: 50, width: 190, height: 20, fontSize: scaleFont(13), isBold: false, type: "text" },
+    // 집배코드: 왼쪽으로 더 이동
+    { fieldKey: "sorting_code_large", label: "집배코드 (큰 글씨)", exampleValue: "경1 701 48 05", x: labelWidth * 0.54, y: 5, width: 240, height: 45, fontSize: scaleFont(35), isBold: true, type: "text" },
+    { fieldKey: "delivery_center_info", label: "도착집중국 정보", exampleValue: "대구M 동대구 -480-", x: labelWidth * 0.54, y: 50, width: 190, height: 20, fontSize: scaleFont(13), isBold: false, type: "text" },
     
     // 좌측 열
     { fieldKey: "order_date", label: "신청일", exampleValue: "신청일: 2025-12-02", x: 10, y: 30, width: 150, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
     { fieldKey: "orderer_name", label: "주문인", exampleValue: "주문인: 테스트", x: 10, y: 55, width: 120, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
-    { fieldKey: "customer_order_source", label: "고객 주문처", exampleValue: "고객 주문처: 틸리언 수기", x: 10, y: 78, width: 180, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
+    { fieldKey: "customer_order_source", label: "고객 주문처", exampleValue: `고객 주문처: ${senderName} 수기`, x: 10, y: 78, width: 180, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
     { fieldKey: "order_number", label: "주문번호", exampleValue: "주문번호: 645675", x: 10, y: 101, width: 140, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
     { fieldKey: "package_info", label: "중량/용적/요금", exampleValue: "중량:2kg 용적:60cm 요금: 신용 0", x: 10, y: 124, width: 200, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
     { fieldKey: "zipcode_barcode", label: "우편번호 바코드", exampleValue: "41100", x: 10, y: 147, width: 100, height: 50, fontSize: scaleFont(12), isBold: false, type: "barcode" },
     { fieldKey: "total_quantity", label: "총 개수", exampleValue: "[총 1개]", x: 10, y: 205, width: 80, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
     { fieldKey: "items_list", label: "상품 리스트", exampleValue: "1. 거래물품-1개", x: 10, y: 230, width: 200, height: 22, fontSize: scaleFont(13), isBold: false, type: "text" },
     
-    // 우측 열 - 보내는 분
-    { fieldKey: "sender_address", label: "보내는 분 주소", exampleValue: "대구 동구 동촌로 1 (입석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실", x: labelWidth / 2 + 10, y: 30, width: labelWidth / 2 - 20, height: 50, fontSize: scaleFont(12), isBold: false, type: "text" },
-    { fieldKey: "sender_name", label: "보내는 분 이름", exampleValue: "틸리언", x: labelWidth / 2 + 10, y: 85, width: 100, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
-    { fieldKey: "sender_phone", label: "보내는 분 전화", exampleValue: "010-2723-9490", x: labelWidth / 2 + 120, y: 85, width: 120, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+    // 우측 열 - 보내는 분 (회사 정보 사용, 위치 조정: 왼쪽으로 더 이동, 간격 줄이기)
+    { fieldKey: "sender_address", label: "보내는 분 주소", exampleValue: senderAddress, x: labelWidth * 0.43, y: 95, width: labelWidth * 0.55, height: 40, fontSize: scaleFont(12), isBold: false, type: "text" },
+    { fieldKey: "sender_name", label: "보내는 분 이름", exampleValue: senderName, x: labelWidth * 0.43, y: 140, width: 100, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+    { fieldKey: "sender_phone", label: "보내는 분 전화", exampleValue: senderPhone, x: labelWidth * 0.43 + 110, y: 140, width: 120, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
     
-    // 우측 열 - 받는 분
-    { fieldKey: "receiver_address", label: "받는 분 주소", exampleValue: "대구 동구 안심로 188 (신기동) 3층", x: labelWidth / 2 + 10, y: 115, width: labelWidth / 2 - 20, height: 40, fontSize: scaleFont(14), isBold: false, type: "text" },
-    { fieldKey: "receiver_name", label: "받는 분 이름", exampleValue: "테스트", x: labelWidth / 2 + 10, y: 160, width: 100, height: 22, fontSize: scaleFont(13), isBold: false, type: "text" },
-    { fieldKey: "receiver_phone", label: "받는 분 전화", exampleValue: "01027239490", x: labelWidth / 2 + 120, y: 160, width: 120, height: 22, fontSize: scaleFont(13), isBold: false, type: "text" },
-    { fieldKey: "tracking_no_text", label: "등기번호 (텍스트)", exampleValue: "등기번호: 60914-8600-5658", x: labelWidth / 2 + 10, y: 188, width: 200, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
-    { fieldKey: "waybill_statement", label: "송장 문구", exampleValue: "모두의수선에서 제공되는 서비스입니다.", x: labelWidth / 2 + 10, y: 213, width: 250, height: 20, fontSize: scaleFont(12), isBold: true, type: "text" },
-    { fieldKey: "tracking_no_barcode", label: "등기번호 바코드", exampleValue: "60914-8600-5658", x: labelWidth / 2 + 10, y: 240, width: 200, height: 60, fontSize: scaleFont(12), isBold: false, type: "barcode" },
+    // 우측 열 - 받는 분 (위치 조정: 왼쪽으로 더 이동, 간격 줄이기)
+    { fieldKey: "receiver_address", label: "받는 분 주소", exampleValue: "대구 동구 안심로 188 (신기동) 3층", x: labelWidth * 0.43, y: 170, width: labelWidth * 0.55, height: 40, fontSize: scaleFont(14), isBold: false, type: "text" },
+    { fieldKey: "receiver_name", label: "받는 분 이름", exampleValue: "테스트", x: labelWidth * 0.43, y: 215, width: 100, height: 22, fontSize: scaleFont(13), isBold: false, type: "text" },
+    { fieldKey: "receiver_phone", label: "받는 분 전화", exampleValue: "01027239490", x: labelWidth * 0.43 + 110, y: 215, width: 120, height: 22, fontSize: scaleFont(13), isBold: false, type: "text" },
+    { fieldKey: "tracking_no_text", label: "등기번호 (텍스트)", exampleValue: "등기번호: 60914-8600-5658", x: labelWidth * 0.43, y: 245, width: 200, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+    { fieldKey: "waybill_statement", label: "송장 문구", exampleValue: "모두의수선에서 제공되는 서비스입니다.", x: labelWidth * 0.43, y: 270, width: 250, height: 20, fontSize: scaleFont(12), isBold: true, type: "text" },
+    { fieldKey: "tracking_no_barcode", label: "등기번호 바코드", exampleValue: "60914-8600-5658", x: labelWidth * 0.43, y: 295, width: 200, height: 60, fontSize: scaleFont(12), isBold: false, type: "barcode" },
     
     // 하단
     { fieldKey: "bottom_info", label: "하단 정보", exampleValue: "[총 1개] [2회 재출력]", x: 10, y: labelHeight - 25, width: 200, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
@@ -265,25 +271,33 @@ export default function LabelEditorPage() {
   const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingLayout, setIsLoadingLayout] = useState(false);
+  const [companyInfo, setCompanyInfo] = useState<any>(null); // 회사 정보
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // Supabase에서 배경 이미지 로드
+  // Supabase에서 배경 이미지 및 회사 정보 로드
   useEffect(() => {
-    const loadBackgroundImage = async () => {
+    const loadData = async () => {
       try {
-        const response = await fetch("/api/admin/settings/label-background");
-        const data = await response.json();
-        if (data.success && data.backgroundImageUrl) {
-          setBackgroundImageUrl(data.backgroundImageUrl);
-        } else if (data.needsMigration) {
-          console.warn("마이그레이션이 필요합니다. Supabase SQL Editor에서 컬럼을 추가해주세요.");
+        // 배경 이미지 로드
+        const bgResponse = await fetch("/api/admin/settings/label-background");
+        const bgData = await bgResponse.json();
+        if (bgData.success && bgData.backgroundImageUrl) {
+          setBackgroundImageUrl(bgData.backgroundImageUrl);
+        }
+
+        // 회사 정보 로드
+        const companyResponse = await fetch("/api/admin/settings/company-info");
+        const companyData = await companyResponse.json();
+        if (companyData.success && companyData.data) {
+          setCompanyInfo(companyData.data);
+          console.log("🏢 회사 정보 로드 완료:", companyData.data);
         }
       } catch (error) {
-        console.error("배경 이미지 로드 실패:", error);
+        console.error("데이터 로드 실패:", error);
       }
     };
 
-    loadBackgroundImage();
+    loadData();
   }, []);
 
   // 배경 이미지 업로드 및 저장
@@ -353,19 +367,24 @@ export default function LabelEditorPage() {
         const newSize = { width, height };
         setCanvasSize(newSize);
         
-        // 초기 레이아웃이 없으면 설정 (한 번만)
-        if (!isInitialized && elements.length === 0) {
-          const initialLayout = getInitialLayout(width, height);
-          setElements(initialLayout);
-          setIsInitialized(true);
-        }
+        // 초기 레이아웃은 회사 정보가 로드된 후 별도 useEffect에서 설정
       }
     };
 
     updateCanvasSize();
     window.addEventListener("resize", updateCanvasSize);
     return () => window.removeEventListener("resize", updateCanvasSize);
-  }, [isInitialized, elements.length]);
+  }, []);
+
+  // 회사 정보가 로드되면 초기 레이아웃 설정
+  useEffect(() => {
+    if (canvasSize && !isInitialized && companyInfo !== null) {
+      // companyInfo가 null이 아니면 (로드 완료 또는 없음) 초기 레이아웃 설정
+      const initialLayout = getInitialLayout(canvasSize.width, canvasSize.height, companyInfo);
+      setElements(initialLayout);
+      setIsInitialized(true);
+    }
+  }, [canvasSize, companyInfo, isInitialized]);
 
   // 요소 추가
   const addElement = (config: FieldConfig) => {
@@ -576,9 +595,12 @@ export default function LabelEditorPage() {
       zipcode_barcode: (data) => data.delivery_zipcode || "",
       total_quantity: (data) => `[총 ${data.items?.length || 1}개]`,
       items_list: (data) => data.items?.map((item: any, idx: number) => `${idx + 1}. ${item.name || '거래물품'}-${item.quantity || 1}개`).join('\n') || "1. 거래물품-1개",
-      sender_address: (data) => data.center_address || "",
-      sender_name: (data) => data.center_name || "틸리언",
-      sender_phone: (data) => data.center_phone || "",
+      sender_address: (data) => data.company_info?.address || data.center_address || "",
+      sender_name: (data) => {
+        const companyName = data.company_info?.company_name?.split('(')[0].trim();
+        return companyName || data.center_name || "틸리언";
+      },
+      sender_phone: (data) => data.company_info?.phone || data.center_phone || "",
       receiver_address: (data) => `${data.delivery_address || ''} ${data.delivery_address_detail || ''}`.trim(),
       receiver_name: (data) => data.delivery_name || "",
       receiver_phone: (data) => data.delivery_phone || "",
@@ -655,7 +677,7 @@ export default function LabelEditorPage() {
     }
     
     if (canvasSize) {
-      const defaultLayout = getInitialLayout(canvasSize.width, canvasSize.height);
+      const defaultLayout = getInitialLayout(canvasSize.width, canvasSize.height, companyInfo);
       setElements(defaultLayout);
       setIsInitialized(true);
       alert("기본 양식이 로드되었습니다.");

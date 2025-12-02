@@ -1,7 +1,7 @@
 /**
  * 우체국 출고송장 (신형 C형) 컴포넌트
- * 규격: 168mm x 107mm (세로 x 가로)
- * 좌표 기준: 제공된 이미지 좌표 (가로 800px 기준)
+ * 규격: 171mm x 111mm (가로 x 세로)
+ * 좌표 기준: 실제 출력 크기 (646px x 419px @ 96 DPI)
  */
 
 import React from "react";
@@ -15,6 +15,7 @@ export interface ShippingLabelData {
   sellerName: string;       // 11: 판매처 (모두의수선)
   orderNumber: string;      // 14: 주문번호 (짧은 형식)
   customerOrderId?: string; // 고객 주문처 UUID
+  customerOrderSource?: string; // 고객 주문처 (회사명)
   
   // 보내는 분 (송화인)
   senderAddress: string;    // 19: 송화인주소
@@ -69,6 +70,10 @@ interface Props {
 
 // 좌표 타입: [x, y, width, height]
 type Coord = [number, number, number, number];
+
+// 스케일 팩터: 실제 출력 크기 (646px) 기준으로 변환
+// 원본 좌표는 800px 기준이므로 646/800 = 0.8075
+const SCALE_FACTOR = 646 / 800; // 0.8075
 
 // 좌표 매핑 (이미지 기반)
 const COORDS: Record<string, Coord> = {
@@ -158,15 +163,22 @@ const mapFieldToActualValue = (fieldKey: string, orderData: ShippingLabelData): 
     },
     order_date: (data) => `신청일: ${data.orderDate || ''}`,
     orderer_name: (data) => `주문인: ${data.recipientName || ''}`,
-    customer_order_source: (data) => `고객 주문처: 틸리언 수기`,
+    customer_order_source: (data) => `고객 주문처: ${data.customerOrderSource || '틸리언 수기'}`,
     order_number: (data) => `주문번호: ${data.orderNumber || ''}`,
     package_info: (data) => `중량:${data.weight || '2'}kg 용적:${data.volume || '60'}cm 요금: 신용 0`,
     zipcode_barcode: (data) => data.recipientZipcode || "",
     total_quantity: (data) => `[총 ${data.totalQuantity || 1}개]`,
     items_list: (data) => {
       if (data.itemsList) {
-        const items = data.itemsList.split('\n').filter(Boolean);
-        return items.map((item, idx) => `${idx + 1}. ${item}`).join('\n');
+        // itemsList가 이미 "1. 아이템명" 형식으로 되어있으면 그대로 사용
+        // 아니면 줄바꿈으로 분리된 배열로 처리
+        if (typeof data.itemsList === 'string') {
+          return data.itemsList;
+        }
+        // 배열인 경우 번호 추가
+        if (Array.isArray(data.itemsList)) {
+          return data.itemsList.map((item, idx) => `${idx + 1}. ${item}`).join('\n');
+        }
       }
       return "1. 거래물품-1개";
     },
@@ -211,19 +223,30 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
   const renderCustomLayout = () => {
     if (!useCustomLayout) return null;
 
-    // 캔버스 크기 (800px x 1200px 기준)
-    const canvasWidth = 800;
-    const canvasHeight = 1200;
-    const scaleFactor = canvasWidth / mmToPx(171); // 171mm = 가로
+    // 실제 출력 크기 (171mm x 111mm = 646px x 419px @ 96 DPI)
+    const actualWidthPx = 646; // 171mm
+    const actualHeightPx = 419; // 111mm
+    
+    // 레이아웃 에디터의 기준 캔버스 너비 (800px 기준으로 저장됨)
+    // 저장된 좌표는 mm 단위이지만, 실제로는 레이아웃 에디터의 캔버스 크기에 맞춰 스케일링되어 저장됨
+    // 따라서 실제 출력 크기(646px)에 맞게 스케일 조정 필요
+    const layoutBaseWidthPx = 800; // 레이아웃 에디터의 기준 캔버스 너비
+    const scaleFactor = actualWidthPx / layoutBaseWidthPx; // 646 / 800 = 0.8075
 
     return (
       <>
         {customLayout.map((element, index) => {
-          // mm를 픽셀로 변환 (스케일 팩터 적용)
-          const x = mmToPx(element.x) * scaleFactor;
-          const y = mmToPx(element.y) * scaleFactor;
-          const width = mmToPx(element.width) * scaleFactor;
-          const height = mmToPx(element.height) * scaleFactor;
+          // mm를 픽셀로 변환 (96 DPI 기준)
+          const xPx = mmToPx(element.x);
+          const yPx = mmToPx(element.y);
+          const widthPx = mmToPx(element.width);
+          const heightPx = mmToPx(element.height);
+          
+          // 실제 출력 크기에 맞게 스케일 적용
+          const x = xPx * scaleFactor;
+          const y = yPx * scaleFactor;
+          const width = widthPx * scaleFactor;
+          const height = heightPx * scaleFactor;
 
           // 실제 데이터 값 가져오기
           const actualValue = mapFieldToActualValue(element.fieldKey, data);
@@ -268,7 +291,7 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
                   width: `${width}px`,
                   height: `${height}px`,
                   ...FONT_STYLE,
-                  fontSize: `${element.fontSize}px`,
+                  fontSize: `${element.fontSize * scaleFactor}px`, // 폰트 크기도 스케일 적용
                   fontWeight: element.isBold ? "bold" : "normal",
                   whiteSpace: "pre-wrap",
                   overflow: "hidden",
@@ -386,32 +409,29 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 168mm !important;  /* 우체국 C형 세로 */
-            height: 107mm !important; /* 우체국 C형 가로 */
+            width: 171mm !important;  /* 우체국 C형 가로 */
+            height: 111mm !important; /* 우체국 C형 세로 */
             overflow: visible !important;
             page-break-inside: avoid !important;
             page-break-after: avoid !important;
           }
           .shipping-label-content {
-            /* 인쇄 시 안정적인 크기 조정 - 우체국 C형 (168mm x 107mm) */
-            /* 800px x 1200px를 168mm x 107mm에 맞추기 */
-            /* 168mm ≈ 635px, 107mm ≈ 404px (96dpi 기준) */
-            /* 가로: 404/800 = 0.505, 세로: 635/1200 = 0.529 */
-            /* 가로에 맞추면: 0.505 사용 (가로가 더 작으므로) */
-            width: 800px !important;
-            height: 1200px !important;
-            /* 인쇄 시 스케일 조정 제거 - 브라우저가 자동으로 맞춤 */
+            /* 우체국 C형 송장: 171mm x 111mm (가로형) */
+            /* 96 DPI 기준: 171mm = 646px, 111mm = 419px */
+            /* 실제 출력 시 정확한 크기로 맞춤 */
+            width: 646px !important;  /* 171mm */
+            height: 419px !important; /* 111mm */
             transform: none !important;
             -webkit-transform: none !important;
             transform-origin: top left !important;
             -webkit-transform-origin: top left !important;
-            overflow: visible !important; /* 집배코드가 잘리지 않도록 */
+            overflow: visible !important;
             page-break-inside: avoid !important;
-            border: none !important; /* 인쇄 시 테두리 제거 */
-            background: white !important; /* 배경색 명시 */
-            /* 인쇄 시 크기 조정 */
-            max-width: 168mm !important;
-            max-height: 107mm !important;
+            border: none !important;
+            background: white !important;
+            /* 인쇄 시 정확한 크기 유지 */
+            max-width: 171mm !important;
+            max-height: 111mm !important;
           }
           
           /* 집배코드 인쇄 시 색상 유지 */
@@ -423,7 +443,7 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
             border: none !important; /* 인쇄 시 테두리 제거 */
           }
           @page {
-            size: 168mm 107mm; /* 용지 크기 설정 (세로 x 가로) */
+            size: 171mm 111mm; /* 우체국 C형 송장 크기 (가로 x 세로) */
             margin: 0 !important;
             padding: 0 !important;
           }
@@ -436,14 +456,14 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
         className="shipping-label-content"
         style={{
           position: "relative",
-          width: "800px", // 원본 좌표계 기준 너비
-          height: "1200px", // 원본 좌표계 기준 높이
+          width: "646px", // 171mm (96 DPI 기준)
+          height: "419px", // 111mm (96 DPI 기준)
           backgroundColor: "#fff",
           margin: "0 auto",
           border: "1px solid #ddd", // 화면에서 보이는 테두리 (인쇄 시 제거됨)
-          /* 화면에서 볼 때 스케일 조정 */
-          transform: "scale(0.8)", 
-          transformOrigin: "top left",
+          /* 화면에서 볼 때 스케일 조정 (실제 크기보다 크게 보이도록) */
+          transform: "scale(1.2)", 
+          transformOrigin: "top center",
           printColorAdjust: "exact", // 인쇄 시 색상 유지
           WebkitPrintColorAdjust: "exact",
         }}
@@ -457,10 +477,10 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
             {/* 0차 출력 표시 */}
             <div style={{ 
               position: "absolute", 
-              left: "20px", 
-              top: "20px", 
+              left: `${16 * SCALE_FACTOR}px`, 
+              top: `${16 * SCALE_FACTOR}px`, 
               ...FONT_STYLE,
-              fontSize: "14px",
+              fontSize: `${14 * SCALE_FACTOR}px`,
               fontWeight: "bold"
             }}>
               0차 출력
@@ -480,25 +500,24 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
         {(data.sortCode1 || data.sortCode2 || data.sortCode3 || data.sortCode4) && (
           <div style={{
             position: "absolute",
-            left: "363px", // CSV 기준 sortCode1의 X 좌표
-            top: "12px",   // CSV 기준 sortCode1의 Y 좌표
-            width: "500px", // 더 넓은 너비로 잘림 방지
-            maxWidth: "none", // 최대 너비 제한 제거
+            left: `${350 * SCALE_FACTOR}px`, // 왼쪽으로 더 이동
+            top: "12px",
+            width: `${240 * SCALE_FACTOR}px`,
+            maxWidth: "none",
             ...FONT_STYLE,
-            fontSize: "35px",
-            fontWeight: "bold", // 굵게 표시
-            letterSpacing: "6px", // 코드 간 간격 조정
+            fontSize: `${35 * SCALE_FACTOR}px`,
+            fontWeight: "bold",
+            letterSpacing: `${6 * SCALE_FACTOR}px`,
             whiteSpace: "nowrap",
             lineHeight: "1",
             overflow: "visible",
             textAlign: "left",
             zIndex: 10,
             color: "#000",
-            printColorAdjust: "exact", // 인쇄 시 색상 유지
+            printColorAdjust: "exact",
             WebkitPrintColorAdjust: "exact",
           }}>
             {/* 우체국 표준 형식: A1 110 02 09 - 021 - */}
-            {/* ① 집중국·물류센터 번호 ② 배달국(센터) 번호 ③ 집배팀 번호 ④ 집배구 번호 ⑤ 구분코스 */}
             {[data.sortCode1, data.sortCode2, data.sortCode3, data.sortCode4]
               .filter(Boolean)
               .join(' ')}
@@ -507,9 +526,7 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
         )}
         
         {/* 도착 집중국과 배달 우체국, 배달 지역 코드: "대구M 동대구 -560-" 형태 */}
-        {/* 이지어드민 기준: 한 줄에 표시, 하이픈 포함 형식 */}
         {data.deliveryPlaceCode && data.deliveryTeamCode && data.deliverySequence && (() => {
-          // deliverySequence가 하이픈 없이 숫자만 있으면 하이픈 추가
           let formattedSequence = data.deliverySequence;
           if (formattedSequence && !formattedSequence.includes('-')) {
             formattedSequence = `-${formattedSequence}-`;
@@ -517,13 +534,13 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
           return (
             <div style={{
               position: "absolute",
-              left: "444px", // CSV 기준 deliveryPlaceCode의 X 좌표
-              top: "70px",   // CSV 기준 deliveryPlaceCode의 Y 좌표
+              left: `${350 * SCALE_FACTOR}px`, // 왼쪽으로 더 이동
+              top: "70px",
               ...FONT_STYLE,
-              fontSize: "13px",
+              fontSize: `${13 * SCALE_FACTOR}px`,
               fontWeight: "normal",
               whiteSpace: "nowrap",
-              letterSpacing: "2px"
+              letterSpacing: `${2 * SCALE_FACTOR}px`
             }}>
               {data.deliveryPlaceCode} {data.deliveryTeamCode} {formattedSequence}
             </div>
@@ -535,7 +552,7 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
           주문인: {data.recipientName}
         </div>
         <div style={{ position: "absolute", left: "20px", top: "115px", ...FONT_STYLE, fontSize: "11px" }}>
-          고객 주문처: 모두의수선 수기
+          고객 주문처: {data.customerOrderSource || "모두의수선 수기"}
         </div>
         {data.orderNumber && (
           <div style={{ position: "absolute", left: "20px", top: "133px", ...FONT_STYLE, fontSize: "11px" }}>
@@ -551,10 +568,10 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
         {/* --- 2. 보내는 분 --- */}
         <div style={{ 
           position: "absolute", 
-          left: "350px", 
-          top: "85px", 
+          left: `${280 * SCALE_FACTOR}px`, 
+          top: `${120 * SCALE_FACTOR}px`, 
           ...FONT_STYLE,
-          fontSize: "14px",
+          fontSize: `${14 * SCALE_FACTOR}px`,
           fontWeight: "bold"
         }}>
           보내는 분
@@ -569,10 +586,10 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
         {/* --- 3. 받는 분 --- */}
         <div style={{ 
           position: "absolute", 
-          left: "350px", 
-          top: "195px", 
+          left: `${280 * SCALE_FACTOR}px`, 
+          top: `${220 * SCALE_FACTOR}px`, 
           ...FONT_STYLE,
-          fontSize: "14px",
+          fontSize: `${14 * SCALE_FACTOR}px`,
           fontWeight: "bold"
         }}>
           받는 분
@@ -627,10 +644,10 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
         {/* 등기번호 레이블과 값 */}
         <div style={{ 
           position: "absolute", 
-          left: "378px", 
-          top: "335px", 
+          left: `${280 * SCALE_FACTOR}px`, 
+          top: `${330 * SCALE_FACTOR}px`, 
           ...FONT_STYLE,
-          fontSize: "11px"
+          fontSize: `${11 * SCALE_FACTOR}px`
         }}>
           등기번호:
         </div>
