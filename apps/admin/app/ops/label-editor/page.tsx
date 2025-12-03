@@ -630,7 +630,7 @@ export default function LabelEditorPage() {
   // 수정 완료
   const finishEditing = (updatedElement: LabelElement) => {
     setElements((prev) =>
-      prev.map((el) => (el === editingElement ? updatedElement : el))
+      prev.map((el) => (el.fieldKey === editingElement?.fieldKey ? updatedElement : el))
     );
     setEditingElement(null);
   };
@@ -936,7 +936,7 @@ export default function LabelEditorPage() {
                         onChange={(e) => {
                           const updated = { ...element, exampleValue: e.target.value };
                           setElements((prev) =>
-                            prev.map((el) => (el === editingElement ? updated : el))
+                            prev.map((el) => (el.fieldKey === editingElement?.fieldKey ? updated : el))
                           );
                         }}
                         onBlur={(e) => {
