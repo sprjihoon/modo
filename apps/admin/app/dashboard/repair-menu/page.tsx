@@ -45,33 +45,18 @@ export default function RepairMenuPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // 카테고리 조회 (오름차순)
-      const { data: categoriesData, error: catError } = await supabase
-        .from('repair_categories')
-        .select('*')
-        .order('display_order', { ascending: true });
+      // API Route를 통해 조회 (Service Role Key 사용하여 RLS 우회)
+      const response = await fetch('/api/admin/repair-menu');
+      const result = await response.json();
 
-      if (catError) throw catError;
+      if (!result.success) {
+        throw new Error(result.error || '데이터 조회 실패');
+      }
 
-      // 각 카테고리별 수선 종류 조회
-      const categoriesWithTypes = await Promise.all(
-        (categoriesData || []).map(async (cat) => {
-          const { data: typesData } = await supabase
-            .from('repair_types')
-            .select('*')
-            .eq('category_id', cat.id)
-            .order('display_order', { ascending: true });
-
-          return {
-            ...cat,
-            repair_types: typesData || [],
-          };
-        })
-      );
-
-      setCategories(categoriesWithTypes);
+      setCategories(result.data || []);
     } catch (error) {
       console.error('데이터 로드 실패:', error);
+      alert('데이터 로드 실패: ' + (error as Error).message);
     } finally {
       setIsLoading(false);
     }
