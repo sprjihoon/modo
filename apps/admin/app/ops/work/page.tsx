@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, ScanLineHorizontal } from "lucide-react";
+import { CheckCircle, ScanBarcode } from "lucide-react";
 
 type LookupResult = {
   orderId: string;
@@ -97,7 +97,7 @@ export default function WorkPage() {
               isLoading ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            <ScanLineHorizontal className="h-4 w-4" />
+            <ScanBarcode className="h-4 w-4" />
             조회
           </button>
         </div>

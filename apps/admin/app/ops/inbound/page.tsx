@@ -734,7 +734,7 @@ export default function InboundPage() {
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 print:bg-white print:p-0"
         >
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto print:max-w-none print:max-h-none print:shadow-none print:rounded-none">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto print:max-w-none print:max-h-none print:shadow-none print:rounded-none">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center print:hidden">
               <h2 className="text-lg font-semibold">출고 송장 라벨</h2>
               <div className="flex gap-2">
@@ -898,7 +898,7 @@ export default function InboundPage() {
                   // 출고 주소지 (company_info에서 가져오기, 없으면 기본값)
                   // 회사 정보가 있으면 우선 사용
                   const senderAddress = companyInfo?.address || 
-                    "대구 동구 동촌로 1 (인석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실";
+                    "대구 동구 동촌로 1 (입석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실";
                   const senderName = companyInfo?.company_name 
                     ? companyInfo.company_name.split('(')[0].trim() 
                     : "모두의수선";

@@ -1,54 +1,48 @@
-/**
- * 우체국 출고송장 (신형 C형) 컴포넌트
- * 규격: 171mm x 111mm (가로 x 세로)
- * 좌표 기준: 실제 출력 크기 (646px x 419px @ 96 DPI)
- */
-
 import React from "react";
 
 export interface ShippingLabelData {
-  trackingNo: string;       // 32, 36
+  trackingNo: string;
   
   // 주문 정보
-  orderDate: string;        // 2: 송장출력일
-  recipientName: string;    // 9, 28: 수령자명
-  sellerName: string;       // 11: 판매처 (모두의수선)
-  orderNumber: string;      // 14: 주문번호 (짧은 형식)
-  customerOrderId?: string; // 고객 주문처 UUID
-  customerOrderSource?: string; // 고객 주문처 (회사명)
+  orderDate: string;
+  recipientName: string;
+  sellerName: string;
+  orderNumber: string;
+  customerOrderId?: string;
+  customerOrderSource?: string;
   
   // 보내는 분 (송화인)
-  senderAddress: string;    // 19: 송화인주소
-  senderName: string;       // 20: 송화인명
-  senderPhone: string;      // 21: 송화인전화
+  senderAddress: string;
+  senderName: string;
+  senderPhone: string;
   
   // 받는 분 (수령자)
-  recipientZipcode: string; // 23: 수령자우편번호
-  recipientAddress: string; // 27: 수령자주소
-  recipientPhone: string;   // 29: 수령자핸드폰
-  recipientTel?: string;    // 30: 수령자전화번호
+  recipientZipcode: string;
+  recipientAddress: string;
+  recipientPhone: string;
+  recipientTel?: string;
   
   // 상품 정보
-  totalQuantity: number;    // 26: 총상품수
-  itemsList: string;        // 34: 상품리스트 (줄바꿈 문자 포함)
-  memo?: string;            // 37: 메모
+  totalQuantity: number;
+  itemsList: string;
+  memo?: string;
   
   // 기타
-  weight?: string;          // 중량 (기본값 2kg)
-  volume?: string;          // 용적 (기본값 60cm)
-  deliveryCode?: string;    // 배송코드
+  weight?: string;
+  volume?: string;
+  deliveryCode?: string;
   
-  // 우체국 분류 코드 (상단 큰 글씨)
-  deliveryPlaceCode?: string; // 배송코드2 (도착 집중국) - arrCnpoNm
-  deliveryTeamCode?: string;  // 배송코드3 (배달 우체국) - delivPoNm
-  deliverySequence?: string;  // 배송코드4 (배달 순서) - delivAreaCd
+  // 우체국 분류 코드
+  deliveryPlaceCode?: string;
+  deliveryTeamCode?: string;
+  deliverySequence?: string;
   
-  // 집배코드조회 API에서 받는 상세 분류 코드
-  sortCode1?: string;  // 경1
-  sortCode2?: string;  // 701
-  sortCode3?: string;  // 56
-  sortCode4?: string;  // 05
-  printAreaCd?: string; // 인쇄용 집배코드 (우체국 API: printAreaCd) - 예: "경1 701 56 05"
+  // 집배코드조회 API 상세
+  sortCode1?: string;
+  sortCode2?: string;
+  sortCode3?: string;
+  sortCode4?: string;
+  printAreaCd?: string;
 }
 
 interface LabelLayoutElement {
@@ -60,72 +54,101 @@ interface LabelLayoutElement {
   fontSize: number;
   isBold: boolean;
   borderColor?: string;
+  letterSpacing?: number; // 자간 (px)
   type: "text" | "barcode";
 }
 
 interface Props {
   data: ShippingLabelData;
-  customLayout?: LabelLayoutElement[]; // 저장된 레이아웃 (선택적)
+  customLayout?: LabelLayoutElement[];
 }
 
-// 좌표 타입: [x, y, width, height]
-type Coord = [number, number, number, number];
+// 상수 정의
+const LABEL_WIDTH_MM = 168; // 우체국 C형 송장 규격 (가로)
+const LABEL_HEIGHT_MM = 107; // 우체국 C형 송장 규격 (세로)
+const DPI = 96;
 
-// 스케일 팩터: 실제 출력 크기 (646px) 기준으로 변환
-// 원본 좌표는 800px 기준이므로 646/800 = 0.8075
-const SCALE_FACTOR = 646 / 800; // 0.8075
+// 단위 변환
+const mmToPx = (mm: number) => mm * (DPI / 25.4);
+const pxToMm = (px: number) => px * (25.4 / DPI);
 
-// 좌표 매핑 (이미지 기반)
-const COORDS: Record<string, Coord> = {
-  orderDate: [109, 70, 200, 19],       // 2
-  recipientNameTop: [94, 109, 140, 19], // 9
-  sellerName: [145, 133, 200, 19],     // 11
-  orderNumber: [114, 157, 140, 19],    // 14
-  
-  senderAddress: [377, 106, 420, 50],  // 19
-  senderName: [379, 160, 140, 19],     // 20
-  senderPhone: [565, 160, 200, 19],    // 21
-  
-  recipientZipcodeBar: [55, 234, 139, 44], // 22
-  recipientZipcode: [67, 285, 100, 19],    // 23
-  totalQuantity: [205, 315, 100, 19],      // 26
-  
-  recipientAddress: [378, 212, 450, 75],   // 27
-  recipientName: [378, 292, 160, 20],      // 28
-  recipientPhone: [621, 292, 200, 20],     // 29
-  recipientTel: [621, 316, 200, 20],       // 30
-  
-  trackingNoText: [621, 357, 200, 20],     // 32
-  itemsList: [13, 340, 327, 190],          // 34
-  
-  trackingNoBarcode: [547, 434, 300, 70],  // 35
-  trackingNoBottom: [604, 508, 200, 20],   // 36
-  
-  // 분류 코드 (상단) - CSV 파일 기준으로 업데이트
-  sortCode1: [363, 12, 100, 50],           // 배송코드1 (항목 13) - 글자크기 35
-  sortCode2: [444, 70, 120, 20],           // 배송코드2 (항목 3) - 글자크기 13
-  sortCode3: [611, 70, 120, 20],           // 배송코드3 (항목 5) - 글자크기 13
-  sortCode4: [511, 13, 120, 50],            // 배송코드4 (항목 4) - 글자크기 35
-  
-  deliverySequence: [511, 13, 120, 50],    // 배송코드4와 동일 위치 (항목 4)
-  deliveryPlaceCode: [444, 70, 120, 20],    // 배송코드2 (항목 3)
-  deliveryTeamCode: [611, 70, 120, 20],     // 배송코드3 (항목 5)
-  
-  memo: [13, 566, 800, 22],                // 37
-};
+// 레이아웃 에디터 기준 상수
+const BASE_WIDTH = 800; // 에디터 기준 너비 (px)
+const BASE_HEIGHT = BASE_WIDTH * (LABEL_HEIGHT_MM / LABEL_WIDTH_MM); // 비율 유지
 
-// 폰트 스타일 - 나눔폰트 사용 (저작권 이슈 없음)
+// 폰트 스타일
 const FONT_STYLE = {
-  fontFamily: "Nanum Gothic, Malgun Gothic, Dotum, sans-serif", // 나눔고딕 폰트
-  fontSize: "12px",
+  fontFamily: "Nanum Gothic, Malgun Gothic, Dotum, sans-serif",
   lineHeight: "1.2",
   color: "#000",
 };
 
-// mm를 픽셀로 변환 (96 DPI 기준)
-const mmToPx = (mm: number) => mm * (96 / 25.4);
+// 기본 레이아웃 생성 (label-editor 로직과 동기화 + 예시 이미지 스타일 반영)
+const createDefaultLayout = (): LabelLayoutElement[] => {
+  const labelWidth = BASE_WIDTH - mmToPx(10);
+  
+  const scale = labelWidth / mmToPx(LABEL_WIDTH_MM);
+  const scaleFont = (size: number) => Math.max(10, size * scale * 0.8);
 
-// 운송장 번호 포맷팅 (xxxxx-xxxx-xxxx 형식)
+  // px 단위 요소 정의
+  const elements = [
+    // 상단
+    { fieldKey: "output_label", x: labelWidth / 2 - 40, y: 10, width: 80, height: 20, fontSize: scaleFont(14), isBold: true, type: "text" },
+    // 집배코드: 잘리지 않으면서 적당한 크기로 조정
+    { fieldKey: "sorting_code_large", x: labelWidth * 0.38, y: 5, width: 400, height: 55, fontSize: scaleFont(40), isBold: true, letterSpacing: 12, type: "text" },
+    { fieldKey: "delivery_center_info", x: labelWidth * 0.54, y: 55, width: 250, height: 20, fontSize: scaleFont(15), isBold: true, letterSpacing: 10, type: "text" },
+    
+    // 좌측 열
+    { fieldKey: "order_date", x: 10, y: 30, width: 150, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+    { fieldKey: "orderer_name", x: 10, y: 55, width: 150, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
+    { fieldKey: "customer_order_source", x: 10, y: 78, width: 200, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
+    { fieldKey: "order_number", x: 10, y: 101, width: 150, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
+    { fieldKey: "package_info", x: 10, y: 124, width: 250, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
+    
+    // 우편번호 바코드 (숫자 표시를 위해 높이 증가)
+    { fieldKey: "zipcode_barcode", x: 10, y: 150, width: 120, height: 60, fontSize: scaleFont(12), isBold: false, type: "barcode" },
+    { fieldKey: "total_quantity", x: 140, y: 155, width: 80, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+    
+    { fieldKey: "items_list", x: 10, y: 220, width: 250, height: 150, fontSize: scaleFont(13), isBold: false, type: "text" },
+    
+    // 우측 열 - 보내는 분
+    { fieldKey: "sender_address", x: labelWidth * 0.43, y: 95, width: labelWidth * 0.55, height: 40, fontSize: scaleFont(12), isBold: false, type: "text" },
+    { fieldKey: "sender_name", x: labelWidth * 0.43, y: 140, width: 100, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+    { fieldKey: "sender_phone", x: labelWidth * 0.43 + 110, y: 140, width: 120, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+    
+    // 우측 열 - 받는 분
+    { fieldKey: "receiver_address", x: labelWidth * 0.43, y: 170, width: labelWidth * 0.55, height: 40, fontSize: scaleFont(16), isBold: true, type: "text" }, // 폰트 키움
+    { fieldKey: "receiver_name", x: labelWidth * 0.43, y: 220, width: 100, height: 22, fontSize: scaleFont(14), isBold: true, type: "text" },
+    { fieldKey: "receiver_phone", x: labelWidth * 0.43 + 110, y: 220, width: 120, height: 22, fontSize: scaleFont(14), isBold: true, type: "text" },
+    
+    { fieldKey: "tracking_no_text", x: labelWidth * 0.43, y: 255, width: 250, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+    { fieldKey: "waybill_statement", x: labelWidth * 0.43, y: 280, width: 300, height: 20, fontSize: scaleFont(12), isBold: true, type: "text" },
+    
+    // 등기번호 바코드 (하단, 숫자 표시)
+    { fieldKey: "tracking_no_barcode", x: labelWidth * 0.43, y: 305, width: 280, height: 70, fontSize: scaleFont(12), isBold: false, type: "barcode" },
+    
+    // 하단
+    { fieldKey: "bottom_info", x: 10, y: BASE_HEIGHT - mmToPx(10) - 25, width: 200, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+  ];
+
+  // px -> mm 변환
+  const scaleFactor = BASE_WIDTH / mmToPx(LABEL_WIDTH_MM);
+
+  return elements.map(el => ({
+    fieldKey: el.fieldKey,
+    x: pxToMm(el.x / scaleFactor),
+    y: pxToMm(el.y / scaleFactor),
+    width: pxToMm(el.width / scaleFactor),
+    height: pxToMm(el.height / scaleFactor),
+    fontSize: el.fontSize,
+    isBold: el.isBold,
+    borderColor: el.borderColor,
+    letterSpacing: el.letterSpacing,
+    type: el.type as "text" | "barcode"
+  }));
+};
+
+// 운송장 번호 포맷팅
 const formatTrackingNo = (trackingNo: string) => {
   if (!trackingNo) return '';
   const cleaned = trackingNo.replace(/[^0-9]/g, '');
@@ -135,18 +158,16 @@ const formatTrackingNo = (trackingNo: string) => {
   return trackingNo;
 };
 
-// 실제 데이터 매핑 함수 (저장된 레이아웃 사용 시)
-const mapFieldToActualValue = (fieldKey: string, orderData: ShippingLabelData): string => {
+// 데이터 매핑 함수
+const mapFieldToActualValue = (fieldKey: string, data: ShippingLabelData): string => {
   const mapping: Record<string, (data: ShippingLabelData) => string> = {
     output_label: () => "0차 출력",
     sorting_code_large: (data) => {
-      // printAreaCd 우선 사용 (우체국 API에서 제공하는 인쇄용 집배코드)
-      if (data.printAreaCd) {
-        return data.printAreaCd;
-      }
-      // printAreaCd가 없으면 sortCode 조합
-      if (data.sortCode1 && data.sortCode2 && data.sortCode3 && data.sortCode4) {
-        return `${data.sortCode1} ${data.sortCode2} ${data.sortCode3} ${data.sortCode4}`;
+      if (data.printAreaCd) return data.printAreaCd;
+      // 존재하는 sortCode만 필터링하여 조합
+      const codes = [data.sortCode1, data.sortCode2, data.sortCode3, data.sortCode4].filter(Boolean);
+      if (codes.length > 0) {
+        return codes.join(' ');
       }
       return "";
     },
@@ -159,26 +180,19 @@ const mapFieldToActualValue = (fieldKey: string, orderData: ShippingLabelData): 
         if (!seq.includes('-')) seq = `-${seq}-`;
         parts.push(seq);
       }
-      return parts.join(' ');
+      return parts.join('  '); // 간격을 넓게 (공백 2개)
     },
     order_date: (data) => `신청일: ${data.orderDate || ''}`,
     orderer_name: (data) => `주문인: ${data.recipientName || ''}`,
-    customer_order_source: (data) => `고객 주문처: ${data.customerOrderSource || '틸리언 수기'}`,
+    customer_order_source: (data) => `고객 주문처: ${data.customerOrderSource || '모두의수선'}`,
     order_number: (data) => `주문번호: ${data.orderNumber || ''}`,
     package_info: (data) => `중량:${data.weight || '2'}kg 용적:${data.volume || '60'}cm 요금: 신용 0`,
     zipcode_barcode: (data) => data.recipientZipcode || "",
     total_quantity: (data) => `[총 ${data.totalQuantity || 1}개]`,
     items_list: (data) => {
       if (data.itemsList) {
-        // itemsList가 이미 "1. 아이템명" 형식으로 되어있으면 그대로 사용
-        // 아니면 줄바꿈으로 분리된 배열로 처리
-        if (typeof data.itemsList === 'string') {
-          return data.itemsList;
-        }
-        // 배열인 경우 번호 추가
-        if (Array.isArray(data.itemsList)) {
-          return data.itemsList.map((item, idx) => `${idx + 1}. ${item}`).join('\n');
-        }
+        if (typeof data.itemsList === 'string') return data.itemsList;
+        if (Array.isArray(data.itemsList)) return (data.itemsList as string[]).map((item, idx) => `${idx + 1}. ${item}`).join('\n');
       }
       return "1. 거래물품-1개";
     },
@@ -189,72 +203,102 @@ const mapFieldToActualValue = (fieldKey: string, orderData: ShippingLabelData): 
     receiver_name: (data) => data.recipientName || "",
     receiver_phone: (data) => data.recipientPhone || "",
     tracking_no_text: (data) => `등기번호: ${formatTrackingNo(data.trackingNo)}`,
-    waybill_statement: (data) => "모두의수선에서 제공되는 서비스입니다.",
+    waybill_statement: (data) => "모두의수선에서 제공되는 서비스입니다.", // 예시 이미지는 "★글로박스..."지만 기본값은 유지
     tracking_no_barcode: (data) => data.trackingNo || "",
     bottom_info: (data) => `[총 ${data.totalQuantity || 1}개] [0회 재출력]`,
   };
 
   const mapper = mapping[fieldKey];
-  return mapper ? mapper(orderData) : "";
+  return mapper ? mapper(data) : "";
 };
 
 export function ShippingLabelSheet({ data, customLayout }: Props) {
-  // 디버깅: 집배코드 데이터 확인 (API/Supabase에서 가져온 실제 데이터)
-  console.log('📋 ShippingLabelSheet 데이터 (API/Supabase에서 가져온 실제 값):', {
-    sortCode1: data.sortCode1, // 우체국 API: sortCode1
-    sortCode2: data.sortCode2, // 우체국 API: sortCode2
-    sortCode3: data.sortCode3, // 우체국 API: sortCode3
-    sortCode4: data.sortCode4, // 우체국 API: sortCode4
-    deliverySequence: data.deliverySequence, // 우체국 API: delivAreaCd
-    deliveryPlaceCode: data.deliveryPlaceCode, // 우체국 API: arrCnpoNm
-    deliveryTeamCode: data.deliveryTeamCode, // 우체국 API: delivPoNm
-    trackingNo: data.trackingNo, // Supabase: delivery_tracking_no 또는 regiNo
-    recipientZipcode: data.recipientZipcode, // Supabase: delivery_zipcode
-    recipientAddress: data.recipientAddress, // Supabase: delivery_address
-    recipientName: data.recipientName, // Supabase: customer_name
-    recipientPhone: data.recipientPhone, // Supabase: customer_phone
-    hasCustomLayout: !!customLayout,
-  });
+  // 레이아웃 결정: customLayout이 유효하면 사용, 아니면 기본값 생성
+  const layout = customLayout && customLayout.length > 0 ? customLayout : createDefaultLayout();
 
-  // 저장된 레이아웃이 있으면 사용, 없으면 기존 하드코딩된 좌표 사용
-  const useCustomLayout = customLayout && customLayout.length > 0;
+  // 실제 출력 크기 (168mm x 107mm @ 96 DPI)
+  const actualWidthPx = 635; // 168mm
+  
+  // 레이아웃 저장 기준 너비 (800px) - 폰트 스케일용
+  const layoutBaseWidthPx = 800;
+  const fontScaleFactor = actualWidthPx / layoutBaseWidthPx;
 
-  // 저장된 레이아웃으로 렌더링
-  const renderCustomLayout = () => {
-    if (!useCustomLayout) return null;
+  return (
+    <div className="shipping-label-container">
+      <style>{`
+        .shipping-label-container {
+          font-family: "Nanum Gothic", "Malgun Gothic", "Dotum", sans-serif;
+        }
+        @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
+          }
+          .shipping-label-container, .shipping-label-container * {
+            visibility: visible !important;
+          }
+          .shipping-label-container {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 168mm !important;
+            height: 106.5mm !important; /* 2장 출력 방지를 위해 미세하게 줄임 */
+            overflow: hidden !important;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
+          }
+          .shipping-label-content {
+            width: 635px !important;
+            height: 404px !important;
+            transform: none !important;
+            border: none !important;
+            background: white !important;
+          }
+          @page { size: 168mm 107mm; margin: 0 !important; }
+        }
+      `}</style>
 
-    // 실제 출력 크기 (171mm x 111mm = 646px x 419px @ 96 DPI)
-    const actualWidthPx = 646; // 171mm
-    const actualHeightPx = 419; // 111mm
-    
-    // 레이아웃 에디터의 기준 캔버스 너비 (800px 기준으로 저장됨)
-    // 저장된 좌표는 mm 단위이지만, 실제로는 레이아웃 에디터의 캔버스 크기에 맞춰 스케일링되어 저장됨
-    // 따라서 실제 출력 크기(646px)에 맞게 스케일 조정 필요
-    const layoutBaseWidthPx = 800; // 레이아웃 에디터의 기준 캔버스 너비
-    const scaleFactor = actualWidthPx / layoutBaseWidthPx; // 646 / 800 = 0.8075
-
-    return (
-      <>
-        {customLayout.map((element, index) => {
-          // mm를 픽셀로 변환 (96 DPI 기준)
-          const xPx = mmToPx(element.x);
-          const yPx = mmToPx(element.y);
-          const widthPx = mmToPx(element.width);
-          const heightPx = mmToPx(element.height);
+      <div
+        className="shipping-label-content"
+        style={{
+          position: "relative",
+          width: "635px",
+          height: "404px",
+          backgroundColor: "#fff",
+          margin: "0 auto",
+          border: "1px solid #ddd",
+          transform: "none", // 화면 미리보기 시 원본 크기 유지 (스케일 제거)
+          transformOrigin: "top center",
+          printColorAdjust: "exact",
+          WebkitPrintColorAdjust: "exact",
+        }}
+      >
+        {layout.map((element, index) => {
+          // mm -> px 변환 (96 DPI) - 실제 출력 크기(646px)에 맞음
+          const x = mmToPx(element.x);
+          const y = mmToPx(element.y);
+          const width = mmToPx(element.width);
+          const height = mmToPx(element.height);
           
-          // 실제 출력 크기에 맞게 스케일 적용
-          const x = xPx * scaleFactor;
-          const y = yPx * scaleFactor;
-          const width = widthPx * scaleFactor;
-          const height = heightPx * scaleFactor;
+          // 폰트 크기는 저장된 값이 에디터 기준(800px) 픽셀값이므로 스케일 조정 필요
+          const fontSize = element.fontSize * fontScaleFactor;
 
-          // 실제 데이터 값 가져오기
           const actualValue = mapFieldToActualValue(element.fieldKey, data);
-
           if (!actualValue) return null;
 
           if (element.type === "barcode") {
-            // 바코드 렌더링
+            // tec-it 바코드 생성 URL
+            // showastext 옵션을 제거하여 숫자 표시 (기본값)
+            // 우편번호나 등기번호 바코드 아래 숫자가 나오도록 함
+            const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${actualValue}&code=Code128&dpi=203&translate-esc=on`;
+            
             return (
               <div
                 key={`${element.fieldKey}-${index}`}
@@ -265,22 +309,22 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
                   width: `${width}px`,
                   height: `${height}px`,
                   overflow: "hidden",
+                  border: element.borderColor ? `2px solid ${element.borderColor}` : "none",
                 }}
               >
                 <img
-                  src={`https://barcode.tec-it.com/barcode.ashx?data=${actualValue}&code=Code128&translate-esc=on&showastext=off&dpi=203`}
+                  src={barcodeUrl}
                   alt={`${element.fieldKey} 바코드`}
                   style={{
                     width: "100%",
-                    height: "auto",
-                    objectFit: "contain",
+                    height: "100%", // 꽉 채우기
+                    objectFit: "contain", // 비율 유지하며 맞춤
                     display: "block",
                   }}
                 />
               </div>
             );
           } else {
-            // 텍스트 렌더링
             return (
               <div
                 key={`${element.fieldKey}-${index}`}
@@ -291,15 +335,15 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
                   width: `${width}px`,
                   height: `${height}px`,
                   ...FONT_STYLE,
-                  fontSize: `${element.fontSize * scaleFactor}px`, // 폰트 크기도 스케일 적용
+                  fontSize: `${fontSize}px`,
                   fontWeight: element.isBold ? "bold" : "normal",
                   whiteSpace: "pre-wrap",
-                  overflow: "hidden",
+                  overflow: "visible", // 줄바꿈 허용, 잘리지 않도록
                   wordBreak: "break-word",
                   border: element.borderColor ? `2px solid ${element.borderColor}` : "none",
                   padding: element.borderColor ? "2px" : "0",
-                  printColorAdjust: "exact",
-                  WebkitPrintColorAdjust: "exact",
+                  lineHeight: "1.2",
+                  letterSpacing: element.letterSpacing ? `${element.letterSpacing}px` : "normal", // 동적 자간 적용
                 }}
               >
                 {actualValue}
@@ -307,436 +351,6 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
             );
           }
         })}
-      </>
-    );
-  };
-
-  // 좌표 기반 텍스트 렌더링 헬퍼
-  const renderText = (key: string, text: string | number | undefined, style: React.CSSProperties = {}) => {
-    const coord = COORDS[key];
-    if (!coord || !text) return null;
-    
-    const [x, y, w, h] = coord;
-    
-    return (
-      <div
-        style={{
-          position: "absolute",
-          left: `${x}px`,
-          top: `${y}px`,
-          width: `${w}px`,
-          height: `${h}px`,
-          overflow: "hidden",
-          whiteSpace: "nowrap",
-          textOverflow: "ellipsis",
-          ...FONT_STYLE,
-          ...style,
-        }}
-      >
-        {text}
-      </div>
-    );
-  };
-
-  // 상품 리스트 렌더링 (멀티라인)
-  const renderItemsList = () => {
-    const coord = COORDS['itemsList'];
-    const [x, y, w, h] = coord;
-    
-    // 상품 목록을 번호 매기기
-    const items = data.itemsList.split('\n').filter(Boolean);
-    const formattedList = items.map((item, idx) => `${idx + 1}. ${item}`).join('\n');
-    
-    return (
-      <>
-        {/* "품목 (총 N개)" 레이블 */}
-        <div style={{
-          position: "absolute",
-          left: `${x}px`,
-          top: `${y - 25}px`,
-          ...FONT_STYLE,
-          fontSize: "12px",
-          fontWeight: "bold"
-        }}>
-          품목 (총 {items.length}개)
-        </div>
-        
-        {/* 상품 목록 - CSV 기준: 항목 34 - 상품리스트 (13px) */}
-        <div
-          style={{
-            position: "absolute",
-            left: `${x}px`,
-            top: `${y}px`,
-            width: `${w}px`,
-            height: `${h}px`,
-            overflow: "hidden",
-            ...FONT_STYLE,
-            fontSize: "13px",
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {formattedList}
-        </div>
-      </>
-    );
-  };
-
-  return (
-    <div className="shipping-label-container">
-      {/* 인쇄 전용 스타일 */}
-      <style>{`
-        .shipping-label-container {
-          font-family: "Nanum Gothic", "Malgun Gothic", "Dotum", sans-serif;
-        }
-        
-        @media print {
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-          }
-          body * {
-            visibility: hidden;
-          }
-          .shipping-label-container,
-          .shipping-label-container * {
-            visibility: visible !important;
-          }
-          .shipping-label-container {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 171mm !important;  /* 우체국 C형 가로 */
-            height: 111mm !important; /* 우체국 C형 세로 */
-            overflow: visible !important;
-            page-break-inside: avoid !important;
-            page-break-after: avoid !important;
-          }
-          .shipping-label-content {
-            /* 우체국 C형 송장: 171mm x 111mm (가로형) */
-            /* 96 DPI 기준: 171mm = 646px, 111mm = 419px */
-            /* 실제 출력 시 정확한 크기로 맞춤 */
-            width: 646px !important;  /* 171mm */
-            height: 419px !important; /* 111mm */
-            transform: none !important;
-            -webkit-transform: none !important;
-            transform-origin: top left !important;
-            -webkit-transform-origin: top left !important;
-            overflow: visible !important;
-            page-break-inside: avoid !important;
-            border: none !important;
-            background: white !important;
-            /* 인쇄 시 정확한 크기 유지 */
-            max-width: 171mm !important;
-            max-height: 111mm !important;
-          }
-          
-          /* 집배코드 인쇄 시 색상 유지 */
-          .shipping-label-content > div {
-            print-color-adjust: exact !important;
-            -webkit-print-color-adjust: exact !important;
-          }
-          .shipping-label-container {
-            border: none !important; /* 인쇄 시 테두리 제거 */
-          }
-          @page {
-            size: 171mm 111mm; /* 우체국 C형 송장 크기 (가로 x 세로) */
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-        }
-      `}</style>
-
-      {/* 라벨 배경 및 데이터 */}
-      {/* 우체국 C형: 168mm x 107mm 사이즈로 출력되도록 설정 */}
-      <div
-        className="shipping-label-content"
-        style={{
-          position: "relative",
-          width: "646px", // 171mm (96 DPI 기준)
-          height: "419px", // 111mm (96 DPI 기준)
-          backgroundColor: "#fff",
-          margin: "0 auto",
-          border: "1px solid #ddd", // 화면에서 보이는 테두리 (인쇄 시 제거됨)
-          /* 화면에서 볼 때 스케일 조정 (실제 크기보다 크게 보이도록) */
-          transform: "scale(1.2)", 
-          transformOrigin: "top center",
-          printColorAdjust: "exact", // 인쇄 시 색상 유지
-          WebkitPrintColorAdjust: "exact",
-        }}
-      >
-        {/* 저장된 레이아웃이 있으면 사용, 없으면 기존 하드코딩된 좌표 사용 */}
-        {useCustomLayout ? (
-          renderCustomLayout()
-        ) : (
-          <>
-            {/* --- 1. 상단 정보 --- */}
-            {/* 0차 출력 표시 */}
-            <div style={{ 
-              position: "absolute", 
-              left: `${16 * SCALE_FACTOR}px`, 
-              top: `${16 * SCALE_FACTOR}px`, 
-              ...FONT_STYLE,
-              fontSize: `${14 * SCALE_FACTOR}px`,
-              fontWeight: "bold"
-            }}>
-              0차 출력
-            </div>
-        
-        {/* CSV 기준: 항목 2 - 송장출력일 (12px) */}
-        {renderText('orderDate', `신청일: ${data.orderDate}`, { fontSize: "12px" })}
-        {/* CSV 기준: 항목 9 - 수령자명 (12px) */}
-        {renderText('recipientNameTop', data.recipientName, { fontSize: "12px" })}
-        {/* CSV 기준: 항목 11 - 판매처 (12px) */}
-        {renderText('sellerName', data.sellerName, { fontSize: "12px" })}
-        {/* CSV 기준: 항목 14 - 주문번호 (12px) */}
-        {renderText('orderNumber', `주문번호: ${data.orderNumber}`, { fontSize: "12px" })}
-        
-        {/* 상단 집배코드 - 우체국 표준 형식: "A1 110 02 09 - 021 -" */}
-        {/* ① 집중국·물류센터 번호 ② 배달국(센터) 번호 ③ 집배팀 번호 ④ 집배구 번호 ⑤ 구분코스 */}
-        {(data.sortCode1 || data.sortCode2 || data.sortCode3 || data.sortCode4) && (
-          <div style={{
-            position: "absolute",
-            left: `${350 * SCALE_FACTOR}px`, // 왼쪽으로 더 이동
-            top: "12px",
-            width: `${240 * SCALE_FACTOR}px`,
-            maxWidth: "none",
-            ...FONT_STYLE,
-            fontSize: `${35 * SCALE_FACTOR}px`,
-            fontWeight: "bold",
-            letterSpacing: `${6 * SCALE_FACTOR}px`,
-            whiteSpace: "nowrap",
-            lineHeight: "1",
-            overflow: "visible",
-            textAlign: "left",
-            zIndex: 10,
-            color: "#000",
-            printColorAdjust: "exact",
-            WebkitPrintColorAdjust: "exact",
-          }}>
-            {/* 우체국 표준 형식: A1 110 02 09 - 021 - */}
-            {[data.sortCode1, data.sortCode2, data.sortCode3, data.sortCode4]
-              .filter(Boolean)
-              .join(' ')}
-            {data.deliverySequence && ` ${data.deliverySequence}`}
-          </div>
-        )}
-        
-        {/* 도착 집중국과 배달 우체국, 배달 지역 코드: "대구M 동대구 -560-" 형태 */}
-        {data.deliveryPlaceCode && data.deliveryTeamCode && data.deliverySequence && (() => {
-          let formattedSequence = data.deliverySequence;
-          if (formattedSequence && !formattedSequence.includes('-')) {
-            formattedSequence = `-${formattedSequence}-`;
-          }
-          return (
-            <div style={{
-              position: "absolute",
-              left: `${350 * SCALE_FACTOR}px`, // 왼쪽으로 더 이동
-              top: "70px",
-              ...FONT_STYLE,
-              fontSize: `${13 * SCALE_FACTOR}px`,
-              fontWeight: "normal",
-              whiteSpace: "nowrap",
-              letterSpacing: `${2 * SCALE_FACTOR}px`
-            }}>
-              {data.deliveryPlaceCode} {data.deliveryTeamCode} {formattedSequence}
-            </div>
-          );
-        })()}
-        
-        {/* 주문인 정보 */}
-        <div style={{ position: "absolute", left: "20px", top: "100px", ...FONT_STYLE, fontSize: "11px" }}>
-          주문인: {data.recipientName}
-        </div>
-        <div style={{ position: "absolute", left: "20px", top: "115px", ...FONT_STYLE, fontSize: "11px" }}>
-          고객 주문처: {data.customerOrderSource || "모두의수선 수기"}
-        </div>
-        {data.orderNumber && (
-          <div style={{ position: "absolute", left: "20px", top: "133px", ...FONT_STYLE, fontSize: "11px" }}>
-            주문번호: {data.orderNumber}
-          </div>
-        )}
-        
-        {/* 중량/용적/요금 */}
-        <div style={{ position: "absolute", left: "20px", top: "153px", ...FONT_STYLE, fontSize: "11px" }}>
-          중량:{data.weight || "2kg"} 용적:{data.volume || "60cm"} 요금: 신용 0
-        </div>
-
-        {/* --- 2. 보내는 분 --- */}
-        <div style={{ 
-          position: "absolute", 
-          left: `${280 * SCALE_FACTOR}px`, 
-          top: `${120 * SCALE_FACTOR}px`, 
-          ...FONT_STYLE,
-          fontSize: `${14 * SCALE_FACTOR}px`,
-          fontWeight: "bold"
-        }}>
-          보내는 분
-        </div>
-        {/* CSV 기준: 항목 19 - 송화인주소 (12px) */}
-        {renderText('senderAddress', data.senderAddress, { whiteSpace: "normal", fontSize: "12px" })}
-        {/* CSV 기준: 항목 20 - 송화인명 (12px) */}
-        {renderText('senderName', data.senderName, { fontSize: "12px" })}
-        {/* CSV 기준: 항목 21 - 송화인전화 (12px) */}
-        {renderText('senderPhone', data.senderPhone, { fontSize: "12px" })}
-
-        {/* --- 3. 받는 분 --- */}
-        <div style={{ 
-          position: "absolute", 
-          left: `${280 * SCALE_FACTOR}px`, 
-          top: `${220 * SCALE_FACTOR}px`, 
-          ...FONT_STYLE,
-          fontSize: `${14 * SCALE_FACTOR}px`,
-          fontWeight: "bold"
-        }}>
-          받는 분
-        </div>
-        {/* 우편번호 바코드 - 아래 숫자 제거를 위해 컨테이너로 감싸기 */}
-        <div
-          style={{
-            position: "absolute",
-            left: `${COORDS.recipientZipcodeBar[0]}px`,
-            top: `${COORDS.recipientZipcodeBar[1]}px`,
-            width: `${COORDS.recipientZipcodeBar[2]}px`,
-            height: `${COORDS.recipientZipcodeBar[3] * 0.4}px`, // 높이를 40%로 더 줄여서 숫자 부분 완전히 제거
-            overflow: "hidden",
-            clipPath: "inset(0 0 60% 0)", // CSS clip-path로 아래 60% 부분 완전히 제거
-            WebkitClipPath: "inset(0 0 60% 0)", // 웹킷 브라우저 지원
-          }}
-        >
-          <img
-            src={`https://barcode.tec-it.com/barcode.ashx?data=${data.recipientZipcode}&code=Code128&translate-esc=on&showastext=off`}
-            alt="우편번호 바코드"
-            style={{
-              width: "100%",
-              height: "auto",
-              objectFit: "contain",
-              objectPosition: "top",
-              display: "block",
-              transform: "scaleY(0.4)", // 세로 방향으로 축소하여 숫자 부분 제거
-            }}
-          />
-        </div>
-        
-        {/* CSV 기준: 항목 23 - 수령자우편번호 (12px) */}
-        {renderText('recipientZipcode', data.recipientZipcode, { fontSize: "12px", fontWeight: "normal" })}
-        {/* CSV 기준: 항목 26 - 총상품수 (12px) */}
-        {renderText('totalQuantity', `[총 ${data.totalQuantity}개]`, { fontSize: "12px" })}
-        
-        {/* CSV 기준: 항목 27 - 수령자주소 (14px) */}
-        {renderText('recipientAddress', data.recipientAddress, { 
-          whiteSpace: "normal", 
-          fontSize: "14px", 
-          fontWeight: "normal",
-          lineHeight: "1.4"
-        })}
-        {/* CSV 기준: 항목 28 - 수령자명 (13px) */}
-        {renderText('recipientName', data.recipientName, { fontSize: "13px", fontWeight: "normal" })}
-        {/* CSV 기준: 항목 29 - 수령자핸드폰 (13px) */}
-        {renderText('recipientPhone', data.recipientPhone, { fontSize: "13px" })}
-        {/* CSV 기준: 항목 30 - 수령자전화번호 (13px) */}
-        {renderText('recipientTel', data.recipientPhone, { fontSize: "13px" })}
-        
-        {/* --- 4. 운송장 번호 --- */}
-        {/* 등기번호 레이블과 값 */}
-        <div style={{ 
-          position: "absolute", 
-          left: `${280 * SCALE_FACTOR}px`, 
-          top: `${330 * SCALE_FACTOR}px`, 
-          ...FONT_STYLE,
-          fontSize: `${11 * SCALE_FACTOR}px`
-        }}>
-          등기번호:
-        </div>
-        {/* CSV 기준: 항목 32 - 운송장번호 (12px) */}
-        {renderText('trackingNoText', formatTrackingNo(data.trackingNo), { fontSize: "12px", fontWeight: "normal" })}
-        
-        {/* --- 5. 상품 리스트 --- */}
-        {renderItemsList()}
-        
-        {/* --- 6. 운송장 바코드 --- */}
-        {/* 바코드 이미지를 div로 감싸서 아래 숫자 부분 숨기기 (overflow: hidden으로 숫자 영역 제거) */}
-        <div
-          style={{
-            position: "absolute",
-            left: `${COORDS.trackingNoBarcode[0]}px`,
-            top: `${COORDS.trackingNoBarcode[1]}px`,
-            width: `${COORDS.trackingNoBarcode[2]}px`,
-            height: `${COORDS.trackingNoBarcode[3] * 0.75}px`, // 높이를 75%로 줄여서 숫자 부분 제거
-            overflow: "hidden",
-          }}
-        >
-          <img
-            src={`https://barcode.tec-it.com/barcode.ashx?data=${data.trackingNo}&code=Code128&translate-esc=on&dpi=203`}
-            alt="운송장 바코드"
-            style={{
-              width: "100%",
-              height: "auto",
-              objectFit: "contain",
-              objectPosition: "top",
-              display: "block",
-            }}
-          />
-        </div>
-        
-        {/* 바코드 아래 숫자 제거 (주석 처리) */}
-        {/* {renderText('trackingNoBottom', formatTrackingNo(data.trackingNo), { 
-          fontSize: "16px", 
-          fontWeight: "bold", 
-          textAlign: "center",
-          letterSpacing: "2px" 
-        })} */}
-        
-        {/* 출력된 송장 표시 */}
-        <div style={{ 
-          position: "absolute", 
-          left: "13px", 
-          top: "530px", 
-          ...FONT_STYLE,
-          fontSize: "12px",
-          fontWeight: "bold",
-          textAlign: "center",
-          width: "780px"
-        }}>
-          ★모두의수선에서 출력된 송장입니다.★
-        </div>
-        
-        {/* --- 7. 메모 --- CSV 기준: 항목 37 - 메모 (13px) */}
-        {renderText('memo', data.memo, { fontSize: "13px" })}
-        
-            {/* 배경 그리드 (디버깅용 - 주석 처리) */}
-            {/* 
-            <div style={{
-              position: "absolute",
-              inset: 0,
-              border: "1px solid red",
-              pointerEvents: "none",
-              zIndex: 100,
-            }}>
-              {Object.entries(COORDS).map(([key, [x, y, w, h]]) => (
-                <div
-                  key={key}
-                  style={{
-                    position: "absolute",
-                    left: x,
-                    top: y,
-                    width: w,
-                    height: h,
-                    border: "1px dashed rgba(255,0,0,0.3)",
-                    fontSize: "8px",
-                    color: "red",
-                  }}
-                >
-                  {key}
-                </div>
-              ))}
-            </div>
-            */}
-          </>
-        )}
       </div>
     </div>
   );

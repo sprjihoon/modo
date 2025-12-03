@@ -80,9 +80,9 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
     final baseWidth = _baseCanvasSize?.width ?? constraints.maxWidth;
     final baseHeight = _baseCanvasSize?.height ?? constraints.maxHeight;
     
-    // 최초 탭 시의 캔버스 크기 고정 (이후 렌더링 시 사용)
-    // 메모창이 표시되기 전에 확실히 설정되어야 함
-    if (_baseCanvasSize == null) {
+    // 최초 탭 시의 캔버스 크기 고정 (LayoutBuilder 초기화가 완료되지 않았을 때만)
+    // _isBaseCanvasSizeInitialized 플래그를 체크하여 중복 설정 방지
+    if (!_isBaseCanvasSizeInitialized) {
       _baseCanvasSize = Size(constraints.maxWidth, constraints.maxHeight);
       _isBaseCanvasSizeInitialized = true;
       print('📍 Base canvas size set on first tap: $_baseCanvasSize');
