@@ -204,5 +204,63 @@ class PaymentService {
       throw Exception('결제 취소 실패: $e');
     }
   }
+
+  /// 추가 결제 목록 조회
+  Future<List<Map<String, dynamic>>> getAdditionalPayments(String orderId) async {
+    try {
+      final data = await _supabase
+          .from('additional_payments')
+          .select()
+          .eq('order_id', orderId)
+          .order('created_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(data);
+    } catch (e) {
+      throw Exception('추가 결제 조회 실패: $e');
+    }
+  }
+
+  /// 추가 결제 수락 (고객)
+  Future<Map<String, dynamic>> acceptAdditionalPayment({
+    required String additionalPaymentId,
+  }) async {
+    try {
+      // 추가 결제 정보 조회
+      final additionalPayment = await _supabase
+          .from('additional_payments')
+          .select()
+          .eq('id', additionalPaymentId)
+          .single();
+
+      // 상태 업데이트 (고객 수락)
+      await _supabase
+          .from('additional_payments')
+          .update({
+            'customer_response_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', additionalPaymentId);
+
+      return additionalPayment;
+    } catch (e) {
+      throw Exception('추가 결제 수락 실패: $e');
+    }
+  }
+
+  /// 추가 결제 거부 (고객)
+  Future<void> rejectAdditionalPayment({
+    required String additionalPaymentId,
+  }) async {
+    try {
+      await _supabase
+          .from('additional_payments')
+          .update({
+            'status': 'REJECTED',
+            'customer_response_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', additionalPaymentId);
+    } catch (e) {
+      throw Exception('추가 결제 거부 실패: $e');
+    }
+  }
 }
 

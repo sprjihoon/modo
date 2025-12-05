@@ -52,6 +52,40 @@ Deno.serve(async (req) => {
       return errorResponse('주문을 찾을 수 없습니다', 404);
     }
 
+    // 1-1. 추가 결제 대기 여부 확인
+    const { data: pendingAdditionalPayments } = await supabase
+      .from('additional_payments')
+      .select('id, amount, reason, status')
+      .eq('order_id', orderId)
+      .eq('status', 'PENDING');
+
+    if (pendingAdditionalPayments && pendingAdditionalPayments.length > 0) {
+      console.warn('⚠️ 추가 결제 대기 중:', pendingAdditionalPayments);
+      return errorResponse(
+        '추가 결제가 완료되지 않았습니다. 고객의 추가 결제가 완료된 후 출고할 수 있습니다.',
+        400,
+        'ADDITIONAL_PAYMENT_PENDING'
+      );
+    }
+
+    // 1-2. 거부된 추가 결제 확인
+    const { data: rejectedAdditionalPayments } = await supabase
+      .from('additional_payments')
+      .select('id, amount, reason, status')
+      .eq('order_id', orderId)
+      .eq('status', 'REJECTED');
+
+    if (rejectedAdditionalPayments && rejectedAdditionalPayments.length > 0) {
+      console.warn('⚠️ 추가 결제 거부됨:', rejectedAdditionalPayments);
+      return errorResponse(
+        '고객이 추가 결제를 거부했습니다. 주문을 취소하거나 초기 범위로 작업을 진행하세요.',
+        400,
+        'ADDITIONAL_PAYMENT_REJECTED'
+      );
+    }
+
+    console.log('✅ 결제 상태 확인 완료 (추가 결제 없음 또는 모두 완료)');
+
     // 2. shipments 정보 조회
     const { data: shipment, error: shipmentError } = await supabase
       .from('shipments')
