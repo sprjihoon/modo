@@ -100,6 +100,11 @@ Deno.serve(async (req) => {
 
     console.log('🔑 고객번호 확인:', { custNo, length: custNo.length });
     
+    // 🟩 규칙 2: 출고(Shipping) 라벨 생성일 때
+    // Sender(보내는 사람) = 센터 주소
+    // Receiver(받는 사람) = 고객 주소
+    const isPickup = false;
+
     const outboundParams: InsertOrderParams = {
       custNo: custNo,
       apprNo,
@@ -135,6 +140,13 @@ Deno.serve(async (req) => {
       testYn: 'N', // 실제 운송장 발급
       printYn: 'Y', // 운송장 출력
     };
+
+    // 🎯 sender/receiver 디버그 로그 (Payload 전송 직전)
+    // 개발환경(dev) 확인 - 여기선 단순히 로그를 찍음 (Supabase 로그에서 확인)
+    console.log('🐛 [DEBUG] Label Creation Sender/Receiver Mapping (Shipping Rule 2):');
+    console.log(`   isPickup: ${isPickup}`);
+    console.log(`   Sender (Center): ${outboundParams.ordNm} / ${outboundParams.ordAddr1}`);
+    console.log(`   Receiver (Customer): ${outboundParams.recNm} / ${outboundParams.recAddr1}`);
 
     console.log('📮 우체국 API 호출 (출고 송장):', outboundParams.orderNo);
     console.log('📋 파라미터 상세:', JSON.stringify(outboundParams, null, 2));

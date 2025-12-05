@@ -18,7 +18,7 @@ export interface InsertOrderParams {
   apprNo: string;           // 계약 승인번호
   payType: '1' | '2';       // 1:선불, 2:착불
   reqType: '1' | '2';       // 1:일반소포, 2:반품소포
-  officeSer: string;        // 공급지코드
+  officeSer?: string;       // 공급지코드 (선택사항: 지정 시 발송지가 공급지로 고정됨)
   orderNo: string;          // 주문번호 (고유값)
   
   // 수취인(반품인) 정보
