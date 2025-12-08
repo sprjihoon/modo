@@ -100,7 +100,7 @@ class _CompanyFooterState extends State<CompanyFooter>
               child: Row(
                 children: [
                   Text(
-                    _companyInfo?['company_name']?.toString().split('(')[0].trim() ?? '의식주컴퍼니',
+                    _companyInfo?['header_title'] ?? _companyInfo?['company_name']?.toString().split('(')[0].trim() ?? '모두의수선',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -141,45 +141,45 @@ class _CompanyFooterState extends State<CompanyFooter>
                     )
                   else if (_companyInfo != null) ...[
                     // 사업자 정보 (DB에서 로드)
-                    _buildInfoRow('회사명', _companyInfo!['company_name'] ?? '(주) 의식주컴퍼니'),
+                    _buildInfoRow('회사명', _companyInfo!['company_name'] ?? '모두의수선'),
                     const SizedBox(height: 8),
-                    _buildInfoRow('대표자', _companyInfo!['ceo_name'] ?? '조성우'),
+                    _buildInfoRow('대표자', _companyInfo!['ceo_name'] ?? ''),
                     const SizedBox(height: 8),
-                    _buildInfoRow('사업자등록번호', _companyInfo!['business_number'] ?? '561-87-00957'),
+                    _buildInfoRow('사업자등록번호', _companyInfo!['business_number'] ?? ''),
                     const SizedBox(height: 8),
-                    _buildInfoRow('통신판매업신고번호', _companyInfo!['online_business_number'] ?? '2025-경기군포-0146호'),
+                    _buildInfoRow('통신판매업신고번호', _companyInfo!['online_business_number'] ?? ''),
                     const SizedBox(height: 8),
                     _buildInfoRow(
                       '주소',
-                      _companyInfo!['address'] ?? '경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)',
+                      _companyInfo!['address'] ?? '',
                     ),
                     const SizedBox(height: 8),
-                    _buildInfoRow('개인정보관리책임자', _companyInfo!['privacy_officer'] ?? '최종수'),
+                    _buildInfoRow('개인정보관리책임자', _companyInfo!['privacy_officer'] ?? ''),
                     const SizedBox(height: 8),
-                    _buildInfoRow('이메일', _companyInfo!['email'] ?? 'privacy@lifegoeson.kr'),
+                    _buildInfoRow('이메일', _companyInfo!['email'] ?? ''),
                     const SizedBox(height: 8),
-                    _buildInfoRow('고객센터', _companyInfo!['phone'] ?? '1833-3429'),
+                    _buildInfoRow('고객센터', _companyInfo!['phone'] ?? ''),
                     const SizedBox(height: 16),
                   ] else ...[
                     // 기본 정보 (DB 로드 실패 시)
-                    _buildInfoRow('회사명', '(주) 의식주컴퍼니'),
+                    _buildInfoRow('회사명', '모두의수선'),
                     const SizedBox(height: 8),
-                    _buildInfoRow('대표자', '조성우'),
+                    _buildInfoRow('대표자', ''),
                     const SizedBox(height: 8),
-                    _buildInfoRow('사업자등록번호', '561-87-00957'),
+                    _buildInfoRow('사업자등록번호', ''),
                     const SizedBox(height: 8),
-                    _buildInfoRow('통신판매업신고번호', '2025-경기군포-0146호'),
+                    _buildInfoRow('통신판매업신고번호', ''),
                     const SizedBox(height: 8),
                     _buildInfoRow(
                       '주소',
-                      '경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)',
+                      '',
                     ),
                     const SizedBox(height: 8),
-                    _buildInfoRow('개인정보관리책임자', '최종수'),
+                    _buildInfoRow('개인정보관리책임자', ''),
                     const SizedBox(height: 8),
-                    _buildInfoRow('이메일', 'privacy@lifegoeson.kr'),
+                    _buildInfoRow('이메일', ''),
                     const SizedBox(height: 8),
-                    _buildInfoRow('고객센터', '1833-3429'),
+                    _buildInfoRow('고객센터', ''),
                     const SizedBox(height: 16),
                   ],
                   

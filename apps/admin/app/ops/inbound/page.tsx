@@ -794,7 +794,7 @@ export default function InboundPage() {
             </div>
             <div className="p-4 print:p-0 flex justify-center">
               <ShippingLabelSheet
-                customLayout={labelLayout}
+                customLayout={labelLayout || undefined}
                 data={(() => {
                   console.log('🔍 원본 deliveryInfo:', result.deliveryInfo);
                   console.log('🔍 고객 우편번호:', result.customerZipcode);
@@ -1038,7 +1038,7 @@ export default function InboundPage() {
                     sortCode4: deliveryCode.sortCode4 || "",
                     printAreaCd: deliveryCode.printAreaCd || "", // 우체국 API: 인쇄용 집배코드
                   };
-                })()}
+                })()!}
               />
             </div>
           </div>

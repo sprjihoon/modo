@@ -9,7 +9,10 @@ import { OrderTimeline } from "@/components/orders/order-timeline";
 import { StatusChangeDialog } from "@/components/orders/status-change-dialog";
 import { PaymentRefundDialog } from "@/components/orders/payment-refund-dialog";
 import { TrackingManageDialog } from "@/components/orders/tracking-manage-dialog";
-import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle } from "lucide-react";
+import { WorkOrderPrintDialog } from "@/components/orders/work-order-print-dialog";
+import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
+import PointManagementDialog from "@/components/customers/PointManagementDialog";
+import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins } from "lucide-react";
 
 interface OrderDetailPageProps {
   params: {
@@ -34,6 +37,8 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const [isLoadingOrder, setIsLoadingOrder] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<MediaVideo | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [pointDialogOpen, setPointDialogOpen] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
   
   // Load order data from API
   useEffect(() => {
@@ -48,14 +53,81 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         const data = await response.json();
         if (data.success && data.order) {
           console.log('📦 주문 데이터 로드:', data.order);
+          console.log('👤 사용자 ID:', data.order.user_id);
           setOrder(data.order);
           setVideos(data.order.videos || []);
+          
+          // Load user data for point management
+          if (data.order.user_id) {
+            console.log('👤 사용자 데이터 로드 시작:', data.order.user_id);
+            loadUserData(data.order.user_id);
+          } else {
+            console.warn('⚠️ 주문에 user_id가 없습니다! 자동 연결 시도...');
+            // 자동으로 사용자 연결 시도
+            await autoLinkUser();
+          }
         }
       }
     } catch (error) {
       console.error('주문 로드 실패:', error);
     } finally {
       setIsLoadingOrder(false);
+    }
+  };
+
+  const autoLinkUser = async () => {
+    try {
+      console.log('🔗 자동 사용자 연결 시작...');
+      const response = await fetch(`/api/orders/${params.id}/link-user`, {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ 사용자 연결 성공:', data);
+        
+        if (data.success) {
+          // 주문 다시 로드
+          const orderResponse = await fetch(`/api/orders/${params.id}`);
+          if (orderResponse.ok) {
+            const orderData = await orderResponse.json();
+            if (orderData.success && orderData.order) {
+              setOrder(orderData.order);
+              if (orderData.order.user_id) {
+                loadUserData(orderData.order.user_id);
+              }
+            }
+          }
+        }
+      } else {
+        console.error('❌ 사용자 연결 실패:', await response.json());
+      }
+    } catch (error) {
+      console.error('❌ 자동 사용자 연결 오류:', error);
+    }
+  };
+
+  const loadUserData = async (userId: string) => {
+    try {
+      console.log('👤 API 호출:', `/api/customers/${userId}`);
+      const response = await fetch(`/api/customers/${userId}`);
+      console.log('👤 API 응답 상태:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('👤 API 응답 데이터:', data);
+        if (data.success && data.customer) {
+          setUserData(data.customer);
+          console.log('✅ 사용자 데이터 설정 완료:', data.customer);
+        } else {
+          console.error('❌ 사용자 데이터 없음:', data);
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('❌ API 오류 응답:', errorData);
+      }
+    } catch (error) {
+      console.error('❌ 사용자 데이터 로드 실패:', error);
     }
   };
 
@@ -242,32 +314,12 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
               <p className="text-sm text-muted-foreground">상태</p>
               <Badge>{displayOrder.status}</Badge>
             </div>
-            <div className="pt-4 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => {
-                  // TODO: 주문서 PDF 생성 및 출력
-                  const orderInfo = `
-주문서
-─────────────────────
-주문번호: ${displayOrder.id}
-고객명: ${displayOrder.customerName}
-수선 항목: ${displayOrder.item}
-결제금액: ₩${displayOrder.amount.toLocaleString()}
-주문일시: ${displayOrder.createdAt}
-─────────────────────
-수거지: ${displayOrder.pickupAddress}
-배송지: ${displayOrder.deliveryAddress}
-                  `.trim();
-                  alert(`주문서 출력 기능\n\n${orderInfo}\n\n고객센터를 통해 주문서를 출력하실 수 있습니다.`);
-                }}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                주문서 출력
-              </Button>
-            </div>
+            {/* 작업지시서는 입고처리(INBOUND/RECEIVED) 이후만 표시 */}
+            {['INBOUND', 'RECEIVED', 'IN_REPAIR', 'REPAIR_COMPLETED', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes(displayOrder.status) && (
+              <div className="pt-4 border-t">
+                <WorkOrderPrintDialog order={order} />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -292,6 +344,50 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
               <p className="text-sm text-muted-foreground">연락처</p>
               <p className="font-medium">{displayOrder.customerPhone}</p>
             </div>
+            {/* 포인트 관리는 항상 표시 */}
+            {order?.user_id ? (
+              <div className="pt-4 border-t">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">포인트 잔액</p>
+                  <p className="text-xl font-bold text-blue-600">
+                    {userData ? (userData.point_balance || 0).toLocaleString() : '로딩중...'}P
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    console.log('🔵 포인트 관리 버튼 클릭');
+                    console.log('🔵 Order user_id:', order.user_id);
+                    console.log('🔵 User data:', userData);
+                    setPointDialogOpen(true);
+                  }}
+                >
+                  <Coins className="h-4 w-4 mr-2" />
+                  포인트 관리
+                </Button>
+              </div>
+            ) : isLoadingOrder ? (
+              <div className="pt-4 border-t">
+                <p className="text-sm text-blue-600">🔗 사용자 연결 중...</p>
+              </div>
+            ) : (
+              <div className="pt-4 border-t">
+                <p className="text-sm text-orange-600">⚠️ 사용자 연결 실패</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  페이지를 새로고침하거나 관리자에게 문의하세요.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => window.location.reload()}
+                >
+                  새로고침
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -389,16 +485,14 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                       <ExternalLink className="h-3 w-3 mr-1" />
                       추적
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        // TODO: 송장 재출력 기능 (우체국 API 연동)
-                        alert(`송장 재출력 기능\n송장번호: ${displayOrder.trackingNo}\n\n고객센터를 통해 재출력을 요청하실 수 있습니다.`);
-                      }}
-                    >
-                      출력
-                    </Button>
+                    {/* 송장출력은 입고처리(INBOUND/RECEIVED) 이후만 표시 */}
+                    {['INBOUND', 'RECEIVED', 'IN_REPAIR', 'REPAIR_COMPLETED', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes(displayOrder.status) && (
+                      <LabelPrintDialog 
+                        trackingNo={displayOrder.trackingNo} 
+                        type="pickup"
+                        orderId={displayOrder.id}
+                      />
+                    )}
                   </>
                 )}
               </div>
@@ -430,16 +524,12 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                       <ExternalLink className="h-3 w-3 mr-1" />
                       추적
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        // TODO: 송장 재출력 기능 (우체국 API 연동)
-                        alert(`송장 재출력 기능\n송장번호: ${displayOrder.deliveryTrackingNo}\n\n고객센터를 통해 재출력을 요청하실 수 있습니다.`);
-                      }}
-                    >
-                      출력
-                    </Button>
+                    {/* 배송 송장 출력 - 운송장번호 발급 시에만 표시 */}
+                    <LabelPrintDialog 
+                      trackingNo={displayOrder.deliveryTrackingNo} 
+                      type="delivery"
+                      orderId={displayOrder.id}
+                    />
                   </>
                 )}
               </div>
@@ -654,6 +744,23 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Point Management Dialog - 항상 사용 가능 */}
+      {order?.user_id && (
+        <PointManagementDialog
+          open={pointDialogOpen}
+          onOpenChange={setPointDialogOpen}
+          customerId={order.user_id}
+          customerName={displayOrder.customerName}
+          currentBalance={userData?.point_balance || 0}
+          onSuccess={() => {
+            if (order.user_id) {
+              loadUserData(order.user_id);
+            }
+            loadOrder();
+          }}
+        />
       )}
     </div>
   );

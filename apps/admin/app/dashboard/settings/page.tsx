@@ -50,15 +50,15 @@ export default function SettingsPage() {
   });
 
   const [footerSettings, setFooterSettings] = useState({
-    headerTitle: "의식주컴퍼니",
-    companyName: "(주) 의식주컴퍼니",
-    ceoName: "조성우",
-    businessNumber: "561-87-00957",
-    salesReportNumber: "2025-경기군포-0146호",
-    address: "경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)",
-    privacyOfficer: "최종수",
-    email: "privacy@lifegoeson.kr",
-    customerCenter: "1833-3429",
+    headerTitle: "모두의수선",
+    companyName: "모두의수선",
+    ceoName: "",
+    businessNumber: "",
+    salesReportNumber: "",
+    address: "",
+    privacyOfficer: "",
+    email: "",
+    customerCenter: "",
   });
 
   // 초기 데이터 로드
@@ -97,6 +97,7 @@ export default function SettingsPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            header_title: footerSettings.headerTitle,
             company_name: footerSettings.companyName,
             ceo_name: footerSettings.ceoName,
             business_number: footerSettings.businessNumber,
@@ -139,29 +140,29 @@ export default function SettingsPage() {
   
   const loadCompanyInfo = async () => {
     try {
-      const { supabase } = await import('@/lib/supabase');
+      // API를 통해 데이터 로드 (권한 문제 해결)
+      const res = await fetch('/api/admin/settings/company-info');
+      const json = await res.json();
       
-      const { data, error } = await supabase
-        .from('company_info')
-        .select()
-        .limit(1)
-        .maybeSingle();
-      
-      if (data) {
+      if (res.ok && json.data) {
+        const data = json.data;
         setFooterSettings({
-          headerTitle: data.company_name?.split('(')[0].trim() || "의식주컴퍼니",
-          companyName: data.company_name || "(주) 의식주컴퍼니",
-          ceoName: data.ceo_name || "조성우",
-          businessNumber: data.business_number || "561-87-00957",
-          salesReportNumber: data.online_business_number || "2025-경기군포-0146호",
-          address: data.address || "경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)",
-          privacyOfficer: data.privacy_officer || "최종수",
-          email: data.email || "privacy@lifegoeson.kr",
-          customerCenter: data.phone || "1833-3429",
+          headerTitle: data.header_title || data.company_name?.split('(')[0].trim() || "모두의수선",
+          companyName: data.company_name || "모두의수선",
+          ceoName: data.ceo_name || "",
+          businessNumber: data.business_number || "",
+          salesReportNumber: data.online_business_number || "",
+          address: data.address || "",
+          privacyOfficer: data.privacy_officer || "",
+          email: data.email || "",
+          customerCenter: data.phone || "",
         });
+        console.log('✅ 푸터 정보 로드 성공:', data);
+      } else {
+        console.warn('⚠️ 푸터 정보 없음, 기본값 사용');
       }
     } catch (error) {
-      console.error('Failed to load company info:', error);
+      console.error('❌ 푸터 정보 로드 실패:', error);
     }
   };
 
@@ -455,10 +456,10 @@ export default function SettingsPage() {
               onChange={(e) =>
                 setFooterSettings({ ...footerSettings, headerTitle: e.target.value })
               }
-              placeholder="의식주컴퍼니"
+              placeholder="모두의수선"
             />
             <p className="text-xs text-muted-foreground">
-              아코디언 헤더에 표시될 회사명입니다
+              앱 푸터의 아코디언 헤더에 표시될 간단한 제목입니다
             </p>
           </div>
           <div className="space-y-2">
@@ -469,8 +470,11 @@ export default function SettingsPage() {
               onChange={(e) =>
                 setFooterSettings({ ...footerSettings, companyName: e.target.value })
               }
-              placeholder="(주) 의식주컴퍼니"
+              placeholder="모두의수선"
             />
+            <p className="text-xs text-muted-foreground">
+              푸터 상세 정보에 표시될 정식 회사명입니다
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="ceoName">대표자</Label>

@@ -142,7 +142,7 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       mediaStreamRef.current = stream;
       
       if (videoRef.current) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line
         (videoRef.current as any).srcObject = stream;
         await videoRef.current.play();
         console.log("✅ 비디오 재생 시작");
@@ -364,7 +364,7 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
             <div>
               <p className="text-sm text-blue-900 font-semibold">카메라 권한 요청 중...</p>
               <p className="text-xs text-blue-700 mt-1">
-                브라우저에서 카메라 권한을 요청하는 팝업이 나타나면 <strong>"허용"</strong>을 클릭해주세요.
+                브라우저에서 카메라 권한을 요청하는 팝업이 나타나면 <strong>&quot;허용&quot;</strong>을 클릭해주세요.
               </p>
             </div>
           </div>

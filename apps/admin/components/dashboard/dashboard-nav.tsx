@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -83,6 +84,27 @@ const navItems = [
 
 export function DashboardNav() {
   const pathname = usePathname();
+  const [companyName, setCompanyName] = useState("모두의수선");
+
+  // 회사 정보 로드
+  useEffect(() => {
+    const loadCompanyInfo = async () => {
+      try {
+        const response = await fetch("/api/admin/settings/company-info");
+        const data = await response.json();
+        if (data.success && data.data?.company_name) {
+          // 회사명에서 괄호 및 그 이후 텍스트 제거 (예: "모두의수선(MODO)" -> "모두의수선")
+          const cleanName = data.data.company_name.split('(')[0].trim();
+          setCompanyName(cleanName);
+        }
+      } catch (error) {
+        console.error("회사 정보 로드 실패:", error);
+        // 실패시 기본값 유지
+      }
+    };
+
+    loadCompanyInfo();
+  }, []);
 
   return (
     <div className="w-64 bg-white dark:bg-gray-800 border-r min-h-screen p-4">
@@ -92,7 +114,7 @@ export function DashboardNav() {
             <span className="text-white">🧵</span>
           </div>
           <div>
-            <h2 className="font-bold">모두의수선</h2>
+            <h2 className="font-bold">{companyName}</h2>
             <p className="text-xs text-muted-foreground">관리자</p>
           </div>
         </Link>

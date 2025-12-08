@@ -8,6 +8,9 @@ export interface Customer {
   created_at: string;
   default_address?: string;
   default_address_detail?: string;
+  point_balance?: number;
+  total_earned_points?: number;
+  total_used_points?: number;
   totalOrders?: number;
   totalSpent?: number;
   lastOrderDate?: string;
@@ -82,13 +85,25 @@ export async function getCustomers(filters?: {
  * 고객 상세 조회
  */
 export async function getCustomerById(customerId: string) {
+  console.log('👤 [getCustomerById] 사용자 조회:', customerId);
+  
   const { data, error } = await supabaseAdmin
     .from('users')
     .select('*')
     .eq('id', customerId)
-    .single();
+    .maybeSingle();
 
-  if (error) throw error;
+  console.log('👤 [getCustomerById] 조회 결과:', { data, error });
+
+  if (error) {
+    console.error('❌ [getCustomerById] DB 오류:', error);
+    throw error;
+  }
+  
+  if (!data) {
+    console.error('❌ [getCustomerById] 사용자 없음:', customerId);
+    throw new Error(`사용자를 찾을 수 없습니다: ${customerId}`);
+  }
 
   // 주문 통계 정보 추가
   const { data: orders, error: ordersError } = await supabaseAdmin

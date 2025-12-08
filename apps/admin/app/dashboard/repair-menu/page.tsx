@@ -788,7 +788,7 @@ function EditRepairTypeDialog({
                         className="h-9 text-sm mt-1"
                       />
                       <p className="text-xs text-purple-700 mt-1">
-                        미입력 시 기본값: "상세 수선 부위를 선택해주세요"
+                        미입력 시 기본값: &quot;상세 수선 부위를 선택해주세요&quot;
                       </p>
                     </div>
                   </div>
@@ -1223,7 +1223,7 @@ function AddRepairTypeDialog({
                         className="h-9 text-sm mt-1"
                       />
                       <p className="text-xs text-purple-700 mt-1">
-                        미입력 시 기본값: "상세 수선 부위를 선택해주세요"
+                        미입력 시 기본값: &quot;상세 수선 부위를 선택해주세요&quot;
                       </p>
                     </div>
                   </div>

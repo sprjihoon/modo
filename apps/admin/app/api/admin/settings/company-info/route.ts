@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     
     const payload = {
+      header_title: body.header_title ?? null,
       company_name: body.company_name ?? null,
       ceo_name: body.ceo_name ?? null,
       business_number: body.business_number ?? null,

@@ -7,11 +7,14 @@ export async function GET(
 ) {
   try {
     const customer = await getCustomerById(params.id);
-    return NextResponse.json(customer);
+    return NextResponse.json({
+      success: true,
+      customer: customer
+    });
   } catch (error: any) {
     console.error('고객 상세 조회 실패:', error);
     return NextResponse.json(
-      { error: error.message || '고객 정보를 불러올 수 없습니다' },
+      { success: false, error: error.message || '고객 정보를 불러올 수 없습니다' },
       { status: 404 }
     );
   }

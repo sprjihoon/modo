@@ -85,7 +85,7 @@ const DEFAULT_FIELDS: FieldConfig[] = [
   {
     fieldKey: "customer_order_source",
     label: "고객 주문처",
-    exampleValue: "고객 주문처: 틸리언 수기",
+    exampleValue: "고객 주문처: 모두의수선",
     fontSize: 11,
     isBold: false,
     type: "text",
@@ -141,7 +141,7 @@ const DEFAULT_FIELDS: FieldConfig[] = [
   {
     fieldKey: "sender_name",
     label: "보내는 분 이름",
-    exampleValue: "틸리언",
+    exampleValue: "모두의수선",
     fontSize: 13, // 12 -> 13
     isBold: false,
     type: "text",
@@ -223,7 +223,7 @@ const getInitialLayout = (canvasWidth: number, canvasHeight: number, companyInfo
   
   // 회사 정보에서 보낸분 정보 가져오기
   const senderAddress = companyInfo?.address || "대구 동구 동촌로 1 (입석동, 동대구우체국, 경북지방우정청) 동대구 우체국 소포실";
-  const senderName = companyInfo?.company_name?.split('(')[0].trim() || "틸리언";
+  const senderName = companyInfo?.company_name?.split('(')[0].trim() || "모두의수선";
   const senderPhone = companyInfo?.phone || "010-2723-9490";
   
   return [

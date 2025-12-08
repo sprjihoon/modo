@@ -197,7 +197,7 @@ const mapFieldToActualValue = (fieldKey: string, data: ShippingLabelData): strin
       return "1. 거래물품-1개";
     },
     sender_address: (data) => data.senderAddress || "",
-    sender_name: (data) => data.senderName || "틸리언",
+    sender_name: (data) => data.senderName || "모두의수선",
     sender_phone: (data) => data.senderPhone || "",
     receiver_address: (data) => data.recipientAddress || "",
     receiver_name: (data) => data.recipientName || "",
