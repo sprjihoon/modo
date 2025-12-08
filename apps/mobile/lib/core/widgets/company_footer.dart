@@ -88,6 +88,8 @@ class _CompanyFooterState extends State<CompanyFooter>
                 _isExpanded = !_isExpanded;
                 if (_isExpanded) {
                   _controller.forward();
+                  // 푸터를 열 때마다 최신 정보 로드
+                  _loadCompanyInfo();
                 } else {
                   _controller.reverse();
                 }

@@ -18,7 +18,10 @@ import {
   Eye,
   EyeOff,
   FileText,
+  Coins,
+  ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 
 export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false);
@@ -60,37 +63,7 @@ export default function SettingsPage() {
 
   // 초기 데이터 로드
   useEffect(() => {
-    const loadCompanyInfo = async () => {
-      try {
-        const { supabase } = await import('@/lib/supabase');
-        
-        const { data, error } = await supabase
-          .from('company_info')
-          .select()
-          .limit(1)
-          .maybeSingle();
-        
-        if (data) {
-          setFooterSettings({
-            headerTitle: data.company_name?.split('(')[0].trim() || "의식주컴퍼니",
-            companyName: data.company_name || "(주) 의식주컴퍼니",
-            ceoName: data.ceo_name || "조성우",
-            businessNumber: data.business_number || "561-87-00957",
-            salesReportNumber: data.online_business_number || "2025-경기군포-0146호",
-            address: data.address || "경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)",
-            privacyOfficer: data.privacy_officer || "최종수",
-            email: data.email || "privacy@lifegoeson.kr",
-            customerCenter: data.phone || "1833-3429",
-          });
-        }
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Failed to load company info:', error);
-        setIsLoading(false);
-      }
-    };
-    
-    loadCompanyInfo();
+    loadCompanyInfo().then(() => setIsLoading(false));
 
   // 센터 설정 로드
   const loadCenter = async () => {
@@ -116,6 +89,8 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     try {
+      setIsLoading(true);
+      
       // 푸터 정보 저장 - 서버 API 경유 (RLS 우회)
       {
         const res = await fetch('/api/admin/settings/company-info', {
@@ -151,9 +126,42 @@ export default function SettingsPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || '센터 설정 저장 실패');
 
-      alert("설정이 저장되었습니다.");
+      // 저장 후 최신 데이터 다시 로드
+      await loadCompanyInfo();
+      
+      alert("설정이 저장되었습니다. 앱에서 푸터를 확인하면 최신 정보가 반영됩니다.");
     } catch (error: any) {
       alert(`저장 실패: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const loadCompanyInfo = async () => {
+    try {
+      const { supabase } = await import('@/lib/supabase');
+      
+      const { data, error } = await supabase
+        .from('company_info')
+        .select()
+        .limit(1)
+        .maybeSingle();
+      
+      if (data) {
+        setFooterSettings({
+          headerTitle: data.company_name?.split('(')[0].trim() || "의식주컴퍼니",
+          companyName: data.company_name || "(주) 의식주컴퍼니",
+          ceoName: data.ceo_name || "조성우",
+          businessNumber: data.business_number || "561-87-00957",
+          salesReportNumber: data.online_business_number || "2025-경기군포-0146호",
+          address: data.address || "경기도 군포시 농심로72번길 3(당정동, 런드리고 글로벌 캠퍼스)",
+          privacyOfficer: data.privacy_officer || "최종수",
+          email: data.email || "privacy@lifegoeson.kr",
+          customerCenter: data.phone || "1833-3429",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load company info:', error);
     }
   };
 
@@ -248,6 +256,33 @@ export default function SettingsPage() {
             >
               {settings.enableEmailAlerts ? "활성화" : "비활성화"}
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Point Settings Link */}
+      <Card className="border-blue-200 dark:border-blue-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Coins className="h-5 w-5 text-blue-600" />
+            포인트 적립률 설정
+          </CardTitle>
+          <CardDescription>기간별 포인트 적립률을 관리합니다</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">포인트 적립 정책 관리</p>
+              <p className="text-sm text-muted-foreground">
+                결제 금액의 x% 적립 설정, 기간별 적립률 관리
+              </p>
+            </div>
+            <Link href="/dashboard/settings/points">
+              <Button>
+                설정 관리
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

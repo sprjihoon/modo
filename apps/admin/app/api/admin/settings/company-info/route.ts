@@ -24,8 +24,15 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    
+    // 기존 레코드 확인
+    const { data: existingData } = await supabaseAdmin
+      .from("company_info")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+    
     const payload = {
-      id: 1,
       company_name: body.company_name ?? null,
       ceo_name: body.ceo_name ?? null,
       business_number: body.business_number ?? null,
@@ -37,11 +44,21 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await supabaseAdmin
-      .from("company_info")
-      .upsert(payload, { onConflict: "id" });
+    let result;
+    if (existingData?.id) {
+      // 기존 레코드 업데이트
+      result = await supabaseAdmin
+        .from("company_info")
+        .update(payload)
+        .eq("id", existingData.id);
+    } else {
+      // 새 레코드 생성
+      result = await supabaseAdmin
+        .from("company_info")
+        .insert(payload);
+    }
 
-    if (error) throw error;
+    if (result.error) throw result.error;
 
     return NextResponse.json({ success: true });
   } catch (e: any) {
