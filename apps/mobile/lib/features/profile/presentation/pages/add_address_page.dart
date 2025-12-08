@@ -239,7 +239,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
                         Expanded(
                           child: TextFormField(
                             controller: _zipcodeController,
-                            enabled: false,
+                            readOnly: true,
                             decoration: InputDecoration(
                               labelText: '우편번호',
                               filled: true,
@@ -247,7 +247,21 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.edit_outlined, size: 20),
+                                onPressed: _manualZipcodeInput,
+                                tooltip: '수동 입력',
+                              ),
                             ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return '우편번호를 입력해주세요';
+                              }
+                              if (value.length != 5) {
+                                return '우편번호는 5자리입니다';
+                              }
+                              return null;
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -471,6 +485,7 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: const DaumPostcodeWidget(),
       ),
     );
@@ -498,6 +513,46 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
           ),
         );
       }
+    }
+  }
+  
+  /// 우편번호 수동 입력 다이얼로그
+  Future<void> _manualZipcodeInput() async {
+    final controller = TextEditingController(text: _zipcodeController.text);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text('우편번호 입력'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          maxLength: 5,
+          decoration: const InputDecoration(
+            labelText: '우편번호 (5자리)',
+            hintText: '예) 41129',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+    
+    if (result != null && result.length == 5) {
+      setState(() {
+        _zipcodeController.text = result;
+      });
     }
   }
 }

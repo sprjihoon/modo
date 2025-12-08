@@ -36,10 +36,6 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..enableZoom(false)
       ..setBackgroundColor(Colors.white)
-      // JavaScript console.log를 Flutter에서 보기
-      ..setOnConsoleMessage((ConsoleMessage message) {
-        debugPrint('🟦 [WebView Console] ${message.message}');
-      })
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
@@ -237,54 +233,41 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
         }
         
         // 페이지 로드 시 Daum Postcode 초기화
-        console.log('🚀 스크립트 로드됨');
-        
         // 즉시 실행 (DOMContentLoaded 대신)
         (function() {
-            console.log('🔄 Postcode 초기화 시작');
+            alert('🚀 스크립트 로드됨 - 초기화 시작');
             
             // Postcode 객체 생성 및 embed
             var element_layer = document.getElementById('layer');
             
             if (!element_layer) {
-                console.error('❌ layer 엘리먼트를 찾을 수 없습니다!');
+                alert('❌ layer 엘리먼트를 찾을 수 없습니다!');
                 return;
             }
-            
-            console.log('✅ layer 엘리먼트 찾음');
             
             if (typeof daum === 'undefined') {
-                console.error('❌ Daum 라이브러리가 로드되지 않았습니다!');
+                alert('❌ Daum 라이브러리가 로드되지 않았습니다!');
                 return;
             }
-            
-            console.log('✅ Daum 라이브러리 로드 확인');
             
             new daum.Postcode({
                 oncomplete: function(data) {
-                    console.log('');
-                    console.log('====================');
-                    console.log('🎯 주소 선택 완료!');
-                    console.log('  📮 우편번호:', data.zonecode);
-                    console.log('  🏠 주소:', data.address);
-                    console.log('  📝 타입:', data.addressType);
-                    console.log('====================');
-                    console.log('');
+                    alert('🎯 주소 선택! 우편번호: ' + data.zonecode);
                     
                     // 즉시 Flutter로 전송
                     sendAddressToFlutter(data.zonecode, data.address, data.addressType);
                 },
                 onresize: function(size) {
-                    console.log('📏 크기 변경:', size.height);
+                    // 크기 변경
                 },
                 onclose: function() {
-                    console.log('❌ 우편번호 창 닫힘');
+                    // 창 닫힘
                 },
                 width: '100%',
                 height: '100%'
             }).embed(element_layer);
             
-            console.log('✅ Postcode embed 완료');
+            alert('✅ Postcode embed 완료');
         })();
     </script>
 </body>
@@ -294,6 +277,10 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // 카카오 API 방식 사용 (안정적)
+    return _buildSimpleAddressInput(context);
+    
+    /* WebView 방식은 iOS 시뮬레이터에서 JavaScript 실행 문제가 있어 비활성화
     debugPrint('🏗️ DaumPostcodeWidget build - kIsWeb: $kIsWeb, _controller: ${_controller != null}');
     
     // WebView 방식 사용 (Daum 우편번호 서비스 - 가장 정확함)
@@ -375,6 +362,7 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
         ],
       ),
     );
+    */
   }
   
   /// 간단한 주소 검색 UI (샘플 주소 제공)
