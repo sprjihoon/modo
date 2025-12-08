@@ -404,7 +404,7 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
           }).where((item) => 
             item['address']!.isNotEmpty && 
             item['zipcode']!.isNotEmpty && 
-            item['zipcode']!.trim().isNotEmpty  // 빈 문자열이거나 공백만 있는 우편번호 제외
+            item['zipcode']!.trim().isNotEmpty  // 우편번호 있는 것만 표시
           ).toList();
           isSearching = false;
         });
