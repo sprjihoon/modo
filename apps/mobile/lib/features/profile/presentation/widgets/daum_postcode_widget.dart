@@ -372,7 +372,7 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
             final roadAddress = doc['road_address'];
             final address = doc['address'];
             
-            // 우편번호 추출 (도로명 주소의 zone_no 사용)
+            // 우편번호 추출 (도로명 주소 우선, 지번 주소도 지원)
             String zipcode = '';
             String addressName = '';
             String detail = '';
@@ -382,7 +382,18 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
               addressName = (roadAddress['address_name'] ?? '') as String;
               detail = (roadAddress['building_name'] ?? '') as String;
             } else if (address != null) {
+              // 지번 주소에서도 우편번호 가져오기 (zone_no 우선, 없으면 zip_no)
+              zipcode = (address['zone_no'] ?? address['zip_no'] ?? '') as String;
               addressName = (address['address_name'] ?? '') as String;
+            }
+            
+            // 디버깅 로그
+            if (zipcode.isEmpty) {
+              debugPrint('⚠️ 우편번호를 찾을 수 없습니다:');
+              debugPrint('  roadAddress: $roadAddress');
+              debugPrint('  address: $address');
+            } else {
+              debugPrint('✅ 우편번호 추출 성공: $zipcode ($addressName)');
             }
             
             return {
