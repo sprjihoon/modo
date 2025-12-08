@@ -213,10 +213,7 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // WebView 대신 간단한 검색 UI 사용 (더 안정적)
-    return _buildSimpleAddressInput(context);
-    
-    /* WebView 방식 (현재 비활성화)
+    // WebView 방식 사용 (Daum 우편번호 서비스 - 가장 정확함)
     if (kIsWeb) {
       return _buildSimpleAddressInput(context);
     }
@@ -286,7 +283,6 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
         ],
       ),
     );
-    */
   }
   
   /// 간단한 주소 검색 UI (샘플 주소 제공)
