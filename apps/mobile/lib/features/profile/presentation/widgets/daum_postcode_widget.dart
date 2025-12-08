@@ -388,7 +388,7 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
             }
             
             // 디버깅 로그
-            if (zipcode.isEmpty) {
+            if (zipcode.isEmpty || zipcode.trim().isEmpty) {
               debugPrint('⚠️ 우편번호를 찾을 수 없습니다:');
               debugPrint('  roadAddress: $roadAddress');
               debugPrint('  address: $address');
@@ -401,7 +401,11 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
               'address': addressName,
               'detail': detail,
             };
-          }).where((item) => item['address']!.isNotEmpty).toList();
+          }).where((item) => 
+            item['address']!.isNotEmpty && 
+            item['zipcode']!.isNotEmpty && 
+            item['zipcode']!.trim().isNotEmpty  // 빈 문자열이거나 공백만 있는 우편번호 제외
+          ).toList();
           isSearching = false;
         });
       } else {
@@ -507,19 +511,36 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
                           if (searchController.text.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Text(
-                              '검색어를 바꿔보세요',
+                              '💡 건물 번호까지 입력해주세요',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '예) 판교, 강남, 안심로, 테헤란로',
+                              '예) 판교역로 166, 테헤란로 152',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey.shade500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '📍 도로명만 입력하면 우편번호가 없을 수 있습니다',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.blue.shade700,
+                                ),
                               ),
                             ),
                           ],
