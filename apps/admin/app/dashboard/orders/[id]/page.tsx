@@ -9,7 +9,7 @@ import { OrderTimeline } from "@/components/orders/order-timeline";
 import { StatusChangeDialog } from "@/components/orders/status-change-dialog";
 import { PaymentRefundDialog } from "@/components/orders/payment-refund-dialog";
 import { TrackingManageDialog } from "@/components/orders/tracking-manage-dialog";
-import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play } from "lucide-react";
+import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle } from "lucide-react";
 
 interface OrderDetailPageProps {
   params: {
@@ -33,6 +33,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const [videos, setVideos] = useState<MediaVideo[]>([]);
   const [isLoadingOrder, setIsLoadingOrder] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<MediaVideo | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
   
   // Load order data from API
   useEffect(() => {
@@ -70,6 +71,40 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     if (type === 'inbound_video') return '입고';
     if (type === 'outbound_video') return '출고';
     return type;
+  };
+
+  const handleCancelShipment = async () => {
+    if (!confirm('수거 예약을 취소하시겠습니까?\n\n우체국 전산에서 취소되며, 취소 후에는 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      const response = await fetch(`/api/shipments/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          order_id: params.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        alert(`수거 취소가 완료되었습니다.\n\n${result.message || '수거 예약이 취소되었습니다.'}`);
+        // 주문 정보 새로고침
+        await loadOrder();
+      } else {
+        throw new Error(result.error || '수거 취소에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('수거 취소 실패:', error);
+      alert(`수거 취소 실패\n\n${error.message || '알 수 없는 오류가 발생했습니다.'}`);
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   if (isLoadingOrder) {
@@ -147,8 +182,25 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           </div>
         </div>
         <div className="flex gap-2">
+          {displayOrder.status === 'BOOKED' && displayOrder.trackingNo && (
+            <Button 
+              variant="destructive" 
+              onClick={handleCancelShipment}
+              disabled={isCancelling}
+            >
+              {isCancelling ? (
+                <>처리중...</>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  수거 취소
+                </>
+              )}
+            </Button>
+          )}
           {displayOrder.labelUrl && (
             <Button variant="outline" onClick={() => window.open(displayOrder.labelUrl!, '_blank')}>
+              <Printer className="h-4 w-4 mr-2" />
               송장 출력
             </Button>
           )}
@@ -189,6 +241,32 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             <div>
               <p className="text-sm text-muted-foreground">상태</p>
               <Badge>{displayOrder.status}</Badge>
+            </div>
+            <div className="pt-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  // TODO: 주문서 PDF 생성 및 출력
+                  const orderInfo = `
+주문서
+─────────────────────
+주문번호: ${displayOrder.id}
+고객명: ${displayOrder.customerName}
+수선 항목: ${displayOrder.item}
+결제금액: ₩${displayOrder.amount.toLocaleString()}
+주문일시: ${displayOrder.createdAt}
+─────────────────────
+수거지: ${displayOrder.pickupAddress}
+배송지: ${displayOrder.deliveryAddress}
+                  `.trim();
+                  alert(`주문서 출력 기능\n\n${orderInfo}\n\n고객센터를 통해 주문서를 출력하실 수 있습니다.`);
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                주문서 출력
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -311,6 +389,16 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                       <ExternalLink className="h-3 w-3 mr-1" />
                       추적
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        // TODO: 송장 재출력 기능 (우체국 API 연동)
+                        alert(`송장 재출력 기능\n송장번호: ${displayOrder.trackingNo}\n\n고객센터를 통해 재출력을 요청하실 수 있습니다.`);
+                      }}
+                    >
+                      출력
+                    </Button>
                   </>
                 )}
               </div>
@@ -323,17 +411,36 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                   {displayOrder.deliveryTrackingNo || "출고 시 발급"}
                 </p>
                 {displayOrder.deliveryTrackingNo && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => window.open(
-                      `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${displayOrder.deliveryTrackingNo}`,
-                      '_blank'
-                    )}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    추적
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigator.clipboard.writeText(displayOrder.deliveryTrackingNo)}
+                    >
+                      복사
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(
+                        `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${displayOrder.deliveryTrackingNo}`,
+                        '_blank'
+                      )}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      추적
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        // TODO: 송장 재출력 기능 (우체국 API 연동)
+                        alert(`송장 재출력 기능\n송장번호: ${displayOrder.deliveryTrackingNo}\n\n고객센터를 통해 재출력을 요청하실 수 있습니다.`);
+                      }}
+                    >
+                      출력
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
