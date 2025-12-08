@@ -359,7 +359,7 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
       );
 
       debugPrint('📥 응답 상태: ${response.statusCode}');
-      debugPrint('📥 응답 본문: ${response.body}');
+      debugPrint('📥 응답 본문: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -372,20 +372,25 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
             final roadAddress = doc['road_address'];
             final address = doc['address'];
             
+            // 우편번호 추출 (도로명 주소의 zone_no 사용)
+            String zipcode = '';
+            String addressName = '';
+            String detail = '';
+            
             if (roadAddress != null) {
-              return {
-                'zipcode': (roadAddress['zone_no'] ?? '') as String,
-                'address': (roadAddress['address_name'] ?? '') as String,
-                'detail': (roadAddress['building_name'] ?? '') as String,
-              };
-            } else {
-              return {
-                'zipcode': (address['zip_code'] ?? '') as String,
-                'address': (address['address_name'] ?? '') as String,
-                'detail': '',
-              };
+              zipcode = (roadAddress['zone_no'] ?? '') as String;
+              addressName = (roadAddress['address_name'] ?? '') as String;
+              detail = (roadAddress['building_name'] ?? '') as String;
+            } else if (address != null) {
+              addressName = (address['address_name'] ?? '') as String;
             }
-          }).toList();
+            
+            return {
+              'zipcode': zipcode,
+              'address': addressName,
+              'detail': detail,
+            };
+          }).where((item) => item['address']!.isNotEmpty).toList();
           isSearching = false;
         });
       } else {

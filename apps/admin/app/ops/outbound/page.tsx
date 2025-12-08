@@ -4,12 +4,18 @@
 import { useState } from "react";
 import { Send, Video } from "lucide-react";
 import WebcamRecorder from "@/components/ops/WebcamRecorder";
+import { isIslandArea, getIslandAreaInfo } from "@/lib/island-area";
 
 type LookupResult = {
   orderId: string;
   trackingNo?: string;
   status: string;
   repairItems?: Array<{ id: string; repairPart: string; }>; // 수선 항목들
+  customerName?: string;
+  deliveryAddress?: string;
+  deliveryZipcode?: string;
+  isIslandArea?: boolean;
+  islandAreaInfo?: { region: string; estimatedDays: string; additionalFee: number } | null;
 };
 
 export default function OutboundPage() {
@@ -95,12 +101,25 @@ export default function OutboundPage() {
         }
       }
       
+      // 도서산간 지역 확인
+      const deliveryZip = String(orderData?.delivery_zipcode || '');
+      const pickupZip = String(orderData?.pickup_zipcode || '');
+      const isIsland = isIslandArea(deliveryZip) || isIslandArea(pickupZip);
+      const islandInfo = isIsland 
+        ? (getIslandAreaInfo(deliveryZip) || getIslandAreaInfo(pickupZip))
+        : null;
+
       // 완전히 새로운 객체 생성 (primitive 값만 사용)
       const found: LookupResult = {
         orderId: String(shipmentData.order_id || ''),
         trackingNo: String(shipmentData.tracking_no || ''),
         status: String(shipmentData.status || ''),
         repairItems: parsedItems,
+        customerName: String(orderData?.customer_name || ''),
+        deliveryAddress: String(orderData?.delivery_address || ''),
+        deliveryZipcode: deliveryZip,
+        isIslandArea: isIsland,
+        islandAreaInfo: islandInfo,
       };
       
       console.log(`✅ 주문 조회 완료: ${parsedItems.length}개 아이템`);
@@ -230,6 +249,23 @@ export default function OutboundPage() {
                         </span>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+              
+              {/* 도서산간 지역 안내 */}
+              {result.isIslandArea && result.islandAreaInfo && (
+                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🚢</span>
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">
+                        도서산간 지역
+                      </p>
+                      <p className="text-xs text-orange-700">
+                        {result.islandAreaInfo.region} • {result.islandAreaInfo.estimatedDays} • 추가 +{result.islandAreaInfo.additionalFee.toLocaleString()}원
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

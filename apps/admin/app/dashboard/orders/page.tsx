@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, RefreshCw, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
 const statusMap = {
   ALL: { label: "전체", color: "bg-gray-100 text-gray-800" },
@@ -51,24 +51,115 @@ interface Order {
   } | null;
 }
 
+interface Stats {
+  total: number;
+  pending: number;
+  paid: number;
+  booked: number;
+  inbound: number;
+  processing: number;
+  readyToShip: number;
+  delivered: number;
+  cancelled: number;
+  promotionUsed: number;
+  totalDiscount: number;
+  totalRevenue: number;
+}
+
+// 오늘 날짜 (YYYY-MM-DD 형식)
+const getToday = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
+// N일 전 날짜
+const getDaysAgo = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+};
+
 export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<string>("date");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const itemsPerPage = 10;
+  
+  // 날짜 필터 (기본값: 최근 30일)
+  const [startDate, setStartDate] = useState<string>(getDaysAgo(30));
+  const [endDate, setEndDate] = useState<string>(getToday());
+  const [datePreset, setDatePreset] = useState<string>("30days");
+  
+  // 페이징
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [statusFilter, startDate, endDate, currentPage, pageSize]);
+  
+  // 필터 변경 시 페이지 1로 리셋
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, startDate, endDate, search]);
+
+  // 검색어 변경 시 debounce 적용
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (search !== undefined) {
+        loadOrders();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // 날짜 프리셋 변경
+  const handleDatePreset = (preset: string) => {
+    setDatePreset(preset);
+    const today = getToday();
+    
+    switch (preset) {
+      case "today":
+        setStartDate(today);
+        setEndDate(today);
+        break;
+      case "7days":
+        setStartDate(getDaysAgo(7));
+        setEndDate(today);
+        break;
+      case "30days":
+        setStartDate(getDaysAgo(30));
+        setEndDate(today);
+        break;
+      case "90days":
+        setStartDate(getDaysAgo(90));
+        setEndDate(today);
+        break;
+      case "all":
+        setStartDate("");
+        setEndDate("");
+        break;
+      default:
+        break;
+    }
+  };
 
   const loadOrders = async () => {
     setIsLoading(true);
     try {
-      // 관리자 API를 통해 모든 주문 조회 (RLS 우회)
-      const response = await fetch('/api/orders');
+      const params = new URLSearchParams();
+      if (statusFilter !== "ALL") params.append('status', statusFilter);
+      if (search) params.append('search', search);
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      params.append('page', String(currentPage));
+      params.append('pageSize', String(pageSize));
+
+      const response = await fetch(`/api/orders?${params.toString()}`);
       const result = await response.json();
 
       if (!response.ok || !result.success) {
@@ -76,43 +167,23 @@ export default function OrdersPage() {
         throw new Error(result.error || '주문 조회 실패');
       }
       
-      console.log('Loaded orders:', result.data);
-      setAllOrders(result.data || []);
+      setOrders(result.data || []);
+      setStats(result.stats || null);
+      setTotalCount(result.totalCount || 0);
+      setTotalPages(result.totalPages || 1);
     } catch (error: any) {
       console.error('주문 조회 실패:', error);
+      setOrders([]);
+      setStats(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Filter and search
-  let filteredOrders = allOrders.filter((order) => {
-    const matchesSearch =
-      order.id.toLowerCase().includes(search.toLowerCase()) ||
-      order.order_number?.toLowerCase().includes(search.toLowerCase()) ||
-      (order.tracking_no && order.tracking_no.includes(search)) ||
-      (order.customer_name && order.customer_name.toLowerCase().includes(search.toLowerCase())) ||
-      (order.item_name && order.item_name.toLowerCase().includes(search.toLowerCase()));
-
-    const matchesStatus = statusFilter === "ALL" || order.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Sort
-  filteredOrders = [...filteredOrders].sort((a, b) => {
-    if (sortBy === "date") {
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    } else if (sortBy === "amount") {
-      return b.total_price - a.total_price;
-    }
-    return 0;
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage);
+  // 클라이언트 사이드 정렬 (금액순)
+  const sortedOrders = sortBy === "amount" 
+    ? [...orders].sort((a, b) => b.total_price - a.total_price)
+    : orders;
 
   const formatDate = (dateString: string) => {
     try {
@@ -128,7 +199,7 @@ export default function OrdersPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !stats) {
     return (
       <div className="flex justify-center items-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -144,56 +215,149 @@ export default function OrdersPage() {
           <p className="text-muted-foreground">전체 수선 주문을 관리합니다</p>
         </div>
         <Button onClick={loadOrders} variant="outline">
+          <RefreshCw className="h-4 w-4 mr-2" />
           새로고침
         </Button>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>전체 주문</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{allOrders.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>프로모션 사용</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {allOrders.filter((o) => o.promotion_codes).length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>총 할인 금액</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              ₩{allOrders.reduce((sum, o) => sum + (o.promotion_discount_amount || 0), 0).toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>총 매출</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              ₩{allOrders.reduce((sum, o) => sum + o.total_price, 0).toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {stats && (
+        <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-6">
+          <Card 
+            className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'ALL' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => setStatusFilter('ALL')}
+          >
+            <CardHeader className="pb-2">
+              <CardDescription>전체 주문</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+            </CardContent>
+          </Card>
+          <Card 
+            className={`cursor-pointer transition-all hover:shadow-md hover:border-cyan-300 ${statusFilter === 'BOOKED' ? 'ring-2 ring-cyan-500' : ''}`}
+            onClick={() => setStatusFilter('BOOKED')}
+          >
+            <CardHeader className="pb-2">
+              <CardDescription>수거예약</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-cyan-600">{stats.booked}</div>
+            </CardContent>
+          </Card>
+          <Card 
+            className={`cursor-pointer transition-all hover:shadow-md hover:border-purple-300 ${statusFilter === 'PROCESSING' ? 'ring-2 ring-purple-500' : ''}`}
+            onClick={() => setStatusFilter('PROCESSING')}
+          >
+            <CardHeader className="pb-2">
+              <CardDescription>수선중</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">{stats.processing}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>프로모션 사용</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{stats.promotionUsed}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>총 할인 금액</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                ₩{stats.totalDiscount.toLocaleString()}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>총 매출</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">
+                ₩{stats.totalRevenue.toLocaleString()}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-3">
+        <CardContent className="pt-6 space-y-4">
+          {/* 날짜 필터 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              기간:
+            </div>
+            <div className="flex gap-1">
+              <Button
+                variant={datePreset === "today" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleDatePreset("today")}
+              >
+                오늘
+              </Button>
+              <Button
+                variant={datePreset === "7days" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleDatePreset("7days")}
+              >
+                7일
+              </Button>
+              <Button
+                variant={datePreset === "30days" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleDatePreset("30days")}
+              >
+                30일
+              </Button>
+              <Button
+                variant={datePreset === "90days" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleDatePreset("90days")}
+              >
+                90일
+              </Button>
+              <Button
+                variant={datePreset === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleDatePreset("all")}
+              >
+                전체
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 ml-2">
+              <Input
+                type="date"
+                className="w-36 h-9"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setDatePreset("custom");
+                }}
+              />
+              <span className="text-muted-foreground">~</span>
+              <Input
+                type="date"
+                className="w-36 h-9"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setDatePreset("custom");
+                }}
+              />
+            </div>
+          </div>
+          
+          {/* 검색 및 상태 필터 */}
+          <div className="grid gap-4 md:grid-cols-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -224,6 +388,17 @@ export default function OrdersPage() {
                 <SelectItem value="amount">금액순</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+              <SelectTrigger>
+                <SelectValue placeholder="페이지 크기" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10개씩</SelectItem>
+                <SelectItem value="20">20개씩</SelectItem>
+                <SelectItem value="50">50개씩</SelectItem>
+                <SelectItem value="100">100개씩</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -233,108 +408,119 @@ export default function OrdersPage() {
         <CardHeader>
           <CardTitle>주문 목록</CardTitle>
           <CardDescription>
-            총 {filteredOrders.length}개의 주문 (페이지 {currentPage} / {totalPages})
+            총 {totalCount}개의 주문 (페이지 {currentPage} / {totalPages})
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {paginatedOrders.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                주문이 없습니다.
-              </div>
-            ) : (
-              paginatedOrders.map((order) => (
-                <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
-                  <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                    <div className="flex items-center space-x-4 flex-1">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">
-                            {order.item_name || `${order.clothing_type} - ${order.repair_type}`}
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sortedOrders.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  주문이 없습니다.
+                </div>
+              ) : (
+                sortedOrders.map((order) => (
+                  <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
+                    <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <div className="flex items-center space-x-4 flex-1">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">
+                              {order.item_name || `${order.clothing_type} - ${order.repair_type}`}
+                            </p>
+                            {order.promotion_codes && (
+                              <Badge className="bg-green-100 text-green-800 text-xs">
+                                🎟️ {order.promotion_codes.code}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {order.order_number} • {order.customer_name || order.customer_email || '고객'}
                           </p>
-                          {order.promotion_codes && (
-                            <Badge className="bg-green-100 text-green-800 text-xs">
-                              🎟️ {order.promotion_codes.code}
-                            </Badge>
-                          )}
+                          <p className="text-xs text-muted-foreground">
+                            {order.tracking_no ? `송장: ${order.tracking_no}` : '송장 미발급'}
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {order.order_number} • {order.customer_name || order.customer_email || '고객'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {order.tracking_no ? `송장: ${order.tracking_no}` : '송장 미발급'}
-                        </p>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <Badge className={statusMap[order.status as keyof typeof statusMap]?.color || statusMap.PENDING.color}>
+                          {statusMap[order.status as keyof typeof statusMap]?.label || order.status}
+                        </Badge>
+                        <div className="text-right min-w-[120px]">
+                          {order.promotion_discount_amount && order.promotion_discount_amount > 0 ? (
+                            <>
+                              <p className="text-xs text-gray-400 line-through">
+                                ₩{(order.original_total_price || order.total_price).toLocaleString()}
+                              </p>
+                              <p className="font-medium text-green-600">
+                                ₩{order.total_price.toLocaleString()}
+                                <span className="text-xs text-red-500 ml-1">
+                                  (-{order.promotion_discount_amount.toLocaleString()})
+                                </span>
+                              </p>
+                            </>
+                          ) : (
+                            <p className="font-medium">₩{order.total_price.toLocaleString()}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground">{formatDate(order.created_at)}</p>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4">
-                      <Badge className={statusMap[order.status as keyof typeof statusMap]?.color || statusMap.PENDING.color}>
-                        {statusMap[order.status as keyof typeof statusMap]?.label || order.status}
-                      </Badge>
-                      <div className="text-right min-w-[120px]">
-                        {order.promotion_discount_amount && order.promotion_discount_amount > 0 ? (
-                          <>
-                            <p className="text-xs text-gray-400 line-through">
-                              ₩{(order.original_total_price || order.total_price).toLocaleString()}
-                            </p>
-                            <p className="font-medium text-green-600">
-                              ₩{order.total_price.toLocaleString()}
-                              <span className="text-xs text-red-500 ml-1">
-                                (-{order.promotion_discount_amount.toLocaleString()})
-                              </span>
-                            </p>
-                          </>
-                        ) : (
-                          <p className="font-medium">₩{order.total_price.toLocaleString()}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground">{formatDate(order.created_at)}</p>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(
-                  (page) =>
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                )
-                .map((page, idx, arr) => (
-                  <div key={page} className="flex items-center gap-2">
-                    {idx > 0 && arr[idx - 1] !== page - 1 && (
-                      <span className="px-2">...</span>
-                    )}
-                    <Button
-                      variant={currentPage === page ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentPage(page)}
-                    >
-                      {page}
-                    </Button>
-                  </div>
-                ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center justify-between mt-6">
+              <div className="text-sm text-muted-foreground">
+                {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalCount)} / {totalCount}개
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (page) =>
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                  )
+                  .map((page, idx, arr) => (
+                    <div key={page} className="flex items-center gap-2">
+                      {idx > 0 && arr[idx - 1] !== page - 1 && (
+                        <span className="px-2">...</span>
+                      )}
+                      <Button
+                        variant={currentPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    </div>
+                  ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

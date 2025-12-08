@@ -788,6 +788,93 @@ Deno.serve(async (req) => {
     let shipment;
     let shipmentError;
 
+    // delivery_info에 notifyMsg와 도서산간 정보 저장
+    // 도서산간 판단 로직
+    let isIsland = false;
+    
+    // 1. 우체국 API의 islandAddFee 확인 (가장 정확)
+    const islandAddFeeValue = epostResponse.islandAddFee;
+    if (islandAddFeeValue) {
+      // 문자열이면 숫자로 변환, 숫자면 그대로 사용
+      const fee = typeof islandAddFeeValue === 'string' 
+        ? parseFloat(islandAddFeeValue.replace(/[^0-9.-]/g, '')) 
+        : Number(islandAddFeeValue);
+      isIsland = !isNaN(fee) && fee > 0;
+    }
+    
+    // 2. 우편번호 기반 도서산간 지역 판단 (우체국 API 응답이 없을 때 대체 방법)
+    if (!isIsland && deliveryInfo.zipcode) {
+      const zipcode = deliveryInfo.zipcode.replace(/-/g, '').trim();
+      if (zipcode.length >= 2) {
+        const prefix = zipcode.substring(0, 2);
+        // 제주도: 63xxx, 64xxx, 65xxx, 66xxx, 67xxx, 68xxx, 69xxx
+        // 울릉도: 402xx
+        const islandZipPrefixes = ['63', '64', '65', '66', '67', '68', '69']; // 제주도
+        const islandZipPrefixes2 = ['402']; // 울릉도
+        
+        if (islandZipPrefixes.includes(prefix) || 
+            islandZipPrefixes2.some(p => zipcode.startsWith(p))) {
+          isIsland = true;
+          console.log(`🏝️ 우편번호 기반 도서산간 판단: ${zipcode} (${deliveryInfo.address})`);
+        }
+      }
+    }
+    
+    // 3. 주소 기반 판단 (최후의 수단)
+    if (!isIsland && deliveryInfo.address) {
+      const address = deliveryInfo.address.toLowerCase();
+      const islandKeywords = ['제주', '울릉', '독도', '우도', '마라도', '비양도', '추자도', '가파도'];
+      if (islandKeywords.some(keyword => address.includes(keyword))) {
+        isIsland = true;
+        console.log(`🏝️ 주소 기반 도서산간 판단: ${deliveryInfo.address}`);
+      }
+    }
+    
+    const deliveryInfoData: any = {
+      ...deliveryCodeInfo,
+      notifyMsg: epostResponse.notifyMsg || undefined,
+      islandAddFee: epostResponse.islandAddFee || undefined,
+      isIsland: isIsland, // 도서산간 여부 (실제 부가이용료가 있을 때만 true)
+      isSaturdayClosed: isSaturdayClosed, // 토요배송 휴무지역 여부
+      saturdayClosedMessage: saturdayClosedMessage || undefined, // 토요휴무 안내 메시지
+    };
+
+    // 토요배송 휴무지역 알림 확인
+    const isSaturdayClosed = epostResponse.notifyMsg?.includes('토요배달') || 
+                             epostResponse.notifyMsg?.includes('토요배송') ||
+                             epostResponse.notifyMsg?.includes('토요');
+    
+    // 🗓️ 토요휴무지역 요일별 안내 메시지 생성
+    let saturdayClosedMessage = '';
+    if (isSaturdayClosed) {
+      const resDateStr = epostResponse.resDate; // YYYYMMDDHHMMSS 형식
+      if (resDateStr && resDateStr.length >= 8) {
+        const resYear = parseInt(resDateStr.substring(0, 4));
+        const resMonth = parseInt(resDateStr.substring(4, 6)) - 1;
+        const resDay = parseInt(resDateStr.substring(6, 8));
+        const resDateObj = new Date(resYear, resMonth, resDay);
+        const dayOfWeek = resDateObj.getDay(); // 0:일, 1:월, ... 5:금, 6:토
+        const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+        
+        // 수거 예약일 기준 안내
+        if (dayOfWeek === 5) { // 금요일 수거 예약
+          saturdayClosedMessage = '토요배송 휴무지역입니다. 수거된 물품은 월요일에 센터로 배송됩니다.';
+        } else if (dayOfWeek === 6) { // 토요일 수거 예약 (우체국이 토요일 수거 진행 시)
+          saturdayClosedMessage = '토요배송 휴무지역입니다. 토요일에 수거 후 월요일에 센터로 배송됩니다.';
+        } else {
+          saturdayClosedMessage = `토요배송 휴무지역입니다. ${dayNames[dayOfWeek]}요일에 수거 예정입니다.`;
+        }
+        
+        console.log('🗓️ 토요휴무지역 안내:', {
+          resDate: resDateStr,
+          dayOfWeek: dayNames[dayOfWeek],
+          message: saturdayClosedMessage,
+        });
+      } else {
+        saturdayClosedMessage = '토요배송 휴무지역입니다. 토요일에는 배송이 진행되지 않습니다.';
+      }
+    }
+
     if (existingShipment) {
       // 업데이트
       const result = await supabase
@@ -808,6 +895,7 @@ Deno.serve(async (req) => {
           status: 'BOOKED',
           carrier: 'EPOST',
           pickup_requested_at: new Date().toISOString(),
+          delivery_info: deliveryInfoData, // notifyMsg와 도서산간 정보 포함
           tracking_events: [{
             timestamp: new Date().toISOString(),
             status: 'BOOKED',
@@ -816,6 +904,8 @@ Deno.serve(async (req) => {
             reqNo: epostResponse.reqNo,
             resNo: epostResponse.resNo,
             apprNo: epostParams.apprNo, // 취소 시 사용할 승인번호 저장
+            reqType: epostParams.reqType, // 취소 시 사용할 소포신청 구분 (1:일반소포, 2:반품소포)
+            payType: epostParams.payType, // 취소 시 사용할 요금 납부 구분 (1:일반, 2:착불)
           }],
         })
         .eq('order_id', order_id)
@@ -845,6 +935,7 @@ Deno.serve(async (req) => {
           status: 'BOOKED',
           carrier: 'EPOST',
           pickup_requested_at: new Date().toISOString(),
+          delivery_info: deliveryInfoData, // notifyMsg와 도서산간 정보 포함
           tracking_events: [{
             timestamp: new Date().toISOString(),
             status: 'BOOKED',
@@ -853,6 +944,8 @@ Deno.serve(async (req) => {
             reqNo: epostResponse.reqNo,
             resNo: epostResponse.resNo,
             apprNo: epostParams.apprNo, // 취소 시 사용할 승인번호 저장
+            reqType: epostParams.reqType, // 취소 시 사용할 소포신청 구분 (1:일반소포, 2:반품소포)
+            payType: epostParams.payType, // 취소 시 사용할 요금 납부 구분 (1:일반, 2:착불)
           }],
         })
         .select()
@@ -891,6 +984,7 @@ Deno.serve(async (req) => {
 
     // 알림 생성 (선택사항)
     if (existingOrder?.user_id) {
+      // 기본 수거예약 알림
       const { error: notificationError } = await supabase
         .from('notifications')
         .insert({
@@ -907,6 +1001,49 @@ Deno.serve(async (req) => {
         // 알림 실패는 전체 프로세스를 중단하지 않음
       } else {
         console.log('✅ 알림 생성 성공');
+      }
+
+      // 토요배송 휴무지역 알림 (별도 알림)
+      if (isSaturdayClosed) {
+        const notificationBody = saturdayClosedMessage || 
+          `수거 예약이 완료되었습니다. 다만 배송지가 토요배송 휴무지역입니다. ${epostResponse.notifyMsg || '토요일에는 배송이 진행되지 않습니다.'}`;
+        
+        const { error: saturdayNotificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: existingOrder.user_id,
+            type: 'SHIPMENT_BOOKED',
+            title: '⚠️ 토요배송 휴무지역 안내',
+            body: notificationBody,
+            order_id: order_id,
+            tracking_no: pickupTrackingNo,
+          });
+
+        if (saturdayNotificationError) {
+          console.error('토요배송 알림 생성 실패:', saturdayNotificationError);
+        } else {
+          console.log('✅ 토요배송 휴무지역 알림 생성 완료:', notificationBody);
+        }
+      }
+
+      // 도서산간 알림 (별도 알림) - 실제 부가이용료가 있을 때만
+      if (isIsland && epostResponse.islandAddFee) {
+        const { error: islandNotificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: existingOrder.user_id,
+            type: 'SHIPMENT_BOOKED',
+            title: '🏝️ 도서산간 배송 안내',
+            body: `수거 예약이 완료되었습니다. 배송지가 도서산간 지역으로 배송 소요시간이 추가될 수 있습니다. (부가이용료: ₩${parseInt(epostResponse.islandAddFee || '0').toLocaleString()})`,
+            order_id: order_id,
+            tracking_no: pickupTrackingNo,
+          });
+
+        if (islandNotificationError) {
+          console.error('도서산간 알림 생성 실패:', islandNotificationError);
+        } else {
+          console.log('✅ 도서산간 알림 생성 완료');
+        }
       }
     } else {
       console.warn('⚠️ user_id가 없어 알림을 생성하지 않습니다.');

@@ -64,19 +64,27 @@ Deno.serve(async (req) => {
     // 계약 고객번호
     const custNo = Deno.env.get('EPOST_CUSTOMER_ID') || '';
 
-    // tracking_events에서 reqNo, resNo, apprNo 가져오기
+    // tracking_events에서 reqNo, resNo, apprNo, reqType, payType 가져오기
     const trackingEvents = (shipment.tracking_events as any[]) || [];
     const firstEvent = trackingEvents[0] || {};
     const reqNo = firstEvent.reqNo || '';
     const resNo = firstEvent.resNo || '';
     // 수거 예약 시 사용한 승인번호 사용 (중요: 환경변수와 다를 수 있음)
     const apprNo = firstEvent.apprNo || Deno.env.get('EPOST_APPROVAL_NO') || '0000000000';
+    // 수거 예약 시 사용한 reqType과 payType 사용 (중요: 취소 시 신청 시와 동일해야 함)
+    // reqType: '1'=일반소포, '2'=반품소포
+    // payType: '1'=일반(즉납/후납), '2'=착불(수취인 부담)
+    const reqType = (firstEvent.reqType || '2') as '1' | '2'; // 기본값: '2' (반품소포, 수거지시)
+    const payType = (firstEvent.payType || '2') as '1' | '2'; // 기본값: '2' (착불)
 
     console.log('🔍 취소 파라미터 확인:', {
       reqNo,
       resNo,
       apprNo,
+      reqType, // 소포신청 구분 (1:일반소포, 2:반품소포)
+      payType, // 요금 납부 구분 (1:일반, 2:착불)
       regiNo: shipment.pickup_tracking_no || shipment.tracking_no,
+      note: 'reqType과 payType은 수거 신청 시 사용한 값과 동일해야 합니다',
     });
 
     // reqYmd: 소포신청 등록일자 (YYYYMMDD 형식)
@@ -97,12 +105,15 @@ Deno.serve(async (req) => {
     console.log('📅 신청일자(reqYmd):', reqYmd);
 
     // 우체국 API 취소 호출
+    // ⚠️ 중요: reqType과 payType은 수거 신청 시 사용한 값과 동일해야 함
+    // 수거지시는 reqType='2' (반품소포), payType='2' (착불)로 신청되므로
+    // 취소 시에도 동일한 값을 사용해야 함
     let cancelResult;
     try {
       cancelResult = await cancelOrder({
         custNo,
         apprNo, // tracking_events에서 가져온 승인번호 사용
-        reqType: '1',
+        reqType, // tracking_events에서 가져온 reqType 사용 (수거 신청 시와 동일)
         reqNo,
         resNo,
         regiNo: shipment.pickup_tracking_no || shipment.tracking_no,

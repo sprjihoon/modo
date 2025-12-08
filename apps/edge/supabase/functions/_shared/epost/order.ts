@@ -103,6 +103,7 @@ export async function insertOrder(params: InsertOrderParams): Promise<InsertOrde
     arrCnpoNm: parseXmlValue(xml, 'arrCnpoNm') || undefined,
     delivPoNm: parseXmlValue(xml, 'delivPoNm') || undefined,
     delivAreaCd: parseXmlValue(xml, 'delivAreaCd') || undefined,
+    notifyMsg: parseXmlValue(xml, 'notifyMsg') || undefined, // 알림 메시지 (토요배달 휴무지역 등)
   };
   
   // 필수 필드 검증

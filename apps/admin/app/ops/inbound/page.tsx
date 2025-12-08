@@ -6,6 +6,7 @@ import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrder
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import WebcamRecorder from "@/components/ops/WebcamRecorder";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
+import { isIslandArea, getIslandAreaInfo } from "@/lib/island-area";
 // ============================================
 // 타입 정의
 // ============================================
@@ -15,6 +16,8 @@ type ShipmentData = {
   customerName: string;
   customerPhone?: string; // 고객 전화번호
   customerZipcode?: string; // 고객 우편번호 (추가)
+  pickupZipcode?: string; // 수거지 우편번호
+  deliveryZipcode?: string; // 배송지 우편번호
   brandName?: string;
   status: string;
   deliveryInfo?: any; // 우체국 API 응답 정보
@@ -28,6 +31,8 @@ type ShipmentData = {
   pinsCount?: number; // 총 핀 개수
   imagesWithPins?: any[]; // images_with_pins 원본 데이터
   order?: any; // 주문 정보 전체 (created_at, weight, volume, total_amount, payment_method 등)
+  isIslandArea?: boolean; // 도서산간 지역 여부
+  islandAreaInfo?: { region: string; estimatedDays: string; additionalFee: number } | null;
 };
 
 // ============================================
@@ -154,12 +159,22 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       }
     }
 
+    // 도서산간 지역 확인 (수거지 또는 배송지)
+    const pickupZip = order.pickup_zipcode || '';
+    const deliveryZip = order.delivery_zipcode || '';
+    const isIsland = isIslandArea(pickupZip) || isIslandArea(deliveryZip);
+    const islandInfo = isIsland 
+      ? (getIslandAreaInfo(deliveryZip) || getIslandAreaInfo(pickupZip))
+      : null;
+
     return {
       trackingNo: inboundTrackingNo, // 입고송장번호
       outboundTrackingNo: outboundTrackingNo, // 출고송장번호
       customerName: order.customer_name || "고객명 없음",
       customerPhone: order.customer_phone || undefined,
       customerZipcode: order.delivery_zipcode, // 우편번호 매핑
+      pickupZipcode: pickupZip,
+      deliveryZipcode: deliveryZip,
       brandName: "브랜드 없음", // TODO: 브랜드 정보 추가 필요
       status: shipment.status || order.status || "UNKNOWN",
       deliveryInfo: deliveryInfo || shipment.delivery_info, // 파싱된 delivery_info 사용
@@ -173,6 +188,8 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       pinsCount: totalPins,
       imagesWithPins: imagesWithPinsData, // 수정된 데이터 사용
       order: order, // 주문 정보 전체 추가 (주문일, 중량, 용적 등)
+      isIslandArea: isIsland,
+      islandAreaInfo: islandInfo,
     };
   } catch (error) {
     console.error("Shipment 조회 중 오류:", error);
@@ -533,12 +550,35 @@ export default function InboundPage() {
                 <div>
                   <label className="text-xs font-medium text-gray-500">수거지</label>
                   <p className="text-sm text-gray-700 mt-1">{result.pickupAddress}</p>
+                  {result.pickupZipcode && (
+                    <p className="text-xs text-gray-500 mt-0.5">우편번호: {result.pickupZipcode}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500">배송지</label>
                   <p className="text-sm text-gray-700 mt-1">{result.deliveryAddress}</p>
+                  {result.deliveryZipcode && (
+                    <p className="text-xs text-gray-500 mt-0.5">우편번호: {result.deliveryZipcode}</p>
+                  )}
                 </div>
               </div>
+              
+              {/* 도서산간 지역 안내 */}
+              {result.isIslandArea && result.islandAreaInfo && (
+                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🚢</span>
+                    <div>
+                      <p className="text-sm font-medium text-orange-800">
+                        도서산간 지역
+                      </p>
+                      <p className="text-xs text-orange-700">
+                        {result.islandAreaInfo.region} • {result.islandAreaInfo.estimatedDays} • 추가 배송비 +{result.islandAreaInfo.additionalFee.toLocaleString()}원
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">

@@ -15,6 +15,7 @@ import {
   Scissors,
   Ticket,
   FileText,
+  Truck,
 } from "lucide-react";
 
 const navItems = [
@@ -27,6 +28,11 @@ const navItems = [
     title: "주문 관리",
     href: "/dashboard/orders",
     icon: Package,
+  },
+  {
+    title: "수거/배송 관리",
+    href: "/dashboard/shipments",
+    icon: Truck,
   },
   {
     title: "고객 관리",

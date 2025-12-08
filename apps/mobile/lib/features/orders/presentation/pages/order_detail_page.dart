@@ -2033,6 +2033,90 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             _orderData?['delivery_address'],
             _orderData?['delivery_address_detail'],
           )),
+          
+          // 토요배송 휴무지역 안내
+          if (_getSaturdayClosedMessage() != null) ...[
+            const SizedBox(height: 16),
+            _buildSaturdayClosedNotice(),
+          ],
+        ],
+      ),
+    );
+  }
+  
+  /// 토요휴무 안내 메시지 가져오기
+  String? _getSaturdayClosedMessage() {
+    final deliveryInfo = _shipmentData?['delivery_info'] as Map<String, dynamic>?;
+    if (deliveryInfo == null) return null;
+    
+    // saturdayClosedMessage가 있으면 우선 사용
+    final message = deliveryInfo['saturdayClosedMessage'] as String?;
+    if (message != null && message.isNotEmpty) return message;
+    
+    // 없으면 notifyMsg에서 토요 관련 메시지 확인
+    final notifyMsg = deliveryInfo['notifyMsg'] as String?;
+    if (notifyMsg != null && 
+        (notifyMsg.contains('토요') || notifyMsg.contains('Saturday'))) {
+      return notifyMsg;
+    }
+    
+    return null;
+  }
+  
+  /// 토요휴무 안내 위젯
+  Widget _buildSaturdayClosedNotice() {
+    final message = _getSaturdayClosedMessage();
+    if (message == null) return const SizedBox.shrink();
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.orange.shade200,
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.event_busy_outlined,
+              color: Colors.orange.shade700,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '📅 토요배송 휴무지역',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange.shade800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.orange.shade700,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

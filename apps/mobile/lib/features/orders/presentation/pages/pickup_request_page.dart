@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../services/address_service.dart';
+import '../../../../services/island_area_service.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/payment_service.dart';
 import '../../../../services/promotion_service.dart';
@@ -42,6 +43,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   final _promotionCodeController = TextEditingController();
   
   final _addressService = AddressService();
+  final _islandAreaService = IslandAreaService();
   final _orderService = OrderService();
   final _paymentService = PaymentService();
   final _promotionService = PromotionService();
@@ -58,6 +60,10 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   // 프로모션 코드 관련
   Map<String, dynamic>? _appliedPromotion;
   String? _promotionErrorMessage;
+  
+  // 도서산간 지역 정보
+  Map<String, dynamic>? _pickupIslandInfo;
+  Map<String, dynamic>? _deliveryIslandInfo;
   
   @override
   void initState() {
@@ -120,14 +126,21 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     try {
       final defaultAddress = await _addressService.getDefaultAddress();
       if (defaultAddress != null && mounted) {
+        final zipcode = defaultAddress['zipcode'] as String? ?? '';
         setState(() {
           _selectedAddressId = defaultAddress['id'] as String;
           _recipientNameController.text = defaultAddress['recipient_name'] as String? ?? '';
           _recipientPhoneController.text = defaultAddress['recipient_phone'] as String? ?? '';
           _addressController.text = defaultAddress['address'] as String? ?? '';
           _addressDetailController.text = defaultAddress['address_detail'] as String? ?? '';
-          _zipcodeController.text = defaultAddress['zipcode'] as String? ?? '';
+          _zipcodeController.text = zipcode;
           _isLoadingAddress = false;
+          
+          // 도서산간 지역 체크
+          _pickupIslandInfo = _islandAreaService.getIslandAreaInfo(zipcode);
+          if (_isDeliveryAddressSame) {
+            _deliveryIslandInfo = _pickupIslandInfo;
+          }
         });
       } else {
         setState(() => _isLoadingAddress = false);
@@ -146,6 +159,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     );
     
     if (result != null && mounted) {
+      final zipcode = result['zipcode'] as String? ?? '';
       // 선택된 수거지 정보 업데이트
       setState(() {
         _selectedAddressId = result['id'] as String;
@@ -153,7 +167,10 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         _recipientPhoneController.text = result['recipient_phone'] as String? ?? '';
         _addressController.text = result['address'] as String? ?? '';
         _addressDetailController.text = result['address_detail'] as String? ?? '';
-        _zipcodeController.text = result['zipcode'] as String? ?? '';
+        _zipcodeController.text = zipcode;
+        
+        // 도서산간 지역 체크
+        _pickupIslandInfo = _islandAreaService.getIslandAreaInfo(zipcode);
         
         // 배송지도 동일하게 설정되어 있다면 함께 업데이트
         if (_isDeliveryAddressSame) {
@@ -161,7 +178,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
           _deliveryRecipientPhoneController.text = result['recipient_phone'] as String? ?? '';
           _deliveryAddressController.text = result['address'] as String? ?? '';
           _deliveryAddressDetailController.text = result['address_detail'] as String? ?? '';
-          _deliveryZipcodeController.text = result['zipcode'] as String? ?? '';
+          _deliveryZipcodeController.text = zipcode;
+          _deliveryIslandInfo = _pickupIslandInfo;
         }
       });
       
@@ -183,12 +201,16 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     );
     
     if (result != null && mounted) {
+      final zipcode = result['zipcode'] as String? ?? '';
       setState(() {
         _deliveryRecipientNameController.text = result['recipient_name'] as String? ?? '';
         _deliveryRecipientPhoneController.text = result['recipient_phone'] as String? ?? '';
         _deliveryAddressController.text = result['address'] as String? ?? '';
         _deliveryAddressDetailController.text = result['address_detail'] as String? ?? '';
-        _deliveryZipcodeController.text = result['zipcode'] as String? ?? '';
+        _deliveryZipcodeController.text = zipcode;
+        
+        // 도서산간 지역 체크
+        _deliveryIslandInfo = _islandAreaService.getIslandAreaInfo(zipcode);
       });
     }
   }
@@ -431,8 +453,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     }
   }
   
-  // 총 예상 가격 계산
-  int _calculateTotalPrice() {
+  // 총 예상 가격 계산 (수선비만)
+  int _calculateRepairPrice() {
     int total = 0;
     for (var item in widget.repairItems) {
       final priceRange = item['priceRange'] as String;
@@ -447,6 +469,21 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       }
     }
     return total;
+  }
+  
+  // 도서산간 추가 배송비 계산
+  int _calculateIslandFee() {
+    return _islandAreaService.calculateAdditionalFee(
+      pickupZipcode: _zipcodeController.text,
+      deliveryZipcode: _isDeliveryAddressSame 
+          ? _zipcodeController.text 
+          : _deliveryZipcodeController.text,
+    );
+  }
+  
+  // 총 예상 가격 계산 (수선비 + 도서산간 추가 비용)
+  int _calculateTotalPrice() {
+    return _calculateRepairPrice() + _calculateIslandFee();
   }
   
   // 가격 포맷팅
@@ -724,6 +761,13 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                         color: Colors.grey.shade600,
                       ),
                     ),
+                    
+                    // 도서산간 지역 안내 (수거지)
+                    if (_pickupIslandInfo != null) ...[
+                      const SizedBox(height: 12),
+                      _buildIslandAreaNotice(_pickupIslandInfo!, '수거지'),
+                    ],
+                    
                     const SizedBox(height: 24),
                     
                     // 배송지 동일 여부 체크박스
@@ -902,6 +946,12 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         ),
                       ),
+                      
+                      // 도서산간 지역 안내 (배송지)
+                      if (_deliveryIslandInfo != null) ...[
+                        const SizedBox(height: 12),
+                        _buildIslandAreaNotice(_deliveryIslandInfo!, '배송지'),
+                      ],
                     ],
                     
                     const SizedBox(height: 32),
@@ -1462,116 +1512,162 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                     const SizedBox(height: 32),
                     
                     // 예상 금액
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.grey.shade200,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          // 프로모션 할인이 있는 경우 원래 금액 표시
-                          if (_appliedPromotion != null) ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  '예상 금액',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                                Text(
-                                  '${_formatPrice(totalPrice)}원~',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade600,
-                                    decoration: TextDecoration.lineThrough,
-                                  ),
-                                ),
-                              ],
+                    Builder(
+                      builder: (context) {
+                        final repairPrice = _calculateRepairPrice();
+                        final islandFee = _calculateIslandFee();
+                        final totalBeforePromo = repairPrice + islandFee;
+                        
+                        return Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.grey.shade200,
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  '프로모션 할인',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                                Text(
-                                  '-${_formatPrice(_appliedPromotion!['discount_amount'] as int)}원',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Divider(color: Colors.grey.shade300),
-                            const SizedBox(height: 12),
-                          ],
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          ),
+                          child: Column(
                             children: [
-                              Text(
-                                _appliedPromotion != null ? '최종 결제 금액' : '총 예상 금액',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
+                              // 수선비
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    '예상 수선비',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${_formatPrice(repairPrice)}원~',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '${_formatPrice(_appliedPromotion != null 
-                                  ? (_appliedPromotion!['final_amount'] as int)
-                                  : totalPrice)}원~',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF00C896),
+                              
+                              // 도서산간 추가 배송비 (있는 경우만 표시)
+                              if (islandFee > 0) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.sailing_outlined,
+                                          size: 14,
+                                          color: Colors.orange.shade600,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '도서산간 추가',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.orange.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      '+${_formatPrice(islandFee)}원',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.orange.shade700,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              
+                              // 프로모션 할인이 있는 경우
+                              if (_appliedPromotion != null) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      '프로모션 할인',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                    Text(
+                                      '-${_formatPrice(_appliedPromotion!['discount_amount'] as int)}원',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              
+                              const SizedBox(height: 12),
+                              Divider(color: Colors.grey.shade300),
+                              const SizedBox(height: 12),
+                              
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _appliedPromotion != null ? '최종 결제 금액' : '총 예상 금액',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${_formatPrice(_appliedPromotion != null 
+                                      ? ((_appliedPromotion!['final_amount'] as int) + islandFee)
+                                      : totalBeforePromo)}원~',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF00C896),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF00C896).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.info_outline,
+                                      color: Color(0xFF00C896),
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        '정확한 견적은 입고 후 확정됩니다',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF00C896).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.info_outline,
-                                  color: Color(0xFF00C896),
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '정확한 견적은 입고 후 확정됩니다',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -1644,6 +1740,54 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
           color: Colors.grey.shade700,
           height: 1.5,
         ),
+      ),
+    );
+  }
+  
+  /// 도서산간 지역 안내 위젯
+  Widget _buildIslandAreaNotice(Map<String, dynamic> islandInfo, String addressType) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.orange.shade200,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.sailing_outlined,
+            color: Colors.orange.shade700,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '도서산간 지역 ($addressType)',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange.shade800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${islandInfo['region']} • ${islandInfo['estimatedDays']}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

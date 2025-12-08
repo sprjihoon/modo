@@ -69,6 +69,7 @@ export interface InsertOrderResponse {
   arrCnpoNm?: string;       // 도착 집중국명
   delivPoNm?: string;       // 배달 우체국명
   delivAreaCd?: string;     // 배달 지역코드
+  notifyMsg?: string;       // 알림 메시지 (토요배달 휴무지역 등)
 }
 
 /**
