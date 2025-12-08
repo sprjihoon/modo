@@ -150,12 +150,13 @@ export interface DeliveryCodeResponse {
 export interface CancelOrderParams {
   custNo: string;
   apprNo: string;
-  reqType: '1' | '2';
-  reqNo: string;      // 소포 주문번호
-  resNo: string;      // 소포 예약번호
-  regiNo: string;     // 운송장번호
-  reqYmd?: string;    // 소포신청 등록일자
-  delYn: 'Y' | 'N';   // Y:취소 및 삭제, N:취소만
+  reqType: '1' | '2';  // 1:일반소포, 2:반품소포 (신청 시와 동일해야 함)
+  payType?: '1' | '2'; // 1:일반(즉납/후납), 2:착불 (신청 시와 동일해야 함)
+  reqNo: string;       // 소포 주문번호
+  resNo: string;       // 소포 예약번호
+  regiNo: string;      // 운송장번호
+  reqYmd?: string;     // 소포신청 등록일자
+  delYn: 'Y' | 'N';    // Y:취소 및 삭제, N:취소만
 }
 
 /**

@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
       payType, // 요금 납부 구분 (1:일반, 2:착불)
       regiNo: shipment.pickup_tracking_no || shipment.tracking_no,
       note: 'reqType과 payType은 수거 신청 시 사용한 값과 동일해야 합니다',
+      warning: payType ? '✅ payType이 설정되었습니다' : '⚠️ payType이 없습니다 (이전 데이터일 수 있음)',
     });
 
     // reqYmd: 소포신청 등록일자 (YYYYMMDD 형식)
@@ -114,6 +115,7 @@ Deno.serve(async (req) => {
         custNo,
         apprNo, // tracking_events에서 가져온 승인번호 사용
         reqType, // tracking_events에서 가져온 reqType 사용 (수거 신청 시와 동일)
+        payType, // tracking_events에서 가져온 payType 사용 (수거 신청 시와 동일) - API 매뉴얼에 맞게 추가
         reqNo,
         resNo,
         regiNo: shipment.pickup_tracking_no || shipment.tracking_no,
