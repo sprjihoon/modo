@@ -20,8 +20,12 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
   @override
   void initState() {
     super.initState();
+    debugPrint('🔍 DaumPostcodeWidget initState - kIsWeb: $kIsWeb');
     if (!kIsWeb) {
+      debugPrint('🚀 WebView 초기화 시작');
       _initWebView();
+    } else {
+      debugPrint('⚠️ 웹 환경 - 간단한 검색 UI 사용');
     }
   }
 
@@ -33,15 +37,29 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
-            debugPrint('페이지 로드 시작: $url');
+            debugPrint('📄 페이지 로드 시작: $url');
           },
           onPageFinished: (url) {
             setState(() => _isLoading = false);
-            debugPrint('페이지 로드 완료: $url');
+            debugPrint('✅ 페이지 로드 완료: $url');
             
-            // 로드 완료 후 JavaScript 콘솔 리스닝 활성화
+            // 로드 완료 후 JavaScript 테스트 실행
             _controller?.runJavaScript('''
-              console.log('WebView 로드 완료 - JavaScript 실행 가능');
+              console.log('✅ WebView 로드 완료 - JavaScript 실행 가능');
+              
+              // Daum Postcode 라이브러리 확인
+              if (typeof daum !== 'undefined') {
+                console.log('✅ Daum Postcode 라이브러리 로드됨');
+              } else {
+                console.error('❌ Daum Postcode 라이브러리 없음!');
+              }
+              
+              // AddressChannel 확인
+              if (window.AddressChannel) {
+                console.log('✅ AddressChannel 등록됨');
+              } else {
+                console.log('⚠️ AddressChannel 없음 - URL 방식 사용 예정');
+              }
             ''');
           },
           onWebResourceError: (error) {
@@ -52,25 +70,40 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
             
             // Flutter 스키마로 데이터 전달 받기
             if (request.url.startsWith('flutter://address?')) {
+              debugPrint('');
+              debugPrint('====================================');
+              debugPrint('🔗 Flutter URL 스키마 감지!');
+              debugPrint('====================================');
+              debugPrint('📥 URL: ${request.url}');
+              
               try {
                 final uri = Uri.parse(request.url);
                 final zonecode = uri.queryParameters['zonecode'] ?? '';
                 final address = uri.queryParameters['address'] ?? '';
                 final addressType = uri.queryParameters['addressType'] ?? '';
                 
+                debugPrint('');
                 debugPrint('✅ 주소 데이터 수신 성공!');
-                debugPrint('  - 우편번호: $zonecode');
-                debugPrint('  - 주소: $address');
+                debugPrint('  📮 우편번호: $zonecode');
+                debugPrint('  🏠 주소: $address');
+                debugPrint('  📝 타입: $addressType');
+                debugPrint('');
                 
                 if (zonecode.isNotEmpty && address.isNotEmpty) {
+                  debugPrint('🎉 다이얼로그 닫기 - 주소 반환');
+                  debugPrint('====================================');
                   Navigator.of(context).pop({
                     'zonecode': zonecode,
                     'address': address,
                     'addressType': addressType,
                   });
+                } else {
+                  debugPrint('⚠️ 우편번호 또는 주소가 비어있음');
+                  debugPrint('====================================');
                 }
               } catch (e) {
                 debugPrint('❌ 주소 파싱 오류: $e');
+                debugPrint('====================================');
               }
               return NavigationDecision.prevent;
             }
@@ -81,8 +114,11 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
       ..addJavaScriptChannel(
         'AddressChannel',
         onMessageReceived: (JavaScriptMessage message) {
+          debugPrint('');
+          debugPrint('====================================');
           debugPrint('📨 JavaScript Channel 메시지 수신!');
-          debugPrint('  메시지 내용: ${message.message}');
+          debugPrint('====================================');
+          debugPrint('📥 메시지 내용: ${message.message}');
           
           try {
             final data = jsonDecode(message.message) as Map<String, dynamic>;
@@ -90,13 +126,16 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
             final address = data['address'] as String? ?? '';
             final addressType = data['addressType'] as String? ?? '';
             
+            debugPrint('');
             debugPrint('✅ 주소 파싱 성공!');
-            debugPrint('  - 우편번호: $zonecode');
-            debugPrint('  - 주소: $address');
-            debugPrint('  - 타입: $addressType');
+            debugPrint('  📮 우편번호: $zonecode');
+            debugPrint('  🏠 주소: $address');
+            debugPrint('  📝 타입: $addressType');
+            debugPrint('');
             
             if (zonecode.isNotEmpty && address.isNotEmpty) {
               debugPrint('🎉 다이얼로그 닫기 - 주소 반환');
+              debugPrint('====================================');
               Navigator.of(context).pop({
                 'zonecode': zonecode,
                 'address': address,
@@ -104,9 +143,11 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
               });
             } else {
               debugPrint('⚠️ 우편번호 또는 주소가 비어있음');
+              debugPrint('====================================');
             }
           } catch (e) {
             debugPrint('❌ 주소 파싱 오류: $e');
+            debugPrint('====================================');
           }
         },
       )
@@ -153,58 +194,92 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
     <script>
         // 주소 전송 함수
         function sendAddressToFlutter(zonecode, address, addressType) {
-            console.log('Flutter로 주소 전송:', zonecode, address, addressType);
+            console.log('====================');
+            console.log('📤 Flutter로 주소 전송 시작');
+            console.log('  📮 우편번호:', zonecode);
+            console.log('  🏠 주소:', address);
+            console.log('  📝 타입:', addressType);
+            console.log('====================');
             
+            // 두 가지 방식 모두 시도
             try {
+                // 방법 1: JavaScript Channel
                 if (window.AddressChannel) {
+                    console.log('✅ AddressChannel 사용');
                     var result = JSON.stringify({
                         zonecode: zonecode,
                         address: address,
                         addressType: addressType
                     });
                     window.AddressChannel.postMessage(result);
-                    console.log('전송 완료 (Channel)');
+                    console.log('✅ Channel 전송 완료');
                 } else {
-                    var url = 'flutter://address?zonecode=' + encodeURIComponent(zonecode) + 
-                              '&address=' + encodeURIComponent(address) + 
-                              '&addressType=' + encodeURIComponent(addressType);
-                    window.location.href = url;
-                    console.log('전송 완료 (URL)');
+                    console.log('⚠️ AddressChannel 없음');
                 }
+                
+                // 방법 2: URL 스키마 (항상 시도)
+                var url = 'flutter://address?zonecode=' + encodeURIComponent(zonecode) + 
+                          '&address=' + encodeURIComponent(address) + 
+                          '&addressType=' + encodeURIComponent(addressType);
+                console.log('🔗 URL 스키마 사용:', url);
+                window.location.href = url;
+                console.log('✅ URL 전송 완료');
             } catch (e) {
-                console.error('전송 오류:', e);
+                console.error('❌ 전송 오류:', e);
                 alert('주소 전송 실패: ' + e.message);
             }
         }
         
         // 페이지 로드 시 Daum Postcode 초기화
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOMContentLoaded - Postcode 초기화 시작');
+        console.log('🚀 스크립트 로드됨');
+        
+        // 즉시 실행 (DOMContentLoaded 대신)
+        (function() {
+            console.log('🔄 Postcode 초기화 시작');
             
             // Postcode 객체 생성 및 embed
             var element_layer = document.getElementById('layer');
             
+            if (!element_layer) {
+                console.error('❌ layer 엘리먼트를 찾을 수 없습니다!');
+                return;
+            }
+            
+            console.log('✅ layer 엘리먼트 찾음');
+            
+            if (typeof daum === 'undefined') {
+                console.error('❌ Daum 라이브러리가 로드되지 않았습니다!');
+                return;
+            }
+            
+            console.log('✅ Daum 라이브러리 로드 확인');
+            
             new daum.Postcode({
                 oncomplete: function(data) {
+                    console.log('');
                     console.log('====================');
-                    console.log('주소 선택 완료!');
-                    console.log('zonecode:', data.zonecode);
-                    console.log('address:', data.address);
-                    console.log('addressType:', data.addressType);
+                    console.log('🎯 주소 선택 완료!');
+                    console.log('  📮 우편번호:', data.zonecode);
+                    console.log('  🏠 주소:', data.address);
+                    console.log('  📝 타입:', data.addressType);
                     console.log('====================');
+                    console.log('');
                     
                     // 즉시 Flutter로 전송
                     sendAddressToFlutter(data.zonecode, data.address, data.addressType);
                 },
                 onresize: function(size) {
-                    console.log('크기 변경:', size);
+                    console.log('📏 크기 변경:', size.height);
+                },
+                onclose: function() {
+                    console.log('❌ 우편번호 창 닫힘');
                 },
                 width: '100%',
                 height: '100%'
             }).embed(element_layer);
             
-            console.log('Postcode embed 완료');
-        });
+            console.log('✅ Postcode embed 완료');
+        })();
     </script>
 </body>
 </html>
@@ -213,11 +288,22 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('🏗️ DaumPostcodeWidget build - kIsWeb: $kIsWeb, _controller: ${_controller != null}');
+    
     // WebView 방식 사용 (Daum 우편번호 서비스 - 가장 정확함)
     if (kIsWeb) {
+      debugPrint('🌐 웹 환경 감지 - 간단한 검색 UI 사용');
       return _buildSimpleAddressInput(context);
     }
     
+    if (_controller == null) {
+      debugPrint('⚠️ WebView Controller가 null입니다!');
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+    
+    debugPrint('✅ WebView 렌더링');
     return Container(
       height: MediaQuery.of(context).size.height * 0.8,
       decoration: BoxDecoration(
