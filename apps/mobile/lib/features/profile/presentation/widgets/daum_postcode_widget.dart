@@ -30,10 +30,16 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
   }
 
   void _initWebView() {
+    debugPrint('🔧 _initWebView 호출됨');
+    
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..enableZoom(false)
       ..setBackgroundColor(Colors.white)
+      // JavaScript console.log를 Flutter에서 보기
+      ..setOnConsoleMessage((ConsoleMessage message) {
+        debugPrint('🟦 [WebView Console] ${message.message}');
+      })
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
