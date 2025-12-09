@@ -38,14 +38,32 @@ class OrderService {
       debugPrint('📋 Auth User ID: ${user.id}');
 
       // public.users 테이블에서 실제 user_id 조회 (auth_id로 검색)
-      final userResponse = await _supabase
+      var userResponse = await _supabase
           .from('users')
           .select('id, email, name, phone')
           .eq('auth_id', user.id)
           .maybeSingle();
 
+      // 사용자가 public.users 테이블에 없으면 자동 생성
       if (userResponse == null) {
-        throw Exception('사용자 정보를 찾을 수 없습니다. 프로필을 먼저 생성해주세요.');
+        debugPrint('⚠️ public.users에 사용자 없음, 자동 생성 시도...');
+        try {
+          final userName = user.userMetadata?['name'] as String? ?? '사용자';
+          final userPhone = user.userMetadata?['phone'] as String? ?? '';
+          
+          final newUser = await _supabase.from('users').insert({
+            'auth_id': user.id,
+            'email': user.email ?? 'unknown@example.com',
+            'name': userName,
+            'phone': userPhone,
+          }).select().single();
+          
+          userResponse = newUser;
+          debugPrint('✅ public.users에 사용자 자동 생성 완료');
+        } catch (e) {
+          debugPrint('❌ 사용자 자동 생성 실패: $e');
+          throw Exception('사용자 정보를 생성할 수 없습니다. 관리자에게 문의해주세요.');
+        }
       }
 
       final userId = userResponse['id'] as String;
