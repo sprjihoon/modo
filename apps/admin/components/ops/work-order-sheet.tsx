@@ -56,6 +56,15 @@ export function WorkOrderSheet({ data }: { data: WorkOrderData }) {
       {/* print 전용 스타일: 스크롤 제거 및 잘림 방지 */}
       <style>{`
         @media print {
+          .work-order-container {
+            page-break-after: avoid !important;
+            page-break-before: avoid !important;
+            page-break-inside: avoid !important;
+            max-height: 297mm !important;
+            height: 297mm !important;
+            overflow: hidden !important;
+            border: none !important;
+          }
           .pin-memo-list { 
             max-height: none !important; 
             overflow: visible !important; 

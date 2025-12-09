@@ -35,17 +35,29 @@ class OrderService {
         throw Exception('로그인이 필요합니다');
       }
 
-      // users 테이블 권한 문제로 인해 auth.uid() 직접 사용
       debugPrint('📋 Auth User ID: ${user.id}');
+
+      // public.users 테이블에서 실제 user_id 조회 (auth_id로 검색)
+      final userResponse = await _supabase
+          .from('users')
+          .select('id, email, name, phone')
+          .eq('auth_id', user.id)
+          .maybeSingle();
+
+      if (userResponse == null) {
+        throw Exception('사용자 정보를 찾을 수 없습니다. 프로필을 먼저 생성해주세요.');
+      }
+
+      final userId = userResponse['id'] as String;
+      final userEmail = userResponse['email'] as String? ?? user.email ?? 'unknown@example.com';
+      
+      debugPrint('✅ Public User ID: $userId');
 
       // 주문 생성 (실제 DB 구조에 맞게)
       final orderNumber = 'ORD${DateTime.now().millisecondsSinceEpoch}';
       
-      // 현재 사용자 정보
-      final userEmail = user.email ?? 'unknown@example.com';
-      
       final orderData = <String, dynamic>{
-        'user_id': user.id,
+        'user_id': userId, // public.users의 id 사용
         'order_number': orderNumber,
         'clothing_type': clothingType ?? '기타',
         'repair_type': repairType ?? '기타',
@@ -165,7 +177,7 @@ class OrderService {
             .select('*')
             .eq('order_id', orderId);
         
-        if (shipmentsResponse != null && shipmentsResponse is List) {
+        if (shipmentsResponse is List) {
           shipments = shipmentsResponse.map((s) => Map<String, dynamic>.from(s as Map)).toList();
           debugPrint('✅ Shipments 조회 성공: ${shipments.length}개');
         }
@@ -293,6 +305,7 @@ class OrderService {
     required String customerName,
     String? pickupZipcode,  // 수거지 우편번호
     String? deliveryZipcode, // 배송지 우편번호 (필수)
+    String? deliveryMessage,  // 배송 요청사항 (우체국 API delivMsg로 전달)
     bool testMode = false,  // 실제 우체국 API 사용: false, Mock: true
   }) async {
     try {
@@ -319,6 +332,12 @@ class OrderService {
         debugPrint('⚠️ 배송지 우편번호가 없습니다!');
       }
       
+      // 배송 요청사항 추가 (우체국 API delivMsg로 전달)
+      if (deliveryMessage != null && deliveryMessage.trim().isNotEmpty) {
+        body['delivery_message'] = deliveryMessage.trim();
+        debugPrint('📝 배송 요청사항: $deliveryMessage');
+      }
+      
       final response = await _supabase.functions.invoke(
         'shipments-book',
         body: body,
@@ -331,6 +350,37 @@ class OrderService {
       return response.data['data'];
     } catch (e) {
       throw Exception('수거예약 실패: $e');
+    }
+  }
+
+  /// 배송지 알림 확인 (토요배송 휴무, 도서산간 등)
+  Future<Map<String, dynamic>> checkDeliveryNotice({
+    required String zipcode,
+    String? address,
+  }) async {
+    try {
+      debugPrint('🔍 배송지 알림 확인 시작: $zipcode');
+      
+      final response = await _supabase.functions.invoke(
+        'check-delivery-notice',
+        body: {
+          'zipcode': zipcode,
+          if (address != null) 'address': address,
+        },
+      );
+
+      if (response.data['success'] != true) {
+        throw Exception(response.data['error'] ?? '배송지 확인 실패');
+      }
+
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('❌ 배송지 알림 확인 실패: $e');
+      // 실패해도 빈 객체 반환 (계속 진행)
+      return {
+        'success': false,
+        'shouldShowAlert': false,
+      };
     }
   }
 

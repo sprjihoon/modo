@@ -10,13 +10,13 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // 기본 쿼리
+    // 기본 쿼리 (customer_email 필드 포함)
     let query = supabaseAdmin
       .from('point_transactions')
       .select(`
         *,
         user:users!point_transactions_user_id_fkey(id, name, email),
-        order:orders(id, item_name, total_price)
+        order:orders(id, item_name, total_price, customer_email)
       `, { count: 'exact' })
       .order('created_at', { ascending: false });
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     // 검색 필터 (사용자명으로 검색)
     if (search) {
-      // 먼저 사용자 검색
+      // 사용자 이름으로 검색
       const { data: users } = await supabaseAdmin
         .from('users')
         .select('id')
@@ -77,10 +77,16 @@ export async function GET(request: NextRequest) {
       else if (transaction.type === 'ADMIN_SUB') typeKorean = '차감';
       else if (transaction.type === 'EXPIRED') typeKorean = '만료';
 
+      // 사용자 정보 (user_id 기준으로만 매칭)
+      const userId = transaction.user_id;
+      const userName = transaction.user?.name || '알 수 없음';
+      const userEmail = transaction.user?.email || transaction.customer_email || null;
+
       return {
         id: transaction.id,
-        userId: transaction.user_id,
-        userName: transaction.user?.name || '알 수 없음',
+        userId: userId,
+        userName: userName,
+        userEmail: userEmail,
         type: typeKorean,
         amount: transaction.amount,
         description: transaction.description,

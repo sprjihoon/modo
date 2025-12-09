@@ -51,8 +51,9 @@ interface PointSetting {
 
 interface PointTransaction {
   id: string;
-  userId: string;
+  userId: string | null;
   userName: string;
+  userEmail: string | null;
   type: string;
   amount: number;
   description: string;
@@ -562,7 +563,7 @@ export default function PointsPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="포인트 ID, 사용자명, 주문번호로 검색..."
+                    placeholder="사용자명으로 검색..."
                     className="pl-10"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -602,9 +603,24 @@ export default function PointsPage() {
                     transactions.map((point) => (
                     <div
                       key={point.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                      onClick={() => router.push(`/dashboard/customers/${point.userId}`)}
-                      title={`${point.userName}님의 상세 정보 보기`}
+                      className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                        point.userId 
+                          ? "hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer" 
+                          : "bg-gray-50 dark:bg-gray-900 cursor-not-allowed opacity-60"
+                      }`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        console.log('포인트 카드 클릭:', { userId: point.userId, userName: point.userName });
+                        if (point.userId) {
+                          const targetUrl = `/dashboard/customers/${point.userId}`;
+                          console.log('이동할 URL:', targetUrl);
+                          router.push(targetUrl);
+                        } else {
+                          console.warn('userId 없음:', point);
+                          alert('해당 고객의 계정 정보를 찾을 수 없습니다.\n이메일: ' + (point.userEmail || '없음'));
+                        }
+                      }}
+                      title={point.userId ? `${point.userName}님의 상세 정보 보기` : '고객 계정 정보 없음'}
                     >
                       <div className="flex items-center space-x-4">
                         <div
@@ -626,9 +642,12 @@ export default function PointsPage() {
                         </div>
                       <div>
                         <p className="font-medium">{point.description}</p>
-                        <p className="text-sm text-muted-foreground hover:text-blue-600 transition-colors">
+                        <p className={`text-sm text-muted-foreground ${point.userId ? 'hover:text-blue-600' : ''} transition-colors`}>
                           👤 {point.userName} {point.orderName && `• ${point.orderName}`}
                         </p>
+                        {point.userEmail && (
+                          <p className="text-xs text-muted-foreground">✉️ {point.userEmail}</p>
+                        )}
                         <p className="text-xs text-muted-foreground">{formatDateTime(point.createdAt)}</p>
                       </div>
                       </div>

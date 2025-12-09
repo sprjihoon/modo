@@ -1,17 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FileText, Printer, Loader2 } from "lucide-react";
+import { FileText, Printer, Loader2, X } from "lucide-react";
 import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin } from "@/components/ops/work-order-sheet";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -105,76 +96,80 @@ export function WorkOrderPrintDialog({ order }: WorkOrderPrintDialogProps) {
     window.print();
   };
 
+  const handleOpen = () => {
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="w-full">
-            <FileText className="h-4 w-4 mr-2" />
-            작업지시서 출력
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-auto">
-          <DialogHeader>
-            <DialogTitle>작업지시서 출력</DialogTitle>
-            <DialogDescription>
-              작업지시서를 출력하거나 PDF로 저장할 수 있습니다.
-            </DialogDescription>
-          </DialogHeader>
+      <Button variant="outline" size="sm" className="w-full" onClick={handleOpen}>
+        <FileText className="h-4 w-4 mr-2" />
+        작업지시서 출력
+      </Button>
 
-          <div className="py-4">
-            {loading && (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-2">작업지시서 준비 중...</span>
-              </div>
-            )}
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {!loading && !error && workOrderData && (
-              <div className="space-y-4">
-                <div className="text-sm space-y-2 bg-muted p-3 rounded-lg">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">주문번호:</span>
-                    <span className="font-mono">{order.id.substring(0, 13)}...</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">고객명:</span>
-                    <span className="font-medium">{workOrderData.customerName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">수선 항목:</span>
-                    <span className="font-medium">{workOrderData.itemName}</span>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg bg-gray-50 overflow-auto max-h-[600px]">
-                  <div className="flex justify-center p-4 print:p-0 print:m-0 print:w-full print:h-full print:flex print:items-center print:justify-center print:bg-white">
-                    <div className="transform scale-50 origin-top print:scale-100">
-                      <WorkOrderSheet data={workOrderData} />
-                    </div>
-                  </div>
+      {open && (
+        <div 
+          data-work-order
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 print:bg-white print:p-0"
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto print:max-w-none print:max-h-none print:shadow-none print:rounded-none print:overflow-visible print:w-full print:h-full print:flex print:items-center print:justify-center print:bg-transparent">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center print:hidden z-10">
+              <div>
+                <h2 className="text-lg font-semibold">작업지시서 미리보기</h2>
+                <div className="text-sm text-gray-600 mt-1 space-y-1">
+                  <div>주문번호: {order.id.substring(0, 13)}...</div>
+                  {workOrderData && (
+                    <>
+                      <div>고객명: {workOrderData.customerName}</div>
+                      <div>수선 항목: {workOrderData.itemName}</div>
+                    </>
+                  )}
                 </div>
               </div>
-            )}
+              <div className="flex gap-2">
+                <button
+                  onClick={handlePrint}
+                  disabled={loading || !workOrderData}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Printer className="h-4 w-4" />
+                  인쇄
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 flex items-center gap-2"
+                >
+                  <X className="h-4 w-4" />
+                  닫기
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 print:p-0 print:m-0 print:w-full print:h-full print:flex print:items-center print:justify-center print:bg-white">
+              {loading && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <span className="ml-2">작업지시서 준비 중...</span>
+                </div>
+              )}
+
+              {error && (
+                <Alert variant="destructive" className="m-4">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {!loading && !error && workOrderData && (
+                <WorkOrderSheet data={workOrderData} />
+              )}
+            </div>
           </div>
-
-          <DialogFooter className="print:hidden">
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
-              취소
-            </Button>
-            <Button onClick={handlePrint} disabled={loading || !workOrderData}>
-              <Printer className="h-4 w-4 mr-2" />
-              인쇄하기
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       <style jsx global>{`
         @media print {
@@ -182,18 +177,47 @@ export function WorkOrderPrintDialog({ order }: WorkOrderPrintDialogProps) {
             size: A4 portrait; 
             margin: 0; 
           }
-          body * {
-            visibility: hidden;
+          
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
           }
+          
+          body * {
+            visibility: hidden !important;
+          }
+          
+          [data-work-order],
+          [data-work-order] *,
           .work-order-container,
           .work-order-container * {
-            visibility: visible;
+            visibility: visible !important;
           }
+          
+          [data-work-order] {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            background: white !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            page-break-after: avoid !important;
+            page-break-before: avoid !important;
+            page-break-inside: avoid !important;
+          }
+          
           .work-order-container {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
+            page-break-after: avoid !important;
+            page-break-before: avoid !important;
+            page-break-inside: avoid !important;
+            max-height: 297mm !important;
+            overflow: hidden !important;
           }
         }
       `}</style>

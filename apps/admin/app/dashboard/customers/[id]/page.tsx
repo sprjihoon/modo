@@ -2,15 +2,21 @@ import { notFound } from "next/navigation";
 import CustomerDetailClient from "@/components/customers/CustomerDetailClient";
 
 interface CustomerDetailPageProps {
-  params: {
+  params: Promise<{
+    id: string;
+  }> | {
     id: string;
   };
 }
 
 export default async function CustomerDetailPage({ params }: CustomerDetailPageProps) {
+  // Next.js 15+ params는 Promise일 수 있음
+  const resolvedParams = await Promise.resolve(params);
+  const customerId = resolvedParams.id;
+  
   let customerData;
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/customers/${params.id}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/customers/${customerId}`, {
       cache: 'no-store',
     });
     

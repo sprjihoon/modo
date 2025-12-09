@@ -113,18 +113,30 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
       const response = await fetch(`/api/customers/${userId}`);
       console.log('👤 API 응답 상태:', response.status);
       
+      // Get response text first, then try to parse as JSON
+      const responseText = await response.text();
+      
       if (response.ok) {
-        const data = await response.json();
-        console.log('👤 API 응답 데이터:', data);
-        if (data.success && data.customer) {
-          setUserData(data.customer);
-          console.log('✅ 사용자 데이터 설정 완료:', data.customer);
-        } else {
-          console.error('❌ 사용자 데이터 없음:', data);
+        try {
+          const data = JSON.parse(responseText);
+          console.log('👤 API 응답 데이터:', data);
+          if (data.success && data.customer) {
+            setUserData(data.customer);
+            console.log('✅ 사용자 데이터 설정 완료:', data.customer);
+          } else {
+            console.error('❌ 사용자 데이터 없음:', data);
+          }
+        } catch (jsonError) {
+          console.error('❌ JSON 파싱 실패:', responseText);
         }
       } else {
-        const errorData = await response.json();
-        console.error('❌ API 오류 응답:', errorData);
+        // Try to parse error response as JSON
+        try {
+          const errorData = JSON.parse(responseText);
+          console.error('❌ API 오류 응답:', errorData);
+        } catch (jsonError) {
+          console.error('❌ API 오류 응답 (non-JSON):', response.status, responseText);
+        }
       }
     } catch (error) {
       console.error('❌ 사용자 데이터 로드 실패:', error);
@@ -485,14 +497,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                       <ExternalLink className="h-3 w-3 mr-1" />
                       추적
                     </Button>
-                    {/* 송장출력은 입고처리(INBOUND/RECEIVED) 이후만 표시 */}
-                    {['INBOUND', 'RECEIVED', 'IN_REPAIR', 'REPAIR_COMPLETED', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes(displayOrder.status) && (
-                      <LabelPrintDialog 
-                        trackingNo={displayOrder.trackingNo} 
-                        type="pickup"
-                        orderId={displayOrder.id}
-                      />
-                    )}
+                    {/* 수거송장은 출력 버튼 불필요 */}
                   </>
                 )}
               </div>

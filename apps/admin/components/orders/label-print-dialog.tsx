@@ -70,11 +70,31 @@ export function LabelPrintDialog({ trackingNo, type, orderId }: LabelPrintDialog
       console.log(`🔍 [LabelPrint] 데이터 로드 시작:`, { orderId, trackingNo, type });
       
       // 주문 정보 조회
-      const orderResponse = await fetch(`/api/orders/${orderId}`);
+      const orderResponse = await fetch(`/api/orders/${orderId}`, {
+        cache: 'no-store', // Prevent caching issues
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+      
+      console.log(`📡 [LabelPrint] 주문 API 응답:`, orderResponse.status, orderResponse.statusText);
+      
       if (!orderResponse.ok) {
-        throw new Error("주문 정보를 불러올 수 없습니다.");
+        const errorText = await orderResponse.text();
+        console.error(`❌ [LabelPrint] 주문 API 오류:`, orderResponse.status, errorText);
+        throw new Error(`주문 정보를 불러올 수 없습니다. (${orderResponse.status})`);
       }
-      const orderResult = await orderResponse.json();
+      
+      const responseText = await orderResponse.text();
+      let orderResult;
+      
+      try {
+        orderResult = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error(`❌ [LabelPrint] JSON 파싱 실패:`, responseText);
+        throw new Error("서버 응답을 처리할 수 없습니다.");
+      }
+      
       if (!orderResult.success || !orderResult.order) {
         throw new Error("주문 정보가 없습니다.");
       }
@@ -84,7 +104,12 @@ export function LabelPrintDialog({ trackingNo, type, orderId }: LabelPrintDialog
       // 배송 정보 조회 (shipment)
       // trackingNo를 사용하여 shipment 조회
       console.log(`🔍 [LabelPrint] Shipment 조회 시작: ${trackingNo}`);
-      const shipmentResponse = await fetch(`/api/ops/shipments/${trackingNo}`);
+      const shipmentResponse = await fetch(`/api/ops/shipments/${trackingNo}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       
       if (shipmentResponse.ok) {
         const shipmentResult = await shipmentResponse.json();
@@ -96,13 +121,12 @@ export function LabelPrintDialog({ trackingNo, type, orderId }: LabelPrintDialog
           // 송장 데이터 생성
           await buildLabelData(orderResult.order, shipmentResult.data.shipment, shipmentResult.data.order);
         } else {
-          console.warn('⚠️ [LabelPrint] Shipment 데이터 없음');
+          console.warn('⚠️ [LabelPrint] Shipment 데이터 없음 - 주문 정보로 생성');
           await buildLabelData(orderResult.order, null, null);
         }
       } else {
-        const errorText = await shipmentResponse.text();
-        console.error('❌ [LabelPrint] Shipment 조회 실패:', shipmentResponse.status, errorText);
-        // shipment 정보가 없어도 주문 정보만으로 간단한 라벨 생성
+        // shipment 정보가 없어도 주문 정보만으로 라벨 생성 (집배코드는 재조회로 획득)
+        console.log('ℹ️ [LabelPrint] Shipment 미조회 - 주문 정보와 집배코드 재조회로 송장 생성');
         await buildLabelData(orderResult.order, null, null);
       }
     } catch (err: any) {
