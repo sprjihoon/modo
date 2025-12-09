@@ -91,50 +91,50 @@ const createDefaultLayout = (): LabelLayoutElement[] => {
   const scaleFont = (size: number) => Math.max(10, size * scale * 0.8);
 
   // px 단위 요소 정의
-  const elements: LabelLayoutElement[] = [
+  const elements = [
     // 상단
-    { fieldKey: "output_label", x: labelWidth / 2 - 40, y: 10, width: 80, height: 20, fontSize: scaleFont(14), isBold: true, type: "text" },
+    { fieldKey: "output_label", x: labelWidth / 2 - 40, y: 10, width: 80, height: 20, fontSize: scaleFont(14), isBold: true, type: "text" as const },
     // 집배코드: 잘리지 않으면서 적당한 크기로 조정
-    { fieldKey: "sorting_code_large", x: labelWidth * 0.38, y: 5, width: 400, height: 55, fontSize: scaleFont(40), isBold: true, letterSpacing: 12, type: "text" },
-    { fieldKey: "delivery_center_info", x: labelWidth * 0.54, y: 55, width: 250, height: 20, fontSize: scaleFont(15), isBold: true, letterSpacing: 10, type: "text" },
+    { fieldKey: "sorting_code_large", x: labelWidth * 0.38, y: 5, width: 400, height: 55, fontSize: scaleFont(40), isBold: true, letterSpacing: 12, type: "text" as const },
+    { fieldKey: "delivery_center_info", x: labelWidth * 0.54, y: 55, width: 250, height: 20, fontSize: scaleFont(15), isBold: true, letterSpacing: 10, type: "text" as const },
     
     // 좌측 열
-    { fieldKey: "order_date", x: 10, y: 30, width: 150, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
-    { fieldKey: "orderer_name", x: 10, y: 55, width: 150, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
-    { fieldKey: "customer_order_source", x: 10, y: 78, width: 200, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
-    { fieldKey: "order_number", x: 10, y: 101, width: 150, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
-    { fieldKey: "package_info", x: 10, y: 124, width: 250, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
+    { fieldKey: "order_date", x: 10, y: 30, width: 150, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" as const },
+    { fieldKey: "orderer_name", x: 10, y: 55, width: 150, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" as const },
+    { fieldKey: "customer_order_source", x: 10, y: 78, width: 200, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" as const },
+    { fieldKey: "order_number", x: 10, y: 101, width: 150, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" as const },
+    { fieldKey: "package_info", x: 10, y: 124, width: 250, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" as const },
     
     // 우편번호 바코드 (숫자 표시를 위해 높이 증가)
-    { fieldKey: "zipcode_barcode", x: 10, y: 150, width: 120, height: 60, fontSize: scaleFont(12), isBold: false, type: "barcode" },
-    { fieldKey: "total_quantity", x: 140, y: 155, width: 80, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+    { fieldKey: "zipcode_barcode", x: 10, y: 150, width: 120, height: 60, fontSize: scaleFont(12), isBold: false, type: "barcode" as const },
+    { fieldKey: "total_quantity", x: 140, y: 155, width: 80, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" as const },
     
-    { fieldKey: "items_list", x: 10, y: 220, width: 250, height: 150, fontSize: scaleFont(13), isBold: false, type: "text" },
+    { fieldKey: "items_list", x: 10, y: 220, width: 250, height: 150, fontSize: scaleFont(13), isBold: false, type: "text" as const },
     
     // 우측 열 - 보내는 분
-    { fieldKey: "sender_address", x: labelWidth * 0.43, y: 95, width: labelWidth * 0.55, height: 40, fontSize: scaleFont(12), isBold: false, type: "text" },
-    { fieldKey: "sender_name", x: labelWidth * 0.43, y: 140, width: 100, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
-    { fieldKey: "sender_phone", x: labelWidth * 0.43 + 110, y: 140, width: 120, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
+    { fieldKey: "sender_address", x: labelWidth * 0.43, y: 95, width: labelWidth * 0.55, height: 40, fontSize: scaleFont(12), isBold: false, type: "text" as const },
+    { fieldKey: "sender_name", x: labelWidth * 0.43, y: 140, width: 100, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" as const },
+    { fieldKey: "sender_phone", x: labelWidth * 0.43 + 110, y: 140, width: 120, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" as const },
     
     // 우측 열 - 받는 분
-    { fieldKey: "receiver_address", x: labelWidth * 0.43, y: 170, width: labelWidth * 0.55, height: 40, fontSize: scaleFont(16), isBold: true, type: "text" }, // 폰트 키움
-    { fieldKey: "receiver_name", x: labelWidth * 0.43, y: 220, width: 100, height: 22, fontSize: scaleFont(14), isBold: true, type: "text" },
-    { fieldKey: "receiver_phone", x: labelWidth * 0.43 + 110, y: 220, width: 120, height: 22, fontSize: scaleFont(14), isBold: true, type: "text" },
+    { fieldKey: "receiver_address", x: labelWidth * 0.43, y: 170, width: labelWidth * 0.55, height: 40, fontSize: scaleFont(16), isBold: true, type: "text" as const }, // 폰트 키움
+    { fieldKey: "receiver_name", x: labelWidth * 0.43, y: 220, width: 100, height: 22, fontSize: scaleFont(14), isBold: true, type: "text" as const },
+    { fieldKey: "receiver_phone", x: labelWidth * 0.43 + 110, y: 220, width: 120, height: 22, fontSize: scaleFont(14), isBold: true, type: "text" as const },
     
-    { fieldKey: "tracking_no_text", x: labelWidth * 0.43, y: 255, width: 250, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
-    { fieldKey: "waybill_statement", x: labelWidth * 0.43, y: 280, width: 300, height: 20, fontSize: scaleFont(12), isBold: true, type: "text" },
+    { fieldKey: "tracking_no_text", x: labelWidth * 0.43, y: 255, width: 250, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" as const },
+    { fieldKey: "waybill_statement", x: labelWidth * 0.43, y: 280, width: 300, height: 20, fontSize: scaleFont(12), isBold: true, type: "text" as const },
     
     // 등기번호 바코드 (하단, 숫자 표시)
-    { fieldKey: "tracking_no_barcode", x: labelWidth * 0.43, y: 305, width: 280, height: 70, fontSize: scaleFont(12), isBold: false, type: "barcode" },
+    { fieldKey: "tracking_no_barcode", x: labelWidth * 0.43, y: 305, width: 280, height: 70, fontSize: scaleFont(12), isBold: false, type: "barcode" as const },
     
     // 하단
-    { fieldKey: "bottom_info", x: 10, y: BASE_HEIGHT - mmToPx(10) - 25, width: 200, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
-  ] as LabelLayoutElement[];
+    { fieldKey: "bottom_info", x: 10, y: BASE_HEIGHT - mmToPx(10) - 25, width: 200, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" as const },
+  ];
 
   // px -> mm 변환
   const scaleFactor = BASE_WIDTH / mmToPx(LABEL_WIDTH_MM);
 
-  return elements.map((el) => ({
+  return elements.map((el: any) => ({
     fieldKey: el.fieldKey,
     x: pxToMm(el.x / scaleFactor),
     y: pxToMm(el.y / scaleFactor),
