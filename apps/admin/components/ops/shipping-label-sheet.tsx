@@ -134,7 +134,7 @@ const createDefaultLayout = (): LabelLayoutElement[] => {
   // px -> mm 변환
   const scaleFactor = BASE_WIDTH / mmToPx(LABEL_WIDTH_MM);
 
-  return elements.map(el => ({
+  return elements.map((el: LabelLayoutElement) => ({
     fieldKey: el.fieldKey,
     x: pxToMm(el.x / scaleFactor),
     y: pxToMm(el.y / scaleFactor),
