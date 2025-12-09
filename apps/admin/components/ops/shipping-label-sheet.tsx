@@ -55,7 +55,7 @@ interface LabelLayoutElement {
   isBold: boolean;
   borderColor?: string;
   letterSpacing?: number; // 자간 (px)
-  type: "text" | "barcode";
+  type: string;
 }
 
 interface Props {
