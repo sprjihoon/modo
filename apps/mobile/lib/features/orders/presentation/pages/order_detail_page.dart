@@ -48,11 +48,37 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   
   // 여러 아이템의 영상 쌍 (순차 재생용)
   List<Map<String, String>> _videoItems = [];
+  
+  // 주기적 새로고침을 위한 타이머
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadOrderData();
+    // 주기적 새로고침 시작 (30초마다)
+    _startPeriodicRefresh();
+  }
+  
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+  
+  /// 주기적 새로고침 시작
+  void _startPeriodicRefresh() {
+    _refreshTimer?.cancel();
+    // 배송완료 상태가 아니면 30초마다 새로고침
+    if (_currentStatus != 'DELIVERED' && _currentStatus != 'CANCELLED') {
+      _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+        if (mounted) {
+          _loadOrderData(showLoading: false);
+        } else {
+          timer.cancel();
+        }
+      });
+    }
   }
 
   Future<void> _loadOrderData({bool showLoading = true}) async {
@@ -113,17 +139,62 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             'url': url.toString(),
             'pinsCount': 0,
             'pins': <dynamic>[],
-          }).toList();
+          },).toList();
         }
       }
+      
+      final newStatus = order['status'] as String? ?? 'BOOKED';
+      final statusChanged = _currentStatus != newStatus;
       
       setState(() {
         _orderData = order;
         _shipmentData = shipment;
-        _currentStatus = order['status'] as String? ?? 'BOOKED';
+        _currentStatus = newStatus;
         _images = images;
         _isLoading = false;
       });
+      
+      // 상태가 변경되었거나 배송완료 상태가 아니면 주기적 새로고침 재시작
+      if (statusChanged || (_currentStatus != 'DELIVERED' && _currentStatus != 'CANCELLED')) {
+        _startPeriodicRefresh();
+      }
+      
+      // 상태 변경 알림 (배송완료 등)
+      if (statusChanged && mounted) {
+        if (newStatus == 'DELIVERED') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('배송이 완료되었습니다! 포인트가 적립되었습니다.'),
+              backgroundColor: Color(0xFF00C896),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else if (newStatus == 'INBOUND') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('입고가 완료되었습니다.'),
+              backgroundColor: Colors.blue,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else if (newStatus == 'PROCESSING') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('수선이 시작되었습니다.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else if (newStatus == 'READY_TO_SHIP') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('출고가 완료되었습니다. 배송을 시작합니다.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
       
       // 입고/출고 영상 URL 조회 (비동기, 별도 처리)
       _loadVideoUrls();
@@ -456,13 +527,22 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   Widget _buildTimeline(BuildContext context) {
+    // 실제 주문 상태에 따라 각 단계의 완료 여부 결정
+    final statusOrder = ['BOOKED', 'INBOUND', 'PROCESSING', 'READY_TO_SHIP', 'DELIVERED'];
+    final currentStatusIndex = statusOrder.indexOf(_currentStatus);
+    
     final steps = [
-      {'status': 'BOOKED', 'label': '수거예약', 'completed': true, 'icon': Icons.schedule_outlined},
-      {'status': 'INBOUND', 'label': '입고완료', 'completed': true, 'icon': Icons.inventory_outlined},
-      {'status': 'PROCESSING', 'label': '수선중', 'completed': true, 'icon': Icons.content_cut_rounded},
-      {'status': 'READY_TO_SHIP', 'label': '출고완료', 'completed': false, 'icon': Icons.done_all_outlined},
-      {'status': 'DELIVERED', 'label': '배송완료', 'completed': false, 'icon': Icons.check_circle_outline},
+      {'status': 'BOOKED', 'label': '수거예약', 'icon': Icons.schedule_outlined},
+      {'status': 'INBOUND', 'label': '입고완료', 'icon': Icons.inventory_outlined},
+      {'status': 'PROCESSING', 'label': '수선중', 'icon': Icons.content_cut_rounded},
+      {'status': 'READY_TO_SHIP', 'label': '출고완료', 'icon': Icons.done_all_outlined},
+      {'status': 'DELIVERED', 'label': '배송완료', 'icon': Icons.check_circle_outline},
     ];
+    
+    // 각 단계의 완료 여부 계산
+    for (int i = 0; i < steps.length; i++) {
+      steps[i]['completed'] = currentStatusIndex >= i;
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1341,7 +1421,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                         ),
                       );
                     });
-                  }).toList(),
+                  }),
                 ],
               ),
             ),
@@ -1735,14 +1815,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                 debugPrint('🎬 ${_videoItems.length}개 아이템 순차 재생');
                 context.push('/comparison-video', extra: {
                   'videoItems': _videoItems,
-                });
+                },);
               } else {
                 // 단일 아이템: 기존 방식
                 debugPrint('🎬 단일 아이템 재생');
                 context.push('/comparison-video', extra: {
                   'inboundUrl': _inboundVideoUrl,
                   'outboundUrl': _outboundVideoUrl,
-                });
+                },);
               }
             }
           : null,
@@ -2028,95 +2108,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           _buildInfoRow('수거지', _formatAddress(
             _orderData?['pickup_address'],
             _orderData?['pickup_address_detail'],
-          )),
+          ),),
           _buildInfoRow('배송지', _formatAddress(
             _orderData?['delivery_address'],
             _orderData?['delivery_address_detail'],
-          )),
-          
-          // 토요배송 휴무지역 안내
-          if (_getSaturdayClosedMessage() != null) ...[
-            const SizedBox(height: 16),
-            _buildSaturdayClosedNotice(),
-          ],
-        ],
-      ),
-    );
-  }
-  
-  /// 토요휴무 안내 메시지 가져오기
-  String? _getSaturdayClosedMessage() {
-    final deliveryInfo = _shipmentData?['delivery_info'] as Map<String, dynamic>?;
-    if (deliveryInfo == null) return null;
-    
-    // saturdayClosedMessage가 있으면 우선 사용
-    final message = deliveryInfo['saturdayClosedMessage'] as String?;
-    if (message != null && message.isNotEmpty) return message;
-    
-    // 없으면 notifyMsg에서 토요 관련 메시지 확인
-    final notifyMsg = deliveryInfo['notifyMsg'] as String?;
-    if (notifyMsg != null && 
-        (notifyMsg.contains('토요') || notifyMsg.contains('Saturday'))) {
-      return notifyMsg;
-    }
-    
-    return null;
-  }
-  
-  /// 토요휴무 안내 위젯
-  Widget _buildSaturdayClosedNotice() {
-    final message = _getSaturdayClosedMessage();
-    if (message == null) return const SizedBox.shrink();
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.orange.shade200,
-          width: 1.5,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.event_busy_outlined,
-              color: Colors.orange.shade700,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '📅 토요배송 휴무지역',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange.shade800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  message,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.orange.shade700,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ),),
         ],
       ),
     );

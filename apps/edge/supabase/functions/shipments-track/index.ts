@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     const supabase = createSupabaseClient(req);
 
     // shipments 테이블에서 송장 정보 조회
-    const { data: shipment, error: shipmentError } = await supabase
+    let { data: shipment, error: shipmentError } = await supabase
       .from('shipments')
       .select('*')
       .or(`pickup_tracking_no.eq.${trackingNo},delivery_tracking_no.eq.${trackingNo},tracking_no.eq.${trackingNo}`)
@@ -73,6 +73,52 @@ Deno.serve(async (req) => {
       });
 
       console.log('✅ 우체국 배송 상태 조회 성공:', epostStatus?.treatStusCd);
+      
+      // 배송완료 상태(treatStusCd: '05') 감지 시 자동으로 DELIVERED 상태로 업데이트
+      if (epostStatus?.treatStusCd === '05' && shipment.status !== 'DELIVERED') {
+        console.log('📦 배송완료 감지! 상태를 DELIVERED로 업데이트합니다.');
+        
+        // shipments 테이블 업데이트
+        const { error: shipmentUpdateError } = await supabase
+          .from('shipments')
+          .update({
+            status: 'DELIVERED',
+            delivery_completed_at: new Date().toISOString(),
+          })
+          .eq('id', shipment.id);
+        
+        if (shipmentUpdateError) {
+          console.error('⚠️ shipments 상태 업데이트 실패:', shipmentUpdateError);
+        } else {
+          console.log('✅ shipments 상태가 DELIVERED로 업데이트되었습니다.');
+        }
+        
+        // orders 테이블도 업데이트
+        const { error: orderUpdateError } = await supabase
+          .from('orders')
+          .update({
+            status: 'DELIVERED',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', shipment.order_id);
+        
+        if (orderUpdateError) {
+          console.error('⚠️ orders 상태 업데이트 실패:', orderUpdateError);
+        } else {
+          console.log('✅ orders 상태가 DELIVERED로 업데이트되었습니다.');
+        }
+        
+        // 업데이트된 shipment 정보 다시 조회
+        const { data: updatedShipment } = await supabase
+          .from('shipments')
+          .select('*')
+          .eq('id', shipment.id)
+          .single();
+        
+        if (updatedShipment) {
+          shipment = updatedShipment;
+        }
+      }
     } catch (e: any) {
       console.error('⚠️ 우체국 배송 상태 조회 실패:', e?.message || e);
       epostError = {
@@ -129,8 +175,8 @@ function getTreatStatusName(code: string): string {
     '01': '소포신청',
     '02': '운송장출력',
     '03': '집하완료',
-    '04': '미집하',
-    '05': '신청취소',
+    '04': '배송중',
+    '05': '배송완료',
   };
   return statusMap[code] || '알 수 없음';
 }
