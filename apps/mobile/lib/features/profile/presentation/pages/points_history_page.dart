@@ -225,6 +225,40 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
             ),
           ),
           
+          // 포인트 만료 안내
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.orange.shade200,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: Colors.orange.shade700,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '포인트는 적립일로부터 30일간 유지되며, 순차적으로 자동 소멸됩니다.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange.shade900,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
           // 적립/사용 통계
           Container(
             color: Colors.white,

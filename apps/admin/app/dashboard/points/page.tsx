@@ -34,7 +34,8 @@ import {
   Trash2,
   CheckCircle,
   Clock,
-  Loader2
+  Loader2,
+  Calendar
 } from "lucide-react";
 import PointSettingDialog from "@/components/settings/PointSettingDialog";
 
@@ -71,6 +72,19 @@ interface PointStats {
   totalHolding: number;
 }
 
+// 오늘 날짜 (YYYY-MM-DD 형식)
+const getToday = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
+// N일 전 날짜
+const getDaysAgo = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+};
+
 export default function PointsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("settings");
@@ -98,6 +112,42 @@ export default function PointsPage() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  
+  // 날짜 필터 (기본값: 최근 30일)
+  const [startDate, setStartDate] = useState<string>(getDaysAgo(30));
+  const [endDate, setEndDate] = useState<string>(getToday());
+  const [datePreset, setDatePreset] = useState<string>("30days");
+
+  // 날짜 프리셋 변경
+  const handleDatePreset = (preset: string) => {
+    setDatePreset(preset);
+    const today = getToday();
+    
+    switch (preset) {
+      case "today":
+        setStartDate(today);
+        setEndDate(today);
+        break;
+      case "7days":
+        setStartDate(getDaysAgo(7));
+        setEndDate(today);
+        break;
+      case "30days":
+        setStartDate(getDaysAgo(30));
+        setEndDate(today);
+        break;
+      case "90days":
+        setStartDate(getDaysAgo(90));
+        setEndDate(today);
+        break;
+      case "all":
+        setStartDate("");
+        setEndDate("");
+        break;
+      default:
+        break;
+    }
+  };
 
   // 포인트 만료 처리 관련 상태
   const [expiringPoints, setExpiringPoints] = useState<any[]>([]);
@@ -130,7 +180,7 @@ export default function PointsPage() {
       setCurrentPage(1);
       fetchTransactions();
     }
-  }, [search, typeFilter]);
+  }, [search, typeFilter, startDate, endDate]);
 
   // 페이지 변경 시 거래 내역 다시 로드
   useEffect(() => {
@@ -175,6 +225,9 @@ export default function PointsPage() {
         type: typeFilter,
         search: search,
       });
+      
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
 
       const response = await fetch(`/api/points/transactions?${params}`);
       const data = await response.json();
@@ -687,9 +740,73 @@ export default function PointsPage() {
 
         {/* 포인트 내역 탭 */}
         <TabsContent value="history" className="space-y-4">
-          {/* Filters */}
+          {/* 날짜 필터 */}
           <Card>
             <CardContent className="pt-6">
+              <div className="flex flex-wrap items-center gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">기간 선택:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={datePreset === "today" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleDatePreset("today")}
+                  >
+                    오늘
+                  </Button>
+                  <Button
+                    variant={datePreset === "7days" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleDatePreset("7days")}
+                  >
+                    7일
+                  </Button>
+                  <Button
+                    variant={datePreset === "30days" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleDatePreset("30days")}
+                  >
+                    30일
+                  </Button>
+                  <Button
+                    variant={datePreset === "90days" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleDatePreset("90days")}
+                  >
+                    90일
+                  </Button>
+                  <Button
+                    variant={datePreset === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleDatePreset("all")}
+                  >
+                    전체
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 ml-2">
+                  <Input
+                    type="date"
+                    className="w-36 h-9"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setDatePreset("custom");
+                    }}
+                  />
+                  <span className="text-muted-foreground">~</span>
+                  <Input
+                    type="date"
+                    className="w-36 h-9"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setDatePreset("custom");
+                    }}
+                  />
+                </div>
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />

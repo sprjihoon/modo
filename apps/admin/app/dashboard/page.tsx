@@ -5,7 +5,9 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, ShoppingCart, TrendingUp, Users, AlertCircle, Clock, CreditCard } from "lucide-react";
+import { Package, ShoppingCart, TrendingUp, Users, AlertCircle, Clock, CreditCard, Calendar } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Order {
   id: string;
@@ -46,21 +48,52 @@ interface Stats {
   totalRevenue: number;
 }
 
+interface CustomerStats {
+  totalCustomers: number;
+  newCustomers: number;
+  activeCustomers: number;
+  totalSales: number;
+}
+
+// 오늘 날짜 (YYYY-MM-DD 형식)
+const getToday = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
+// N일 전 날짜
+const getDaysAgo = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+};
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [customerStats, setCustomerStats] = useState<CustomerStats | null>(null);
   const [monthlyRevenue, setMonthlyRevenue] = useState<number>(0);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // 날짜 필터 (기본값: 최근 30일)
+  const [startDate, setStartDate] = useState<string>(getDaysAgo(30));
+  const [endDate, setEndDate] = useState<string>(getToday());
+  const [datePreset, setDatePreset] = useState<string>("30days");
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [startDate, endDate]);
 
   const loadDashboardData = async () => {
     setIsLoading(true);
     try {
-      // 1. Load overall stats and recent orders
-      const overallResponse = await fetch('/api/orders?pageSize=5');
+      // 날짜 필터 파라미터 생성
+      const dateParams = startDate && endDate 
+        ? `&startDate=${startDate}&endDate=${endDate}` 
+        : '';
+
+      // 1. Load overall stats and recent orders (날짜 필터 적용)
+      const overallResponse = await fetch(`/api/orders?pageSize=5${dateParams}`);
       const overallResult = await overallResponse.json();
       
       if (overallResult.success) {
@@ -68,7 +101,7 @@ export default function DashboardPage() {
         setRecentOrders(overallResult.data || []);
       }
 
-      // 2. Load monthly revenue
+      // 2. Load monthly revenue (이번 달 기준)
       const today = new Date();
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
       const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
@@ -80,10 +113,49 @@ export default function DashboardPage() {
         setMonthlyRevenue(monthlyResult.stats.totalRevenue);
       }
 
+      // 3. Load customer stats (날짜 필터와 무관하게 전체 고객 수)
+      const customerResponse = await fetch('/api/customers');
+      const customerResult = await customerResponse.json();
+      
+      if (customerResult.stats) {
+        setCustomerStats(customerResult.stats);
+      }
+
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 날짜 프리셋 변경
+  const handleDatePreset = (preset: string) => {
+    setDatePreset(preset);
+    const today = getToday();
+    
+    switch (preset) {
+      case "today":
+        setStartDate(today);
+        setEndDate(today);
+        break;
+      case "7days":
+        setStartDate(getDaysAgo(7));
+        setEndDate(today);
+        break;
+      case "30days":
+        setStartDate(getDaysAgo(30));
+        setEndDate(today);
+        break;
+      case "90days":
+        setStartDate(getDaysAgo(90));
+        setEndDate(today);
+        break;
+      case "all":
+        setStartDate("");
+        setEndDate("");
+        break;
+      default:
+        break;
     }
   };
 
@@ -116,7 +188,7 @@ export default function DashboardPage() {
     {
       title: "전체 주문",
       value: stats?.total.toLocaleString() || "0",
-      change: "", // TODO: Calculate change
+      change: "",
       icon: ShoppingCart,
       color: "text-blue-600",
     },
@@ -128,10 +200,8 @@ export default function DashboardPage() {
       color: "text-purple-600",
     },
     {
-      title: "수선 완료", // Changed from "전체 고객" as we don't have unique customer count easily yet, using Delivered or ReadyToShip might be better, but let's stick to Delivered count or just Total Customers if we trust stats.total to be close enough for now? 
-      // Actually the UI had "전체 고객". I'll use stats.total for now as a placeholder or remove it. 
-      // Let's use "배송 완료" instead which is more useful.
-      value: stats?.delivered.toLocaleString() || "0",
+      title: "전체 고객",
+      value: customerStats?.totalCustomers.toLocaleString() || "0",
       change: "",
       icon: Users,
       color: "text-green-600",
@@ -155,10 +225,58 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">대시보드</h1>
-        <p className="text-muted-foreground">모두의수선 운영 현황을 확인하세요</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">대시보드</h1>
+          <p className="text-muted-foreground">모두의수선 운영 현황을 확인하세요</p>
+        </div>
       </div>
+
+      {/* 날짜 필터 */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">기간 선택:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={datePreset} onValueChange={handleDatePreset}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="기간 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">오늘</SelectItem>
+                  <SelectItem value="7days">최근 7일</SelectItem>
+                  <SelectItem value="30days">최근 30일</SelectItem>
+                  <SelectItem value="90days">최근 90일</SelectItem>
+                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="custom">사용자 지정</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                className="w-36 h-9"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setDatePreset("custom");
+                }}
+              />
+              <span className="text-muted-foreground">~</span>
+              <Input
+                type="date"
+                className="w-36 h-9"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setDatePreset("custom");
+                }}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,57 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Mail, Phone, Calendar, Loader2 } from "lucide-react";
 import { getCustomers, getCustomerStats, type Customer } from "@/lib/api/customers";
 
+// 오늘 날짜 (YYYY-MM-DD 형식)
+const getToday = () => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+};
+
+// N일 전 날짜
+const getDaysAgo = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+};
+
 export default function CustomersPage() {
   const [search, setSearch] = useState("");
+  
+  // 날짜 필터 (기본값: 최근 30일)
+  const [startDate, setStartDate] = useState<string>(getDaysAgo(30));
+  const [endDate, setEndDate] = useState<string>(getToday());
+  const [datePreset, setDatePreset] = useState<string>("30days");
+
+  // 날짜 프리셋 변경
+  const handleDatePreset = (preset: string) => {
+    setDatePreset(preset);
+    const today = getToday();
+    
+    switch (preset) {
+      case "today":
+        setStartDate(today);
+        setEndDate(today);
+        break;
+      case "7days":
+        setStartDate(getDaysAgo(7));
+        setEndDate(today);
+        break;
+      case "30days":
+        setStartDate(getDaysAgo(30));
+        setEndDate(today);
+        break;
+      case "90days":
+        setStartDate(getDaysAgo(90));
+        setEndDate(today);
+        break;
+      case "all":
+        setStartDate("");
+        setEndDate("");
+        break;
+      default:
+        break;
+    }
+  };
 
   // 고객 목록 및 통계 조회
   const { data, isLoading: isLoadingCustomers, error } = useQuery({
@@ -71,9 +120,73 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Search */}
+      {/* 날짜 필터 */}
       <Card>
         <CardContent className="pt-6">
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">기간 선택:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={datePreset === "today" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleDatePreset("today")}
+              >
+                오늘
+              </Button>
+              <Button
+                variant={datePreset === "7days" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleDatePreset("7days")}
+              >
+                7일
+              </Button>
+              <Button
+                variant={datePreset === "30days" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleDatePreset("30days")}
+              >
+                30일
+              </Button>
+              <Button
+                variant={datePreset === "90days" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleDatePreset("90days")}
+              >
+                90일
+              </Button>
+              <Button
+                variant={datePreset === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleDatePreset("all")}
+              >
+                전체
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 ml-2">
+              <Input
+                type="date"
+                className="w-36 h-9"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setDatePreset("custom");
+                }}
+              />
+              <span className="text-muted-foreground">~</span>
+              <Input
+                type="date"
+                className="w-36 h-9"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setDatePreset("custom");
+                }}
+              />
+            </div>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
