@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { logAction } from "@/lib/api/action-logs";
+import { ActionType } from "@/lib/types/action-log";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -64,7 +66,13 @@ export default function LoginPage() {
 
       console.log("✅ 관리자 권한 확인 완료");
 
-      // 4. 대시보드로 이동
+      // 4. 📊 로그인 액션 로그 기록
+      await logAction(ActionType.LOGIN, undefined, {
+        email: email,
+        loginTime: new Date().toISOString(),
+      });
+
+      // 5. 대시보드로 이동
       router.push("/dashboard");
       router.refresh();
     } catch (error: any) {

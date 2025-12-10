@@ -1,10 +1,13 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../features/auth/domain/models/user_model.dart';
 import '../core/enums/user_role.dart';
+import '../core/enums/action_type.dart';
+import 'log_service.dart';
 
 /// Supabase Auth 서비스
 class AuthService {
   final _supabase = Supabase.instance.client;
+  final _logService = LogService();
 
   /// 현재 사용자
   User? get currentUser => _supabase.auth.currentUser;
@@ -35,6 +38,12 @@ class AuthService {
       
       print('✅ 로그인 성공: ${response.user?.email}');
       print('📧 이메일 확인 상태: ${response.user?.emailConfirmedAt != null ? "확인됨" : "미확인"}');
+      
+      // 📊 로그인 액션 로그 기록
+      await _logService.log(
+        actionType: ActionType.LOGIN,
+        metadata: {'email': email, 'loginTime': DateTime.now().toIso8601String()},
+      );
       
       return response;
     } on AuthException catch (e) {
@@ -233,6 +242,12 @@ class AuthService {
   /// 로그아웃
   Future<void> signOut() async {
     try {
+      // 📊 로그아웃 액션 로그 기록 (로그아웃 전에 기록)
+      await _logService.log(
+        actionType: ActionType.LOGOUT,
+        metadata: {'logoutTime': DateTime.now().toIso8601String()},
+      );
+      
       await _supabase.auth.signOut();
     } catch (e) {
       throw Exception('로그아웃 실패: $e');

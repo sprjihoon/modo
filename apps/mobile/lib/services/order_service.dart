@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/enums/action_type.dart';
+import 'log_service.dart';
 
 /// 주문 서비스
 class OrderService {
   final _supabase = Supabase.instance.client;
+  final _logService = LogService();
 
   /// 주문 생성
   Future<Map<String, dynamic>> createOrder({
@@ -506,6 +509,109 @@ class OrderService {
     }
     
     return uploadedUrls;
+  }
+
+  // ========================================
+  // 📊 액션 로깅 메서드들
+  // ========================================
+
+  /// 입고 스캔 로그 기록
+  /// 
+  /// [orderId] 주문 ID
+  /// [trackingNo] 송장번호 (선택)
+  Future<void> logScanInbound({
+    required String orderId,
+    String? trackingNo,
+  }) async {
+    await _logService.log(
+      actionType: ActionType.SCAN_INBOUND,
+      targetId: orderId,
+      metadata: {
+        'scannedAt': DateTime.now().toIso8601String(),
+        if (trackingNo != null) 'trackingNo': trackingNo,
+      },
+    );
+  }
+
+  /// 출고 스캔 로그 기록
+  /// 
+  /// [orderId] 주문 ID
+  /// [trackingNo] 송장번호 (선택)
+  Future<void> logScanOutbound({
+    required String orderId,
+    String? trackingNo,
+  }) async {
+    await _logService.log(
+      actionType: ActionType.SCAN_OUTBOUND,
+      targetId: orderId,
+      metadata: {
+        'scannedAt': DateTime.now().toIso8601String(),
+        if (trackingNo != null) 'trackingNo': trackingNo,
+      },
+    );
+  }
+
+  /// 작업 시작 로그 기록
+  /// 
+  /// [orderId] 주문 ID
+  /// [workItemId] 작업 아이템 ID (선택)
+  /// [workItemName] 작업 아이템 이름 (선택)
+  Future<void> logWorkStart({
+    required String orderId,
+    String? workItemId,
+    String? workItemName,
+  }) async {
+    await _logService.log(
+      actionType: ActionType.WORK_START,
+      targetId: orderId,
+      metadata: {
+        'startedAt': DateTime.now().toIso8601String(),
+        if (workItemId != null) 'workItemId': workItemId,
+        if (workItemName != null) 'workItemName': workItemName,
+      },
+    );
+  }
+
+  /// 작업 완료 로그 기록
+  /// 
+  /// [orderId] 주문 ID
+  /// [workItemId] 작업 아이템 ID (선택)
+  /// [workItemName] 작업 아이템 이름 (선택)
+  /// [duration] 작업 소요 시간 (초) (선택)
+  Future<void> logWorkComplete({
+    required String orderId,
+    String? workItemId,
+    String? workItemName,
+    int? duration,
+  }) async {
+    await _logService.log(
+      actionType: ActionType.WORK_COMPLETE,
+      targetId: orderId,
+      metadata: {
+        'completedAt': DateTime.now().toIso8601String(),
+        if (workItemId != null) 'workItemId': workItemId,
+        if (workItemName != null) 'workItemName': workItemName,
+        if (duration != null) 'durationSeconds': duration,
+      },
+    );
+  }
+
+  /// 반품 처리 로그 기록
+  /// 
+  /// [orderId] 주문 ID
+  /// [reason] 반품 사유 (선택)
+  Future<void> logReturnProcess({
+    required String orderId,
+    String? reason,
+  }) async {
+    await _logService.log(
+      actionType: ActionType.RETURN_PROCESS,
+      targetId: orderId,
+      metadata: {
+        'processedAt': DateTime.now().toIso8601String(),
+        if (reason != null) 'reason': reason,
+      },
+    );
   }
 }
 

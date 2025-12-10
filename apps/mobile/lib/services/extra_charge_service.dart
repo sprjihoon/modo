@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/enums/extra_charge_status.dart';
+import '../core/enums/action_type.dart';
 import '../features/orders/domain/models/extra_charge_data.dart';
+import 'log_service.dart';
 
 /// 추가 과금(Extra Charge) 서비스
 class ExtraChargeService {
   final _supabase = Supabase.instance.client;
+  final _logService = LogService();
 
   /// [스마트 요청 기능] 추가 작업 요청
   /// 
@@ -55,6 +58,18 @@ class ExtraChargeService {
       });
 
       debugPrint('✅ 추가 작업 요청 성공: $response');
+      
+      // 📊 추가과금 요청 액션 로그 기록
+      await _logService.log(
+        actionType: ActionType.REQ_EXTRA_CHARGE,
+        targetId: orderId,
+        metadata: {
+          'memo': memo,
+          if (price != null) 'price': price,
+          if (note != null) 'note': note,
+          'userRole': userRole,
+        },
+      );
       
       return Map<String, dynamic>.from(response as Map);
     } on PostgrestException catch (e) {
@@ -115,6 +130,17 @@ class ExtraChargeService {
 
       debugPrint('✅ 관리자 승인 성공: $response');
       
+      // 📊 추가과금 승인 액션 로그 기록
+      await _logService.log(
+        actionType: ActionType.APPROVE_EXTRA,
+        targetId: orderId,
+        metadata: {
+          'price': price,
+          'note': note,
+          'managerId': managerId,
+        },
+      );
+      
       return Map<String, dynamic>.from(response as Map);
     } on PostgrestException catch (e) {
       debugPrint('❌ PostgrestException: ${e.message}');
@@ -165,6 +191,18 @@ class ExtraChargeService {
       });
 
       debugPrint('✅ 고객 결정 처리 성공: $response');
+      
+      // 📊 고객 결정 액션 로그 기록 (거부 시 REJECT_EXTRA)
+      if (action == CustomerDecisionAction.SKIP || action == CustomerDecisionAction.RETURN) {
+        await _logService.log(
+          actionType: ActionType.REJECT_EXTRA,
+          targetId: orderId,
+          metadata: {
+            'action': action.toShortString(),
+            'customerId': customerId,
+          },
+        );
+      }
       
       return Map<String, dynamic>.from(response as Map);
     } on PostgrestException catch (e) {

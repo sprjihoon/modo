@@ -16,7 +16,10 @@ import {
   Bell,
   Activity,
   Calendar,
+  Award,
+  ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 
 // 오늘 날짜 (YYYY-MM-DD 형식)
 const getToday = () => {
@@ -201,7 +204,39 @@ export default function AnalyticsPage() {
           <h1 className="text-3xl font-bold">통계 및 분석</h1>
           <p className="text-muted-foreground">앱 사용 현황을 종합적으로 모니터링합니다</p>
         </div>
+        <Link href="/dashboard/analytics/performance">
+          <Button className="gap-2">
+            <Award className="h-4 w-4" />
+            직원 성과 대시보드
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Link>
       </div>
+
+      {/* 직원 성과 대시보드 카드 */}
+      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Award className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">직원 성과 대시보드</h3>
+                <p className="text-sm text-muted-foreground">
+                  작업자와 관리자의 업무 활동을 실시간으로 분석하고 KPI를 확인하세요
+                </p>
+              </div>
+            </div>
+            <Link href="/dashboard/analytics/performance">
+              <Button variant="outline" className="gap-2">
+                보러가기
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 날짜 필터 */}
       <Card>
