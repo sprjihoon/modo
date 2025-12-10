@@ -3,10 +3,12 @@ import { getCustomerById } from '@/lib/api/customers';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const customer = await getCustomerById(params.id);
+    const resolvedParams = await Promise.resolve(params);
+    const customerId = resolvedParams.id;
+    const customer = await getCustomerById(customerId);
     return NextResponse.json({
       success: true,
       customer: customer
