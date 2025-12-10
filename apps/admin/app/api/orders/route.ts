@@ -42,13 +42,8 @@ export async function GET(request: NextRequest) {
 
     // 검색어 필터 (서버 사이드)
     if (search) {
-      query = query.or(`
-        order_number.ilike.%${search}%,
-        customer_name.ilike.%${search}%,
-        customer_email.ilike.%${search}%,
-        tracking_no.ilike.%${search}%,
-        item_name.ilike.%${search}%
-      `);
+      const searchValue = `%${search}%`;
+      query = query.or(`order_number.ilike.${searchValue},customer_name.ilike.${searchValue},customer_email.ilike.${searchValue},tracking_no.ilike.${searchValue},item_name.ilike.${searchValue}`);
     }
 
     // 페이징 적용

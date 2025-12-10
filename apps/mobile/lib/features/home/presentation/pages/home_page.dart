@@ -5,6 +5,7 @@ import '../../../../core/widgets/company_footer.dart';
 import '../../../auth/data/providers/auth_provider.dart';
 import '../../../orders/providers/cart_provider.dart';
 import '../../../../services/order_service.dart';
+import '../../../../services/banner_service.dart';
 
 /// 홈 화면
 class HomePage extends ConsumerStatefulWidget {
@@ -18,6 +19,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   final PageController _bannerController = PageController();
   int _currentBannerIndex = 0;
   final OrderService _orderService = OrderService();
+  final BannerService _bannerService = BannerService();
 
   @override
   void dispose() {
@@ -134,12 +136,20 @@ class _HomePageState extends ConsumerState<HomePage> {
           const CompanyFooter(),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showPreparationDialog(context),
-        backgroundColor: const Color(0xFF00C896),
-        icon: const Icon(Icons.add),
-        label: const Text('첫 수거신청 하기'),
-        elevation: 4,
+      floatingActionButton: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _orderService.getMyOrders(),
+        builder: (context, snapshot) {
+          final hasOrders = snapshot.hasData && (snapshot.data?.isNotEmpty ?? false);
+          final buttonText = hasOrders ? '수거신청 하기' : '첫 수거신청 하기';
+          
+          return FloatingActionButton.extended(
+            onPressed: () => _showPreparationDialog(context),
+            backgroundColor: const Color(0xFF00C896),
+            icon: const Icon(Icons.add),
+            label: Text(buttonText),
+            elevation: 4,
+          );
+        },
       ),
     );
   }
@@ -363,25 +373,65 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildBannerSlider(BuildContext context) {
-    final banners = [
-      {
-        'title': '멀리 갈 필요 없이\n문앞에 두고',
-        'buttonText': '첫 수거신청 하기',
-        'color': const Color(0xFF2D3E50),
-      },
-      {
-        'title': '옷 수선,\n이제 집에서 간편하게',
-        'buttonText': '수선 접수하기',
-        'color': const Color(0xFF00C896),
-      },
-      {
-        'title': '수거부터 배송까지\n한 번에',
-        'buttonText': '서비스 둘러보기',
-        'color': const Color(0xFF8B5CF6),
-      },
-    ];
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: Future.wait([
+        _bannerService.getActiveBanners(),
+        _orderService.getMyOrders(),
+      ]).then((results) => results[0]),
+      builder: (context, bannerSnapshot) {
+        // 주문 여부 확인 (첫 번째 배너 버튼 텍스트 동적 변경용)
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: _orderService.getMyOrders(),
+          builder: (context, orderSnapshot) {
+            final hasOrders = orderSnapshot.hasData && (orderSnapshot.data?.isNotEmpty ?? false);
+            
+            // 배너 데이터 로드 중
+            if (bannerSnapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 320,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
 
-    return Column(
+            // 배너 데이터가 없거나 오류 발생 시 기본 배너 사용
+            List<Map<String, dynamic>> banners = [];
+            if (bannerSnapshot.hasData && bannerSnapshot.data!.isNotEmpty) {
+              banners = bannerSnapshot.data!;
+              // 첫 번째 배너의 버튼 텍스트를 주문 여부에 따라 동적 변경
+              if (banners.isNotEmpty) {
+                banners = List.from(banners);
+                final firstBanner = banners[0];
+                if (firstBanner['title']?.toString().contains('멀리 갈 필요 없이') == true ||
+                    firstBanner['title']?.toString().contains('문앞에 두고') == true) {
+                  banners[0] = Map.from(firstBanner);
+                  banners[0]['button_text'] = hasOrders ? '수거신청 하기' : '첫 수거신청 하기';
+                }
+              }
+            } else {
+              // 기본 배너 (데이터베이스에 배너가 없을 때)
+              banners = [
+                {
+                  'title': '멀리 갈 필요 없이\n문앞에 두고',
+                  'button_text': hasOrders ? '수거신청 하기' : '첫 수거신청 하기',
+                  'background_color': '#2D3E50',
+                  'background_image_url': null,
+                },
+                {
+                  'title': '옷 수선,\n이제 집에서 간편하게',
+                  'button_text': '수선 접수하기',
+                  'background_color': '#00C896',
+                  'background_image_url': null,
+                },
+                {
+                  'title': '수거부터 배송까지\n한 번에',
+                  'button_text': '서비스 둘러보기',
+                  'background_color': '#8B5CF6',
+                  'background_image_url': null,
+                },
+              ];
+            }
+
+            return Column(
       children: [
         SizedBox(
           height: 320,
@@ -395,10 +445,27 @@ class _HomePageState extends ConsumerState<HomePage> {
             itemCount: banners.length,
             itemBuilder: (context, index) {
               final banner = banners[index];
+              // 색상 파싱 (HEX 문자열을 Color로 변환)
+              Color backgroundColor;
+              try {
+                final colorString = banner['background_color'] as String? ?? '#2D3E50';
+                backgroundColor = Color(int.parse(colorString.replaceFirst('#', '0xFF')));
+              } catch (e) {
+                backgroundColor = const Color(0xFF2D3E50);
+              }
+              
+              final backgroundImageUrl = banner['background_image_url'] as String?;
+              
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 decoration: BoxDecoration(
-                  color: banner['color'] as Color,
+                  color: backgroundColor,
+                  image: backgroundImageUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(backgroundImageUrl),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Stack(
@@ -454,7 +521,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                           const Spacer(),
                           Text(
-                            banner['title'] as String,
+                            banner['title'] as String? ?? '',
                             style: const TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.bold,
@@ -478,7 +545,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               elevation: 0,
                             ),
                             child: Text(
-                              banner['buttonText'] as String,
+                              banner['button_text'] as String? ?? '수거신청 하기',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -514,6 +581,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
       ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -802,7 +873,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildEmptyOrderCard(BuildContext context,
-      {required String title, required String subtitle, required IconData icon}) {
+      {required String title, required String subtitle, required IconData icon,}) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -828,7 +899,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               children: [
                 Text(title,
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87,),),
                 const SizedBox(height: 4),
                 Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
               ],
@@ -837,7 +908,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           TextButton(
             onPressed: () => context.push('/orders'),
             child: const Text('주문 보기'),
-          )
+          ),
         ],
       ),
     );
@@ -855,19 +926,19 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
         child: Row(
           children: [
-            Expanded(
+            const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     '11월 한정 최대 혜택',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.black54,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
+                  SizedBox(height: 4),
+                  Text(
                     '충전 결제하면\n최대 20%적립',
                     style: TextStyle(
                       fontSize: 18,

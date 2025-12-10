@@ -259,6 +259,43 @@ class AuthService {
     }
   }
 
+  /// 회원 탈퇴
+  /// Edge Function을 호출하여 계정 및 모든 관련 데이터를 삭제합니다
+  Future<void> deleteAccount() async {
+    try {
+      final currentUser = this.currentUser;
+      if (currentUser == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+
+      print('🗑️ 회원 탈퇴 요청 시작');
+
+      // Edge Function 호출
+      final response = await _supabase.functions.invoke(
+        'delete-account',
+      );
+
+      if (response.status != 200) {
+        final errorData = response.data;
+        final errorMessage = errorData?['error'] ?? '회원 탈퇴에 실패했습니다';
+        throw Exception(errorMessage);
+      }
+
+      final result = response.data;
+      if (result?['success'] != true) {
+        throw Exception(result?['error'] ?? '회원 탈퇴에 실패했습니다');
+      }
+
+      print('✅ 회원 탈퇴 완료');
+      
+      // 로그아웃 처리 (계정이 삭제되었으므로 세션도 무효화됨)
+      await _supabase.auth.signOut();
+    } catch (e) {
+      print('❌ 회원 탈퇴 실패: $e');
+      throw Exception('회원 탈퇴 실패: $e');
+    }
+  }
+
   /// Auth 상태 변경 리스너
   Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,13 +68,44 @@ export default function AnalyticsPage() {
     }
   };
 
-  // TODO: Fetch real data from Supabase
-  const userStats = {
-    total: 89,
-    newToday: 5,
-    active: 67,
-    inactive: 22,
-  };
+  // 사용자 통계 상태
+  const [userStats, setUserStats] = useState({
+    total: 0,
+    newToday: 0,
+    active: 0,
+    inactive: 0,
+    deleted: 0,
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  // 사용자 통계 로드
+  useEffect(() => {
+    const loadUserStats = async () => {
+      setIsLoadingStats(true);
+      try {
+        const response = await fetch('/api/customers');
+        const data = await response.json();
+        
+        if (data.stats) {
+          // 오늘 가입한 고객 수는 이번 달 신규 고객 수로 대체 (실제 오늘 가입 수는 별도 계산 필요)
+          // 일단 이번 달 신규 고객 수를 사용
+          setUserStats({
+            total: data.stats.totalCustomers || 0,
+            newToday: data.stats.newCustomers || 0, // 이번 달 신규 고객 수
+            active: data.stats.activeCustomers || 0,
+            inactive: Math.max(0, (data.stats.totalCustomers || 0) - (data.stats.activeCustomers || 0) - (data.stats.deletedCustomers || 0)),
+            deleted: data.stats.deletedCustomers || 0,
+          });
+        }
+      } catch (error) {
+        console.error('사용자 통계 로드 실패:', error);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    loadUserStats();
+  }, []);
 
   const orderStats = {
     total: 124,
@@ -250,24 +282,34 @@ export default function AnalyticsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div>
-              <p className="text-sm text-muted-foreground">전체 사용자</p>
-              <p className="text-2xl font-bold">{userStats.total}</p>
+          {isLoadingStats ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">오늘 가입</p>
-              <p className="text-2xl font-bold text-green-600">+{userStats.newToday}</p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-5">
+              <div>
+                <p className="text-sm text-muted-foreground">전체 사용자</p>
+                <p className="text-2xl font-bold">{userStats.total}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">오늘 가입</p>
+                <p className="text-2xl font-bold text-green-600">+{userStats.newToday}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">활성 사용자</p>
+                <p className="text-2xl font-bold text-blue-600">{userStats.active}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">비활성 사용자</p>
+                <p className="text-2xl font-bold text-gray-600">{userStats.inactive}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">탈퇴 회원</p>
+                <p className="text-2xl font-bold text-red-600">{userStats.deleted}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">활성 사용자</p>
-              <p className="text-2xl font-bold text-blue-600">{userStats.active}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">비활성 사용자</p>
-              <p className="text-2xl font-bold text-gray-600">{userStats.inactive}</p>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 

@@ -30,11 +30,8 @@ export async function getCustomers(filters?: {
     .order('created_at', { ascending: false });
 
   if (filters?.search) {
-    query = query.or(`
-      name.ilike.%${filters.search}%,
-      email.ilike.%${filters.search}%,
-      phone.ilike.%${filters.search}%
-    `);
+    const searchValue = `%${filters.search}%`;
+    query = query.or(`name.ilike.${searchValue},email.ilike.${searchValue},phone.ilike.${searchValue}`);
   }
 
   if (filters?.limit) {
@@ -175,10 +172,21 @@ export async function getCustomerStats() {
 
   const totalSales = allOrders?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0;
 
+  // 탈퇴 회원 수 (auth_id가 NULL이거나 이메일이 deleted_로 시작하는 경우)
+  const { count: deletedCustomers, error: deletedError } = await supabaseAdmin
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .or('auth_id.is.null,email.like.deleted_%@deleted.modusrepair.com');
+
+  if (deletedError) {
+    console.warn('탈퇴 회원 수 조회 실패:', deletedError);
+  }
+
   return {
     totalCustomers: totalCustomers || 0,
     newCustomers: newCustomers || 0,
     activeCustomers: activeCount,
+    deletedCustomers: deletedCustomers || 0,
     totalSales,
   };
 }

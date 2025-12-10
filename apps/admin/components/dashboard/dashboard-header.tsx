@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, User } from "lucide-react";
+import Link from "next/link";
+import { Bell, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function DashboardHeader() {
@@ -12,6 +13,12 @@ export function DashboardHeader() {
         </div>
         
         <div className="flex items-center space-x-4">
+          <Link href="/ops/inbound">
+            <Button variant="outline" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              <span>센터 콘솔</span>
+            </Button>
+          </Link>
           <Button variant="ghost" size="icon">
             <Bell className="h-5 w-5" />
           </Button>

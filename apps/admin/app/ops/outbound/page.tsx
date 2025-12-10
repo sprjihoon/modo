@@ -27,6 +27,7 @@ export default function OutboundPage() {
   const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
   const [currentItemName, setCurrentItemName] = useState<string>(""); // 촬영 중인 아이템 이름
   const [inboundDurations, setInboundDurations] = useState<Record<number, number>>({});
+  const [outboundVideos, setOutboundVideos] = useState<Record<number, { videoId: string; id: string }>>({});
 
   const handleLookup = async () => {
     if (!trackingNo.trim()) return;
@@ -130,6 +131,9 @@ export default function OutboundPage() {
       // 입고 영상 duration 조회
       const pickupTrackingNo = shipmentData.pickup_tracking_no || shipmentData.tracking_no;
       await loadInboundDurations(pickupTrackingNo);
+      
+      // 출고 영상 조회
+      await loadOutboundVideos(found.orderId);
     } finally {
       setIsLoading(false);
     }
@@ -149,6 +153,32 @@ export default function OutboundPage() {
       }
     } catch (e) {
       console.warn("⚠️ 입고 duration 조회 실패:", e);
+    }
+  };
+
+  // 출고 영상 조회
+  const loadOutboundVideos = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/ops/video/list?orderId=${encodeURIComponent(orderId)}&type=outbound_video`);
+      const json = await res.json();
+      if (res.ok && json.success && json.videos) {
+        const videosMap: Record<number, { videoId: string; id: string }> = {};
+        Object.entries(json.videos).forEach(([seqStr, videos]: [string, any]) => {
+          const seq = parseInt(seqStr);
+          if (Array.isArray(videos) && videos.length > 0) {
+            // 가장 최근 영상 사용
+            const latestVideo = videos[videos.length - 1];
+            videosMap[seq] = {
+              videoId: latestVideo.videoId,
+              id: latestVideo.id,
+            };
+          }
+        });
+        setOutboundVideos(videosMap);
+        console.log("✅ 출고 영상 조회 완료:", videosMap);
+      }
+    } catch (error) {
+      console.error("출고 영상 조회 실패:", error);
     }
   };
 
@@ -304,6 +334,8 @@ export default function OutboundPage() {
                     const inboundDuration = durations[seq];
                     const itemId = item.id;
                     const itemName = item.repairPart;
+                    const existingVideo = outboundVideos[seq];
+                    const hasVideo = !!existingVideo;
                     
                     return (
                     <button
@@ -314,20 +346,31 @@ export default function OutboundPage() {
                         setCurrentItemName(itemName);
                         setShowVideo(true);
                       }}
-                      className="w-full px-6 py-3 rounded-lg font-medium flex items-center justify-between bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                      className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-between transition-colors ${
+                        hasVideo
+                          ? "bg-green-600 text-white hover:bg-green-700"
+                          : "bg-purple-600 text-white hover:bg-purple-700"
+                      }`}
                     >
                         <span className="flex items-center gap-3">
-                          <Video className="h-5 w-5" />
+                          {hasVideo ? <span className="text-lg">✅</span> : <Video className="h-5 w-5" />}
                           <div className="text-left">
-                            <div className="font-bold">{seq}번 아이템 출고 촬영</div>
-                            <div className="text-xs text-purple-200">{itemName}</div>
+                            <div className="font-bold">{seq}번 아이템 출고 {hasVideo ? "재촬영" : "촬영"}</div>
+                            <div className="text-xs opacity-80">{itemName}</div>
                           </div>
                         </span>
-                        {inboundDuration && (
-                          <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                            입고 {inboundDuration}초
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {hasVideo && (
+                            <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                              촬영 완료
+                            </span>
+                          )}
+                          {inboundDuration && (
+                            <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                              입고 {inboundDuration}초
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })
@@ -336,6 +379,8 @@ export default function OutboundPage() {
                   Array.from({ length: itemCount }, (_, i) => {
                     const seq = i + 1;
                     const inboundDuration = durations[seq];
+                    const existingVideo = outboundVideos[seq];
+                    const hasVideo = !!existingVideo;
                     
                     return (
                       <button
@@ -346,17 +391,28 @@ export default function OutboundPage() {
                         setCurrentItemName(`${seq}번 아이템`);
                         setShowVideo(true);
                       }}
-                      className="w-full px-6 py-3 rounded-lg font-medium flex items-center justify-between bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                      className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-between transition-colors ${
+                        hasVideo
+                          ? "bg-green-600 text-white hover:bg-green-700"
+                          : "bg-purple-600 text-white hover:bg-purple-700"
+                      }`}
                     >
                         <span className="flex items-center gap-2">
-                          <Video className="h-5 w-5" />
-                          {seq}번 아이템 출고 촬영
+                          {hasVideo ? <span className="text-lg">✅</span> : <Video className="h-5 w-5" />}
+                          {seq}번 아이템 출고 {hasVideo ? "재촬영" : "촬영"}
                         </span>
-                        {inboundDuration && (
-                          <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                            입고 {inboundDuration}초
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {hasVideo && (
+                            <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                              촬영 완료
+                            </span>
+                          )}
+                          {inboundDuration && (
+                            <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                              입고 {inboundDuration}초
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })
@@ -422,10 +478,16 @@ export default function OutboundPage() {
                   orderId={orderIdValue}
                   sequence={seq}
                   maxDuration={duration}
+                  existingVideoId={outboundVideos[seq]?.videoId}
                   onUploaded={(videoId, uploadDuration) => {
                     console.log(`✅ ${seq}번 업로드 완료: ${videoId}`);
                     
                     setShowVideo(false);
+                    
+                    // 영상 목록 새로고침
+                    if (result) {
+                      loadOutboundVideos(result.orderId);
+                    }
                     
                     setTimeout(() => {
                       alert(`✅ ${itemName || `${seq}번 아이템`} 출고 영상이 저장되었습니다.\n\n영상 길이: ${uploadDuration}초\n영상 ID: ${videoId}`);

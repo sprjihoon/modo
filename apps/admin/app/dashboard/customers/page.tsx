@@ -200,7 +200,7 @@ export default function CustomersPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>전체 고객</CardDescription>
@@ -221,7 +221,7 @@ export default function CustomersPage() {
             {isLoadingStats ? (
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">{stats?.newCustomers || 0}</div>
+              <div className="text-2xl font-bold text-green-600">{stats?.newCustomers || 0}</div>
             )}
           </CardContent>
         </Card>
@@ -233,7 +233,19 @@ export default function CustomersPage() {
             {isLoadingStats ? (
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
-              <div className="text-2xl font-bold">{stats?.activeCustomers || 0}</div>
+              <div className="text-2xl font-bold text-blue-600">{stats?.activeCustomers || 0}</div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>탈퇴 회원</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingStats ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <div className="text-2xl font-bold text-gray-600">{stats?.deletedCustomers || 0}</div>
             )}
           </CardContent>
         </Card>

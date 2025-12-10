@@ -22,9 +22,12 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col h-full">
           {/* 헤더 */}
           <div className="p-6 border-b border-gray-200">
-            <Link href="/dashboard" className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
-              <Home className="h-5 w-5" suppressHydrationWarning />
-              <span className="text-sm">본사 관리로 이동</span>
+            <Link 
+              href="/dashboard" 
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors border border-gray-200 hover:border-gray-300"
+            >
+              <Home className="h-4 w-4" suppressHydrationWarning />
+              <span className="text-sm font-medium">관리자 콘솔로 이동</span>
             </Link>
             <h1 className="text-xl font-bold text-gray-900 mt-4">센터 콘솔</h1>
             <p className="text-sm text-gray-500 mt-1">현장 작업 관리</p>

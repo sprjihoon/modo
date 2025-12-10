@@ -6,7 +6,6 @@ import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrder
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import WebcamRecorder from "@/components/ops/WebcamRecorder";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
-import { isIslandArea, getIslandAreaInfo } from "@/lib/island-area";
 // ============================================
 // 타입 정의
 // ============================================
@@ -16,8 +15,6 @@ type ShipmentData = {
   customerName: string;
   customerPhone?: string; // 고객 전화번호
   customerZipcode?: string; // 고객 우편번호 (추가)
-  pickupZipcode?: string; // 수거지 우편번호
-  deliveryZipcode?: string; // 배송지 우편번호
   brandName?: string;
   status: string;
   deliveryInfo?: any; // 우체국 API 응답 정보
@@ -31,8 +28,6 @@ type ShipmentData = {
   pinsCount?: number; // 총 핀 개수
   imagesWithPins?: any[]; // images_with_pins 원본 데이터
   order?: any; // 주문 정보 전체 (created_at, weight, volume, total_amount, payment_method 등)
-  isIslandArea?: boolean; // 도서산간 지역 여부
-  islandAreaInfo?: { region: string; estimatedDays: string; additionalFee: number } | null;
 };
 
 // ============================================
@@ -159,22 +154,12 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       }
     }
 
-    // 도서산간 지역 확인 (수거지 또는 배송지)
-    const pickupZip = order.pickup_zipcode || '';
-    const deliveryZip = order.delivery_zipcode || '';
-    const isIsland = isIslandArea(pickupZip) || isIslandArea(deliveryZip);
-    const islandInfo = isIsland 
-      ? (getIslandAreaInfo(deliveryZip) || getIslandAreaInfo(pickupZip))
-      : null;
-
     return {
       trackingNo: inboundTrackingNo, // 입고송장번호
       outboundTrackingNo: outboundTrackingNo, // 출고송장번호
       customerName: order.customer_name || "고객명 없음",
       customerPhone: order.customer_phone || undefined,
       customerZipcode: order.delivery_zipcode, // 우편번호 매핑
-      pickupZipcode: pickupZip,
-      deliveryZipcode: deliveryZip,
       brandName: "브랜드 없음", // TODO: 브랜드 정보 추가 필요
       status: shipment.status || order.status || "UNKNOWN",
       deliveryInfo: deliveryInfo || shipment.delivery_info, // 파싱된 delivery_info 사용
@@ -188,8 +173,6 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       pinsCount: totalPins,
       imagesWithPins: imagesWithPinsData, // 수정된 데이터 사용
       order: order, // 주문 정보 전체 추가 (주문일, 중량, 용적 등)
-      isIslandArea: isIsland,
-      islandAreaInfo: islandInfo,
     };
   } catch (error) {
     console.error("Shipment 조회 중 오류:", error);
@@ -235,6 +218,7 @@ export default function InboundPage() {
   const [showInboundVideo, setShowInboundVideo] = useState(false);
   const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
   const [showBoxOpenVideo, setShowBoxOpenVideo] = useState(false);
+  const [inboundVideos, setInboundVideos] = useState<Record<number, { videoId: string; id: string }>>({});
 
   // 송장 조회 함수 (실제 DB 연동)
   const handleLookup = async () => {
@@ -255,6 +239,9 @@ export default function InboundPage() {
         setResult(shipment);
         setNotFound(false);
         console.log("✅ 조회 성공 - Order ID:", shipment.orderId, "Items:", shipment.repairParts?.length || 0);
+        
+        // 입고 영상 조회
+        await loadInboundVideos(shipment.orderId);
       } else {
         setResult(null);
         setNotFound(true);
@@ -273,6 +260,32 @@ export default function InboundPage() {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleLookup();
+    }
+  };
+
+  // 입고 영상 조회
+  const loadInboundVideos = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/ops/video/list?orderId=${encodeURIComponent(orderId)}&type=inbound_video`);
+      const json = await res.json();
+      if (res.ok && json.success && json.videos) {
+        const videosMap: Record<number, { videoId: string; id: string }> = {};
+        Object.entries(json.videos).forEach(([seqStr, videos]: [string, any]) => {
+          const seq = parseInt(seqStr);
+          if (Array.isArray(videos) && videos.length > 0) {
+            // 가장 최근 영상 사용
+            const latestVideo = videos[videos.length - 1];
+            videosMap[seq] = {
+              videoId: latestVideo.videoId,
+              id: latestVideo.id,
+            };
+          }
+        });
+        setInboundVideos(videosMap);
+        console.log("✅ 입고 영상 조회 완료:", videosMap);
+      }
+    } catch (error) {
+      console.error("입고 영상 조회 실패:", error);
     }
   };
 
@@ -550,35 +563,12 @@ export default function InboundPage() {
                 <div>
                   <label className="text-xs font-medium text-gray-500">수거지</label>
                   <p className="text-sm text-gray-700 mt-1">{result.pickupAddress}</p>
-                  {result.pickupZipcode && (
-                    <p className="text-xs text-gray-500 mt-0.5">우편번호: {result.pickupZipcode}</p>
-                  )}
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-500">배송지</label>
                   <p className="text-sm text-gray-700 mt-1">{result.deliveryAddress}</p>
-                  {result.deliveryZipcode && (
-                    <p className="text-xs text-gray-500 mt-0.5">우편번호: {result.deliveryZipcode}</p>
-                  )}
                 </div>
               </div>
-              
-              {/* 도서산간 지역 안내 */}
-              {result.isIslandArea && result.islandAreaInfo && (
-                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">🚢</span>
-                    <div>
-                      <p className="text-sm font-medium text-orange-800">
-                        도서산간 지역
-                      </p>
-                      <p className="text-xs text-orange-700">
-                        {result.islandAreaInfo.region} • {result.islandAreaInfo.estimatedDays} • 추가 배송비 +{result.islandAreaInfo.additionalFee.toLocaleString()}원
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -626,6 +616,8 @@ export default function InboundPage() {
                 {Array.from({ length: itemCount }, (_, i) => {
                   const seq = i + 1;
                   const itemName = result.repairParts?.[i] || `${seq}번 아이템`;
+                  const existingVideo = inboundVideos[seq];
+                  const hasVideo = !!existingVideo;
                   
                   return (
                     <button
@@ -634,10 +626,21 @@ export default function InboundPage() {
                         setCurrentVideoSequence(seq);
                         setShowInboundVideo(true);
                       }}
-                      className="w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-purple-600 text-white hover:bg-purple-700"
+                      className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-between gap-2 ${
+                        hasVideo
+                          ? "bg-green-600 text-white hover:bg-green-700"
+                          : "bg-purple-600 text-white hover:bg-purple-700"
+                      }`}
                     >
-                      <span className="text-lg">📹</span>
-                      {seq}번 {itemName} 촬영
+                      <span className="flex items-center gap-2">
+                        <span className="text-lg">{hasVideo ? "✅" : "📹"}</span>
+                        <span>{seq}번 {itemName} {hasVideo ? "재촬영" : "촬영"}</span>
+                      </span>
+                      {hasVideo && (
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                          촬영 완료
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -794,7 +797,7 @@ export default function InboundPage() {
             </div>
             <div className="p-4 print:p-0 flex justify-center">
               <ShippingLabelSheet
-                customLayout={labelLayout || undefined}
+                customLayout={labelLayout}
                 data={(() => {
                   console.log('🔍 원본 deliveryInfo:', result.deliveryInfo);
                   console.log('🔍 고객 우편번호:', result.customerZipcode);
@@ -951,31 +954,54 @@ export default function InboundPage() {
                     senderPhone,
                   });
 
-                  // 받는 분 (수거지와 배송지가 동일한지 확인)
-                  // "수거지와 배송지가 동일합니다" 플래그 확인
-                  // 플래그가 true(동일)이면: 수거지 주소 사용 (주문자가 수거 신청한 주소)
-                  // 플래그가 false(다름)이면: 배송지 주소 사용 (받아볼 수 있는 주소)
-                  const isSameAddress = orderData.is_pickup_delivery_same !== false && 
-                                       orderData.is_same_address !== false; // 기본값은 true (동일)
+                  // 받는 분 (출고 송장이므로 항상 delivery_address 사용)
+                  // 🚨 중요: 출고 송장은 센터 → 고객이므로 받는 사람은 항상 delivery_address
+                  // pickup_address를 사용하면 안 됨!
                   
-                  const recipientAddress = isSameAddress 
-                    ? result.pickupAddress  // 수거지와 배송지가 동일하면 수거지 주소 사용 (수거 신청 주소)
-                    : result.deliveryAddress; // 다르면 배송지 주소 사용 (받아볼 수 있는 주소)
+                  // 센터 주소 패턴
+                  const centerAddressPattern = /동대구|동촌로\s*1|모두의수선/;
+                  const centerZipcode = '41142';
                   
-                  // 우편번호도 동일하게 처리
-                  const recipientZipcode = isSameAddress
-                    ? orderData.pickup_zipcode || result.customerZipcode || ""
-                    : orderData.delivery_zipcode || result.customerZipcode || "";
+                  // delivery_address 검증
+                  const deliveryIsCenterAddress = result.deliveryAddress && 
+                    (centerAddressPattern.test(result.deliveryAddress) ||
+                     (orderData.delivery_zipcode === centerZipcode));
                   
-                  console.log("📍 받는 사람 주소 결정:", {
-                    isSameAddress,
-                    is_pickup_delivery_same: orderData.is_pickup_delivery_same,
-                    is_same_address: orderData.is_same_address,
-                    pickupAddress: result.pickupAddress,
+                  // pickup_address 검증 (이것도 센터일 수 있음)
+                  const pickupIsCenterAddress = result.pickupAddress &&
+                    (centerAddressPattern.test(result.pickupAddress) ||
+                     (orderData.pickup_zipcode === centerZipcode));
+                  
+                  // 출고 송장: delivery_address 우선, 단 센터 주소가 아니어야 함
+                  let recipientAddress: string;
+                  let recipientZipcode: string;
+                  
+                  if (result.deliveryAddress && !deliveryIsCenterAddress) {
+                    // Case 1: delivery_address가 있고 센터 주소가 아님 (정상 케이스)
+                    recipientAddress = result.deliveryAddress;
+                    recipientZipcode = orderData.delivery_zipcode || result.customerZipcode || "";
+                  } else if (result.pickupAddress && !pickupIsCenterAddress) {
+                    // Case 2: delivery_address가 센터인데 pickup_address가 센터가 아님
+                    recipientAddress = result.pickupAddress;
+                    recipientZipcode = orderData.pickup_zipcode || result.customerZipcode || "";
+                  } else {
+                    // Case 3: 둘 다 센터 주소거나 없음 - 에러!
+                    console.error("❌ 출고 송장 오류: 고객 주소를 찾을 수 없습니다!", {
+                      deliveryAddress: result.deliveryAddress,
+                      pickupAddress: result.pickupAddress,
+                      deliveryIsCenterAddress,
+                      pickupIsCenterAddress,
+                    });
+                    recipientAddress = result.deliveryAddress || result.pickupAddress || "주소 없음";
+                    recipientZipcode = orderData.delivery_zipcode || orderData.pickup_zipcode || "";
+                  }
+                  
+                  console.log("📍 받는 사람 주소 결정 (출고 송장):", {
                     deliveryAddress: result.deliveryAddress,
+                    pickupAddress: result.pickupAddress,
+                    deliveryIsCenterAddress,
+                    pickupIsCenterAddress,
                     finalAddress: recipientAddress,
-                    pickupZipcode: orderData.pickup_zipcode,
-                    deliveryZipcode: orderData.delivery_zipcode,
                     finalZipcode: recipientZipcode,
                   });
 
@@ -1038,7 +1064,7 @@ export default function InboundPage() {
                     sortCode4: deliveryCode.sortCode4 || "",
                     printAreaCd: deliveryCode.printAreaCd || "", // 우체국 API: 인쇄용 집배코드
                   };
-                })()!}
+                })()}
               />
             </div>
           </div>
@@ -1070,10 +1096,16 @@ export default function InboundPage() {
                 <WebcamRecorder
                   orderId={orderIdValue}
                   sequence={seq}
+                  existingVideoId={inboundVideos[seq]?.videoId}
                   onUploaded={(videoId, duration) => {
                     console.log(`✅ 입고 ${seq}번 업로드 완료: ${videoId}`);
                     
                     setShowInboundVideo(false);
+                    
+                    // 영상 목록 새로고침
+                    if (result) {
+                      loadInboundVideos(result.orderId);
+                    }
                     
                     setTimeout(() => {
                       alert(`✅ ${seq}번 아이템 입고 영상이 저장되었습니다.\n\n영상 길이: ${duration}초\n영상 ID: ${videoId}`);

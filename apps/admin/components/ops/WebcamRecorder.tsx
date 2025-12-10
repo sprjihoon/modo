@@ -313,8 +313,13 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       // Determine stream upload endpoint based on current path
       let endpoint = "/api/ops/inbound/stream-upload";
       try {
-        if (typeof window !== "undefined" && window.location.pathname.includes("/ops/outbound")) {
-          endpoint = "/api/ops/outbound/stream-upload";
+        if (typeof window !== "undefined") {
+          const pathname = window.location.pathname;
+          if (pathname.includes("/ops/work")) {
+            endpoint = "/api/ops/work/stream-upload";
+          } else if (pathname.includes("/ops/outbound")) {
+            endpoint = "/api/ops/outbound/stream-upload";
+          }
         }
       } catch {}
 

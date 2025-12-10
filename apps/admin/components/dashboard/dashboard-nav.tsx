@@ -15,8 +15,9 @@ import {
   TrendingUp,
   Scissors,
   Ticket,
-  FileText,
   Truck,
+  Image,
+  Building2,
 } from "lucide-react";
 
 const navItems = [
@@ -71,14 +72,14 @@ const navItems = [
     icon: Video,
   },
   {
+    title: "배너 관리",
+    href: "/dashboard/banners",
+    icon: Image,
+  },
+  {
     title: "설정",
     href: "/dashboard/settings",
     icon: Settings,
-  },
-  {
-    title: "송장 레이아웃",
-    href: "/ops/label-editor",
-    icon: FileText,
   },
 ];
 
@@ -140,6 +141,22 @@ export function DashboardNav() {
           );
         })}
       </nav>
+
+      {/* 센터 콘솔로 이동 버튼 */}
+      <div className="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <Link
+          href="/ops/inbound"
+          className={cn(
+            "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
+            pathname.startsWith("/ops")
+              ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+              : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+          )}
+        >
+          <Building2 className="h-5 w-5" />
+          <span className="font-medium">센터 콘솔</span>
+        </Link>
+      </div>
     </div>
   );
 }

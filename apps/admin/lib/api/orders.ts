@@ -23,11 +23,8 @@ export async function getOrders(filters?: {
   }
 
   if (filters?.search) {
-    query = query.or(`
-      id.ilike.%${filters.search}%,
-      tracking_no.ilike.%${filters.search}%,
-      customer_name.ilike.%${filters.search}%
-    `);
+    const searchValue = `%${filters.search}%`;
+    query = query.or(`id.ilike.${searchValue},tracking_no.ilike.${searchValue},customer_name.ilike.${searchValue}`);
   }
 
   if (filters?.limit) {

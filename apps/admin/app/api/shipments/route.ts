@@ -76,14 +76,8 @@ export async function GET(request: NextRequest) {
 
     // 검색어 적용
     if (search) {
-      query = query.or(`
-        tracking_no.ilike.%${search}%,
-        pickup_tracking_no.ilike.%${search}%,
-        delivery_tracking_no.ilike.%${search}%,
-        customer_name.ilike.%${search}%,
-        pickup_address.ilike.%${search}%,
-        delivery_address.ilike.%${search}%
-      `);
+      const searchValue = `%${search}%`;
+      query = query.or(`tracking_no.ilike.${searchValue},pickup_tracking_no.ilike.${searchValue},delivery_tracking_no.ilike.${searchValue},customer_name.ilike.${searchValue},pickup_address.ilike.${searchValue},delivery_address.ilike.${searchValue}`);
     }
 
     const { data: shipments, error } = await query;

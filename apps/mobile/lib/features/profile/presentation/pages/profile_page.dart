@@ -130,7 +130,7 @@ class ProfilePage extends ConsumerWidget {
                   icon: Icons.person_remove_outlined,
                   title: '회원 탈퇴',
                   titleColor: Colors.grey.shade600,
-                  onTap: () => _showWithdrawDialog(context),
+                  onTap: () => _showWithdrawDialog(context, ref),
                 ),
               ],
             ),
@@ -406,10 +406,10 @@ class ProfilePage extends ConsumerWidget {
   }
 
   /// 회원 탈퇴 다이얼로그
-  void _showWithdrawDialog(BuildContext context) {
+  void _showWithdrawDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -418,28 +418,55 @@ class ProfilePage extends ConsumerWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         content: const Text(
-          '탈퇴하시면 모든 정보가 삭제됩니다.\n정말 탈퇴하시겠습니까?',
+          '탈퇴하시면 개인정보가 삭제됩니다.\n주문 및 작업 기록은 비즈니스 기록 보관을 위해 보관됩니다.\n정말 탈퇴하시겠습니까?',
           style: TextStyle(height: 1.5),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               '취소',
               style: TextStyle(color: Colors.grey.shade600),
             ),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // TODO: 실제 회원 탈퇴 로직
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('회원 탈퇴가 완료되었습니다'),
-                  backgroundColor: Colors.red,
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              
+              // 로딩 표시
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (loadingContext) => const Center(
+                  child: CircularProgressIndicator(),
                 ),
               );
-              context.go('/login');
+
+              try {
+                final authService = ref.read(authServiceProvider);
+                await authService.deleteAccount();
+                
+                if (context.mounted) {
+                  Navigator.of(context, rootNavigator: true).pop(); // 로딩 닫기
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('회원 탈퇴가 완료되었습니다'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  context.go('/login');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context, rootNavigator: true).pop(); // 로딩 닫기
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('회원 탈퇴 실패: ${e.toString().replaceAll('Exception: ', '')}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

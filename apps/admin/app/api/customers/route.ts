@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
         totalCustomers: 0,
         newCustomers: 0,
         activeCustomers: 0,
+        deletedCustomers: 0,
         totalSales: 0,
       },
     });
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
           totalCustomers: 0,
           newCustomers: 0,
           activeCustomers: 0,
+          deletedCustomers: 0,
           totalSales: 0,
         },
       },

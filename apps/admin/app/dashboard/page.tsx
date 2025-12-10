@@ -52,6 +52,7 @@ interface CustomerStats {
   totalCustomers: number;
   newCustomers: number;
   activeCustomers: number;
+  deletedCustomers: number;
   totalSales: number;
 }
 
