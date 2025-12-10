@@ -1,8 +1,8 @@
 {
-  "buildCommand": "cd apps/admin && npm run build",
-  "outputDirectory": "apps/admin/.next",
-  "devCommand": "cd apps/admin && npm run dev",
-  "installCommand": "cd apps/admin && npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
   "framework": "nextjs",
   "regions": ["icn1"]
 }

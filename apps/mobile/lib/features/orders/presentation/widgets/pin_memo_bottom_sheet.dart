@@ -15,7 +15,7 @@ class PinMemoBottomSheet extends StatefulWidget {
   @override
   State<PinMemoBottomSheet> createState() => _PinMemoBottomSheetState();
 
-  /// 다이얼로그로 표시 (레이아웃 변경 방지)
+  /// 바텀시트로 표시 (키보드 위로 오버레이)
   static Future<Map<String, dynamic>?> showMemoBottomSheet(
     BuildContext context, {
     String? initialMemo,
@@ -23,23 +23,36 @@ class PinMemoBottomSheet extends StatefulWidget {
   }) async {
     Map<String, dynamic>? result;
     
-    await showDialog<void>(
+    await showModalBottomSheet<void>(
       context: context,
-      barrierDismissible: true,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+      isScrollControlled: true, // 키보드에 따라 높이 조절
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent, // 둥근 모서리 위해 투명 설정
+      builder: (context) => Padding(
+        // 키보드 높이만큼 패딩 추가하여 입력창이 키보드 위로 올라옴
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: PinMemoBottomSheet(
-          initialMemo: initialMemo,
-          onSave: (memo) {
-            result = {'action': 'save', 'memo': memo};
-          },
-          onDelete: onDelete != null ? () {
-            result = {'action': 'delete'};
-            Navigator.of(context).pop();
-            onDelete();
-          } : null,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: PinMemoBottomSheet(
+            initialMemo: initialMemo,
+            onSave: (memo) {
+              result = {'action': 'save', 'memo': memo};
+            },
+            onDelete: onDelete != null ? () {
+              result = {'action': 'delete'};
+              Navigator.of(context).pop();
+              onDelete();
+            } : null,
+          ),
         ),
       ),
     );
@@ -72,110 +85,111 @@ class _PinMemoBottomSheetState extends State<PinMemoBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 500),
-      padding: const EdgeInsets.all(20),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 헤더
-            Row(
-              children: [
-                const Text(
-                  '메모 작성',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 헤더
+              Row(
+                children: [
+                  const Text(
+                    '메모 작성',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // 메모 입력 필드
-            TextFormField(
-              controller: _controller,
-              autofocus: true,
-              maxLines: 4,
-              maxLength: 200,
-              decoration: InputDecoration(
-                hintText: '수선 부위나 요청사항을 입력하세요 (선택사항)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                counterText: '${_controller.text.length}/200',
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
-              validator: (value) {
-                // 메모 선택사항으로 변경 (빈 값도 허용)
-                return null;
-              },
-              onChanged: (value) {
-                setState(() {}); // 글자 수 업데이트
-              },
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // 버튼들
-            Row(
-              children: [
-                // 삭제 버튼 (onDelete가 있을 때만)
-                if (widget.onDelete != null)
+              
+              const SizedBox(height: 20),
+              
+              // 메모 입력 필드
+              TextFormField(
+                controller: _controller,
+                autofocus: true,
+                maxLines: 4,
+                maxLength: 200,
+                decoration: InputDecoration(
+                  hintText: '수선 부위나 요청사항을 입력하세요 (선택사항)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  counterText: '${_controller.text.length}/200',
+                ),
+                validator: (value) {
+                  // 메모 선택사항으로 변경 (빈 값도 허용)
+                  return null;
+                },
+                onChanged: (value) {
+                  setState(() {}); // 글자 수 업데이트
+                },
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // 버튼들
+              Row(
+                children: [
+                  // 삭제 버튼 (onDelete가 있을 때만)
+                  if (widget.onDelete != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: widget.onDelete,
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        label: const Text('삭제'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (widget.onDelete != null) const SizedBox(width: 12),
+                  
+                  // 저장 버튼
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: widget.onDelete,
-                      icon: const Icon(Icons.delete_outline, size: 20),
-                      label: const Text('삭제'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
+                    flex: widget.onDelete != null ? 2 : 1,
+                    child: ElevatedButton(
+                      onPressed: _handleSave,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00C896),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                    ),
-                  ),
-                if (widget.onDelete != null) const SizedBox(width: 12),
-                
-                // 저장 버튼
-                Expanded(
-                  flex: widget.onDelete != null ? 2 : 1,
-                  child: ElevatedButton(
-                    onPressed: _handleSave,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00C896),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      '저장',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                      child: const Text(
+                        '저장',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
