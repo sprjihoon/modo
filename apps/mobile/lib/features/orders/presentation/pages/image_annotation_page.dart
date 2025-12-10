@@ -153,6 +153,7 @@ class _ImageAnnotationPageState extends State<ImageAnnotationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false, // 키보드가 올라올 때 레이아웃 변경 방지
       appBar: AppBar(
         title: const Text('수선 부위 표시'),
         actions: [
