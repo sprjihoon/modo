@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Package, Wrench, Send, Cpu, FileText, ClipboardList } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { createClient } from "@/lib/supabase/client";
 
 const navigation = [
   { name: "입고", href: "/ops/inbound", icon: Package },
@@ -16,6 +18,71 @@ const navigation = [
 
 export default function OpsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const supabase = createClient();
+
+      // 1. 로그인 상태 확인
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        console.log("🔒 로그인이 필요합니다. /login으로 이동");
+        router.push("/login");
+        return;
+      }
+
+      // 2. 사용자 프로필 확인
+      const { data: userData, error } = await supabase
+        .from("users")
+        .select("id, email, name, role")
+        .eq("auth_id", session.user.id)
+        .maybeSingle();
+
+      if (error || !userData) {
+        console.error("❌ 사용자 프로필 조회 실패:", error);
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+
+      // 3. 센터 콘솔은 ADMIN, MANAGER, WORKER 모두 접근 가능
+      if (!["ADMIN", "MANAGER", "WORKER"].includes(userData.role)) {
+        console.error("❌ 접근 권한이 없습니다:", userData.role);
+        await supabase.auth.signOut();
+        alert("⛔ 접근 권한이 없습니다.");
+        router.push("/login");
+        return;
+      }
+
+      console.log("✅ 인증 완료:", userData.email, userData.role);
+      setIsAuthorized(true);
+    } catch (error) {
+      console.error("❌ 인증 확인 중 오류:", error);
+      router.push("/login");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">

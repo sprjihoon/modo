@@ -89,7 +89,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       
       debugPrint('📦 주문 상세 조회 시작: ${widget.orderId}');
       
-      // 주문 상세 정보 조회 (타임아웃 추가)
+      // 🔒 보안: 주문 상세 정보 조회 (소유자 검증 포함)
       final order = await _orderService.getOrderDetail(widget.orderId)
           .timeout(
             const Duration(seconds: 30),
@@ -202,25 +202,48 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       debugPrint('❌ 주문 상세 조회 실패: $e');
       debugPrint('스택 트레이스: $stackTrace');
       
+      // 🔒 보안: 접근 권한 없음 처리
+      final errorMessage = e.toString();
+      final isAccessDenied = errorMessage.contains('접근 권한이 없습니다') || 
+                             errorMessage.contains('본인의 주문만');
+      
       if (mounted) {
-        // 에러 메시지 표시
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('주문 정보 조회 실패: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: '다시 시도',
-              textColor: Colors.white,
-              onPressed: () {
-                _loadOrderData();
-              },
-            ),
-          ),
-        );
-        
         // 로딩 상태 해제
         setState(() => _isLoading = false);
+        
+        if (isAccessDenied) {
+          // 🔒 접근 권한 없음: 즉시 뒤로가기
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⛔ 접근 권한이 없습니다. 본인의 주문만 조회할 수 있습니다.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          
+          // 0.5초 후 자동으로 뒤로가기 (사용자가 메시지를 읽을 시간 제공)
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              context.pop(); // 즉시 뒤로가기 (보안 위협 차단)
+            }
+          });
+        } else {
+          // 기타 에러: 재시도 가능
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('주문 정보 조회 실패: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: '다시 시도',
+                textColor: Colors.white,
+                onPressed: () {
+                  _loadOrderData();
+                },
+              ),
+            ),
+          );
+        }
       } else {
         // mounted가 false면 setState 호출하지 않음
         _isLoading = false;

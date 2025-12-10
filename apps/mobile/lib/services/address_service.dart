@@ -9,9 +9,16 @@ class AddressService {
   /// 배송지 목록 조회
   Future<List<Map<String, dynamic>>> getAddresses() async {
     try {
+      // 🔒 보안: 현재 로그인 사용자의 userId로 필터링 강제
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다. (user_id 없음)');
+      }
+
       final response = await _supabase
           .from('addresses')
           .select()
+          .eq('user_id', userId)  // 🔒 핵심: 본인 배송지만!
           .order('is_default', ascending: false)
           .order('created_at', ascending: false);
 
@@ -87,17 +94,20 @@ class AddressService {
     bool? isDefault,
   }) async {
     try {
+      // 🔒 보안: 소유자 검증
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다. (user_id 없음)');
+      }
+
       // 기본 배송지로 설정하려는 경우, 다른 배송지들의 기본 설정 해제
       if (isDefault == true) {
-        final userId = await _getCurrentUserId();
-        if (userId != null) {
-          await _supabase
-              .from('addresses')
-              .update({'is_default': false})
-              .eq('user_id', userId)
-              .eq('is_default', true)
-              .neq('id', addressId);
-        }
+        await _supabase
+            .from('addresses')
+            .update({'is_default': false})
+            .eq('user_id', userId)
+            .eq('is_default', true)
+            .neq('id', addressId);
       }
 
       final data = <String, dynamic>{};
@@ -109,12 +119,19 @@ class AddressService {
       if (addressDetail != null) data['address_detail'] = addressDetail;
       if (isDefault != null) data['is_default'] = isDefault;
 
+      // 🔒 보안: userId 필터링 추가 (본인 배송지만 수정 가능)
       final response = await _supabase
           .from('addresses')
           .update(data)
           .eq('id', addressId)
+          .eq('user_id', userId)  // 🔒 핵심: 본인 배송지만!
           .select()
-          .single();
+          .maybeSingle();
+
+      // 🔒 접근 권한 검증
+      if (response == null) {
+        throw Exception('접근 권한이 없습니다. 본인의 배송지만 수정할 수 있습니다.');
+      }
 
       _logger.i('✅ 배송지 수정 성공: $addressId');
       return response;
@@ -127,10 +144,18 @@ class AddressService {
   /// 배송지 삭제
   Future<void> deleteAddress(String addressId) async {
     try {
+      // 🔒 보안: 소유자 검증
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다. (user_id 없음)');
+      }
+
+      // 🔒 보안: userId 필터링 추가 (본인 배송지만 삭제 가능)
       await _supabase
           .from('addresses')
           .delete()
-          .eq('id', addressId);
+          .eq('id', addressId)
+          .eq('user_id', userId);  // 🔒 핵심: 본인 배송지만!
 
       _logger.i('✅ 배송지 삭제 성공: $addressId');
     } catch (e) {
@@ -170,9 +195,17 @@ class AddressService {
   /// 기본 배송지 조회
   Future<Map<String, dynamic>?> getDefaultAddress() async {
     try {
+      // 🔒 보안: 현재 로그인 사용자의 userId로 필터링 강제
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        _logger.w('⚠️ 로그인이 필요합니다');
+        return null;
+      }
+
       final response = await _supabase
           .from('addresses')
           .select()
+          .eq('user_id', userId)  // 🔒 핵심: 본인 배송지만!
           .eq('is_default', true)
           .maybeSingle();
 

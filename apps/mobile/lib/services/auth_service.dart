@@ -1,4 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../features/auth/domain/models/user_model.dart';
+import '../core/enums/user_role.dart';
 
 /// Supabase Auth 서비스
 class AuthService {
@@ -65,8 +67,11 @@ class AuthService {
     required String password,
     required String name,
     required String phone,
+    String? role, // 역할 지정 (옵션, 기본값은 'CUSTOMER')
   }) async {
     try {
+      print('📝 회원가입 시작: $email');
+      
       // 1. Auth 계정 생성
       final response = await _supabase.auth.signUp(
         email: email,
@@ -81,24 +86,61 @@ class AuthService {
         throw Exception('회원가입 실패: 사용자 생성에 실패했습니다');
       }
 
+      print('✅ Auth 계정 생성 성공: ${response.user!.id}');
+
       // 2. 프로필 생성 (users 테이블에 저장)
+      // 🔒 보안: 기본 role은 'CUSTOMER' (고객용 앱)
       try {
-        await _supabase.from('users').insert({
+        final userData = {
           'auth_id': response.user!.id,
           'email': email,
           'name': name,
           'phone': phone,
-        });
+          'role': role ?? 'CUSTOMER',  // 🔒 기본값: CUSTOMER
+        };
+        
+        await _supabase.from('users').insert(userData);
+        print('✅ 프로필 생성 성공 (role: ${userData['role']})');
       } catch (e) {
-        // users 테이블이 없거나 에러가 발생해도 계정은 생성됨
-        // 나중에 프로필을 업데이트할 수 있음
-        print('프로필 생성 실패 (무시 가능): $e');
+        // users 테이블 INSERT 실패 시
+        // 트리거(auto_create_user_profile)가 자동으로 생성하므로 무시 가능
+        print('⚠️ 프로필 수동 생성 실패 (트리거가 자동 생성할 것임): $e');
+        
+        // 잠시 대기 후 프로필 생성 확인
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        try {
+          final profile = await _supabase
+              .from('users')
+              .select('id, role')
+              .eq('auth_id', response.user!.id)
+              .maybeSingle();
+          
+          if (profile != null) {
+            print('✅ 트리거로 프로필 자동 생성 확인됨 (role: ${profile['role']})');
+          } else {
+            print('⚠️ 프로필이 생성되지 않았습니다. 수동으로 재시도합니다.');
+            // 재시도
+            await _supabase.from('users').insert({
+              'auth_id': response.user!.id,
+              'email': email,
+              'name': name,
+              'phone': phone,
+              'role': role ?? 'CUSTOMER',
+            });
+            print('✅ 프로필 재시도 성공');
+          }
+        } catch (retryError) {
+          print('❌ 프로필 확인 실패: $retryError');
+        }
       }
 
       return response;
     } on AuthException catch (e) {
+      print('❌ AuthException: ${e.message}');
       throw Exception('회원가입 실패: ${e.message}');
     } catch (e) {
+      print('❌ 회원가입 실패: $e');
       throw Exception('회원가입 실패: $e');
     }
   }
@@ -298,5 +340,42 @@ class AuthService {
 
   /// Auth 상태 변경 리스너
   Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
+
+  /// 현재 사용자 프로필 가져오기 (UserModel)
+  Future<UserModel?> getUserProfile() async {
+    try {
+      final currentUser = this.currentUser;
+      if (currentUser == null) {
+        return null;
+      }
+
+      final response = await _supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', currentUser.id)
+          .maybeSingle();
+
+      if (response != null) {
+        print('✅ 사용자 프로필 조회 성공: ${response['name']} (역할: ${response['role']})');
+        return UserModel.fromJson(response);
+      }
+
+      return null;
+    } catch (e) {
+      print('❌ 사용자 프로필 조회 실패: $e');
+      return null;
+    }
+  }
+
+  /// 사용자 역할 가져오기
+  Future<UserRole?> getUserRole() async {
+    try {
+      final profile = await getUserProfile();
+      return profile?.role;
+    } catch (e) {
+      print('❌ 사용자 역할 조회 실패: $e');
+      return null;
+    }
+  }
 }
 

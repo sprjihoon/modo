@@ -143,11 +143,31 @@ class OrderService {
         throw Exception('로그인이 필요합니다');
       }
 
-      // orders 테이블만 조회 (tracking_no는 orders 테이블에 있음)
+      debugPrint('📋 Auth User ID: ${user.id}');
+
+      // public.users 테이블에서 실제 user_id 조회 (auth_id로 검색)
+      final userResponse = await _supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', user.id)
+          .maybeSingle();
+
+      if (userResponse == null) {
+        debugPrint('⚠️ public.users에 사용자 정보가 없습니다.');
+        throw Exception('사용자 정보를 찾을 수 없습니다. 관리자에게 문의해주세요.');
+      }
+
+      final userId = userResponse['id'] as String;
+      debugPrint('✅ Public User ID: $userId');
+
+      // 🔒 보안: 본인의 주문만 조회 (user_id 필터링 강제)
       final response = await _supabase
           .from('orders')
           .select('*')
+          .eq('user_id', userId)  // 🔒 핵심: 본인 주문만!
           .order('created_at', ascending: false);
+
+      debugPrint('✅ 조회된 주문 개수: ${(response as List).length}개');
 
       // 타입 안전하게 변환
       final orders = (response as List).map((order) {
@@ -166,6 +186,7 @@ class OrderService {
 
       return orders;
     } catch (e) {
+      debugPrint('❌ 주문 목록 조회 오류: $e');
       throw Exception('주문 조회 실패: $e');
     }
   }
@@ -175,12 +196,41 @@ class OrderService {
     try {
       debugPrint('🔍 주문 상세 조회 시작: $orderId');
       
-      // orders 테이블만 조회
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+
+      debugPrint('📋 Auth User ID: ${user.id}');
+
+      // public.users 테이블에서 실제 user_id 조회 (auth_id로 검색)
+      final userResponse = await _supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', user.id)
+          .maybeSingle();
+
+      if (userResponse == null) {
+        debugPrint('⚠️ public.users에 사용자 정보가 없습니다.');
+        throw Exception('사용자 정보를 찾을 수 없습니다. 관리자에게 문의해주세요.');
+      }
+
+      final userId = userResponse['id'] as String;
+      debugPrint('✅ Public User ID: $userId');
+      
+      // 🔒 보안: 본인의 주문만 조회 (user_id 필터링 강제)
       final response = await _supabase
           .from('orders')
           .select('*')
           .eq('id', orderId)
-          .single();
+          .eq('user_id', userId)  // 🔒 핵심: 본인 주문만!
+          .maybeSingle();
+
+      // 🔒 접근 권한 검증: 주문이 없거나 본인 소유가 아닌 경우
+      if (response == null) {
+        debugPrint('❌ 접근 권한 없음: orderId=$orderId, userId=$userId');
+        throw Exception('접근 권한이 없습니다. 본인의 주문만 조회할 수 있습니다.');
+      }
 
       debugPrint('✅ 주문 조회 성공: ${response['id']}');
 

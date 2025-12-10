@@ -20,6 +20,7 @@ import {
   FileText,
   Coins,
   ArrowRight,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -281,6 +282,33 @@ export default function SettingsPage() {
             <Link href="/dashboard/settings/points">
               <Button>
                 설정 관리
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Staff Management Link */}
+      <Card className="border-purple-200 dark:border-purple-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-purple-600" />
+            직원 계정 관리
+          </CardTitle>
+          <CardDescription>입출고 관리자 및 작업자 계정을 관리합니다</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">직원 계정 등록 및 권한 관리</p>
+              <p className="text-sm text-muted-foreground">
+                입출고 관리자, 작업자 계정 생성 및 수정 (관리자 전용)
+              </p>
+            </div>
+            <Link href="/dashboard/settings/staff">
+              <Button>
+                직원 관리
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>

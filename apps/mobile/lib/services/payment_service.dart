@@ -77,12 +77,19 @@ class PaymentService {
   }
 
   /// 등록된 결제수단 목록 조회
-  Future<List<Map<String, dynamic>>> getPaymentMethods(String userId) async {
+  Future<List<Map<String, dynamic>>> getPaymentMethods() async {
     try {
+      // 🔒 보안: 현재 로그인 사용자의 userId 자동 조회
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+
+      // 🔒 보안: userId 필터링 강제 (본인 결제수단만)
       final data = await _supabase
           .from('payment_methods')
           .select()
-          .eq('user_id', userId)
+          .eq('user_id', userId)  // 🔒 핵심: 본인 결제수단만!
           .eq('is_active', true)
           .order('is_default', ascending: false)
           .order('created_at', ascending: false);
@@ -95,7 +102,6 @@ class PaymentService {
 
   /// 결제수단 등록
   Future<Map<String, dynamic>> registerPaymentMethod({
-    required String userId,
     required String billingKey,
     required String cardCompany,
     required String cardNumber,
@@ -103,8 +109,14 @@ class PaymentService {
     bool isDefault = false,
   }) async {
     try {
+      // 🔒 보안: 현재 로그인 사용자의 userId 자동 조회
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+
       final data = await _supabase.from('payment_methods').insert({
-        'user_id': userId,
+        'user_id': userId,  // 🔒 핵심: 본인 userId만!
         'billing_key': billingKey,
         'card_company': cardCompany,
         'card_number': cardNumber,
@@ -131,10 +143,18 @@ class PaymentService {
   /// 결제수단 삭제
   Future<void> deletePaymentMethod(String paymentMethodId) async {
     try {
+      // 🔒 보안: 소유자 검증
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+
+      // 🔒 보안: userId 필터링 추가 (본인 결제수단만 삭제 가능)
       await _supabase
           .from('payment_methods')
           .update({'is_active': false})
-          .eq('id', paymentMethodId);
+          .eq('id', paymentMethodId)
+          .eq('user_id', userId);  // 🔒 핵심: 본인 결제수단만!
     } catch (e) {
       throw Exception('결제수단 삭제 실패: $e');
     }
@@ -142,34 +162,46 @@ class PaymentService {
 
   /// 기본 결제수단 설정
   Future<void> setDefaultPaymentMethod({
-    required String userId,
     required String paymentMethodId,
   }) async {
     try {
+      // 🔒 보안: 소유자 검증
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+
       // 모든 결제수단의 기본 설정 해제
       await _supabase
           .from('payment_methods')
           .update({'is_default': false})
           .eq('user_id', userId);
 
-      // 선택한 결제수단을 기본으로 설정
+      // 🔒 보안: userId 필터링 추가 (본인 결제수단만 수정 가능)
       await _supabase
           .from('payment_methods')
           .update({'is_default': true})
-          .eq('id', paymentMethodId);
+          .eq('id', paymentMethodId)
+          .eq('user_id', userId);  // 🔒 핵심: 본인 결제수단만!
     } catch (e) {
       throw Exception('기본 결제수단 설정 실패: $e');
     }
   }
 
   /// 결제 내역 조회 (orders 기반으로 조회)
-  Future<List<Map<String, dynamic>>> getPaymentHistory(String userId) async {
+  Future<List<Map<String, dynamic>>> getPaymentHistory() async {
     try {
-      // payments 테이블 대신 orders 테이블에서 결제 완료된 주문 조회
+      // 🔒 보안: 현재 로그인 사용자의 userId 자동 조회
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+
+      // 🔒 보안: userId 필터링 강제 (본인 결제 내역만)
       final data = await _supabase
           .from('orders')
           .select('*')
-          .eq('user_id', userId)
+          .eq('user_id', userId)  // 🔒 핵심: 본인 주문만!
           .eq('payment_status', 'PAID')
           .order('created_at', ascending: false);
 
@@ -208,6 +240,24 @@ class PaymentService {
   /// 추가 결제 목록 조회
   Future<List<Map<String, dynamic>>> getAdditionalPayments(String orderId) async {
     try {
+      // 🔒 보안: 소유자 검증 (해당 주문이 본인 소유인지 확인)
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+
+      // 먼저 주문이 본인 소유인지 검증
+      final order = await _supabase
+          .from('orders')
+          .select('id, user_id')
+          .eq('id', orderId)
+          .eq('user_id', userId)  // 🔒 핵심: 본인 주문만!
+          .maybeSingle();
+
+      if (order == null) {
+        throw Exception('접근 권한이 없습니다. 본인의 주문만 조회할 수 있습니다.');
+      }
+
       final data = await _supabase
           .from('additional_payments')
           .select()
@@ -225,12 +275,30 @@ class PaymentService {
     required String additionalPaymentId,
   }) async {
     try {
-      // 추가 결제 정보 조회
+      // 🔒 보안: 소유자 검증
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+
+      // 추가 결제 정보 조회 및 소유자 검증
       final additionalPayment = await _supabase
           .from('additional_payments')
-          .select()
+          .select('*, order_id')
           .eq('id', additionalPaymentId)
           .single();
+
+      // 해당 주문이 본인 소유인지 확인
+      final order = await _supabase
+          .from('orders')
+          .select('id, user_id')
+          .eq('id', additionalPayment['order_id'])
+          .eq('user_id', userId)  // 🔒 핵심: 본인 주문만!
+          .maybeSingle();
+
+      if (order == null) {
+        throw Exception('접근 권한이 없습니다. 본인의 주문만 수락할 수 있습니다.');
+      }
 
       // 상태 업데이트 (고객 수락)
       await _supabase
@@ -251,6 +319,31 @@ class PaymentService {
     required String additionalPaymentId,
   }) async {
     try {
+      // 🔒 보안: 소유자 검증
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+
+      // 추가 결제 정보 조회 및 소유자 검증
+      final additionalPayment = await _supabase
+          .from('additional_payments')
+          .select('order_id')
+          .eq('id', additionalPaymentId)
+          .single();
+
+      // 해당 주문이 본인 소유인지 확인
+      final order = await _supabase
+          .from('orders')
+          .select('id, user_id')
+          .eq('id', additionalPayment['order_id'])
+          .eq('user_id', userId)  // 🔒 핵심: 본인 주문만!
+          .maybeSingle();
+
+      if (order == null) {
+        throw Exception('접근 권한이 없습니다. 본인의 주문만 거부할 수 있습니다.');
+      }
+
       await _supabase
           .from('additional_payments')
           .update({
@@ -260,6 +353,26 @@ class PaymentService {
           .eq('id', additionalPaymentId);
     } catch (e) {
       throw Exception('추가 결제 거부 실패: $e');
+    }
+  }
+
+  /// 현재 사용자의 user_id 가져오기
+  Future<String?> _getCurrentUserId() async {
+    try {
+      final authId = _supabase.auth.currentUser?.id;
+      if (authId == null) {
+        return null;
+      }
+
+      final response = await _supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', authId)
+          .maybeSingle();
+
+      return response?['id'] as String?;
+    } catch (e) {
+      return null;
     }
   }
 }
