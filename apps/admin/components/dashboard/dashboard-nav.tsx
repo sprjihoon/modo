@@ -16,9 +16,9 @@ import {
   Scissors,
   Ticket,
   Truck,
-  FileText,
   Building2,
   Image,
+  ClipboardList,
 } from "lucide-react";
 
 const navItems = [
@@ -78,14 +78,14 @@ const navItems = [
     icon: Image,
   },
   {
+    title: "작업 내역",
+    href: "/dashboard/work-history",
+    icon: ClipboardList,
+  },
+  {
     title: "설정",
     href: "/dashboard/settings",
     icon: Settings,
-  },
-  {
-    title: "송장 레이아웃",
-    href: "/ops/label-editor",
-    icon: FileText,
   },
 ];
 
@@ -114,20 +114,20 @@ export function DashboardNav() {
   }, []);
 
   return (
-    <div className="w-64 bg-white dark:bg-gray-800 border-r min-h-screen flex flex-col p-4">
+    <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen flex flex-col p-4">
       <div className="mb-8">
         <Link href="/dashboard" className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
             <span className="text-white">🧵</span>
           </div>
           <div>
-            <h2 className="font-bold">{companyName}</h2>
-            <p className="text-xs text-muted-foreground">관리자</p>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{companyName}</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">관리자</p>
           </div>
         </Link>
       </div>
 
-      <nav className="space-y-1 flex-1">
+      <nav className="space-y-1 flex-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
@@ -135,10 +135,10 @@ export function DashboardNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
+                "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                 isActive
                   ? "bg-primary text-primary-foreground"
-                  : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               )}
             >
               <item.icon className="h-5 w-5" />

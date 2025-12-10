@@ -11,10 +11,10 @@ export function DashboardHeader() {
   const isOpsConsole = pathname.startsWith("/ops");
 
   return (
-    <header className="bg-white dark:bg-gray-800 border-b px-6 py-4">
+    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {isOpsConsole ? "센터 콘솔" : "관리자 콘솔"}
           </h2>
         </div>
