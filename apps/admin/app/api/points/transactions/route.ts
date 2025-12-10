@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 // 포인트 거래 내역 조회
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search') || '';
     const type = searchParams.get('type') || 'ALL';
     const limit = parseInt(searchParams.get('limit') || '10');

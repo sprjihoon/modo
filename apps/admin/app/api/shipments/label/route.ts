@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * 송장 라벨 조회 API
  * 우체국 API에서 발급된 라벨 URL을 조회하거나 재발급합니다.
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const trackingNo = searchParams.get('tracking_no');
     const orderId = searchParams.get('order_id');
 

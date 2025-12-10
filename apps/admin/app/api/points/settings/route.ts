@@ -12,10 +12,12 @@ const supabase = createClient(
   }
 );
 
+export const dynamic = 'force-dynamic';
+
 // 포인트 설정 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const activeOnly = searchParams.get('active') === 'true';
 
     let query = supabase

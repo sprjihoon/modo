@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/ops/video/durations?trackingNo=xxx&type=inbound_video
  * 
@@ -8,7 +10,7 @@ import { supabaseAdmin } from "@/lib/supabase";
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const trackingNo = searchParams.get("trackingNo");
     const type = searchParams.get("type");
 
