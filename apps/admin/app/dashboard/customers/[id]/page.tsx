@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import CustomerDetailClient from "@/components/customers/CustomerDetailClient";
+import { getCustomerById } from "@/lib/api/customers";
 
 interface CustomerDetailPageProps {
   params: Promise<{
@@ -16,19 +17,9 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
   
   let customerData;
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/customers/${customerId}`, {
-      cache: 'no-store',
-    });
-    
-    if (!response.ok) {
-      notFound();
-    }
-    
-    const result = await response.json();
-    console.log('👤 [Customer Page] API 응답:', result);
-    
-    // API 응답 형식 처리: { success: true, customer: {...} } 또는 직접 객체
-    customerData = result.success ? result.customer : result;
+    // 직접 데이터베이스 조회 (Server Component에서 API 호출 대신)
+    customerData = await getCustomerById(customerId);
+    console.log('👤 [Customer Page] 고객 조회 성공:', customerData?.id);
   } catch (error) {
     console.error('고객 정보 조회 실패:', error);
     notFound();
