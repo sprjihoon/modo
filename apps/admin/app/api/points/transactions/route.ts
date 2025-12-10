@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
       const typeMap: Record<string, string[]> = {
         '적립': ['EARNED', 'ADMIN_ADD'],
         '사용': ['USED', 'ADMIN_SUB'],
+        '취소': ['EARN_CANCEL'],
         '만료': ['EXPIRED']
       };
       
@@ -77,6 +78,7 @@ export async function GET(request: NextRequest) {
       else if (transaction.type === 'USED') typeKorean = '사용';
       else if (transaction.type === 'ADMIN_ADD') typeKorean = '적립';
       else if (transaction.type === 'ADMIN_SUB') typeKorean = '차감';
+      else if (transaction.type === 'EARN_CANCEL') typeKorean = '취소';
       else if (transaction.type === 'EXPIRED') typeKorean = '만료';
 
       // 사용자 정보 (user_id 기준으로만 매칭)

@@ -26,8 +26,8 @@ void main() async {
       print('   apps/mobile/.env 파일을 확인하세요.');
     } else {
       print('✅ Supabase 설정 확인됨');
-      print('   URL: ${url.substring(0, url.length > 30 ? 30 : url.length)}...');
-      print('   Key: ${anonKey.substring(0, 20)}...');
+      print('   URL: ${url.length > 30 ? url.substring(0, 30) : url}...');
+      print('   Key: ${anonKey.length > 20 ? anonKey.substring(0, 20) : anonKey}...');
     }
     
     // Supabase 초기화

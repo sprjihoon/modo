@@ -1,6 +1,6 @@
 # Supabase Edge Functions Configuration
 
-project_id = "your-project-id"
+project_id = "rzrwediccbamxluegnex"
 
 [api]
 enabled = true
@@ -20,8 +20,11 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://localhost:3000"]
+site_url = "https://modo.mom"
+additional_redirect_urls = [
+  "https://modo.mom",
+  "http://localhost:3000"
+]
 
 [auth.email]
 enable_signup = true

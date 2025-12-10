@@ -1,93 +1,157 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Package, ShoppingCart, TrendingUp, Users, AlertCircle, Clock, CreditCard } from "lucide-react";
 
+interface Order {
+  id: string;
+  order_number: string;
+  user_id: string;
+  customer_name: string | null;
+  customer_email: string | null;
+  item_name: string | null;
+  clothing_type: string;
+  repair_type: string;
+  base_price: number;
+  total_price: number;
+  original_total_price: number | null;
+  promotion_discount_amount: number | null;
+  status: string;
+  payment_status: string;
+  tracking_no: string | null;
+  created_at: string;
+  promotion_codes: {
+    code: string;
+    discount_type: string;
+    discount_value: number;
+  } | null;
+}
+
+interface Stats {
+  total: number;
+  pending: number;
+  paid: number;
+  booked: number;
+  inbound: number;
+  processing: number;
+  readyToShip: number;
+  delivered: number;
+  cancelled: number;
+  promotionUsed: number;
+  totalDiscount: number;
+  totalRevenue: number;
+}
+
 export default function DashboardPage() {
-  // TODO: Fetch real data from Supabase
-  const stats = [
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<number>(0);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      // 1. Load overall stats and recent orders
+      const overallResponse = await fetch('/api/orders?pageSize=5');
+      const overallResult = await overallResponse.json();
+      
+      if (overallResult.success) {
+        setStats(overallResult.stats);
+        setRecentOrders(overallResult.data || []);
+      }
+
+      // 2. Load monthly revenue
+      const today = new Date();
+      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+      const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+      
+      const monthlyResponse = await fetch(`/api/orders?startDate=${firstDayOfMonth}&endDate=${lastDayOfMonth}`);
+      const monthlyResult = await monthlyResponse.json();
+
+      if (monthlyResult.success && monthlyResult.stats) {
+        setMonthlyRevenue(monthlyResult.stats.totalRevenue);
+      }
+
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getUrgentOrders = () => {
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    
+    return recentOrders.filter(o => {
+      const isPendingOrPaid = o.status === 'PENDING' || o.status === 'PAID';
+      const isOld = new Date(o.created_at) < threeDaysAgo;
+      return isPendingOrPaid && isOld;
+    });
+  };
+
+  const urgentOrders = getUrgentOrders();
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  };
+
+  const dashboardStats = [
     {
       title: "전체 주문",
-      value: "124",
-      change: "+12%",
+      value: stats?.total.toLocaleString() || "0",
+      change: "", // TODO: Calculate change
       icon: ShoppingCart,
       color: "text-blue-600",
     },
     {
       title: "처리 중",
-      value: "23",
-      change: "+5%",
+      value: stats?.processing.toLocaleString() || "0",
+      change: "",
       icon: Package,
       color: "text-purple-600",
     },
     {
-      title: "전체 고객",
-      value: "89",
-      change: "+18%",
+      title: "수선 완료", // Changed from "전체 고객" as we don't have unique customer count easily yet, using Delivered or ReadyToShip might be better, but let's stick to Delivered count or just Total Customers if we trust stats.total to be close enough for now? 
+      // Actually the UI had "전체 고객". I'll use stats.total for now as a placeholder or remove it. 
+      // Let's use "배송 완료" instead which is more useful.
+      value: stats?.delivered.toLocaleString() || "0",
+      change: "",
       icon: Users,
       color: "text-green-600",
     },
     {
       title: "월 매출",
-      value: "₩2,450,000",
-      change: "+23%",
+      value: formatCurrency(monthlyRevenue),
+      change: "",
       icon: TrendingUp,
       color: "text-orange-600",
     },
   ];
 
-  const recentOrders = [
-    {
-      id: "ORDER-2024-0001",
-      item: "청바지 기장 수선",
-      trackingNo: "1234567890",
-      status: "수선중",
-      amount: 15000,
-      date: "2024.01.15",
-      urgent: false,
-    },
-    {
-      id: "ORDER-2024-0002",
-      item: "셔츠 수선",
-      trackingNo: "1234567891",
-      status: "입고완료",
-      amount: 20000,
-      date: "2024.01.14",
-      urgent: true,
-    },
-    {
-      id: "ORDER-2024-0003",
-      item: "코트 수선",
-      trackingNo: "1234567892",
-      status: "출고완료",
-      amount: 40000,
-      date: "2024.01.13",
-      urgent: false,
-    },
-    {
-      id: "ORDER-2024-0004",
-      item: "바지 수선",
-      trackingNo: "1234567893",
-      status: "수거예약",
-      amount: 18000,
-      date: "2024.01.12",
-      urgent: false,
-    },
-    {
-      id: "ORDER-2024-0005",
-      item: "재킷 수선",
-      trackingNo: "1234567894",
-      status: "배송완료",
-      amount: 35000,
-      date: "2024.01.11",
-      urgent: false,
-    },
-  ];
-
-  const urgentOrders = recentOrders.filter((o) => o.urgent);
+  if (isLoading && !stats) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -98,7 +162,7 @@ export default function DashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+        {dashboardStats.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
@@ -106,9 +170,9 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">
+              {/* <p className="text-xs text-muted-foreground">
                 <span className="text-green-600">{stat.change}</span> 지난 달 대비
-              </p>
+              </p> */}
             </CardContent>
           </Card>
         ))}
@@ -123,7 +187,7 @@ export default function DashboardPage() {
                 <AlertCircle className="h-5 w-5 text-red-500" />
                 긴급 주문
               </CardTitle>
-              <CardDescription>즉시 처리 필요한 주문입니다</CardDescription>
+              <CardDescription>3일 이상 처리가 지연된 주문입니다</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -131,10 +195,10 @@ export default function DashboardPage() {
                   <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
                     <div className="flex items-center justify-between p-3 border border-red-200 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                       <div>
-                        <p className="font-medium">{order.item}</p>
-                        <p className="text-sm text-muted-foreground">{order.id}</p>
+                        <p className="font-medium">{order.item_name || "수선 품목"}</p>
+                        <p className="text-sm text-muted-foreground">{order.order_number}</p>
                       </div>
-                      <Badge variant="destructive">긴급</Badge>
+                      <Badge variant="destructive">지연</Badge>
                     </div>
                   </Link>
                 ))}
@@ -156,30 +220,36 @@ export default function DashboardPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
-                  <p className="font-medium">입고 대기</p>
-                  <p className="text-sm text-muted-foreground">5건</p>
+                  <p className="font-medium">입고 대기 (수거예약)</p>
+                  <p className="text-sm text-muted-foreground">{stats?.booked || 0}건</p>
                 </div>
-                <Button size="sm" variant="outline">
-                  확인
-                </Button>
+                <Link href="/dashboard/orders?status=BOOKED">
+                  <Button size="sm" variant="outline">
+                    확인
+                  </Button>
+                </Link>
               </div>
               <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
-                  <p className="font-medium">영상 업로드 대기</p>
-                  <p className="text-sm text-muted-foreground">3건</p>
+                  <p className="font-medium">영상 업로드 대기 (입고완료)</p>
+                  <p className="text-sm text-muted-foreground">{stats?.inbound || 0}건</p>
                 </div>
-                <Button size="sm" variant="outline">
-                  확인
-                </Button>
+                <Link href="/dashboard/orders?status=INBOUND">
+                  <Button size="sm" variant="outline">
+                    확인
+                  </Button>
+                </Link>
               </div>
               <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
                   <p className="font-medium">출고 대기</p>
-                  <p className="text-sm text-muted-foreground">2건</p>
+                  <p className="text-sm text-muted-foreground">{stats?.readyToShip || 0}건</p>
                 </div>
-                <Button size="sm" variant="outline">
-                  확인
-                </Button>
+                <Link href="/dashboard/orders?status=READY_TO_SHIP">
+                  <Button size="sm" variant="outline">
+                    확인
+                  </Button>
+                </Link>
               </div>
             </div>
           </CardContent>
@@ -203,30 +273,34 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {recentOrders.map((order) => (
-              <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
-                <div className="flex items-center justify-between border-b pb-4 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-lg p-2 -m-2">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <Package className="h-5 w-5 text-primary" />
+            {recentOrders.length === 0 ? (
+               <div className="text-center py-4 text-muted-foreground">최근 주문이 없습니다.</div>
+            ) : (
+              recentOrders.map((order) => (
+                <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
+                  <div className="flex items-center justify-between border-b pb-4 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-lg p-2 -m-2">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <Package className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{order.item_name || "수선 품목"}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {order.order_number} {order.tracking_no && `• 송장: ${order.tracking_no}`}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{order.item}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {order.id} • 송장: {order.trackingNo}
-                      </p>
+                    <div className="flex items-center gap-4">
+                      <Badge variant="outline">{order.status}</Badge>
+                      <div className="text-right">
+                        <p className="font-medium">{formatCurrency(order.total_price)}</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(order.created_at)}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <Badge variant="outline">{order.status}</Badge>
-                    <div className="text-right">
-                      <p className="font-medium">₩{order.amount.toLocaleString()}</p>
-                      <p className="text-sm text-muted-foreground">{order.date}</p>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -289,4 +363,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

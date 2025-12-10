@@ -32,7 +32,9 @@ import {
   Plus,
   Edit,
   Trash2,
-  CheckCircle
+  CheckCircle,
+  Clock,
+  Loader2
 } from "lucide-react";
 import PointSettingDialog from "@/components/settings/PointSettingDialog";
 
@@ -97,9 +99,20 @@ export default function PointsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // 포인트 만료 처리 관련 상태
+  const [expiringPoints, setExpiringPoints] = useState<any[]>([]);
+  const [expiringStats, setExpiringStats] = useState({
+    totalExpiring: 0,
+    expiringToday: 0,
+    expiringCount: 0
+  });
+  const [expiringLoading, setExpiringLoading] = useState(false);
+  const [expiringProcessing, setExpiringProcessing] = useState(false);
+
   // 포인트 통계 로드
   useEffect(() => {
     fetchStats();
+    fetchExpiringPoints();
   }, []);
 
   // 포인트 설정 로드
@@ -171,6 +184,53 @@ export default function PointsPage() {
       console.error("포인트 거래 내역 조회 실패:", error);
     } finally {
       setLoadingTransactions(false);
+    }
+  };
+
+  const fetchExpiringPoints = async () => {
+    setExpiringLoading(true);
+    try {
+      const response = await fetch('/api/points/expire?days=30');
+      const data = await response.json();
+      if (data.success) {
+        setExpiringPoints(data.points || []);
+        setExpiringStats(data.stats || {
+          totalExpiring: 0,
+          expiringToday: 0,
+          expiringCount: 0
+        });
+      }
+    } catch (error) {
+      console.error("만료 예정 포인트 조회 실패:", error);
+    } finally {
+      setExpiringLoading(false);
+    }
+  };
+
+  const handleExpirePoints = async () => {
+    if (!confirm('만료된 포인트를 소멸 처리하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    setExpiringProcessing(true);
+    try {
+      const response = await fetch('/api/points/expire', {
+        method: 'POST'
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        alert(data.message || `총 ${data.expiredCount}건의 만료된 포인트가 소멸되었습니다.`);
+        // 통계 및 만료 예정 목록 새로고침
+        await fetchStats();
+        await fetchExpiringPoints();
+      } else {
+        throw new Error(data.error || '만료 처리 실패');
+      }
+    } catch (error: any) {
+      alert(`만료 처리 실패: ${error.message}`);
+    } finally {
+      setExpiringProcessing(false);
     }
   };
 
@@ -337,6 +397,77 @@ export default function PointsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 포인트 만료 관리 */}
+      <Card className="border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-orange-600" />
+                포인트 만료 관리 (30일 만료 정책)
+              </CardTitle>
+              <CardDescription>
+                만료된 포인트는 FIFO 방식으로 자동 소멸됩니다
+              </CardDescription>
+            </div>
+            <Button
+              onClick={handleExpirePoints}
+              disabled={expiringProcessing || expiringStats.expiringToday === 0}
+              variant="outline"
+              className="border-orange-300"
+            >
+              {expiringProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  처리 중...
+                </>
+              ) : (
+                <>
+                  만료 처리 실행
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {expiringLoading ? (
+            <div className="text-center py-4 text-muted-foreground">로딩 중...</div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <p className="text-sm text-muted-foreground">오늘 만료 예정</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {expiringStats.expiringToday.toLocaleString()}P
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {expiringPoints.filter(
+                    pt => pt.expires_at && new Date(pt.expires_at) <= new Date()
+                  ).length}건
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">30일 내 만료 예정</p>
+                <p className="text-2xl font-bold text-orange-500">
+                  {expiringStats.totalExpiring.toLocaleString()}P
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {expiringStats.expiringCount}건
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">만료 정책</p>
+                <p className="text-lg font-semibold text-orange-700">
+                  30일 후 자동 소멸
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  오래된 포인트부터 순차 소멸
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -577,6 +708,7 @@ export default function PointsPage() {
                     <SelectItem value="ALL">전체</SelectItem>
                     <SelectItem value="적립">적립</SelectItem>
                     <SelectItem value="사용">사용</SelectItem>
+                    <SelectItem value="취소">취소</SelectItem>
                     <SelectItem value="만료">만료</SelectItem>
                   </SelectContent>
                 </Select>
@@ -629,6 +761,8 @@ export default function PointsPage() {
                               ? "bg-green-100"
                               : point.type === "사용"
                               ? "bg-red-100"
+                              : point.type === "취소"
+                              ? "bg-orange-100"
                               : "bg-gray-100"
                           }`}
                         >
@@ -636,6 +770,8 @@ export default function PointsPage() {
                             <TrendingUp className="h-5 w-5 text-green-600" />
                           ) : point.type === "사용" ? (
                             <TrendingDown className="h-5 w-5 text-red-600" />
+                          ) : point.type === "취소" ? (
+                            <TrendingDown className="h-5 w-5 text-orange-600" />
                           ) : (
                             <TrendingDown className="h-5 w-5 text-gray-600" />
                           )}
@@ -670,6 +806,8 @@ export default function PointsPage() {
                               ? "default"
                               : point.type === "사용"
                               ? "destructive"
+                              : point.type === "취소"
+                              ? "secondary"
                               : "outline"
                           }
                           className="mt-1"

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../../../../services/point_service.dart';
 
 /// 포인트 적립 내역 페이지
 class PointsHistoryPage extends ConsumerStatefulWidget {
@@ -10,101 +12,82 @@ class PointsHistoryPage extends ConsumerStatefulWidget {
 }
 
 class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
+  final _pointService = PointService();
+  bool _isLoading = true;
+  int _currentBalance = 0;
+
   int _currentPage = 1;
   final int _itemsPerPage = 10;
   String _selectedPeriod = '전체'; // 전체, 1개월, 3개월, 6개월
   
-  // Mock 포인트 내역 (전체 데이터)
-  final List<Map<String, dynamic>> _allPointsHistory = [
-      {
-        'date': '2024.11.12 14:30',
-        'type': '적립',
-        'reason': '수선 완료',
-        'points': 1500,
-        'balance': 1500,
-      },
-      {
-        'date': '2024.11.10 10:20',
-        'type': '사용',
-        'reason': '주문 할인 적용',
-        'points': -1000,
-        'balance': 0,
-      },
-      {
-        'date': '2024.11.05 16:45',
-        'type': '적립',
-        'reason': '친구 초대',
-        'points': 5000,
-        'balance': 1000,
-      },
-      {
-        'date': '2024.11.01 09:15',
-        'type': '적립',
-        'reason': '회원가입 축하',
-        'points': 3000,
-        'balance': 0,
-      },
-      // 추가 더미 데이터 (페이징 테스트용)
-      {
-        'date': '2024.10.28 14:20',
-        'type': '사용',
-        'reason': '수선 할인 적용',
-        'points': -500,
-        'balance': 3000,
-      },
-      {
-        'date': '2024.10.25 11:30',
-        'type': '적립',
-        'reason': '리뷰 작성',
-        'points': 1000,
-        'balance': 3500,
-      },
-      {
-        'date': '2024.10.20 16:00',
-        'type': '적립',
-        'reason': '수선 완료',
-        'points': 2000,
-        'balance': 2500,
-      },
-      {
-        'date': '2024.10.15 10:15',
-        'type': '사용',
-        'reason': '주문 할인',
-        'points': -1500,
-        'balance': 500,
-      },
-      {
-        'date': '2024.10.10 13:40',
-        'type': '적립',
-        'reason': '이벤트 참여',
-        'points': 2000,
-        'balance': 2000,
-      },
-      {
-        'date': '2024.10.05 09:20',
-        'type': '적립',
-        'reason': '친구 초대',
-        'points': 5000,
-        'balance': 0,
-      },
-      {
-        'date': '2024.09.28 15:30',
-        'type': '사용',
-        'reason': '수선 할인',
-        'points': -800,
-        'balance': 5000,
-      },
-      {
-        'date': '2024.09.20 11:45',
-        'type': '적립',
-        'reason': '수선 완료',
-        'points': 1800,
-        'balance': 5800,
-      },
-    ];
+  // 포인트 내역 데이터
+  List<Map<String, dynamic>> _allPointsHistory = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      // 잔액 조회
+      final balance = await _pointService.getPointBalance();
+      
+      // 내역 조회 (최근 100건)
+      final history = await _pointService.getPointHistory(limit: 100);
+      
+      // 데이터 매핑
+      final mappedHistory = history.map((item) {
+        final amount = item['amount'] as int;
+        final createdAt = DateTime.parse(item['created_at'] as String).toLocal();
+        final type = amount > 0 ? '적립' : '사용';
+        
+        return {
+          'date': DateFormat('yyyy.MM.dd HH:mm').format(createdAt),
+          'rawDate': createdAt, // 필터링용 원본 날짜
+          'type': type,
+          'reason': item['description'] ?? '내용 없음',
+          'points': amount,
+          'balance': item['balance_after'] ?? 0,
+        };
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _currentBalance = balance;
+          _allPointsHistory = mappedHistory;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('포인트 데이터 로드 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('포인트 정보를 불러오는데 실패했습니다')),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('포인트 내역'),
+          elevation: 0,
+          backgroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF00C896)),
+        ),
+      );
+    }
+
     // 기간 필터링된 데이터
     final filteredHistory = _getFilteredHistory();
     
@@ -117,11 +100,8 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
       endIndex,
     );
 
-    // 현재 포인트 계산
-    int currentPoints = 0;
-    if (_allPointsHistory.isNotEmpty) {
-      currentPoints = _allPointsHistory.first['balance'] as int;
-    }
+    // 현재 포인트 (API에서 조회한 값 사용)
+    int currentPoints = _currentBalance;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -136,8 +116,8 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
                 colors: [Color(0xFF00C896), Color(0xFF00A67C)],
               ),
             ),
@@ -296,7 +276,7 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
                             ),
                             const Spacer(),
                             Text(
-                              '${_currentPage} / $totalPages 페이지',
+                              '$_currentPage / $totalPages 페이지',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.grey.shade600,
@@ -435,6 +415,11 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
     }
     
     return _allPointsHistory.where((history) {
+      if (history.containsKey('rawDate')) {
+        final historyDate = history['rawDate'] as DateTime;
+        return historyDate.isAfter(cutoffDate);
+      }
+
       final dateStr = history['date'] as String;
       // "2024.11.12 14:30" 형식 파싱
       final dateParts = dateStr.split(' ')[0].split('.');
