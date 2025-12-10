@@ -16,8 +16,9 @@ import {
   Scissors,
   Ticket,
   Truck,
-  Image,
+  FileText,
   Building2,
+  Image,
 } from "lucide-react";
 
 const navItems = [
@@ -81,6 +82,11 @@ const navItems = [
     href: "/dashboard/settings",
     icon: Settings,
   },
+  {
+    title: "송장 레이아웃",
+    href: "/ops/label-editor",
+    icon: FileText,
+  },
 ];
 
 export function DashboardNav() {
@@ -108,7 +114,7 @@ export function DashboardNav() {
   }, []);
 
   return (
-    <div className="w-64 bg-white dark:bg-gray-800 border-r min-h-screen p-4">
+    <div className="w-64 bg-white dark:bg-gray-800 border-r min-h-screen flex flex-col p-4">
       <div className="mb-8">
         <Link href="/dashboard" className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -121,7 +127,7 @@ export function DashboardNav() {
         </Link>
       </div>
 
-      <nav className="space-y-1">
+      <nav className="space-y-1 flex-1">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
@@ -143,18 +149,18 @@ export function DashboardNav() {
       </nav>
 
       {/* 센터 콘솔로 이동 버튼 */}
-      <div className="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
         <Link
           href="/ops/inbound"
           className={cn(
-            "flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors",
+            "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors font-medium shadow-sm",
             pathname.startsWith("/ops")
-              ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-              : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-2 border-green-300 dark:border-green-700"
+              : "bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 text-green-700 dark:text-green-400 border-2 border-green-200 dark:border-green-800 hover:border-green-300 dark:hover:border-green-700"
           )}
         >
           <Building2 className="h-5 w-5" />
-          <span className="font-medium">센터 콘솔</span>
+          <span>센터 콘솔로 이동</span>
         </Link>
       </div>
     </div>
