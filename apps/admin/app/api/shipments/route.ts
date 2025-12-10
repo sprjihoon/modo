@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { isIslandArea } from '@/lib/island-area';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * 관리자용 배송/수거 조회 API
  * 배송 지연, 도서산간 등 필터링 지원

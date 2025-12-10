@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * 관리자용 주문 조회 API
  * Service Role Key를 사용하여 RLS 우회, 모든 주문 조회 가능
