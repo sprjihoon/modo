@@ -22,6 +22,7 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -54,8 +55,8 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 3. 센터 콘솔은 ADMIN, MANAGER, WORKER 모두 접근 가능
-      if (!["ADMIN", "MANAGER", "WORKER"].includes(userData.role)) {
+      // 3. 센터 콘솔은 SUPER_ADMIN, ADMIN, MANAGER, WORKER 모두 접근 가능
+      if (!["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"].includes(userData.role)) {
         console.error("❌ 접근 권한이 없습니다:", userData.role);
         await supabase.auth.signOut();
         alert("⛔ 접근 권한이 없습니다.");
@@ -64,6 +65,7 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
       }
 
       console.log("✅ 인증 완료:", userData.email, userData.role);
+      setUserRole(userData.role);
       setIsAuthorized(true);
     } catch (error) {
       console.error("❌ 인증 확인 중 오류:", error);
@@ -84,6 +86,46 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
   if (!isAuthorized) {
     return null;
   }
+
+  // 역할별 메뉴 필터링
+  const getFilteredNavigation = () => {
+    if (!userRole) {
+      console.log("⚠️ userRole이 없습니다. 모든 메뉴 표시");
+      return navigation;
+    }
+
+    console.log("🔍 현재 역할:", userRole);
+
+    switch (userRole) {
+      case "WORKER":
+        // 작업자: 작업 메뉴만
+        const workerMenu = navigation.filter(
+          (item) => item.href === "/ops/work" || item.href === "/ops/my-dashboard"
+        );
+        console.log("👷 작업자 메뉴:", workerMenu.map((m) => m.name));
+        return workerMenu;
+      case "MANAGER":
+        // 입출고관리자: 입고, 출고 메뉴만
+        const managerMenu = navigation.filter(
+          (item) =>
+            item.href === "/ops/inbound" ||
+            item.href === "/ops/outbound" ||
+            item.href === "/ops/my-dashboard"
+        );
+        console.log("📦 입출고관리자 메뉴:", managerMenu.map((m) => m.name));
+        return managerMenu;
+      case "ADMIN":
+      case "SUPER_ADMIN":
+        // 관리자: 모든 메뉴
+        console.log("👑 관리자 메뉴: 모든 메뉴 표시");
+        return navigation;
+      default:
+        console.log("⚠️ 알 수 없는 역할:", userRole, "- 모든 메뉴 표시");
+        return navigation;
+    }
+  };
+
+  const filteredNavigation = getFilteredNavigation();
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
@@ -109,7 +151,7 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
 
             {/* 네비게이션 메뉴 */}
             <nav className="flex-1 space-y-1 overflow-y-auto">
-              {navigation.map((item) => {
+              {filteredNavigation.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                 const Icon = item.icon;
 
