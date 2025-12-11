@@ -35,14 +35,17 @@ const createSupabaseClient = async () => {
 /**
  * GET /api/admin/my-account
  * 현재 로그인된 사용자 프로필 조회
+ * - 먼저 users 테이블에서 조회 (기존 ADMIN 계정)
+ * - 없으면 staff 테이블에서 조회
  */
 export async function GET(request: NextRequest) {
   try {
     // 쿠키에서 인증 정보 가져오기
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('sb-access-token')?.value;
+    const emailFromCookie = cookieStore.get('admin-email')?.value;
     
-    if (!accessToken) {
+    if (!accessToken && !emailFromCookie) {
       // Authorization 헤더에서 시도
       const authHeader = request.headers.get('authorization');
       if (!authHeader) {
@@ -57,43 +60,9 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (authError || !user) {
-      // 세션에서 이메일 가져오기 시도 (대체 방법)
-      const emailFromCookie = cookieStore.get('admin-email')?.value;
-      
-      if (emailFromCookie) {
-        // staff 테이블에서 조회
-        const { data: staffData, error: staffError } = await supabaseAdmin
-          .from("staff")
-          .select("id, email, name, phone, role, created_at")
-          .eq("email", emailFromCookie)
-          .eq("is_active", true)
-          .maybeSingle();
-
-        if (staffData) {
-          return NextResponse.json({
-            success: true,
-            data: staffData,
-          });
-        }
-      }
-
-      return NextResponse.json(
-        { success: false, error: "사용자를 찾을 수 없습니다." },
-        { status: 401 }
-      );
-    }
-
-    // staff 테이블에서 프로필 조회
-    const { data: staffProfile, error: profileError } = await supabaseAdmin
-      .from("staff")
-      .select("id, email, name, phone, role, created_at")
-      .eq("auth_id", user.id)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (profileError || !staffProfile) {
-      // users 테이블에서 시도 (레거시 지원)
+    // auth_id로 조회 시도
+    if (user) {
+      // 1. users 테이블에서 먼저 조회 (기존 ADMIN 계정 - 우선순위)
       const { data: userProfile } = await supabaseAdmin
         .from("users")
         .select("id, email, name, phone, role, created_at")
@@ -104,19 +73,65 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           success: true,
           data: userProfile,
+          source: "users",
         });
       }
 
-      return NextResponse.json(
-        { success: false, error: "프로필을 찾을 수 없습니다." },
-        { status: 404 }
-      );
+      // 2. staff 테이블에서 조회
+      const { data: staffProfile } = await supabaseAdmin
+        .from("staff")
+        .select("id, email, name, phone, role, created_at")
+        .eq("auth_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (staffProfile) {
+        return NextResponse.json({
+          success: true,
+          data: staffProfile,
+          source: "staff",
+        });
+      }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: staffProfile,
-    });
+    // 이메일로 조회 시도 (쿠키에서)
+    if (emailFromCookie) {
+      // 1. users 테이블에서 먼저 조회
+      const { data: userByEmail } = await supabaseAdmin
+        .from("users")
+        .select("id, email, name, phone, role, created_at")
+        .eq("email", emailFromCookie)
+        .maybeSingle();
+
+      if (userByEmail) {
+        return NextResponse.json({
+          success: true,
+          data: userByEmail,
+          source: "users",
+        });
+      }
+
+      // 2. staff 테이블에서 조회
+      const { data: staffByEmail } = await supabaseAdmin
+        .from("staff")
+        .select("id, email, name, phone, role, created_at")
+        .eq("email", emailFromCookie)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (staffByEmail) {
+        return NextResponse.json({
+          success: true,
+          data: staffByEmail,
+          source: "staff",
+        });
+      }
+    }
+
+    return NextResponse.json(
+      { success: false, error: "사용자를 찾을 수 없습니다." },
+      { status: 404 }
+    );
   } catch (error: any) {
     console.error("❌ 프로필 조회 중 오류:", error);
     return NextResponse.json(
@@ -129,6 +144,7 @@ export async function GET(request: NextRequest) {
 /**
  * PUT /api/admin/my-account
  * 프로필 수정 (이름, 전화번호)
+ * - users 또는 staff 테이블에서 사용자를 찾아 업데이트
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -150,31 +166,61 @@ export async function PUT(request: NextRequest) {
     const supabase = await createSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    let staffId: string | null = null;
+    let targetId: string | null = null;
+    let targetTable: "users" | "staff" = "users";
 
+    // 1. auth_id로 users 테이블 먼저 조회
     if (user) {
-      // auth_id로 staff 조회
-      const { data: staff } = await supabaseAdmin
-        .from("staff")
+      const { data: userRecord } = await supabaseAdmin
+        .from("users")
         .select("id")
         .eq("auth_id", user.id)
         .maybeSingle();
       
-      staffId = staff?.id || null;
+      if (userRecord) {
+        targetId = userRecord.id;
+        targetTable = "users";
+      } else {
+        // 2. staff 테이블에서 조회
+        const { data: staffRecord } = await supabaseAdmin
+          .from("staff")
+          .select("id")
+          .eq("auth_id", user.id)
+          .maybeSingle();
+        
+        if (staffRecord) {
+          targetId = staffRecord.id;
+          targetTable = "staff";
+        }
+      }
     }
 
-    if (!staffId && emailFromCookie) {
-      // 이메일로 staff 조회
-      const { data: staff } = await supabaseAdmin
-        .from("staff")
+    // 3. 이메일로 조회 (fallback)
+    if (!targetId && emailFromCookie) {
+      const { data: userByEmail } = await supabaseAdmin
+        .from("users")
         .select("id")
         .eq("email", emailFromCookie)
         .maybeSingle();
       
-      staffId = staff?.id || null;
+      if (userByEmail) {
+        targetId = userByEmail.id;
+        targetTable = "users";
+      } else {
+        const { data: staffByEmail } = await supabaseAdmin
+          .from("staff")
+          .select("id")
+          .eq("email", emailFromCookie)
+          .maybeSingle();
+        
+        if (staffByEmail) {
+          targetId = staffByEmail.id;
+          targetTable = "staff";
+        }
+      }
     }
 
-    if (!staffId) {
+    if (!targetId) {
       return NextResponse.json(
         { success: false, error: "사용자를 찾을 수 없습니다." },
         { status: 404 }
@@ -183,13 +229,13 @@ export async function PUT(request: NextRequest) {
 
     // 프로필 업데이트
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
-      .from("staff")
+      .from(targetTable)
       .update({
         name,
         phone: phone || null,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", staffId)
+      .eq("id", targetId)
       .select()
       .single();
 
