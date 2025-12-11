@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
@@ -16,22 +17,6 @@ const supabaseAdmin = createClient(
   }
 );
 
-// Supabase Client (사용자 인증용)
-const createSupabaseClient = async () => {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get('sb-access-token')?.value;
-  
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-      },
-    }
-  );
-};
-
 /**
  * GET /api/admin/my-account
  * 현재 로그인된 사용자 프로필 조회
@@ -40,25 +25,33 @@ const createSupabaseClient = async () => {
  */
 export async function GET(request: NextRequest) {
   try {
-    // 쿠키에서 인증 정보 가져오기
+    // 서버 사이드 Supabase 클라이언트 사용 (쿠키 자동 처리)
+    const supabase = createServerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    // 쿠키에서 이메일 가져오기 (fallback용)
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get('sb-access-token')?.value;
     const emailFromCookie = cookieStore.get('admin-email')?.value;
     
-    if (!accessToken && !emailFromCookie) {
-      // Authorization 헤더에서 시도
-      const authHeader = request.headers.get('authorization');
-      if (!authHeader) {
-        return NextResponse.json(
-          { success: false, error: "인증이 필요합니다." },
-          { status: 401 }
-        );
-      }
+    if (authError) {
+      console.error("❌ 인증 오류:", authError.message);
+    }
+    
+    if (!user && !emailFromCookie) {
+      return NextResponse.json(
+        { success: false, error: "인증이 필요합니다. 다시 로그인해주세요." },
+        { status: 401 }
+      );
     }
 
-    // 현재 사용자 조회 (supabase auth에서)
-    const supabase = await createSupabaseClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    console.log("🔍 프로필 조회 디버깅:", {
+      hasUser: !!user,
+      userId: user?.id,
+      userEmail: user?.email,
+      hasEmailCookie: !!emailFromCookie,
+      emailCookie: emailFromCookie,
+      authError: authError?.message,
+    });
 
     // auth_id로 조회 시도
     if (user) {
@@ -128,8 +121,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 사용자를 찾지 못한 경우 상세 정보 반환
+    const errorMessage = !user && !emailFromCookie
+      ? "인증 정보가 없습니다. 다시 로그인해주세요."
+      : `사용자를 찾을 수 없습니다. (user: ${user?.id || "없음"}, email: ${user?.email || emailFromCookie || "없음"})`;
+    
+    console.error("❌ 프로필 조회 실패:", errorMessage);
+    
     return NextResponse.json(
-      { success: false, error: "사용자를 찾을 수 없습니다." },
+      { success: false, error: errorMessage },
       { status: 404 }
     );
   } catch (error: any) {
@@ -158,13 +158,13 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // 쿠키에서 이메일 가져오기
+    // 서버 사이드 Supabase 클라이언트 사용
+    const supabase = createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // 쿠키에서 이메일 가져오기 (fallback용)
     const cookieStore = await cookies();
     const emailFromCookie = cookieStore.get('admin-email')?.value;
-
-    // 현재 사용자 조회
-    const supabase = await createSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
     let targetId: string | null = null;
     let targetTable: "users" | "staff" = "users";

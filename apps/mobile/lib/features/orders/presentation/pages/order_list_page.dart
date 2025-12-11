@@ -261,16 +261,8 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     
     // 페이징 계산
     final totalPages = filteredOrders.isEmpty ? 1 : (filteredOrders.length / _itemsPerPage).ceil();
-    // 현재 페이지가 총 페이지 수를 초과하지 않도록 제한
+    // 현재 페이지가 총 페이지 수를 초과하지 않도록 제한 (UI 렌더링 시에만 사용)
     final safeCurrentPage = _currentPage.clamp(1, totalPages);
-    if (safeCurrentPage != _currentPage) {
-      // 페이지가 범위를 벗어났으면 첫 페이지로 리셋
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() => _currentPage = 1);
-        }
-      });
-    }
     final startIndex = ((safeCurrentPage - 1) * _itemsPerPage).clamp(0, filteredOrders.length);
     final endIndex = (startIndex + _itemsPerPage).clamp(0, filteredOrders.length);
     final displayedOrders = startIndex < filteredOrders.length 

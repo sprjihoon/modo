@@ -30,6 +30,7 @@ export default function MyAccountPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // 프로필 폼
   const [name, setName] = useState("");
@@ -43,17 +44,29 @@ export default function MyAccountPage() {
   // 프로필 로드
   const loadProfile = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const response = await fetch("/api/admin/my-account");
       const result = await response.json();
+
+      console.log("프로필 조회 응답:", result);
 
       if (result.success && result.data) {
         setProfile(result.data);
         setName(result.data.name || "");
         setPhone(result.data.phone || "");
+        setError(null);
+      } else {
+        const errorMsg = result.error || "프로필을 불러올 수 없습니다.";
+        console.error("프로필 로드 실패:", errorMsg);
+        setError(errorMsg);
+        setProfile(null);
       }
-    } catch (error) {
+    } catch (error: any) {
+      const errorMsg = error.message || "프로필을 불러오는 중 오류가 발생했습니다.";
       console.error("프로필 로드 실패:", error);
+      setError(errorMsg);
+      setProfile(null);
     } finally {
       setIsLoading(false);
     }
@@ -189,6 +202,11 @@ export default function MyAccountPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <Mail className="h-5 w-5 text-muted-foreground" />
             <div>
