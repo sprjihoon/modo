@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Package, Wrench, Send, Cpu, FileText, ClipboardList } from "lucide-react";
+import { Package, Wrench, Send, Cpu, FileText, ClipboardList, LayoutDashboard } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { createClient } from "@/lib/supabase/client";
 
 const navigation = [
+  { name: "나의 대시보드", href: "/ops/my-dashboard", icon: LayoutDashboard },
   { name: "입고", href: "/ops/inbound", icon: Package },
   { name: "작업", href: "/ops/work", icon: Wrench },
   { name: "출고", href: "/ops/outbound", icon: Send },
