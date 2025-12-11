@@ -18,6 +18,7 @@ export interface Customer {
 
 /**
  * 고객 목록 조회
+ * - CUSTOMER 역할만 조회 (ADMIN, MANAGER, WORKER 제외)
  */
 export async function getCustomers(filters?: {
   search?: string;
@@ -27,6 +28,7 @@ export async function getCustomers(filters?: {
   let query = supabaseAdmin
     .from('users')
     .select('*')
+    .eq('role', 'CUSTOMER')  // 고객만 조회 (관리자, 작업자 제외)
     .order('created_at', { ascending: false });
 
   if (filters?.search) {
@@ -128,16 +130,18 @@ export async function getCustomerById(customerId: string) {
 
 /**
  * 고객 통계 조회
+ * - CUSTOMER 역할만 집계 (관리자, 작업자 제외)
  */
 export async function getCustomerStats() {
-  // 전체 고객 수
+  // 전체 고객 수 (CUSTOMER만)
   const { count: totalCustomers, error: totalError } = await supabaseAdmin
     .from('users')
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact', head: true })
+    .eq('role', 'CUSTOMER');
 
   if (totalError) throw totalError;
 
-  // 이번 달 신규 고객 수
+  // 이번 달 신규 고객 수 (CUSTOMER만)
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
@@ -145,6 +149,7 @@ export async function getCustomerStats() {
   const { count: newCustomers, error: newError } = await supabaseAdmin
     .from('users')
     .select('*', { count: 'exact', head: true })
+    .eq('role', 'CUSTOMER')
     .gte('created_at', startOfMonth.toISOString());
 
   if (newError) throw newError;
@@ -172,10 +177,11 @@ export async function getCustomerStats() {
 
   const totalSales = allOrders?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0;
 
-  // 탈퇴 회원 수 (auth_id가 NULL이거나 이메일이 deleted_로 시작하는 경우)
+  // 탈퇴 회원 수 (CUSTOMER 역할 중 auth_id가 NULL이거나 이메일이 deleted_로 시작하는 경우)
   const { count: deletedCustomers, error: deletedError } = await supabaseAdmin
     .from('users')
     .select('*', { count: 'exact', head: true })
+    .eq('role', 'CUSTOMER')
     .or('auth_id.is.null,email.like.deleted_%@deleted.modusrepair.com');
 
   if (deletedError) {
