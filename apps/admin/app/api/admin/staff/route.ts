@@ -20,39 +20,85 @@ type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "WORKER";
 
 /**
  * GET /api/admin/staff
- * 전체 직원 목록 조회 (staff 테이블에서)
+ * 전체 직원 목록 조회 (staff 테이블 + users 테이블에서)
+ * - staff 테이블의 직원들
+ * - users 테이블의 직원 역할(SUPER_ADMIN, ADMIN, MANAGER, WORKER) 사용자들
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const roleFilter = searchParams.get("role");
 
-    // staff 테이블에서 직원 목록 조회
-    let query = supabaseAdmin
+    // 1. staff 테이블에서 직원 목록 조회
+    let staffQuery = supabaseAdmin
       .from("staff")
       .select("id, auth_id, email, name, phone, role, is_active, created_at, updated_at")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false });
+      .eq("is_active", true);
 
-    // 역할 필터링
     if (roleFilter && ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"].includes(roleFilter)) {
-      query = query.eq("role", roleFilter);
+      staffQuery = staffQuery.eq("role", roleFilter);
     }
 
-    const { data, error } = await query;
+    const { data: staffData, error: staffError } = await staffQuery;
 
-    if (error) {
-      console.error("❌ 직원 목록 조회 실패:", error);
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
+    if (staffError) {
+      console.error("❌ staff 테이블 조회 실패:", staffError);
     }
+
+    // 2. users 테이블에서 직원 역할 사용자 조회 (CUSTOMER 제외)
+    let usersQuery = supabaseAdmin
+      .from("users")
+      .select("id, auth_id, email, name, phone, role, created_at, updated_at")
+      .in("role", ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"]);
+
+    if (roleFilter && ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"].includes(roleFilter)) {
+      usersQuery = usersQuery.eq("role", roleFilter);
+    }
+
+    const { data: usersData, error: usersError } = await usersQuery;
+
+    if (usersError) {
+      console.error("❌ users 테이블 조회 실패:", usersError);
+    }
+
+    // 3. 두 결과를 합치되, 중복 제거 (auth_id 또는 email 기준)
+    // staff 테이블을 우선순위로 하고, users 테이블의 중복되지 않는 항목만 추가
+    const staffMap = new Map<string, any>();
+    const usersMap = new Map<string, any>();
+
+    // staff 데이터를 맵에 추가 (auth_id 또는 email을 키로 사용)
+    (staffData || []).forEach((staff: any) => {
+      const key = staff.auth_id || staff.email;
+      if (key) {
+        staffMap.set(key, { ...staff, source: "staff" });
+      }
+    });
+
+    // users 데이터를 맵에 추가 (staff에 없는 것만)
+    (usersData || []).forEach((user: any) => {
+      const key = user.auth_id || user.email;
+      if (key && !staffMap.has(key)) {
+        // users 테이블에는 is_active가 없으므로 true로 설정
+        usersMap.set(key, { ...user, is_active: true, source: "users" });
+      }
+    });
+
+    // 두 맵을 합쳐서 배열로 변환
+    const allStaff = Array.from(staffMap.values()).concat(Array.from(usersMap.values()));
+
+    // 생성일 기준 정렬
+    allStaff.sort((a, b) => {
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
+      return dateB - dateA; // 최신순
+    });
+
+    console.log(`📊 직원 목록 조회 완료: staff ${staffData?.length || 0}명, users ${usersData?.length || 0}명, 합계 ${allStaff.length}명`);
 
     return NextResponse.json({
       success: true,
-      data: data || [],
-      count: data?.length || 0,
+      data: allStaff,
+      count: allStaff.length,
     });
   } catch (error: any) {
     console.error("❌ 직원 목록 조회 중 오류:", error);
