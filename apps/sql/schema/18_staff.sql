@@ -5,9 +5,10 @@
 
 -- 직원 역할 ENUM
 CREATE TYPE staff_role AS ENUM (
-  'ADMIN',    -- 관리자
-  'MANAGER',  -- 매니저 (입출고 관리)
-  'WORKER'    -- 작업자
+  'SUPER_ADMIN',  -- 최고관리자
+  'ADMIN',        -- 관리자
+  'MANAGER',      -- 입출고관리자
+  'WORKER'        -- 작업자
 );
 
 -- 직원 테이블
@@ -96,8 +97,8 @@ CREATE TRIGGER update_staff_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- 코멘트
-COMMENT ON TABLE public.staff IS '직원 계정 정보 (관리자, 매니저, 작업자)';
+COMMENT ON TABLE public.staff IS '직원 계정 정보 (최고관리자, 관리자, 입출고관리자, 작업자)';
 COMMENT ON COLUMN public.staff.auth_id IS 'Supabase Auth 사용자 ID';
-COMMENT ON COLUMN public.staff.role IS '직원 역할: ADMIN(관리자), MANAGER(매니저), WORKER(작업자)';
+COMMENT ON COLUMN public.staff.role IS '직원 역할: SUPER_ADMIN(최고관리자), ADMIN(관리자), MANAGER(입출고관리자), WORKER(작업자)';
 COMMENT ON COLUMN public.staff.is_active IS '계정 활성화 상태';
 

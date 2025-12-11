@@ -25,7 +25,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Users, Plus, Edit, Trash2, Phone, Mail, Calendar } from "lucide-react";
+import { Users, Plus, Edit, Trash2, Phone, Mail, Calendar, Shield, ShieldCheck, Truck, Wrench } from "lucide-react";
+
+type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "WORKER";
 
 type StaffMember = {
   id: string;
@@ -33,7 +35,8 @@ type StaffMember = {
   email: string;
   name: string;
   phone: string;
-  role: "MANAGER" | "WORKER";
+  role: StaffRole;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -43,14 +46,42 @@ type CreateStaffData = {
   password: string;
   name: string;
   phone: string;
-  role: "MANAGER" | "WORKER";
+  role: StaffRole;
 };
 
 type UpdateStaffData = {
   name: string;
   phone: string;
-  role: "MANAGER" | "WORKER";
+  role: StaffRole;
   password?: string;
+};
+
+// 역할 정보
+const roleInfo: Record<StaffRole, { label: string; icon: React.ReactNode; color: string; description: string }> = {
+  SUPER_ADMIN: {
+    label: "최고관리자",
+    icon: <ShieldCheck className="h-4 w-4" />,
+    color: "bg-purple-600",
+    description: "시스템 전체 관리 권한",
+  },
+  ADMIN: {
+    label: "관리자",
+    icon: <Shield className="h-4 w-4" />,
+    color: "bg-blue-600",
+    description: "일반 관리 권한",
+  },
+  MANAGER: {
+    label: "입출고관리자",
+    icon: <Truck className="h-4 w-4" />,
+    color: "bg-green-600",
+    description: "입출고 작업 관리 권한",
+  },
+  WORKER: {
+    label: "작업자",
+    icon: <Wrench className="h-4 w-4" />,
+    color: "bg-gray-600",
+    description: "수선 작업 권한",
+  },
 };
 
 export default function StaffManagementPage() {
@@ -162,17 +193,10 @@ export default function StaffManagementPage() {
     }
   };
 
-  // 역할 표시 텍스트
-  const getRoleText = (role: string) => {
-    return role === "MANAGER" ? "입출고 관리자" : "작업자";
-  };
-
   // 전화번호 포맷팅
   const formatPhoneNumber = (phone: string) => {
-    // 숫자만 추출
+    if (!phone) return "-";
     const numbers = phone.replace(/[^\d]/g, "");
-    
-    // 010-1234-5678 형식으로 포맷팅
     if (numbers.length === 11) {
       return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
     } else if (numbers.length === 10) {
@@ -190,6 +214,9 @@ export default function StaffManagementPage() {
     });
   };
 
+  // 역할별 통계
+  const getRoleCount = (role: StaffRole) => staffList.filter((s) => s.role === role).length;
+
   return (
     <div className="space-y-6">
       {/* 헤더 */}
@@ -200,7 +227,7 @@ export default function StaffManagementPage() {
             직원 계정 관리
           </h1>
           <p className="text-muted-foreground mt-1">
-            입출고 관리자 및 작업자 계정을 관리합니다
+            직원 계정을 관리합니다 (고객 정보와 분리됨)
           </p>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
@@ -210,7 +237,7 @@ export default function StaffManagementPage() {
       </div>
 
       {/* 필터 및 통계 */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">전체 직원</CardTitle>
@@ -221,42 +248,70 @@ export default function StaffManagementPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">입출고 관리자</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <ShieldCheck className="h-4 w-4 text-purple-600" />
+              최고관리자
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {staffList.filter((s) => s.role === "MANAGER").length}명
-            </div>
+            <div className="text-2xl font-bold">{getRoleCount("SUPER_ADMIN")}명</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">작업자</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <Shield className="h-4 w-4 text-blue-600" />
+              관리자
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {staffList.filter((s) => s.role === "WORKER").length}명
-            </div>
+            <div className="text-2xl font-bold">{getRoleCount("ADMIN")}명</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">역할 필터</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <Truck className="h-4 w-4 text-green-600" />
+              입출고관리자
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">전체</SelectItem>
-                <SelectItem value="MANAGER">입출고 관리자</SelectItem>
-                <SelectItem value="WORKER">작업자</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="text-2xl font-bold">{getRoleCount("MANAGER")}명</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-1">
+              <Wrench className="h-4 w-4 text-gray-600" />
+              작업자
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{getRoleCount("WORKER")}명</div>
           </CardContent>
         </Card>
       </div>
+
+      {/* 필터 */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">역할 필터</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">전체</SelectItem>
+              <SelectItem value="SUPER_ADMIN">최고관리자</SelectItem>
+              <SelectItem value="ADMIN">관리자</SelectItem>
+              <SelectItem value="MANAGER">입출고관리자</SelectItem>
+              <SelectItem value="WORKER">작업자</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
       {/* 직원 목록 */}
       <Card>
@@ -277,63 +332,66 @@ export default function StaffManagementPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {staffList.map((staff) => (
-                <div
-                  key={staff.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-semibold">{staff.name}</h3>
-                      <Badge variant={staff.role === "MANAGER" ? "default" : "secondary"}>
-                        {getRoleText(staff.role)}
-                      </Badge>
-                    </div>
-                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Mail className="h-4 w-4" />
-                        {staff.email}
+              {staffList.map((staff) => {
+                const role = roleInfo[staff.role] || roleInfo.WORKER;
+                return (
+                  <div
+                    key={staff.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-semibold">{staff.name}</h3>
+                        <Badge className={`${role.color} text-white flex items-center gap-1`}>
+                          {role.icon}
+                          {role.label}
+                        </Badge>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-4 w-4" />
-                        {/* 전화번호 클릭 시 전화 걸기 (주석 처리) */}
-                        {/* <a href={`tel:${staff.phone}`} className="hover:text-primary hover:underline"> */}
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Mail className="h-4 w-4" />
+                          {staff.email}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Phone className="h-4 w-4" />
                           {formatPhoneNumber(staff.phone)}
-                        {/* </a> */}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        입사일: {formatDate(staff.created_at)}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          등록일: {formatDate(staff.created_at)}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedStaff(staff);
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        수정
+                      </Button>
+                      {staff.role !== "SUPER_ADMIN" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedStaff(staff);
+                            setIsDeleteDialogOpen(true);
+                          }}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          삭제
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedStaff(staff);
-                        setIsEditDialogOpen(true);
-                      }}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      수정
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedStaff(staff);
-                        setIsDeleteDialogOpen(true);
-                      }}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      삭제
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -411,7 +469,6 @@ function CreateStaffDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 유효성 검사
     if (!formData.name || !formData.email || !formData.password || !formData.phone) {
       alert("모든 필드를 입력해주세요.");
       return;
@@ -426,7 +483,6 @@ function CreateStaffDialog({
     await onCreate(formData);
     setIsSubmitting(false);
     
-    // 폼 초기화
     setFormData({
       email: "",
       password: "",
@@ -436,15 +492,10 @@ function CreateStaffDialog({
     });
   };
 
-  // 전화번호 자동 포맷팅
   const handlePhoneChange = (value: string) => {
-    // 숫자만 추출
     const numbers = value.replace(/[^\d]/g, "");
-    
-    // 최대 11자리
     if (numbers.length > 11) return;
     
-    // 자동 하이픈 추가
     let formatted = numbers;
     if (numbers.length > 7) {
       formatted = `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
@@ -461,12 +512,11 @@ function CreateStaffDialog({
         <DialogHeader>
           <DialogTitle>직원 계정 등록</DialogTitle>
           <DialogDescription>
-            새로운 직원 계정을 생성합니다. 생성된 계정은 즉시 로그인 가능합니다.
+            새로운 직원 계정을 생성합니다.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
-            {/* 이름 */}
             <div className="space-y-2">
               <Label htmlFor="name">이름 *</Label>
               <Input
@@ -478,7 +528,6 @@ function CreateStaffDialog({
               />
             </div>
 
-            {/* 전화번호 */}
             <div className="space-y-2">
               <Label htmlFor="phone">전화번호 *</Label>
               <Input
@@ -491,7 +540,6 @@ function CreateStaffDialog({
               />
             </div>
 
-            {/* 이메일 */}
             <div className="space-y-2">
               <Label htmlFor="email">이메일 (ID) *</Label>
               <Input
@@ -504,7 +552,6 @@ function CreateStaffDialog({
               />
             </div>
 
-            {/* 비밀번호 */}
             <div className="space-y-2">
               <Label htmlFor="password">비밀번호 *</Label>
               <Input
@@ -518,12 +565,11 @@ function CreateStaffDialog({
               />
             </div>
 
-            {/* 권한 선택 */}
             <div className="space-y-2">
               <Label htmlFor="role">권한 *</Label>
               <Select
                 value={formData.role}
-                onValueChange={(value: "MANAGER" | "WORKER") =>
+                onValueChange={(value: StaffRole) =>
                   setFormData({ ...formData, role: value })
                 }
               >
@@ -531,14 +577,14 @@ function CreateStaffDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MANAGER">입출고 관리자</SelectItem>
+                  <SelectItem value="SUPER_ADMIN">최고관리자</SelectItem>
+                  <SelectItem value="ADMIN">관리자</SelectItem>
+                  <SelectItem value="MANAGER">입출고관리자</SelectItem>
                   <SelectItem value="WORKER">작업자</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {formData.role === "MANAGER"
-                  ? "입출고 작업 및 관리 권한"
-                  : "수선 작업 권한"}
+                {roleInfo[formData.role].description}
               </p>
             </div>
           </div>
@@ -582,7 +628,6 @@ function EditStaffDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 유효성 검사
     if (!formData.name || !formData.phone) {
       alert("이름과 전화번호를 입력해주세요.");
       return;
@@ -595,7 +640,6 @@ function EditStaffDialog({
 
     setIsSubmitting(true);
     
-    // 비밀번호가 입력되지 않았으면 제외
     const updateData = { ...formData };
     if (!updateData.password) {
       delete updateData.password;
@@ -605,7 +649,6 @@ function EditStaffDialog({
     setIsSubmitting(false);
   };
 
-  // 전화번호 자동 포맷팅
   const handlePhoneChange = (value: string) => {
     const numbers = value.replace(/[^\d]/g, "");
     if (numbers.length > 11) return;
@@ -631,14 +674,12 @@ function EditStaffDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
-            {/* 이메일 (수정 불가) */}
             <div className="space-y-2">
               <Label>이메일 (ID)</Label>
               <Input value={staff.email} disabled className="bg-gray-100 dark:bg-gray-800" />
               <p className="text-xs text-muted-foreground">이메일은 변경할 수 없습니다.</p>
             </div>
 
-            {/* 이름 */}
             <div className="space-y-2">
               <Label htmlFor="edit-name">이름 *</Label>
               <Input
@@ -649,7 +690,6 @@ function EditStaffDialog({
               />
             </div>
 
-            {/* 전화번호 */}
             <div className="space-y-2">
               <Label htmlFor="edit-phone">전화번호 *</Label>
               <Input
@@ -662,12 +702,11 @@ function EditStaffDialog({
               />
             </div>
 
-            {/* 권한 선택 */}
             <div className="space-y-2">
               <Label htmlFor="edit-role">권한 *</Label>
               <Select
                 value={formData.role}
-                onValueChange={(value: "MANAGER" | "WORKER") =>
+                onValueChange={(value: StaffRole) =>
                   setFormData({ ...formData, role: value })
                 }
               >
@@ -675,13 +714,14 @@ function EditStaffDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MANAGER">입출고 관리자</SelectItem>
+                  <SelectItem value="SUPER_ADMIN">최고관리자</SelectItem>
+                  <SelectItem value="ADMIN">관리자</SelectItem>
+                  <SelectItem value="MANAGER">입출고관리자</SelectItem>
                   <SelectItem value="WORKER">작업자</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* 비밀번호 변경 (선택) */}
             <div className="space-y-2">
               <Label htmlFor="edit-password">새 비밀번호 (선택)</Label>
               <Input
@@ -711,4 +751,3 @@ function EditStaffDialog({
     </Dialog>
   );
 }
-

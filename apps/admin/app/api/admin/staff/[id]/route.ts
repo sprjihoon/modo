@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = 'force-dynamic';
 
 // Supabase Admin Client (Service Role Key 사용)
 const supabaseAdmin = createClient(
@@ -13,26 +15,31 @@ const supabaseAdmin = createClient(
   }
 );
 
+// 역할 타입 정의
+type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "WORKER";
+const validRoles: StaffRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"];
+
 /**
  * GET /api/admin/staff/[id]
  * 직원 정보 조회
  */
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    const resolvedParams = await Promise.resolve(params);
+    const { id } = resolvedParams;
 
     const { data, error } = await supabaseAdmin
-      .from("users")
-      .select("id, auth_id, email, name, phone, role, created_at, updated_at")
+      .from("staff")
+      .select("id, auth_id, email, name, phone, role, is_active, created_at, updated_at")
       .eq("id", id)
       .maybeSingle();
 
     if (error || !data) {
       return NextResponse.json(
-        { success: false, error: "사용자를 찾을 수 없습니다." },
+        { success: false, error: "직원을 찾을 수 없습니다." },
         { status: 404 }
       );
     }
@@ -55,11 +62,12 @@ export async function GET(
  * 직원 정보 수정
  */
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    const resolvedParams = await Promise.resolve(params);
+    const { id } = resolvedParams;
     const body = await request.json();
     const { name, phone, role, password } = body;
 
@@ -72,39 +80,31 @@ export async function PUT(
     }
 
     // 역할 검증
-    if (role !== "MANAGER" && role !== "WORKER") {
+    if (!validRoles.includes(role)) {
       return NextResponse.json(
         { success: false, error: "유효하지 않은 역할입니다." },
         { status: 400 }
       );
     }
 
-    // 1. 기존 사용자 조회
-    const { data: existingUser, error: fetchError } = await supabaseAdmin
-      .from("users")
+    // 1. 기존 직원 조회
+    const { data: existingStaff, error: fetchError } = await supabaseAdmin
+      .from("staff")
       .select("auth_id, email, phone, role")
       .eq("id", id)
       .maybeSingle();
 
-    if (fetchError || !existingUser) {
+    if (fetchError || !existingStaff) {
       return NextResponse.json(
-        { success: false, error: "사용자를 찾을 수 없습니다." },
+        { success: false, error: "직원을 찾을 수 없습니다." },
         { status: 404 }
       );
     }
 
-    // ADMIN 계정은 수정 불가
-    if (existingUser.role === "ADMIN") {
-      return NextResponse.json(
-        { success: false, error: "관리자 계정은 수정할 수 없습니다." },
-        { status: 403 }
-      );
-    }
-
     // 전화번호가 변경된 경우 중복 체크
-    if (phone !== existingUser.phone) {
+    if (phone !== existingStaff.phone) {
       const { data: phoneCheck } = await supabaseAdmin
-        .from("users")
+        .from("staff")
         .select("id")
         .eq("phone", phone)
         .neq("id", id)
@@ -118,11 +118,11 @@ export async function PUT(
       }
     }
 
-    console.log("📝 직원 정보 수정 시작:", existingUser.email);
+    console.log("📝 직원 정보 수정 시작:", existingStaff.email);
 
-    // 2. users 테이블 업데이트
-    const { data: updatedUser, error: updateError } = await supabaseAdmin
-      .from("users")
+    // 2. staff 테이블 업데이트
+    const { data: updatedStaff, error: updateError } = await supabaseAdmin
+      .from("staff")
       .update({
         name,
         phone,
@@ -134,7 +134,7 @@ export async function PUT(
       .single();
 
     if (updateError) {
-      console.error("❌ 사용자 정보 수정 실패:", updateError);
+      console.error("❌ 직원 정보 수정 실패:", updateError);
       return NextResponse.json(
         { success: false, error: updateError.message },
         { status: 500 }
@@ -142,25 +142,24 @@ export async function PUT(
     }
 
     // 3. 비밀번호 변경 요청이 있는 경우
-    if (password && password.length >= 6) {
+    if (password && password.length >= 6 && existingStaff.auth_id) {
       const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
-        existingUser.auth_id,
+        existingStaff.auth_id,
         { password }
       );
 
       if (passwordError) {
         console.error("⚠️ 비밀번호 변경 실패:", passwordError);
-        // 비밀번호 변경 실패해도 다른 정보는 업데이트됨
       } else {
         console.log("✅ 비밀번호 변경 완료");
       }
     }
 
-    console.log("✅ 직원 정보 수정 완료:", updatedUser);
+    console.log("✅ 직원 정보 수정 완료:", updatedStaff);
 
     return NextResponse.json({
       success: true,
-      data: updatedUser,
+      data: updatedStaff,
       message: "직원 정보가 수정되었습니다.",
     });
   } catch (error: any) {
@@ -174,51 +173,64 @@ export async function PUT(
 
 /**
  * DELETE /api/admin/staff/[id]
- * 직원 계정 삭제
+ * 직원 계정 삭제 (비활성화)
  */
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    const resolvedParams = await Promise.resolve(params);
+    const { id } = resolvedParams;
 
-    // 1. users 테이블에서 auth_id 조회
-    const { data: user, error: userError } = await supabaseAdmin
-      .from("users")
+    // 1. staff 테이블에서 auth_id 조회
+    const { data: staff, error: staffError } = await supabaseAdmin
+      .from("staff")
       .select("auth_id, email, role")
       .eq("id", id)
       .maybeSingle();
 
-    if (userError || !user) {
+    if (staffError || !staff) {
       return NextResponse.json(
-        { success: false, error: "사용자를 찾을 수 없습니다." },
+        { success: false, error: "직원을 찾을 수 없습니다." },
         { status: 404 }
       );
     }
 
-    // ADMIN 계정은 삭제 불가
-    if (user.role === "ADMIN") {
+    // SUPER_ADMIN 계정은 삭제 불가
+    if (staff.role === "SUPER_ADMIN") {
       return NextResponse.json(
-        { success: false, error: "관리자 계정은 삭제할 수 없습니다." },
+        { success: false, error: "최고관리자 계정은 삭제할 수 없습니다." },
         { status: 403 }
       );
     }
 
-    console.log("🗑️ 직원 계정 삭제 시작:", user.email);
+    console.log("🗑️ 직원 계정 삭제 시작:", staff.email);
 
-    // 2. Auth 계정 삭제 (Cascade로 users 테이블도 삭제됨)
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.auth_id);
+    // 2. staff 테이블에서 비활성화 (soft delete)
+    const { error: deactivateError } = await supabaseAdmin
+      .from("staff")
+      .update({ is_active: false })
+      .eq("id", id);
 
-    if (deleteError) {
-      console.error("❌ Auth 계정 삭제 실패:", deleteError);
+    if (deactivateError) {
+      console.error("❌ 직원 비활성화 실패:", deactivateError);
       return NextResponse.json(
-        { success: false, error: deleteError.message },
+        { success: false, error: deactivateError.message },
         { status: 500 }
       );
     }
 
-    console.log("✅ 직원 계정 삭제 완료:", user.email);
+    // 3. Auth 계정도 삭제 (선택적)
+    if (staff.auth_id) {
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(staff.auth_id);
+      if (deleteError) {
+        console.error("⚠️ Auth 계정 삭제 실패:", deleteError);
+        // Auth 삭제 실패해도 계속 진행
+      }
+    }
+
+    console.log("✅ 직원 계정 삭제 완료:", staff.email);
 
     return NextResponse.json({
       success: true,
@@ -232,4 +244,3 @@ export async function DELETE(
     );
   }
 }
-

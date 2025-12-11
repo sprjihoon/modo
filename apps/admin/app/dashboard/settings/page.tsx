@@ -21,6 +21,7 @@ import {
   Coins,
   ArrowRight,
   Users,
+  User,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -289,6 +290,33 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* My Account Link */}
+      <Card className="border-blue-200 dark:border-blue-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5 text-blue-600" />
+            마이페이지
+          </CardTitle>
+          <CardDescription>내 계정 정보를 관리합니다</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">프로필 및 비밀번호 변경</p>
+              <p className="text-sm text-muted-foreground">
+                이름, 전화번호, 비밀번호를 변경할 수 있습니다
+              </p>
+            </div>
+            <Link href="/dashboard/settings/my-account">
+              <Button>
+                마이페이지
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Staff Management Link */}
       <Card className="border-purple-200 dark:border-purple-800">
         <CardHeader>
@@ -296,14 +324,14 @@ export default function SettingsPage() {
             <Users className="h-5 w-5 text-purple-600" />
             직원 계정 관리
           </CardTitle>
-          <CardDescription>입출고 관리자 및 작업자 계정을 관리합니다</CardDescription>
+          <CardDescription>직원 계정을 관리합니다 (고객 정보와 분리됨)</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">직원 계정 등록 및 권한 관리</p>
               <p className="text-sm text-muted-foreground">
-                입출고 관리자, 작업자 계정 생성 및 수정 (관리자 전용)
+                최고관리자, 관리자, 입출고관리자, 작업자 계정 관리
               </p>
             </div>
             <Link href="/dashboard/settings/staff">
