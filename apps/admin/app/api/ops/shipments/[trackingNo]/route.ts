@@ -20,6 +20,9 @@ export async function GET(
     console.log("🔍 API Route - 송장 조회:", trackingNo);
 
     // shipments 테이블에서 조회 (입고/출고/배송 송장 모두 허용)
+    // tracking_no: 기존 송장번호 (레거시)
+    // pickup_tracking_no: 입고(수거) 송장번호
+    // delivery_tracking_no: 출고(배송) 송장번호
     let resolvedShipment: any | null = null;
     let primaryError: any | null = null;
     try {
@@ -27,12 +30,11 @@ export async function GET(
         .from("shipments")
         .select("*")
         .or([
-          `pickup_tracking_no.eq.${trackingNo}`,
           `tracking_no.eq.${trackingNo}`,
-          `outbound_tracking_no.eq.${trackingNo}`,
+          `pickup_tracking_no.eq.${trackingNo}`,
           `delivery_tracking_no.eq.${trackingNo}`,
         ].join(","))
-        .single();
+        .maybeSingle();
       if (error) {
         primaryError = error;
         throw error;
@@ -45,8 +47,8 @@ export async function GET(
           .from("shipments")
           .select("*")
           .or([
-            `pickup_tracking_no.eq.${trackingNo}`,
             `tracking_no.eq.${trackingNo}`,
+            `pickup_tracking_no.eq.${trackingNo}`,
           ].join(","))
           .maybeSingle();
         if (fallbackError) {

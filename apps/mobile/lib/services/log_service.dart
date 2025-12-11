@@ -364,5 +364,77 @@ class LogService {
       return {'workComplete': 0, 'scanInbound': 0, 'scanOutbound': 0};
     }
   }
+
+  /// 주간 일별 성과 조회 (작업자용)
+  /// 
+  /// 최근 7일간의 일별 WORK_COMPLETE 건수를 반환합니다.
+  /// 반환 형식: Map<String, int> - 키는 날짜 문자열 (YYYY-MM-DD), 값은 완료 건수
+  Future<Map<String, int>> getMyWeeklyPerformance() async {
+    try {
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser == null) {
+        return {};
+      }
+
+      final userProfile = await _supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', currentUser.id)
+          .maybeSingle();
+
+      if (userProfile == null) {
+        return {};
+      }
+
+      final actorId = userProfile['id'] as String;
+
+      // 최근 7일간 조회
+      final now = DateTime.now();
+      final sevenDaysAgo = DateTime(now.year, now.month, now.day - 6);
+
+      final response = await _supabase
+          .from('action_logs')
+          .select('action_type, timestamp')
+          .eq('actor_id', actorId)
+          .eq('action_type', 'WORK_COMPLETE')
+          .gte('timestamp', sevenDaysAgo.toUtc().toIso8601String())
+          .lte('timestamp', DateTime.now().toUtc().toIso8601String());
+
+      final logs = (response as List).map((log) => Map<String, dynamic>.from(log)).toList();
+
+      // 일별 집계
+      Map<String, int> dailyPerformance = {};
+      
+      // 7일간의 날짜 초기화
+      for (int i = 0; i < 7; i++) {
+        final date = DateTime(now.year, now.month, now.day - (6 - i));
+        final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        dailyPerformance[dateKey] = 0;
+      }
+
+      // 로그에서 일별 카운트
+      for (final log in logs) {
+        final timestampStr = log['timestamp'] as String?;
+        if (timestampStr != null) {
+          try {
+            final timestamp = DateTime.parse(timestampStr).toLocal();
+            final dateKey = '${timestamp.year}-${timestamp.month.toString().padLeft(2, '0')}-${timestamp.day.toString().padLeft(2, '0')}';
+            if (dailyPerformance.containsKey(dateKey)) {
+              dailyPerformance[dateKey] = (dailyPerformance[dateKey] ?? 0) + 1;
+            }
+          } catch (e) {
+            // 파싱 실패 시 무시
+          }
+        }
+      }
+
+      print('✅ LogService: 주간 성과 조회 완료 - $dailyPerformance');
+
+      return dailyPerformance;
+    } catch (e) {
+      print('❌ LogService: 주간 성과 조회 실패 - $e');
+      return {};
+    }
+  }
 }
 

@@ -2,8 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle, ScanBarcode, Play, Video, Clock } from "lucide-react";
-import WebcamRecorder from "@/components/ops/WebcamRecorder";
+import { CheckCircle, ScanBarcode, Play, Clock, RotateCcw } from "lucide-react";
 
 type LookupResult = {
   orderId: string;
@@ -33,8 +32,6 @@ export default function WorkPage() {
   const [workItems, setWorkItems] = useState<WorkItemStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState<{ [key: number]: boolean }>({});
-  const [showWorkVideo, setShowWorkVideo] = useState<{ [key: number]: boolean }>({});
-  const [currentVideoSequence, setCurrentVideoSequence] = useState<number | null>(null);
 
   // 작업 아이템 상태 조회
   const loadWorkItems = async (orderId: string) => {
@@ -130,6 +127,7 @@ export default function WorkPage() {
         body: JSON.stringify({
           orderId: result.orderId,
           itemIndex,
+          action: "complete",
         }),
       });
 
@@ -149,17 +147,40 @@ export default function WorkPage() {
     }
   };
 
-  // 작업 영상 촬영 시작
-  const handleStartWorkVideo = (itemIndex: number) => {
-    setCurrentVideoSequence(itemIndex + 1);
-    setShowWorkVideo((prev) => ({ ...prev, [itemIndex]: true }));
-  };
+  // 작업 시작 전으로 되돌리기
+  const handleReopenWork = async (itemIndex: number) => {
+    if (!result) return;
+    
+    if (!confirm("정말 작업 시작 전 상태로 되돌리시겠습니까?")) {
+      return;
+    }
+    
+    setIsProcessing((prev) => ({ ...prev, [itemIndex]: true }));
+    try {
+      const res = await fetch("/api/ops/work-items", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: result.orderId,
+          itemIndex,
+          action: "reopen",
+        }),
+      });
 
-  // 작업 영상 업로드 완료
-  const handleWorkVideoUploaded = (itemIndex: number, videoId: string, duration: number) => {
-    setShowWorkVideo((prev) => ({ ...prev, [itemIndex]: false }));
-    setCurrentVideoSequence(null);
-    alert(`✅ ${itemIndex + 1}번 아이템 작업 영상이 저장되었습니다.\n\n영상 길이: ${duration}초`);
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.error || "작업 상태 되돌리기 실패");
+        return;
+      }
+
+      // 작업 아이템 상태 새로고침
+      await loadWorkItems(result.orderId);
+    } catch (error) {
+      console.error("작업 상태 되돌리기 실패:", error);
+      alert("작업 상태 되돌리기 실패");
+    } finally {
+      setIsProcessing((prev) => ({ ...prev, [itemIndex]: false }));
+    }
   };
 
   // 아이템의 작업 상태 가져오기
@@ -317,19 +338,21 @@ export default function WorkPage() {
                       {isProcessingItem ? "처리 중..." : "작업 완료"}
                     </button>
 
-                    {/* 작업 영상 촬영 버튼 */}
-                    <button
-                      onClick={() => handleStartWorkVideo(index)}
-                      disabled={!isInProgress || isProcessingItem}
-                      className={`px-4 py-2 rounded text-white flex items-center gap-2 text-sm ${
-                        !isInProgress || isProcessingItem
-                          ? "bg-gray-300 cursor-not-allowed"
-                          : "bg-purple-600 hover:bg-purple-700"
-                      }`}
-                    >
-                      <Video className="h-4 w-4" />
-                      작업 영상 촬영
-                    </button>
+                    {/* 작업 시작 전으로 되돌리기 버튼 */}
+                    {isCompleted && (
+                      <button
+                        onClick={() => handleReopenWork(index)}
+                        disabled={isProcessingItem}
+                        className={`px-4 py-2 rounded text-white flex items-center gap-2 text-sm ${
+                          isProcessingItem
+                            ? "bg-gray-300 cursor-not-allowed"
+                            : "bg-orange-600 hover:bg-orange-700"
+                        }`}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        {isProcessingItem ? "처리 중..." : "되돌리기"}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -345,50 +368,6 @@ export default function WorkPage() {
             </div>
           )}
         </div>
-      )}
-
-      {/* 작업 영상 촬영 다이얼로그 */}
-      {result && currentVideoSequence !== null && (
-        Object.entries(showWorkVideo).map(([itemIndexStr, isOpen]) => {
-          if (!isOpen) return null;
-          const itemIndex = parseInt(itemIndexStr);
-          const itemName = result.repairParts?.[itemIndex] || `${itemIndex + 1}번 아이템`;
-          
-          return (
-            <div
-              key={itemIndex}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            >
-              <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
-                <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
-                  <h2 className="text-lg font-semibold">작업 영상 촬영 - {itemName}</h2>
-                  <button
-                    onClick={() => {
-                      setShowWorkVideo((prev) => ({ ...prev, [itemIndex]: false }));
-                      setCurrentVideoSequence(null);
-                    }}
-                    className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
-                  >
-                    닫기
-                  </button>
-                </div>
-                <div className="p-4">
-                  <WebcamRecorder
-                    orderId={result.orderId}
-                    sequence={currentVideoSequence}
-                    onUploaded={(videoId, duration) => {
-                      handleWorkVideoUploaded(itemIndex, videoId, duration);
-                    }}
-                    onClose={() => {
-                      setShowWorkVideo((prev) => ({ ...prev, [itemIndex]: false }));
-                      setCurrentVideoSequence(null);
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          );
-        })
       )}
     </div>
   );

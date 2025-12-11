@@ -131,9 +131,9 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
     // 사용자 정보가 로드되면 컨트롤러 업데이트
     userProfileAsync.whenData((profile) {
       if (profile != null && !_isEditing) {
-        _nameController.text = profile['name'] as String? ?? '';
-        _phoneController.text = profile['phone'] as String? ?? '';
-        _emailController.text = profile['email'] as String? ?? '';
+        _nameController.text = profile.name;
+        _phoneController.text = profile.phone;
+        _emailController.text = profile.email;
       }
     });
     
@@ -303,7 +303,7 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
-              Text('정보를 불러올 수 없습니다'),
+              const Text('정보를 불러올 수 없습니다'),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () {

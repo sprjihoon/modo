@@ -6,8 +6,6 @@ import '../../../auth/data/providers/auth_provider.dart';
 import '../../../orders/providers/cart_provider.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/banner_service.dart';
-import '../../../analytics/widgets/my_performance_widget.dart';
-import '../../../../core/enums/user_role.dart';
 
 /// 홈 화면
 class HomePage extends ConsumerStatefulWidget {
@@ -115,9 +113,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             // 인사말
             _buildGreeting(context),
             const SizedBox(height: 20),
-            
-            // 작업자/관리자용 성과 위젯 (역할에 따라 표시)
-            _buildPerformanceWidget(),
             
             // 슬라이드 배너
             _buildBannerSlider(context),
@@ -293,42 +288,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 작업자/관리자용 성과 위젯
-  Widget _buildPerformanceWidget() {
-    final userProfileAsync = ref.watch(userProfileProvider);
-    
-    return userProfileAsync.when(
-      data: (profile) {
-        // 역할 확인
-        final roleStr = profile?['role'] as String?;
-        if (roleStr == null) return const SizedBox.shrink();
-        
-        try {
-          final role = UserRole.fromString(roleStr);
-          
-          // WORKER나 MANAGER인 경우에만 표시
-          if (role == UserRole.WORKER || role == UserRole.MANAGER) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: MyPerformanceWidget(
-                compact: true, // 간단한 버전 사용
-                onRefresh: () {
-                  // 필요시 추가 새로고침 로직
-                },
-              ),
-            );
-          }
-        } catch (e) {
-          // 역할 파싱 실패 시 무시
-        }
-        
-        return const SizedBox.shrink();
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-    );
-  }
-
   Widget _buildGreeting(BuildContext context) {
     final userProfileAsync = ref.watch(userProfileProvider);
     
@@ -337,7 +296,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       child: userProfileAsync.when(
         data: (profile) {
           // 사용자 이름 가져오기 (없으면 '고객'으로 표시)
-          final userName = profile?['name'] as String? ?? '고객';
+          final userName = profile?.name ?? '고객';
           
           return RichText(
             text: TextSpan(

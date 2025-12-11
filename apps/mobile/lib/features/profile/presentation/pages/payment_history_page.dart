@@ -42,7 +42,7 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
         });
         return;
       }
-      final data = await _paymentService.getPaymentHistory(userId);
+      final data = await _paymentService.getPaymentHistory();
       setState(() {
         _allPayments = data;
         _isLoading = false;

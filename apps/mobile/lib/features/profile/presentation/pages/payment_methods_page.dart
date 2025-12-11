@@ -31,13 +31,13 @@ class _PaymentMethodsPageState extends ConsumerState<PaymentMethodsPage> {
         return;
       }
 
-      final methods = await _paymentService.getPaymentMethods(user.id);
+      final methods = await _paymentService.getPaymentMethods();
       
       // 개발용: 카드가 하나도 없으면 목업 카드 자동 생성
       if (methods.isEmpty) {
         try {
-          await _createMockCard(user.id);
-          final updatedMethods = await _paymentService.getPaymentMethods(user.id);
+          await _createMockCard();
+          final updatedMethods = await _paymentService.getPaymentMethods();
           setState(() {
             _paymentMethods = updatedMethods;
             _isLoading = false;
@@ -63,9 +63,8 @@ class _PaymentMethodsPageState extends ConsumerState<PaymentMethodsPage> {
   }
   
   /// 개발용 목업 카드 생성
-  Future<void> _createMockCard(String userId) async {
+  Future<void> _createMockCard() async {
     await _paymentService.registerPaymentMethod(
-      userId: userId,
       billingKey: 'mock_billing_default_${DateTime.now().millisecondsSinceEpoch}',
       cardCompany: 'KB국민카드',
       cardNumber: '**** **** **** 1234',
@@ -180,21 +179,17 @@ class _PaymentMethodsPageState extends ConsumerState<PaymentMethodsPage> {
                       child: OutlinedButton.icon(
                         onPressed: (isDefault == true) ? null : () async {
                           try {
-                            final user = Supabase.instance.client.auth.currentUser;
-                            if (user != null) {
-                              await _paymentService.setDefaultPaymentMethod(
-                                userId: user.id,
-                                paymentMethodId: method['id'],
+                            await _paymentService.setDefaultPaymentMethod(
+                              paymentMethodId: method['id'],
+                            );
+                            _loadPaymentMethods();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('기본 결제수단으로 설정되었습니다'),
+                                  backgroundColor: Color(0xFF00C896),
+                                ),
                               );
-                              _loadPaymentMethods();
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('기본 결제수단으로 설정되었습니다'),
-                                    backgroundColor: Color(0xFF00C896),
-                                  ),
-                                );
-                              }
                             }
                           } catch (e) {
                             if (mounted) {

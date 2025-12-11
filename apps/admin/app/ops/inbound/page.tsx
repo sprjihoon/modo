@@ -154,6 +154,13 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       }
     }
 
+    console.log('📦 송장번호 매핑:', {
+      inboundTrackingNo,
+      outboundTrackingNo,
+      delivery_tracking_no: shipment.delivery_tracking_no,
+      delivery_info_regiNo: deliveryInfo?.regiNo,
+    });
+
     return {
       trackingNo: inboundTrackingNo, // 입고송장번호
       outboundTrackingNo: outboundTrackingNo, // 출고송장번호
@@ -344,16 +351,29 @@ export default function InboundPage() {
 
       console.log("✅ 입고 처리 완료:", data);
       
-      // 출고 송장번호 표시
+      // 출고 송장번호 표시 및 result 상태 즉시 업데이트
       if (data.outboundTrackingNo) {
+        // 📌 중요: 입고 처리 응답에서 받은 출고 송장번호를 즉시 result에 반영
+        setResult(prev => prev ? {
+          ...prev,
+          outboundTrackingNo: data.outboundTrackingNo,
+          status: "INBOUND",
+        } : prev);
+        
         alert(`입고 처리 완료!\n\n출고 송장번호: ${data.outboundTrackingNo}\n\n작업지시서를 출력하세요.`);
       } else {
         // data.error가 있으면 함께 표시
         const errorMsg = data.error ? `\n\n사유: ${data.error}` : "";
         alert(`입고 처리가 완료되었습니다!\n\n⚠️ 출고 송장 생성 실패 (수동 발급 필요)${errorMsg}`);
+        
+        // 출고 송장 없어도 상태는 INBOUND로 변경
+        setResult(prev => prev ? {
+          ...prev,
+          status: "INBOUND",
+        } : prev);
       }
 
-      // 결과 새로고침
+      // 결과 새로고침 (DB에서 최신 데이터 로드)
       await handleLookup();
     } catch (error) {
       console.error("❌ 입고 처리 실패:", error);

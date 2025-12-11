@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -78,7 +77,6 @@ class _AddPaymentMethodPageState extends ConsumerState<AddPaymentMethodPage> {
 
       // 2. 결제수단 DB에 저장
       await _paymentService.registerPaymentMethod(
-        userId: user.id,
         billingKey: billingResult['billing_key'],
         cardCompany: billingResult['card_company'],
         cardNumber: '**** **** **** ${cardNumber.substring(cardNumber.length - 4)}',

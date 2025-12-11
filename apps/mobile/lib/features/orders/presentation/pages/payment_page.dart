@@ -65,7 +65,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         return;
       }
 
-      final methods = await _paymentService.getPaymentMethods(user.id);
+      final methods = await _paymentService.getPaymentMethods();
       setState(() {
         _paymentMethods = methods;
         _isLoadingPaymentMethods = false;
@@ -126,6 +126,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
         deliveryZipcode: _orderData!['delivery_zipcode'] as String?,
         customerName: _orderData!['customer_name'],
+        deliveryMessage: _orderData!['notes'] as String?, // 배송 요청사항 전달
       );
 
       if (!mounted) return;
@@ -189,6 +190,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
         deliveryZipcode: _orderData!['delivery_zipcode'] as String?,
         customerName: _orderData!['customer_name'] ?? '테스트 고객',
+        deliveryMessage: _orderData!['notes'] as String?, // 배송 요청사항 전달
         testMode: testMode,
       );
 
@@ -538,7 +540,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                       ),
                       contentPadding: EdgeInsets.zero,
                     );
-                  }).toList(),
+                  }),
               ],
             ),
           ),
@@ -734,7 +736,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 _buildImageWithPins(imagePath, pins, index),
               ],
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -840,8 +842,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                         Container(
                           width: 20,
                           height: 20,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00C896),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF00C896),
                             shape: BoxShape.circle,
                           ),
                           child: Center(
@@ -869,7 +871,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ),
           ),

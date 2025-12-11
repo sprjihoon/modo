@@ -40,6 +40,9 @@ export async function POST(request: NextRequest) {
         console.log("📦 응답 데이터:", JSON.stringify(outboundResult, null, 2));
         outboundTrackingNo = outboundResult.data?.trackingNo || null;
         console.log("✅ 출고 송장 생성 성공:", outboundTrackingNo);
+        
+        // delivery_info도 저장 (집배코드 등 포함) - shipments 테이블에서 조회
+        console.log("📋 출고 송장 생성 응답 상세:", outboundResult.data);
       } else {
         // 에러 응답 파싱
         const errorText = await outboundResponse.text();

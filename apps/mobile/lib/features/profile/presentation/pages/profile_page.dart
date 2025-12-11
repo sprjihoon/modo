@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../../core/enums/user_role.dart';
 import '../../../auth/data/providers/auth_provider.dart';
 
 /// 마이페이지 (프로필)
@@ -28,8 +29,8 @@ class ProfilePage extends ConsumerWidget {
             // 사용자 정보 헤더
             userProfileAsync.when(
               data: (profile) {
-                final userName = profile?['name'] as String? ?? '고객';
-                final userEmail = profile?['email'] as String? ?? '';
+                final userName = profile?.name ?? '고객';
+                final userEmail = profile?.email ?? '';
                 const mockPoints = 0; // TODO: 포인트 정보 가져오기
                 return _buildUserHeader(context, userName, userEmail, mockPoints);
               },
@@ -37,6 +38,54 @@ class ProfilePage extends ConsumerWidget {
               error: (_, __) => _buildUserHeader(context, '고객', '', 0),
             ),
             const SizedBox(height: 16),
+            
+            // 작업자/관리자용 대시보드 섹션
+            userProfileAsync.when(
+              data: (profile) {
+                if (profile == null) return const SizedBox.shrink();
+                final role = profile.role;
+                if (role == UserRole.WORKER || role == UserRole.MANAGER) {
+                  return Column(
+                    children: [
+                      _buildSection(
+                        context,
+                        '작업자 전용',
+                        [
+                          _MenuItem(
+                            icon: Icons.dashboard_outlined,
+                            title: '나의 대시보드',
+                            subtitle: '오늘의 성과 및 주간 통계',
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00C896),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'NEW',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            onTap: () => context.push('/worker-dashboard'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
             
             // 회원 관리 섹션
             _buildSection(

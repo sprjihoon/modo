@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS public.work_items (
   -- 작업 상태
   status work_item_status NOT NULL DEFAULT 'PENDING',
   
-  -- 작업자 정보 (선택적)
-  worker_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  -- 작업자 정보 (선택적) - 직원 테이블 참조
+  worker_id UUID REFERENCES public.staff(id) ON DELETE SET NULL,
   worker_name TEXT,  -- 작업자 이름 (스냅샷)
   
   -- 시간 정보
