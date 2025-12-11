@@ -353,58 +353,18 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 IconButton(
-                  onPressed: _currentPage > 1
-                      ? () => setState(() => _currentPage--)
+                  onPressed: safeCurrentPage > 1
+                      ? () => setState(() => _currentPage = safeCurrentPage - 1)
                       : null,
                   icon: const Icon(Icons.chevron_left),
                   color: const Color(0xFF00C896),
                 ),
                 const SizedBox(width: 16),
-                ...List.generate(totalPages.clamp(0, 5), (index) {
-                  final page = index + 1;
-                  final isCurrentPage = page == _currentPage;
-                  
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: InkWell(
-                      onTap: () => setState(() => _currentPage = page),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: isCurrentPage
-                              ? const Color(0xFF00C896)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isCurrentPage
-                                ? const Color(0xFF00C896)
-                                : Colors.grey.shade300,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '$page',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: isCurrentPage
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: isCurrentPage
-                                  ? Colors.white
-                                  : Colors.grey.shade700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
+                ..._buildPageNumbers(safeCurrentPage, totalPages),
                 const SizedBox(width: 16),
                 IconButton(
-                  onPressed: _currentPage < totalPages
-                      ? () => setState(() => _currentPage++)
+                  onPressed: safeCurrentPage < totalPages
+                      ? () => setState(() => _currentPage = safeCurrentPage + 1)
                       : null,
                   icon: const Icon(Icons.chevron_right),
                   color: const Color(0xFF00C896),
@@ -414,6 +374,68 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
           ),
       ],
     );
+  }
+
+  /// 페이지 번호 버튼 생성 (현재 페이지 기준 앞뒤 2페이지씩 표시)
+  List<Widget> _buildPageNumbers(int currentPage, int totalPages) {
+    final List<Widget> pageButtons = [];
+    
+    // 최대 5개 페이지 번호 표시
+    int startPage = (currentPage - 2).clamp(1, totalPages);
+    int endPage = (currentPage + 2).clamp(1, totalPages);
+    
+    // 5개 페이지가 안 되면 조정
+    if (endPage - startPage < 4) {
+      if (startPage == 1) {
+        endPage = (startPage + 4).clamp(1, totalPages);
+      } else if (endPage == totalPages) {
+        startPage = (endPage - 4).clamp(1, totalPages);
+      }
+    }
+    
+    for (int page = startPage; page <= endPage; page++) {
+      final isCurrentPage = page == currentPage;
+      pageButtons.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: InkWell(
+            onTap: () => setState(() => _currentPage = page),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isCurrentPage
+                    ? const Color(0xFF00C896)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isCurrentPage
+                      ? const Color(0xFF00C896)
+                      : Colors.grey.shade300,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  '$page',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isCurrentPage
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: isCurrentPage
+                        ? Colors.white
+                        : Colors.grey.shade700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    
+    return pageButtons;
   }
 
   Widget _buildOrderCard(BuildContext context, Map<String, dynamic> order) {

@@ -18,7 +18,8 @@ export interface Customer {
 
 /**
  * 고객 목록 조회
- * - CUSTOMER 역할만 조회 (ADMIN, MANAGER, WORKER 제외)
+ * - CUSTOMER 역할만 조회 (users 테이블의 user_role ENUM)
+ * - 관리자는 staff 테이블에서 별도 관리됨
  */
 export async function getCustomers(filters?: {
   search?: string;
@@ -28,7 +29,7 @@ export async function getCustomers(filters?: {
   let query = supabaseAdmin
     .from('users')
     .select('*')
-    .eq('role', 'CUSTOMER')  // 고객만 조회 (관리자, 작업자 제외)
+    .eq('role', 'CUSTOMER')  // 고객만 조회 (user_role ENUM: ADMIN, MANAGER, WORKER, CUSTOMER 중 CUSTOMER만)
     .order('created_at', { ascending: false });
 
   if (filters?.search) {
@@ -130,7 +131,7 @@ export async function getCustomerById(customerId: string) {
 
 /**
  * 고객 통계 조회
- * - CUSTOMER 역할만 집계 (관리자, 작업자 제외)
+ * - CUSTOMER 역할만 집계 (users 테이블의 user_role ENUM)
  */
 export async function getCustomerStats() {
   // 전체 고객 수 (CUSTOMER만)
