@@ -34,13 +34,32 @@ export async function POST(req: NextRequest) {
     const fileExt = file.name.split(".").pop();
     const fileName = `banners/${Date.now()}.${fileExt}`;
 
+    // 버킷 이름 (admin-assets 사용 또는 생성)
+    const bucketName = "admin-assets";
+
+    // 버킷이 없으면 생성 시도
+    try {
+      // @ts-ignore - createBucket only available for service role
+      await supabaseAdmin.storage.createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 5242880, // 5MB
+        allowedMimeTypes: ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"]
+      });
+      console.log(`✅ 버킷 생성 성공: ${bucketName}`);
+    } catch (createError: any) {
+      // 버킷이 이미 존재하면 무시
+      if (createError?.message && !createError.message.includes("already exists")) {
+        console.warn("버킷 생성 경고 (이미 존재할 수 있음):", createError);
+      }
+    }
+
     // 파일을 ArrayBuffer로 변환
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     // Supabase Storage에 업로드
     const { data, error } = await supabaseAdmin.storage
-      .from("public")
+      .from(bucketName)
       .upload(fileName, buffer, {
         cacheControl: "3600",
         upsert: false,
@@ -58,7 +77,7 @@ export async function POST(req: NextRequest) {
     // Public URL 가져오기
     const {
       data: { publicUrl },
-    } = supabaseAdmin.storage.from("public").getPublicUrl(fileName);
+    } = supabaseAdmin.storage.from(bucketName).getPublicUrl(fileName);
 
     return NextResponse.json({
       success: true,

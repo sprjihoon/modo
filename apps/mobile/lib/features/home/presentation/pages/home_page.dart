@@ -437,6 +437,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           height: 320,
           child: PageView.builder(
             controller: _bannerController,
+            physics: const PageScrollPhysics(),
             onPageChanged: (index) {
               setState(() {
                 _currentBannerIndex = index;

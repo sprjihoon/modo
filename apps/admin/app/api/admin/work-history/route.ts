@@ -15,19 +15,10 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "50");
 
+    // work_items 조회
     let query = supabaseAdmin
       .from("work_items")
-      .select(`
-        *,
-        orders:order_id (
-          id,
-          order_number,
-          customer_name,
-          item_name,
-          repair_parts,
-          status
-        )
-      `)
+      .select("*")
       .order("created_at", { ascending: false });
 
     // 필터링
@@ -52,7 +43,7 @@ export async function GET(request: NextRequest) {
     const to = from + pageSize - 1;
     query = query.range(from, to);
 
-    const { data, error, count } = await query;
+    const { data: workItems, error } = await query;
 
     if (error) {
       console.error("작업 내역 조회 오류:", error);
@@ -61,6 +52,32 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // orders 정보 조회 (work_items의 order_id들을 모아서 한 번에 조회)
+    const orderIds = [...new Set((workItems || []).map((item: any) => item.order_id))];
+    let ordersData: Record<string, any> = {};
+    
+    if (orderIds.length > 0) {
+      const { data: orders, error: ordersError } = await supabaseAdmin
+        .from("orders")
+        .select("id, tracking_no, customer_name, item_name, status")
+        .in("id", orderIds);
+
+      if (ordersError) {
+        console.error("주문 정보 조회 오류:", ordersError);
+      } else {
+        // orders를 id로 매핑
+        (orders || []).forEach((order: any) => {
+          ordersData[order.id] = order;
+        });
+      }
+    }
+
+    // work_items에 orders 정보 추가
+    const data = (workItems || []).map((item: any) => ({
+      ...item,
+      orders: ordersData[item.order_id] || null,
+    }));
 
     // 전체 개수 조회
     let countQuery = supabaseAdmin

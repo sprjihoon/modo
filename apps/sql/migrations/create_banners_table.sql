@@ -28,12 +28,22 @@ CREATE TABLE IF NOT EXISTS public.banners (
   CONSTRAINT banners_display_order_check CHECK (display_order >= 0)
 );
 
--- 인덱스 생성
+-- 인덱스 생성 (기존 인덱스가 있으면 삭제 후 재생성)
+DROP INDEX IF EXISTS public.idx_banners_display_order;
 CREATE INDEX idx_banners_display_order ON public.banners(display_order);
+
+DROP INDEX IF EXISTS public.idx_banners_is_active;
 CREATE INDEX idx_banners_is_active ON public.banners(is_active);
 
 -- RLS 활성화
 ALTER TABLE public.banners ENABLE ROW LEVEL SECURITY;
+
+-- 정책 삭제 (기존 정책이 있으면 삭제 후 재생성)
+DROP POLICY IF EXISTS "Anyone can view active banners" ON public.banners;
+DROP POLICY IF EXISTS "Admins can view all banners" ON public.banners;
+DROP POLICY IF EXISTS "Admins can insert banners" ON public.banners;
+DROP POLICY IF EXISTS "Admins can update banners" ON public.banners;
+DROP POLICY IF EXISTS "Admins can delete banners" ON public.banners;
 
 -- 정책: 모든 사용자는 활성화된 배너만 조회 가능
 CREATE POLICY "Anyone can view active banners"
@@ -95,6 +105,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_banners_updated_at ON public.banners;
 CREATE TRIGGER update_banners_updated_at
   BEFORE UPDATE ON public.banners
   FOR EACH ROW
@@ -102,8 +113,8 @@ CREATE TRIGGER update_banners_updated_at
 
 -- 기본 배너 데이터 삽입
 INSERT INTO public.banners (title, button_text, background_color, display_order, is_active) VALUES
-  ('멀리 갈 필요 없이\n문앞에 두고', '첫 수거신청 하기', '#2D3E50', 1, true),
-  ('옷 수선,\n이제 집에서 간편하게', '수선 접수하기', '#00C896', 2, true),
-  ('수거부터 배송까지\n한 번에', '서비스 둘러보기', '#8B5CF6', 3, true)
+  (E'멀리 갈 필요 없이\n문앞에 두고', '첫 수거신청 하기', '#2D3E50', 1, true),
+  (E'옷 수선,\n이제 집에서 간편하게', '수선 접수하기', '#00C896', 2, true),
+  (E'수거부터 배송까지\n한 번에', '서비스 둘러보기', '#8B5CF6', 3, true)
 ON CONFLICT DO NOTHING;
 

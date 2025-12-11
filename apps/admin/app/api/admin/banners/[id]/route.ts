@@ -18,9 +18,29 @@ export async function GET(
       .single();
 
     if (error) {
-      console.error('배너 조회 실패:', error);
+      console.error('❌ 배너 조회 실패:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      
+      const isTableNotFound = error.code === 'PGRST205' || 
+                              error.message?.includes('schema cache') ||
+                              error.message?.includes('not found');
+      
+      const errorMessage = isTableNotFound
+        ? 'banners 테이블이 데이터베이스에 없습니다. 마이그레이션을 실행해주세요: apps/sql/migrations/create_banners_table.sql'
+        : error.message || '배너 조회 실패';
+      
       return NextResponse.json(
-        { error: '배너 조회 실패', details: error.message },
+        { 
+          success: false,
+          error: errorMessage, 
+          details: error.details || error.message,
+          code: error.code,
+          hint: error.hint || (isTableNotFound ? 'Run migration: create_banners_table.sql' : undefined),
+        },
         { status: 500 }
       );
     }
@@ -62,9 +82,29 @@ export async function PUT(
       .single();
 
     if (error) {
-      console.error('배너 수정 실패:', error);
+      console.error('❌ 배너 수정 실패:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      
+      const isTableNotFound = error.code === 'PGRST205' || 
+                              error.message?.includes('schema cache') ||
+                              error.message?.includes('not found');
+      
+      const errorMessage = isTableNotFound
+        ? 'banners 테이블이 데이터베이스에 없습니다. 마이그레이션을 실행해주세요: apps/sql/migrations/create_banners_table.sql'
+        : error.message || '배너 수정 실패';
+      
       return NextResponse.json(
-        { error: '배너 수정 실패', details: error.message },
+        { 
+          success: false,
+          error: errorMessage, 
+          details: error.details || error.message,
+          code: error.code,
+          hint: error.hint || (isTableNotFound ? 'Run migration: create_banners_table.sql' : undefined),
+        },
         { status: 500 }
       );
     }
@@ -90,9 +130,29 @@ export async function DELETE(
       .eq("id", id);
 
     if (error) {
-      console.error('배너 삭제 실패:', error);
+      console.error('❌ 배너 삭제 실패:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      
+      const isTableNotFound = error.code === 'PGRST205' || 
+                              error.message?.includes('schema cache') ||
+                              error.message?.includes('not found');
+      
+      const errorMessage = isTableNotFound
+        ? 'banners 테이블이 데이터베이스에 없습니다. 마이그레이션을 실행해주세요: apps/sql/migrations/create_banners_table.sql'
+        : error.message || '배너 삭제 실패';
+      
       return NextResponse.json(
-        { error: '배너 삭제 실패', details: error.message },
+        { 
+          success: false,
+          error: errorMessage, 
+          details: error.details || error.message,
+          code: error.code,
+          hint: error.hint || (isTableNotFound ? 'Run migration: create_banners_table.sql' : undefined),
+        },
         { status: 500 }
       );
     }

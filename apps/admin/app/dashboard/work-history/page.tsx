@@ -23,12 +23,11 @@ interface WorkItem {
   updated_at: string;
   orders: {
     id: string;
-    order_number: string;
+    tracking_no?: string;
     customer_name?: string;
     item_name?: string;
-    repair_parts?: string[];
     status: string;
-  };
+  } | null;
 }
 
 interface Pagination {
@@ -78,20 +77,35 @@ export default function WorkHistoryPage() {
       const response = await fetch(`/api/admin/work-history?${params.toString()}`);
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("API 응답 오류:", response.status, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
+      console.log("작업 내역 API 응답:", result);
 
       if (result.success) {
-        setWorkItems(result.data || []);
+        // 데이터 정규화
+        const normalizedData = (result.data || []).map((item: any) => {
+          // orders가 배열인 경우 첫 번째 요소 사용
+          if (Array.isArray(item.orders)) {
+            item.orders = item.orders[0] || null;
+          }
+          // orders가 null이거나 undefined인 경우 빈 객체로 처리하지 않고 그대로 유지
+          return item;
+        });
+        setWorkItems(normalizedData);
         setPagination(result.pagination || pagination);
       } else {
-        throw new Error(result.error || "작업 내역을 불러올 수 없습니다.");
+        const errorMsg = result.error || "작업 내역을 불러올 수 없습니다.";
+        console.error("API 오류:", errorMsg);
+        throw new Error(errorMsg);
       }
     } catch (error: any) {
       console.error("작업 내역 로드 실패:", error);
       setError(error.message || "작업 내역을 불러오는데 실패했습니다.");
+      setWorkItems([]);
     } finally {
       setIsLoading(false);
     }
@@ -125,14 +139,19 @@ export default function WorkHistoryPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("ko-KR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "-";
+    try {
+      return new Date(dateString).toLocaleString("ko-KR", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      return "-";
+    }
   };
 
   const handleResetFilters = () => {
@@ -272,7 +291,7 @@ export default function WorkHistoryPage() {
                           href={`/dashboard/orders/${item.order_id}`}
                           className="font-semibold text-blue-600 hover:underline"
                         >
-                          {item.orders?.order_number || item.order_id}
+                          {item.orders?.tracking_no || item.order_id.slice(0, 8)}
                         </Link>
                         <span className="text-sm text-gray-600">
                           {item.orders?.customer_name || "고객명 없음"}

@@ -33,13 +33,23 @@ export async function GET(req: NextRequest) {
         details: error.details,
         hint: error.hint,
       });
+      
+      // 테이블이 없는 경우 명확한 메시지 제공
+      const isTableNotFound = error.code === 'PGRST205' || 
+                              error.message?.includes('schema cache') ||
+                              error.message?.includes('not found');
+      
+      const errorMessage = isTableNotFound
+        ? 'banners 테이블이 데이터베이스에 없습니다. 마이그레이션을 실행해주세요: apps/sql/migrations/create_banners_table.sql'
+        : error.message || '배너 조회 실패';
+      
       return NextResponse.json(
         { 
           success: false,
-          error: '배너 조회 실패', 
-          details: error.message,
+          error: errorMessage, 
+          details: error.details || error.message,
           code: error.code,
-          hint: error.hint,
+          hint: error.hint || (isTableNotFound ? 'Run migration: create_banners_table.sql' : undefined),
         },
         { status: 500 }
       );
@@ -83,9 +93,30 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      console.error('배너 생성 실패:', error);
+      console.error('❌ 배너 생성 실패:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      
+      // 테이블이 없는 경우 명확한 메시지 제공
+      const isTableNotFound = error.code === 'PGRST205' || 
+                              error.message?.includes('schema cache') ||
+                              error.message?.includes('not found');
+      
+      const errorMessage = isTableNotFound
+        ? 'banners 테이블이 데이터베이스에 없습니다. 마이그레이션을 실행해주세요: apps/sql/migrations/create_banners_table.sql'
+        : error.message || '배너 생성 실패';
+      
       return NextResponse.json(
-        { error: '배너 생성 실패', details: error.message },
+        { 
+          success: false,
+          error: errorMessage, 
+          details: error.details || error.message,
+          code: error.code,
+          hint: error.hint || (isTableNotFound ? 'Run migration: create_banners_table.sql' : undefined),
+        },
         { status: 500 }
       );
     }
