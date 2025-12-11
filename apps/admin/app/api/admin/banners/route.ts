@@ -9,6 +9,12 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const activeOnly = searchParams.get('active_only') === 'true';
 
+    console.log('🔍 배너 조회 시작:', { 
+      activeOnly,
+      hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    });
+
     let query = supabaseAdmin
       .from("banners")
       .select("*")
@@ -21,17 +27,36 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('배너 조회 실패:', error);
+      console.error('❌ 배너 조회 실패:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
       return NextResponse.json(
-        { error: '배너 조회 실패', details: error.message },
+        { 
+          success: false,
+          error: '배너 조회 실패', 
+          details: error.message,
+          code: error.code,
+          hint: error.hint,
+        },
         { status: 500 }
       );
     }
 
+    console.log('✅ 배너 조회 성공:', { count: data?.length || 0 });
+
     return NextResponse.json({ success: true, data: data || [] });
   } catch (e: any) {
-    console.error('배너 조회 오류:', e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    console.error('❌ 배너 조회 오류:', {
+      message: e.message,
+      stack: e.stack,
+    });
+    return NextResponse.json({ 
+      success: false,
+      error: e.message || '배너 조회 중 오류가 발생했습니다.' 
+    }, { status: 500 });
   }
 }
 

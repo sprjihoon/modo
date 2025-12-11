@@ -41,6 +41,7 @@ interface Pagination {
 export default function WorkHistoryPage() {
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     pageSize: 50,
@@ -61,6 +62,7 @@ export default function WorkHistoryPage() {
 
   const loadWorkHistory = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({
         page: pagination.page.toString(),
@@ -74,14 +76,22 @@ export default function WorkHistoryPage() {
       if (endDate) params.append("endDate", endDate);
 
       const response = await fetch(`/api/admin/work-history?${params.toString()}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (result.success) {
         setWorkItems(result.data || []);
         setPagination(result.pagination || pagination);
+      } else {
+        throw new Error(result.error || "작업 내역을 불러올 수 없습니다.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("작업 내역 로드 실패:", error);
+      setError(error.message || "작업 내역을 불러오는데 실패했습니다.");
     } finally {
       setIsLoading(false);
     }
@@ -234,6 +244,14 @@ export default function WorkHistoryPage() {
           {isLoading ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h3 className="text-red-800 font-semibold mb-2">오류 발생</h3>
+              <p className="text-red-600">{error}</p>
+              <Button onClick={loadWorkHistory} className="mt-4">
+                다시 시도
+              </Button>
             </div>
           ) : workItems.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">

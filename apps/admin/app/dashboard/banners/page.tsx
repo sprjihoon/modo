@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Edit, Trash2, Check, X, ArrowUp, ArrowDown, Image as ImageIcon, Upload } from "lucide-react";
-import { supabaseAdmin } from "@/lib/supabase";
 
 interface Banner {
   id: string;
@@ -38,10 +37,32 @@ export default function BannersPage() {
     setError(null);
     try {
       const response = await fetch("/api/admin/banners");
-      const result = await response.json();
+      
+      // 응답 본문을 먼저 텍스트로 읽어서 확인
+      const responseText = await response.text();
+      console.log("배너 API 응답 (raw):", responseText);
+      
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        console.error("JSON 파싱 실패:", e);
+        throw new Error(`서버 응답 파싱 실패: ${responseText.substring(0, 200)}`);
+      }
+
+      console.log("배너 API 응답 (parsed):", { status: response.status, result });
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "배너를 불러올 수 없습니다.");
+        const errorMsg = result.details || result.error || result.hint || `배너를 불러올 수 없습니다. (${response.status})`;
+        console.error("배너 로드 실패:", {
+          status: response.status,
+          error: result.error,
+          details: result.details,
+          code: result.code,
+          hint: result.hint,
+          fullResponse: result,
+        });
+        throw new Error(errorMsg);
       }
 
       setBanners(result.data || []);
@@ -363,23 +384,23 @@ function BannerModal({ banner, onClose, onSuccess }: BannerModalProps) {
 
     setIsUploading(true);
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `banners/${Date.now()}.${fileExt}`;
+      // FormData 생성
+      const formData = new FormData();
+      formData.append("file", file);
 
-      const { data, error } = await supabaseAdmin.storage
-        .from("public")
-        .upload(fileName, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+      // API를 통해 이미지 업로드
+      const response = await fetch("/api/admin/banners/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-      if (error) throw error;
+      const result = await response.json();
 
-      const {
-        data: { publicUrl },
-      } = supabaseAdmin.storage.from("public").getPublicUrl(fileName);
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "이미지 업로드에 실패했습니다.");
+      }
 
-      setBackgroundImageUrl(publicUrl);
+      setBackgroundImageUrl(result.url);
     } catch (error: any) {
       console.error("이미지 업로드 실패:", error);
       alert("이미지 업로드에 실패했습니다: " + error.message);
