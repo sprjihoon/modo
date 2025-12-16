@@ -234,12 +234,20 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
   }
 
   /// 핀 드래그 종료
-  void _handlePinDragEnd(ImagePin pin) {
+  void _handlePinDragEnd(ImagePin pin, DragEndDetails details) {
     // 최소 드래그 거리 확인 (탭과 구분)
     bool wasDragging = false;
-    if (_dragStartPosition != null) {
-      // 실제로 이동했는지 확인 (거리 체크는 생략, draggingPinId로 판단)
-      wasDragging = _draggingPinId != null;
+    
+    if (_dragStartPosition != null && _draggingPinId != null) {
+      // 실제 이동 거리 계산
+      final distance = (details.globalPosition - _dragStartPosition!).distance;
+      wasDragging = distance >= _minDragDistance;
+      
+      if (wasDragging) {
+        debugPrint('📏 드래그 거리: ${distance.toStringAsFixed(1)}px');
+      } else {
+        debugPrint('📏 드래그 거리 부족: ${distance.toStringAsFixed(1)}px < ${_minDragDistance}px');
+      }
     }
 
     setState(() {
@@ -420,7 +428,7 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
         behavior: HitTestBehavior.translucent,
         onPanStart: (details) => _handlePinDragStart(pin, details),
         onPanUpdate: (details) => _handlePinDragUpdate(pin, details, constraints),
-        onPanEnd: (_) => _handlePinDragEnd(pin),
+        onPanEnd: (details) => _handlePinDragEnd(pin, details),
         child: Container(
           width: 80,
           height: 80,
