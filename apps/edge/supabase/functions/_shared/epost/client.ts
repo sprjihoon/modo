@@ -48,13 +48,15 @@ export async function callEPostAPI(
 
   let url = `${baseUrl}/${endpoint}?key=${config.apiKey}`;
   
-  // testYn이 'Y'이면 URL 파라미터로 추가
-  // ⚠️ 중요: testYn='N'일 때는 URL 파라미터로 추가하지 않음 (실제 수거예약 등록을 위해)
+  // ⚠️ 중요: testYn 파라미터는 반드시 URL에 포함해야 함
+  // testYn=Y: 테스트 모드 (운송장 발급, 실제 등록 안됨)
+  // testYn=N: 실제 모드 (운송장 발급 + 실제 시스템 등록)
   if (testYn === 'Y') {
     url += '&testYn=Y';
-    console.log('🔍 testYn=Y로 URL 파라미터 추가됨 (테스트 모드)');
+    console.log('🔍 testYn=Y로 URL 파라미터 추가됨 (테스트 모드 - 실제 등록 안됨)');
   } else if (testYn === 'N') {
-    console.log('🔍 testYn=N이므로 URL 파라미터에 추가하지 않음 (실제 수거예약 등록 모드)');
+    url += '&testYn=N';
+    console.log('🔍 testYn=N로 URL 파라미터 추가됨 (실제 모드 - 우체국 시스템에 등록됨)');
   }
 
   if (needsEncryption) {

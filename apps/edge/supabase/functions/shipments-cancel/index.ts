@@ -132,12 +132,27 @@ Deno.serve(async (req) => {
     } catch (e) {
       console.error('❌ 우체국 취소 실패:', e.message);
       
-      // 우체국 API 실패 시 에러 반환 (DB 업데이트하지 않음)
-      return errorResponse(
-        `우체국 전산 취소 실패: ${e.message || '알 수 없는 오류'}`,
-        500,
-        'EPOST_CANCEL_FAILED'
-      );
+      // ERR-123: 예약 정보가 없는 경우 (Mock 또는 testYn=Y로 생성된 경우)
+      // 이 경우 DB만 업데이트하고 성공으로 처리
+      const isNoReservationError = e.message?.includes('ERR-123') || 
+                                    e.message?.includes('예약된 정보가 없습니다') ||
+                                    e.message?.includes('접수정보로 예약된 정보가 없');
+      
+      if (isNoReservationError) {
+        console.warn('⚠️ 우체국에 예약 정보가 없습니다. DB만 업데이트합니다.');
+        console.warn('   이는 테스트 모드나 Mock으로 생성된 주문일 수 있습니다.');
+        cancelResult = {
+          canceledYn: 'Y',
+          note: '우체국 예약 정보 없음 (DB만 업데이트)'
+        };
+      } else {
+        // 다른 에러의 경우 실패 처리
+        return errorResponse(
+          `우체국 전산 취소 실패: ${e.message || '알 수 없는 오류'}`,
+          500,
+          'EPOST_CANCEL_FAILED'
+        );
+      }
     }
 
     // shipments 테이블 업데이트

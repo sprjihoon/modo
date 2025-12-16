@@ -412,6 +412,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ⚠️ 중요: test_mode 설정 확인
+    // test_mode가 false이고 보안키가 있어야 실제 우체국 시스템에 등록됩니다.
+    const hasSecurityKey = !!Deno.env.get('EPOST_SECURITY_KEY');
+    const willUseRealAPI = !test_mode && hasSecurityKey;
+    
+    console.log('🔐 API 모드 확인:', {
+      test_mode,
+      hasSecurityKey,
+      willUseRealAPI,
+      warning: !willUseRealAPI 
+        ? '⚠️ Mock 또는 테스트 모드입니다. 실제 수거예약이 등록되지 않습니다.'
+        : '✅ 실제 우체국 API를 사용합니다. 수거예약이 등록됩니다.',
+    });
+    
     // epostParams 생성
     // 참고: testYn은 실제 API 호출 시 URL 파라미터로 사용되지만, regData에는 포함하지 않음
     
