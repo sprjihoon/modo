@@ -844,15 +844,6 @@ Deno.serve(async (req) => {
       }
     }
     
-    const deliveryInfoData: any = {
-      ...deliveryCodeInfo,
-      notifyMsg: epostResponse.notifyMsg || undefined,
-      islandAddFee: epostResponse.islandAddFee || undefined,
-      isIsland: isIsland, // 도서산간 여부 (실제 부가이용료가 있을 때만 true)
-      isSaturdayClosed: isSaturdayClosed, // 토요배송 휴무지역 여부
-      saturdayClosedMessage: saturdayClosedMessage || undefined, // 토요휴무 안내 메시지
-    };
-
     // 토요배송 휴무지역 알림 확인
     const isSaturdayClosed = epostResponse.notifyMsg?.includes('토요배달') || 
                              epostResponse.notifyMsg?.includes('토요배송') ||
@@ -888,6 +879,18 @@ Deno.serve(async (req) => {
         saturdayClosedMessage = '토요배송 휴무지역입니다. 토요일에는 배송이 진행되지 않습니다.';
       }
     }
+    
+    // deliveryCodeInfo 초기화 (필요한 경우 우편번호 기반 조회로 대체 가능)
+    const deliveryCodeInfo = {};
+    
+    const deliveryInfoData: any = {
+      ...deliveryCodeInfo,
+      notifyMsg: epostResponse.notifyMsg || undefined,
+      islandAddFee: epostResponse.islandAddFee || undefined,
+      isIsland: isIsland, // 도서산간 여부 (실제 부가이용료가 있을 때만 true)
+      isSaturdayClosed: isSaturdayClosed, // 토요배송 휴무지역 여부
+      saturdayClosedMessage: saturdayClosedMessage || undefined, // 토요휴무 안내 메시지
+    };
 
     if (existingShipment) {
       // 업데이트
