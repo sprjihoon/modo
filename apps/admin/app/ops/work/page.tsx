@@ -2,7 +2,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle, ScanBarcode, Play, Clock, RotateCcw } from "lucide-react";
+import { CheckCircle, ScanBarcode, Play, Clock, RotateCcw, AlertTriangle, Plus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 type LookupResult = {
   orderId: string;
@@ -32,6 +43,11 @@ export default function WorkPage() {
   const [workItems, setWorkItems] = useState<WorkItemStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState<{ [key: number]: boolean }>({});
+  
+  // Extra Charge State
+  const [showExtraChargeDialog, setShowExtraChargeDialog] = useState(false);
+  const [extraChargeReason, setExtraChargeReason] = useState("");
+  const [isSubmittingExtraCharge, setIsSubmittingExtraCharge] = useState(false);
 
   // 작업 아이템 상태 조회
   const loadWorkItems = async (orderId: string) => {
@@ -196,11 +212,54 @@ export default function WorkPage() {
       })
     : false;
 
+  // 추가 비용 요청
+  const handleRequestExtraCharge = async () => {
+    if (!result || !extraChargeReason.trim()) return;
+
+    setIsSubmittingExtraCharge(true);
+    try {
+      const res = await fetch("/api/ops/extra-charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: result.orderId,
+          reason: extraChargeReason,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "추가 비용 요청 실패");
+      }
+
+      alert("✅ 추가 비용 요청이 접수되었습니다. 관리자가 검토 후 고객에게 안내합니다.");
+      setShowExtraChargeDialog(false);
+      setExtraChargeReason("");
+    } catch (error: any) {
+      console.error("추가 비용 요청 실패:", error);
+      alert(`요청 실패: ${error.message}`);
+    } finally {
+      setIsSubmittingExtraCharge(false);
+    }
+  };
+
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">작업 (Work)</h1>
-        <p className="text-sm text-gray-500 mt-1">수선 작업 진행 관리</p>
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">작업 (Work)</h1>
+          <p className="text-sm text-gray-500 mt-1">수선 작업 진행 관리</p>
+        </div>
+        {result && (
+          <Button 
+            variant="outline" 
+            className="text-orange-600 border-orange-200 hover:bg-orange-50"
+            onClick={() => setShowExtraChargeDialog(true)}
+          >
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            추가 비용 요청
+          </Button>
+        )}
       </div>
 
       {/* 스캔 박스 */}
@@ -369,6 +428,41 @@ export default function WorkPage() {
           )}
         </div>
       )}
+
+      {/* 추가 비용 요청 다이얼로그 */}
+      <Dialog open={showExtraChargeDialog} onOpenChange={setShowExtraChargeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>추가 비용 요청</DialogTitle>
+            <DialogDescription>
+              작업 중 추가 비용이 발생하는 사유를 입력해주세요.<br/>
+              금액은 관리자가 검토 후 결정하여 고객에게 청구합니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="reason" className="mb-2 block">요청 사유</Label>
+            <Textarea
+              id="reason"
+              placeholder="예: 안감 교체 필요, 특수 소재로 인한 추가 공임 등"
+              value={extraChargeReason}
+              onChange={(e) => setExtraChargeReason(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExtraChargeDialog(false)} disabled={isSubmittingExtraCharge}>
+              취소
+            </Button>
+            <Button 
+              onClick={handleRequestExtraCharge} 
+              disabled={!extraChargeReason.trim() || isSubmittingExtraCharge}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {isSubmittingExtraCharge ? "요청 중..." : "요청 보내기"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

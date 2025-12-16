@@ -11,6 +11,7 @@ import { PaymentRefundDialog } from "@/components/orders/payment-refund-dialog";
 import { TrackingManageDialog } from "@/components/orders/tracking-manage-dialog";
 import { WorkOrderPrintDialog } from "@/components/orders/work-order-print-dialog";
 import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
+import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review-dialog";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
 import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins } from "lucide-react";
 
@@ -39,6 +40,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const [isCancelling, setIsCancelling] = useState(false);
   const [pointDialogOpen, setPointDialogOpen] = useState(false);
   const [userData, setUserData] = useState<any>(null);
+  const [extraCharges, setExtraCharges] = useState<any[]>([]);
   
   // Load order data from API
   useEffect(() => {
@@ -66,12 +68,27 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             // 자동으로 사용자 연결 시도
             await autoLinkUser();
           }
+
+          // Load extra charge requests
+          loadExtraCharges();
         }
       }
     } catch (error) {
       console.error('주문 로드 실패:', error);
     } finally {
       setIsLoadingOrder(false);
+    }
+  };
+
+  const loadExtraCharges = async () => {
+    try {
+      const response = await fetch(`/api/orders/${params.id}/extra-charges`);
+      if (response.ok) {
+        const data = await response.json();
+        setExtraCharges(data.requests || []);
+      }
+    } catch (error) {
+      console.error('추가 비용 내역 로드 실패:', error);
     }
   };
 
@@ -266,6 +283,12 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           </div>
         </div>
         <div className="flex gap-2">
+          {/* 추가 비용 검토 다이얼로그 */}
+          <ExtraChargeReviewDialog 
+            orderId={displayOrder.id}
+            requests={extraCharges}
+            onReviewed={() => loadExtraCharges()}
+          />
           {displayOrder.status === 'BOOKED' && displayOrder.trackingNo && (
             <Button 
               variant="destructive" 

@@ -9,6 +9,7 @@ import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/terms_page.dart';
 import '../../features/auth/presentation/pages/privacy_policy_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/home/presentation/pages/content_view_page.dart';
 import '../../features/orders/presentation/pages/order_list_page.dart';
 import '../../features/orders/presentation/pages/order_detail_page.dart';
 import '../../features/orders/presentation/pages/tracking_page.dart';
@@ -85,6 +86,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomePage(),
+      ),
+
+      // Content View (가격표, 쉬운가이드 등)
+      GoRoute(
+        path: '/content-view',
+        name: 'content-view',
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>;
+          return ContentViewPage(
+            contentKey: data['key'] as String,
+            title: data['title'] as String,
+          );
+        },
       ),
       
       // Worker Dashboard (작업자 전용 대시보드)

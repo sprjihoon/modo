@@ -21,6 +21,16 @@ import {
   Boxes,
   Truck,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 import { createClient } from "@/lib/supabase/client";
 
 // 오늘 날짜 (YYYY-MM-DD 형식)
@@ -688,31 +698,48 @@ export default function MyDashboardPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="h-48 flex items-end gap-2">
-              {weeklyPerformance.map((item, index) => {
-                const heightPercent = (item.count / maxPerformance) * 100;
-                const isToday = item.date === getToday();
-                
-                return (
-                  <div key={item.date} className="flex-1 flex flex-col items-center gap-2">
-                    <span className="text-xs font-medium">{item.count}</span>
-                    <div
-                      className={`w-full rounded-t transition-all ${
-                        isToday ? "bg-green-500" : "bg-gray-300"
-                      }`}
-                      style={{ height: `${Math.max(heightPercent, 5)}%` }}
-                    />
-                    <div className="text-center">
-                      <p className={`text-xs ${isToday ? "font-bold text-green-600" : "text-muted-foreground"}`}>
-                        {getDayName(item.date)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {item.date.slice(5).replace("-", "/")}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeklyPerformance} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(value) => getDayName(value)} 
+                    tick={{ fontSize: 12, fill: "#6b7280" }}
+                    axisLine={false}
+                    tickLine={false}
+                    dy={10}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12, fill: "#6b7280" }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: '#f3f4f6' }}
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-white border border-gray-200 p-2 rounded shadow-sm text-xs">
+                            <p className="font-bold mb-1">{label} ({getDayName(label)})</p>
+                            <p className="text-green-600">완료: {payload[0].value}건</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    {weeklyPerformance.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.date === getToday() ? "#22c55e" : "#cbd5e1"} 
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           )}
         </CardContent>
@@ -752,4 +779,3 @@ function getMotivationalMessage(todayCount: number): string {
     return "🎯 오늘도 화이팅!";
   }
 }
-

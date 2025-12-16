@@ -1,11 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/widgets/company_footer.dart';
+import '../../../../core/widgets/scaffold_with_footer.dart';
 import '../../../auth/data/providers/auth_provider.dart';
 import '../../../orders/providers/cart_provider.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/banner_service.dart';
+
+/// 배너 인덱스 관리를 위한 ValueNotifier
+final bannerIndexProvider = StateNotifierProvider<BannerIndexNotifier, int>((ref) {
+  return BannerIndexNotifier();
+});
+
+class BannerIndexNotifier extends StateNotifier<int> {
+  BannerIndexNotifier() : super(0);
+
+  void updateIndex(int index) {
+    state = index;
+  }
+}
 
 /// 홈 화면
 class HomePage extends ConsumerStatefulWidget {
@@ -17,9 +30,12 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage> {
   final PageController _bannerController = PageController();
-  int _currentBannerIndex = 0;
   final OrderService _orderService = OrderService();
   final BannerService _bannerService = BannerService();
+
+  /// 주문 데이터를 한 번만 가져오기 위한 캐시
+  List<Map<String, dynamic>>? _cachedOrders;
+  bool _ordersLoaded = false;
 
   @override
   void dispose() {
@@ -27,9 +43,26 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
+  /// 주문 데이터 캐싱
+  Future<List<Map<String, dynamic>>> _getCachedOrders() async {
+    if (_cachedOrders != null && _ordersLoaded) {
+      return _cachedOrders!;
+    }
+
+    try {
+      _cachedOrders = await _orderService.getMyOrders();
+      _ordersLoaded = true;
+      return _cachedOrders!;
+    } catch (e) {
+      debugPrint('주문 데이터 로드 실패: $e');
+      _ordersLoaded = true;
+      return [];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ScaffoldWithFooter(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -103,45 +136,39 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      body: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             // 인사말
             _buildGreeting(context),
             const SizedBox(height: 20),
-            
-            // 슬라이드 배너
-            _buildBannerSlider(context),
+
+            // 슬라이드 배너 (독립적인 스크롤 영역)
+            _buildOptimizedBannerSlider(context),
             const SizedBox(height: 24),
-            
+
             // 가격표 & 가이드 버튼
             _buildActionButtons(context),
             const SizedBox(height: 24),
-            
+
             // 내 주문 섹션
             _buildMyOrdersSection(context),
             const SizedBox(height: 24),
-            
+
             // 프로모션 배너
             _buildPromotionBanner(context),
-            const SizedBox(height: 80),
-                ],
-              ),
-            ),
-          ),
-          const CompanyFooter(),
-        ],
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
       floatingActionButton: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _orderService.getMyOrders(),
+        future: _getCachedOrders(), // 캐싱된 주문 데이터 사용
         builder: (context, snapshot) {
           final hasOrders = snapshot.hasData && (snapshot.data?.isNotEmpty ?? false);
           final buttonText = hasOrders ? '수거신청 하기' : '첫 수거신청 하기';
-          
+
           return FloatingActionButton.extended(
             onPressed: () => _showPreparationDialog(context),
             backgroundColor: const Color(0xFF00C896),
@@ -372,19 +399,19 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildBannerSlider(BuildContext context) {
+  Widget _buildOptimizedBannerSlider(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: Future.wait([
         _bannerService.getActiveBanners(),
-        _orderService.getMyOrders(),
+        _getCachedOrders(), // 캐싱된 주문 데이터 사용
       ]).then((results) => results[0]),
       builder: (context, bannerSnapshot) {
-        // 주문 여부 확인 (첫 번째 배너 버튼 텍스트 동적 변경용)
+        // 캐싱된 주문 데이터 사용
         return FutureBuilder<List<Map<String, dynamic>>>(
-          future: _orderService.getMyOrders(),
+          future: _getCachedOrders(),
           builder: (context, orderSnapshot) {
             final hasOrders = orderSnapshot.hasData && (orderSnapshot.data?.isNotEmpty ?? false);
-            
+
             // 배너 데이터 로드 중
             if (bannerSnapshot.connectionState == ConnectionState.waiting) {
               return const SizedBox(
@@ -437,11 +464,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           height: 320,
           child: PageView.builder(
             controller: _bannerController,
-            physics: const PageScrollPhysics(),
+            physics: const PageScrollPhysics(), // 페이지 스크롤 활성화
             onPageChanged: (index) {
-              setState(() {
-                _currentBannerIndex = index;
-              });
+              // setState() 대신 ValueNotifier 사용으로 전체 리빌드 방지
+              ref.read(bannerIndexProvider.notifier).updateIndex(index);
             },
             itemCount: banners.length,
             itemBuilder: (context, index) {
@@ -564,22 +590,27 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
         const SizedBox(height: 16),
         // 인디케이터
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            banners.length,
-            (index) => Container(
-              width: _currentBannerIndex == index ? 24 : 8,
-              height: 8,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: _currentBannerIndex == index
-                    ? Colors.black
-                    : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(4),
+        Consumer(
+          builder: (context, ref, child) {
+            final currentIndex = ref.watch(bannerIndexProvider);
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                banners.length,
+                (index) => Container(
+                  width: currentIndex == index ? 24 : 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: currentIndex == index
+                        ? Colors.black
+                        : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ],
             );
@@ -600,7 +631,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               Icons.receipt_long_outlined,
               const Color(0xFF00C896),
               () {
-                // TODO: 가격표 페이지
+                context.push('/content-view', extra: {'key': 'price_list', 'title': '가격표'});
               },
             ),
           ),
@@ -611,7 +642,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               Icons.help_outline,
               const Color(0xFF00C896),
               () {
-                // TODO: 가이드 페이지
+                context.push('/content-view', extra: {'key': 'easy_guide', 'title': '쉬운가이드'});
               },
             ),
           ),
@@ -698,7 +729,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           
           // 실데이터: 최근 주문 1건
           FutureBuilder<List<Map<String, dynamic>>>(
-            future: _orderService.getMyOrders(),
+            future: _getCachedOrders(), // 캐싱된 주문 데이터 사용
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return Container(
