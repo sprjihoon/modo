@@ -14,7 +14,10 @@ class BannerService {
           .eq('is_active', true)
           .order('display_order', ascending: true);
 
-      return List<Map<String, dynamic>>.from(response);
+      // Supabase 응답을 올바르게 캐스팅
+      return (response as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       debugPrint('배너 조회 실패: $e');
       // 오류 발생 시 빈 리스트 반환 (기본 배너 표시)
@@ -30,7 +33,10 @@ class BannerService {
           .select('*')
           .order('display_order', ascending: true);
 
-      return List<Map<String, dynamic>>.from(response);
+      // Supabase 응답을 올바르게 캐스팅
+      return (response as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       debugPrint('배너 조회 실패: $e');
       return [];
