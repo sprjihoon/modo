@@ -16,7 +16,10 @@ class RepairService {
           .order('display_order', ascending: true); // 오름차순 정렬
 
       _logger.i('✅ 수선 카테고리 조회 성공: ${response.length}개');
-      return List<Map<String, dynamic>>.from(response);
+      // Supabase 응답을 올바르게 캐스팅
+      return (response as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       _logger.e('❌ 수선 카테고리 조회 실패: $e');
       rethrow;
@@ -34,7 +37,10 @@ class RepairService {
           .order('display_order', ascending: true); // 오름차순
 
       _logger.i('✅ 수선 종류 조회 성공: ${response.length}개');
-      return List<Map<String, dynamic>>.from(response);
+      // Supabase 응답을 올바르게 캐스팅
+      return (response as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       _logger.e('❌ 수선 종류 조회 실패: $e');
       rethrow;
@@ -54,7 +60,10 @@ class RepairService {
           .order('display_order');
 
       _logger.i('✅ 전체 수선 종류 조회 성공: ${response.length}개');
-      return List<Map<String, dynamic>>.from(response);
+      // Supabase 응답을 올바르게 캐스팅
+      return (response as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       _logger.e('❌ 전체 수선 종류 조회 실패: $e');
       rethrow;
@@ -76,7 +85,10 @@ class RepairService {
           .limit(20);
 
       _logger.i('✅ 수선 종류 검색 성공: ${response.length}개');
-      return List<Map<String, dynamic>>.from(response);
+      // Supabase 응답을 올바르게 캐스팅
+      return (response as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       _logger.e('❌ 수선 종류 검색 실패: $e');
       rethrow;

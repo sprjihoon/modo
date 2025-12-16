@@ -94,7 +94,10 @@ class PaymentService {
           .order('is_default', ascending: false)
           .order('created_at', ascending: false);
 
-      return List<Map<String, dynamic>>.from(data);
+      // Supabase 응답을 올바르게 캐스팅
+      return (data as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       throw Exception('결제수단 조회 실패: $e');
     }
@@ -205,7 +208,10 @@ class PaymentService {
           .eq('payment_status', 'PAID')
           .order('created_at', ascending: false);
 
-      return List<Map<String, dynamic>>.from(data);
+      // Supabase 응답을 올바르게 캐스팅
+      return (data as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       throw Exception('결제 내역 조회 실패: $e');
     }
@@ -264,7 +270,10 @@ class PaymentService {
           .eq('order_id', orderId)
           .order('created_at', ascending: false);
 
-      return List<Map<String, dynamic>>.from(data);
+      // Supabase 응답을 올바르게 캐스팅
+      return (data as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       throw Exception('추가 결제 조회 실패: $e');
     }

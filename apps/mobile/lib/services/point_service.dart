@@ -60,7 +60,10 @@ class PointService {
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
-      return List<Map<String, dynamic>>.from(response);
+      // Supabase 응답을 올바르게 캐스팅
+      return (response as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       debugPrint('포인트 내역 조회 실패: $e');
       throw Exception('포인트 내역을 불러오는데 실패했습니다');

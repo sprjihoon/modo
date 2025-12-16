@@ -178,7 +178,10 @@ class PromotionService {
           .gte('valid_until', DateTime.now().toIso8601String())
           .order('created_at', ascending: false);
 
-      return List<Map<String, dynamic>>.from(response as List);
+      // Supabase 응답을 올바르게 캐스팅
+      return (response as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       return [];
     }

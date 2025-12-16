@@ -699,8 +699,12 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                         final index = entry.key;
                         final item = entry.value;
                         
-                        // 항목에 저장된 이미지 데이터 사용
-                        final itemImages = item['itemImages'] as List<Map<String, dynamic>>?;
+                        // 항목에 저장된 이미지 데이터 사용 (올바른 타입 캐스팅)
+                        final itemImages = item['itemImages'] != null
+                            ? (item['itemImages'] as List<dynamic>)
+                                .map((e) => e as Map<String, dynamic>)
+                                .toList()
+                            : null;
                         
                   final isSelected = _selectedItemIndices.contains(index);
                   

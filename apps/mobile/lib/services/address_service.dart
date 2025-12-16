@@ -23,7 +23,10 @@ class AddressService {
           .order('created_at', ascending: false);
 
       _logger.i('✅ 배송지 목록 조회 성공: ${response.length}개');
-      return List<Map<String, dynamic>>.from(response);
+      // Supabase 응답을 올바르게 캐스팅
+      return (response as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
     } catch (e) {
       _logger.e('❌ 배송지 목록 조회 실패: $e');
       rethrow;
