@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -55,11 +55,7 @@ export default function WorkHistoryPage() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
-  useEffect(() => {
-    loadWorkHistory();
-  }, [pagination.page, statusFilter, workerNameFilter, orderIdFilter, startDate, endDate]);
-
-  const loadWorkHistory = async () => {
+  const loadWorkHistory = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -85,6 +81,13 @@ export default function WorkHistoryPage() {
       const result = await response.json();
       console.log("작업 내역 API 응답:", result);
 
+      // API 에러 응답 처리
+      if (result.error) {
+        const errorMsg = result.error || "작업 내역을 불러올 수 없습니다.";
+        console.error("API 오류:", errorMsg);
+        throw new Error(errorMsg);
+      }
+
       if (result.success) {
         // 데이터 정규화
         const normalizedData = (result.data || []).map((item: any) => {
@@ -96,8 +99,24 @@ export default function WorkHistoryPage() {
           return item;
         });
         setWorkItems(normalizedData);
-        setPagination(result.pagination || pagination);
+        
+        // pagination 업데이트 시 현재 pagination과 비교하여 무한 루프 방지
+        if (result.pagination) {
+          setPagination((prev) => {
+            // 값이 실제로 변경된 경우에만 업데이트
+            if (
+              prev.page !== result.pagination.page ||
+              prev.pageSize !== result.pagination.pageSize ||
+              prev.total !== result.pagination.total ||
+              prev.totalPages !== result.pagination.totalPages
+            ) {
+              return result.pagination;
+            }
+            return prev;
+          });
+        }
       } else {
+        // success가 false인 경우
         const errorMsg = result.error || "작업 내역을 불러올 수 없습니다.";
         console.error("API 오류:", errorMsg);
         throw new Error(errorMsg);
@@ -109,7 +128,11 @@ export default function WorkHistoryPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [pagination.page, pagination.pageSize, statusFilter, workerNameFilter, orderIdFilter, startDate, endDate]);
+
+  useEffect(() => {
+    loadWorkHistory();
+  }, [loadWorkHistory]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -192,9 +215,9 @@ export default function WorkHistoryPage() {
             <div>
               <label className="text-sm font-medium mb-2 block">작업 상태</label>
               <Select
-                value={statusFilter}
+                value={statusFilter || "all"}
                 onValueChange={(value) => {
-                  setStatusFilter(value);
+                  setStatusFilter(value === "all" ? "" : value);
                   setPagination((prev) => ({ ...prev, page: 1 }));
                 }}
               >
@@ -202,7 +225,7 @@ export default function WorkHistoryPage() {
                   <SelectValue placeholder="전체" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">전체</SelectItem>
+                  <SelectItem value="all">전체</SelectItem>
                   <SelectItem value="PENDING">대기</SelectItem>
                   <SelectItem value="IN_PROGRESS">작업 중</SelectItem>
                   <SelectItem value="COMPLETED">완료</SelectItem>
@@ -256,7 +279,7 @@ export default function WorkHistoryPage() {
         <CardHeader>
           <CardTitle>작업 내역 목록</CardTitle>
           <CardDescription>
-            총 {pagination.total}건 (페이지 {pagination.page}/{pagination.totalPages})
+            총 {pagination.total || 0}건 (페이지 {pagination.page || 1}/{pagination.totalPages || 1})
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -330,22 +353,22 @@ export default function WorkHistoryPage() {
           )}
 
           {/* 페이지네이션 */}
-          {pagination.totalPages > 1 && (
+          {(pagination.totalPages || 0) > 1 && (
             <div className="flex items-center justify-between mt-6 pt-4 border-t">
               <Button
                 variant="outline"
-                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
+                onClick={() => setPagination((prev) => ({ ...prev, page: (prev.page || 1) - 1 }))}
+                disabled={(pagination.page || 1) === 1}
               >
                 이전
               </Button>
               <span className="text-sm text-gray-600">
-                페이지 {pagination.page} / {pagination.totalPages}
+                페이지 {pagination.page || 1} / {pagination.totalPages || 1}
               </span>
               <Button
                 variant="outline"
-                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => setPagination((prev) => ({ ...prev, page: (prev.page || 1) + 1 }))}
+                disabled={(pagination.page || 1) >= (pagination.totalPages || 1)}
               >
                 다음
               </Button>
