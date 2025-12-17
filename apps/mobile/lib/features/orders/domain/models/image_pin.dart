@@ -20,9 +20,7 @@ class ImagePin {
   final DateTime updatedAt;
 
   ImagePin({
-    String? id,
-    required this.relativePosition,
-    required this.memo,
+    required this.relativePosition, required this.memo, String? id,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),

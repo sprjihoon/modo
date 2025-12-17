@@ -117,7 +117,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${provider} 로그인 실패: ${e.toString().replaceAll('Exception: ', '')}'),
+            content: Text('$provider 로그인 실패: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.red.shade400,
           ),
         );

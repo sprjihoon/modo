@@ -11,8 +11,7 @@ class SequentialComparisonPlayer extends StatefulWidget {
   final Duration intervalDuration; // 아이템 간 간격
 
   const SequentialComparisonPlayer({
-    super.key,
-    required this.videoItems,
+    required this.videoItems, super.key,
     this.introDuration = const Duration(milliseconds: 700),
     this.intervalDuration = const Duration(milliseconds: 500),
   });

@@ -1014,7 +1014,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
               ] else ...[
                 const SizedBox(height: 8),
                 Text(

@@ -8,9 +8,7 @@ class SelectRepairTypePage extends ConsumerStatefulWidget {
   final List<String> imageUrls;
   
   const SelectRepairTypePage({
-    super.key,
-    required this.clothingType,
-    required this.imageUrls,
+    required this.clothingType, required this.imageUrls, super.key,
   });
 
   @override

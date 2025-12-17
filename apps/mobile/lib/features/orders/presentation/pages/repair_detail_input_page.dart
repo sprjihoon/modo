@@ -748,7 +748,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                         // 이미 같은 항목이 있는지 확인 (repairPart로 체크)
                         final existingIndex = currentItems.indexWhere(
                           (item) => item['repairPart'] == repairItem['repairPart'] &&
-                                    item['measurement'] == repairItem['measurement']
+                                    item['measurement'] == repairItem['measurement'],
                         );
                         
                         List<Map<String, dynamic>> allItems;

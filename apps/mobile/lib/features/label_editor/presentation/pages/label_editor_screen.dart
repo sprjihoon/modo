@@ -93,7 +93,7 @@ class _LabelEditorScreenState extends State<LabelEditorScreen> {
     setState(() {
       final index = _elements.indexWhere((e) => e.fieldKey == _draggingElement!.fieldKey && 
                                                   e.x == _draggingElement!.x && 
-                                                  e.y == _draggingElement!.y);
+                                                  e.y == _draggingElement!.y,);
       if (index != -1) {
         _elements[index] = _elements[index].copyWith(x: newX, y: newY);
         _draggingElement = _elements[index];
@@ -115,7 +115,7 @@ class _LabelEditorScreenState extends State<LabelEditorScreen> {
       _elements.removeWhere((e) => 
         e.fieldKey == element.fieldKey && 
         e.x == element.x && 
-        e.y == element.y
+        e.y == element.y,
       );
     });
   }

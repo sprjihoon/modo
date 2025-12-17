@@ -108,7 +108,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
            'imagesWithPins': currentSessionImages,
            'categoryId': _selectedCategoryId,
            'categoryName': _selectedType,
-         });
+         },);
        } catch (e, stackTrace) {
          debugPrint('❌ 데이터 처리 오류: $e');
          debugPrint('❌ Stack: $stackTrace');
@@ -340,7 +340,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
             'imagesWithPins': currentSessionImages,
             'categoryId': _selectedCategoryId,
             'categoryName': _selectedType,
-          });
+          },);
         } catch (e, stackTrace) {
           debugPrint('❌ 데이터 처리 오류: $e');
           debugPrint('❌ Stack: $stackTrace');

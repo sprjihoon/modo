@@ -10,8 +10,7 @@ class PinMarker extends StatelessWidget {
   final bool isSelected;
 
   const PinMarker({
-    super.key,
-    required this.label,
+    required this.label, super.key,
     this.onTap,
     this.onDelete,
     this.showLabel = true,

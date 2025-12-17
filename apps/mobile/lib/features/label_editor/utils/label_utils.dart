@@ -26,7 +26,7 @@ class LabelUtils {
     final availableWidth = screenWidth - 40;
     
     // 송장 비율 계산 (111:171)
-    final aspectRatio = labelWidthMm / labelHeightMm;
+    const aspectRatio = labelWidthMm / labelHeightMm;
     
     // 가로에 맞춰서 높이 계산
     final canvasWidth = availableWidth;

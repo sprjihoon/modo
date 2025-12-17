@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../services/auth_service.dart';
 import '../../data/providers/auth_provider.dart';
 
 /// 스플래시 화면

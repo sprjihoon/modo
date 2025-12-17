@@ -118,7 +118,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
       context.push('/repair-confirmation', extra: {
         'repairItems': _repairItems,
         'imageUrls': _imageUrls,
-      });
+      },);
     }
   }
 
@@ -142,12 +142,12 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 헤더
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                        const Text(
+                        Text(
                           '수선을 신청할',
                           style: TextStyle(
                             fontSize: 24,
@@ -156,7 +156,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
                             height: 1.3,
                           ),
                         ),
-                        const Text(
+                        Text(
                           '의류 사진을 등록해주세요',
                           style: TextStyle(
                             fontSize: 24,

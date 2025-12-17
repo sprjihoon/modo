@@ -516,7 +516,7 @@ class _CartPageState extends ConsumerState<CartPage> {
       'repairItems': allRepairItems,
       'imageUrls': uniqueImageUrls,
       'cartItemIds': selectedItems.map((item) => item.id).toList(), // 결제 완료 후 제거용
-    });
+    },);
   }
 }
 

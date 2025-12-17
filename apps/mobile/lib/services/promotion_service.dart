@@ -22,7 +22,7 @@ class PromotionService {
         throw Exception('유효하지 않은 프로모션 코드입니다.');
       }
 
-      final promoCode = response as Map<String, dynamic>;
+      final promoCode = response;
 
       // 2. 유효기간 확인
       final now = DateTime.now();
@@ -162,7 +162,7 @@ class PromotionService {
       // 2. 프로모션 코드 사용 횟수 증가
       await _supabase.rpc('increment_promotion_code_usage', params: {
         'promo_id': promotionCodeId,
-      });
+      },);
     } catch (e) {
       rethrow;
     }

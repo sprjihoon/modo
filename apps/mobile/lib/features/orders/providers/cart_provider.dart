@@ -40,7 +40,7 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
     required List<String> imageUrls,
   }) {
     // 각 수선 항목을 개별 CartItem으로 변환
-    int baseTimestamp = DateTime.now().millisecondsSinceEpoch;
+    final int baseTimestamp = DateTime.now().millisecondsSinceEpoch;
     
     for (int i = 0; i < repairItems.length; i++) {
       final item = CartItem(

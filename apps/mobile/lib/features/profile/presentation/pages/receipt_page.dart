@@ -6,8 +6,7 @@ class ReceiptPage extends ConsumerWidget {
   final Map<String, dynamic> payment;
   
   const ReceiptPage({
-    super.key,
-    required this.payment,
+    required this.payment, super.key,
   });
 
   @override

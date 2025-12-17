@@ -11,9 +11,7 @@ class SideBySideVideoPlayer extends StatefulWidget {
   final Duration introDuration;
 
   const SideBySideVideoPlayer({
-    super.key,
-    required this.inboundVideoUrl,
-    required this.outboundVideoUrl,
+    required this.inboundVideoUrl, required this.outboundVideoUrl, super.key,
     this.introDuration = const Duration(milliseconds: 700),
   });
 
@@ -55,8 +53,8 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
       final inboundDuration = inbound.value.duration.inSeconds.toDouble();
       final outboundDuration = outbound.value.duration.inSeconds.toDouble();
 
-      debugPrint('📹 입고 영상 길이: ${inboundDuration}초');
-      debugPrint('📹 출고 영상 길이: ${outboundDuration}초');
+      debugPrint('📹 입고 영상 길이: $inboundDuration초');
+      debugPrint('📹 출고 영상 길이: $outboundDuration초');
 
       // Adaptive Target Duration 계산
       final result = AdaptiveDurationCalculator.calculate(
@@ -91,7 +89,7 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
           _showIntro = false;
         });
         await _playBoth();
-      }));
+      }),);
     } catch (e) {
       debugPrint('영상 초기화 실패: $e');
     }

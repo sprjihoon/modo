@@ -11,9 +11,8 @@ class ScaffoldWithFooter extends StatelessWidget {
   final bool resizeToAvoidBottomInset;
 
   const ScaffoldWithFooter({
-    super.key,
+    required this.body, super.key,
     this.appBar,
-    required this.body,
     this.floatingActionButton,
     this.bottomNavigationBar,
     this.backgroundColor,

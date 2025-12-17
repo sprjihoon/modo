@@ -125,7 +125,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
       context.pushReplacement('/repair-confirmation', extra: {
         'repairItems': updatedItems,
         'imageUrls': widget.imageUrls,
-      });
+      },);
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -363,7 +363,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                 context.pushReplacement('/repair-confirmation', extra: {
                   'repairItems': updatedItems,
                   'imageUrls': widget.imageUrls,
-                });
+                },);
               }
             },
             child: const Text('삭제', style: TextStyle(color: Colors.red)),
@@ -819,9 +819,9 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                         // 수정 버튼
                                         InkWell(
                                           onTap: () => _editRepairItem(index, item),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(4),
-                                            child: const Icon(
+                                          child: const Padding(
+                                            padding: EdgeInsets.all(4),
+                                            child: Icon(
                                               Icons.edit_outlined,
                                               color: Color(0xFF00C896),
                                               size: 18,
@@ -832,9 +832,9 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                         // 삭제 버튼
                                         InkWell(
                                           onTap: () => _deleteRepairItem(index),
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(4),
-                                            child: const Icon(
+                                          child: const Padding(
+                                            padding: EdgeInsets.all(4),
+                                            child: Icon(
                                               Icons.delete_outline,
                                               color: Colors.red,
                                               size: 18,
@@ -1220,12 +1220,12 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                         ],
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
