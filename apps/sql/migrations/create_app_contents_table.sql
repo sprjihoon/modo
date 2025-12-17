@@ -32,7 +32,7 @@ CREATE POLICY "Admins can manage app_contents"
     EXISTS (
       SELECT 1 FROM users
       WHERE users.auth_id = auth.uid()
-      AND users.role IN ('ADMIN', 'SUPER_ADMIN')
+      AND users.role = 'ADMIN'
     )
   );
 
