@@ -19,6 +19,7 @@ import {
   Building2,
   Image,
   ClipboardList,
+  FileText,
 } from "lucide-react";
 
 const navItems = [
@@ -81,6 +82,11 @@ const navItems = [
     title: "작업 내역",
     href: "/dashboard/work-history",
     icon: ClipboardList,
+  },
+  {
+    title: "콘텐츠 관리",
+    href: "/dashboard/settings/contents",
+    icon: FileText,
   },
   {
     title: "설정",
