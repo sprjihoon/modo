@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+// 🚀 Video Processing Improvements
+// import 'package:media_kit/media_kit.dart';  // Uncomment when media_kit is installed
 
 import 'app.dart';
 import 'core/config/supabase_config.dart';
+import 'core/config/feature_flags.dart';
 
 /// 모두의수선 메인 엔트리포인트
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 🚀 Feature Flags 상태 출력
+  VideoFeatureFlags.printStatus();
   
   try {
     // 환경변수 로드
@@ -36,6 +42,14 @@ void main() async {
       anonKey: anonKey,
     );
     print('✅ Supabase 초기화 완료');
+    
+    // 🚀 media_kit 초기화 (Feature Flag로 제어)
+    if (VideoFeatureFlags.shouldUseMediaKit) {
+      // MediaKit.ensureInitialized();  // Uncomment when media_kit is installed
+      print('✅ media_kit 초기화 완료 (Feature Flag: ON)');
+    } else {
+      print('ℹ️ media_kit 미사용 (Feature Flag: OFF)');
+    }
   } catch (e, stackTrace) {
     print('❌ 초기화 실패: $e');
     print('   스택 트레이스: $stackTrace');

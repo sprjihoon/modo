@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Search, Video, Upload, Play, Calendar, Package, ExternalLink } from "lucide-react";
 import { supabaseAdmin } from "@/lib/supabase";
+import { HLSVideoPlayer } from "@/components/video/hls-video-player";
 
 // 오늘 날짜 (YYYY-MM-DD 형식)
 const getToday = () => {
@@ -368,14 +369,15 @@ export default function VideosPage() {
             </div>
             <div className="p-4">
               <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                <video
+                <HLSVideoPlayer
                   src={getVideoUrl(selectedVideo)}
                   controls
-                  autoPlay
+                  autoplay
                   className="w-full h-full"
-                >
-                  브라우저가 비디오를 지원하지 않습니다.
-                </video>
+                  onError={(error) => {
+                    console.error("Video playback error:", error);
+                  }}
+                />
               </div>
               <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
                 <div>

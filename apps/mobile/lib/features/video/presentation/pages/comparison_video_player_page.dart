@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../widgets/side_by_side_video_player.dart';
+import '../widgets/side_by_side_video_player_media_kit.dart';
 import '../widgets/sequential_comparison_player.dart';
+import '../../../../core/config/feature_flags.dart';
 
 /// 입고/출고 영상 좌우 비교 재생 페이지
 class ComparisonVideoPlayerPage extends StatelessWidget {
@@ -55,11 +57,26 @@ class ComparisonVideoPlayerPage extends StatelessWidget {
       );
     }
     
-    // 단일 아이템: 기존 플레이어 (레거시)
-    return SideBySideVideoPlayer(
-      inboundVideoUrl: inboundVideoUrl!,
-      outboundVideoUrl: outboundVideoUrl!,
-    );
+    // 🔄 Feature Flag: media_kit vs video_player
+    if (VideoFeatureFlags.shouldUseMediaKit) {
+      // ✨ 새로운 플레이어: media_kit (고성능)
+      if (VideoFeatureFlags.enableDebugLogs) {
+        print('🚀 Using media_kit player (enhanced performance)');
+      }
+      return SideBySideVideoPlayerMediaKit(
+        inboundVideoUrl: inboundVideoUrl!,
+        outboundVideoUrl: outboundVideoUrl!,
+      );
+    } else {
+      // 🔙 기존 플레이어: video_player (레거시)
+      if (VideoFeatureFlags.enableDebugLogs) {
+        print('📹 Using video_player (legacy)');
+      }
+      return SideBySideVideoPlayer(
+        inboundVideoUrl: inboundVideoUrl!,
+        outboundVideoUrl: outboundVideoUrl!,
+      );
+    }
   }
 }
 
