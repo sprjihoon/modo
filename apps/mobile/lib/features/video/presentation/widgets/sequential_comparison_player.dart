@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../utils/adaptive_duration_calculator.dart';
+import '../../../../services/video_cache_service.dart';
+import '../../../../services/video_quality_service.dart';
+import '../../../../core/config/feature_flags.dart';
 
 /// 여러 아이템의 입고/출고 영상을 순차적으로 재생하는 위젯
 class SequentialComparisonPlayer extends StatefulWidget {
@@ -83,12 +86,27 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
       if (!mounted || _isDisposed) return;
 
       final item = widget.videoItems[index];
-      final inboundUrl = item['inbound'];
-      final outboundUrl = item['outbound'];
+      var inboundUrl = item['inbound'];
+      var outboundUrl = item['outbound'];
 
       if (inboundUrl == null || outboundUrl == null) {
         debugPrint('❌ 아이템 $index의 영상 URL이 없습니다');
         return;
+      }
+
+      // 📦 캐싱: URL을 캐시된 로컬 경로로 변환
+      if (VideoFeatureFlags.shouldUseCache) {
+        final results = await Future.wait([
+          VideoCache.getCachedVideoUrl(inboundUrl),
+          VideoCache.getCachedVideoUrl(outboundUrl),
+        ]);
+        inboundUrl = results[0];
+        outboundUrl = results[1];
+        
+        if (VideoFeatureFlags.enableDebugLogs) {
+          debugPrint('💾 Item $index - Inbound: ${inboundUrl.contains('cache') ? 'CACHED' : 'NETWORK'}');
+          debugPrint('💾 Item $index - Outbound: ${outboundUrl.contains('cache') ? 'CACHED' : 'NETWORK'}');
+        }
       }
 
       // 새 컨트롤러 생성

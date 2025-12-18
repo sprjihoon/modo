@@ -337,6 +337,91 @@ async function getDropoffAnalysis(startDate?: string | null, endDate?: string | 
 }
 
 /**
+ * 세션 분석
+ */
+async function getSessionAnalysis(startDate?: string | null, endDate?: string | null) {
+  let query = supabaseAdmin
+    .from('session_metrics_daily')
+    .select('*');
+
+  if (startDate) query = query.gte('date', startDate);
+  if (endDate) query = query.lte('date', endDate);
+
+  const { data, error } = await query.order('date', { ascending: false });
+
+  if (error) throw error;
+
+  // 전체 평균 계산
+  const totalSessions = data?.reduce((sum, row) => sum + (row.total_sessions || 0), 0) || 0;
+  const avgDuration = data?.reduce((sum, row) => sum + (row.avg_duration_seconds || 0), 0) / (data?.length || 1);
+  const avgEvents = data?.reduce((sum, row) => sum + (row.avg_events_per_session || 0), 0) / (data?.length || 1);
+  const avgBounceRate = data?.reduce((sum, row) => sum + (row.bounce_rate || 0), 0) / (data?.length || 1);
+
+  return {
+    summary: {
+      totalSessions,
+      avgDuration: Math.round(avgDuration),
+      avgEventsPerSession: Math.round(avgEvents * 10) / 10,
+      bounceRate: Math.round(avgBounceRate * 10) / 10,
+    },
+    daily: data,
+  };
+}
+
+/**
+ * 시간 패턴 분석
+ */
+async function getTimePatternAnalysis(startDate?: string | null, endDate?: string | null) {
+  // 시간대별 패턴
+  const { data: hourlyData, error: hourlyError } = await supabaseAdmin
+    .from('hourly_activity_pattern')
+    .select('*')
+    .order('hour_of_day');
+
+  if (hourlyError) throw hourlyError;
+
+  // 요일별 패턴
+  const { data: dailyData, error: dailyError } = await supabaseAdmin
+    .from('daily_performance')
+    .select('*')
+    .order('day_of_week');
+
+  if (dailyError) throw dailyError;
+
+  return {
+    hourly: hourlyData,
+    daily: dailyData,
+  };
+}
+
+/**
+ * 디바이스 분석
+ */
+async function getDeviceAnalysis(startDate?: string | null, endDate?: string | null) {
+  const { data, error } = await supabaseAdmin
+    .from('device_performance')
+    .select('*')
+    .order('total_sessions', { ascending: false });
+
+  if (error) throw error;
+
+  return data;
+}
+
+/**
+ * 고객 세그먼트 분석
+ */
+async function getSegmentAnalysis(startDate?: string | null, endDate?: string | null) {
+  const { data, error } = await supabaseAdmin
+    .from('customer_segment_analysis')
+    .select('*');
+
+  if (error) throw error;
+
+  return data;
+}
+
+/**
  * 이벤트 기록 API
  * POST: 새로운 고객 이벤트 기록
  */

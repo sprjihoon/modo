@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import '../../utils/adaptive_duration_calculator.dart';
+import '../../../../services/video_cache_service.dart';
+import '../../../../services/video_quality_service.dart';
+import '../../../../core/config/feature_flags.dart';
 
 /// 입고/출고 영상을 좌우로 나란히 재생하는 위젯 (media_kit 버전)
 /// 
@@ -53,6 +56,38 @@ class _SideBySideVideoPlayerMediaKitState
 
   Future<void> _init() async {
     try {
+      // 🎯 네트워크 품질 확인 (ABR)
+      VideoQuality optimalQuality = VideoQuality.auto;
+      if (VideoFeatureFlags.shouldUseABR) {
+        optimalQuality = await VideoQualityService.getOptimalQuality();
+        if (VideoFeatureFlags.enableDebugLogs) {
+          debugPrint('📡 Optimal quality: ${optimalQuality.label}');
+        }
+      }
+      
+      // 📦 캐싱: URL을 캐시된 로컬 경로로 변환
+      String inboundUrl = widget.inboundVideoUrl;
+      String outboundUrl = widget.outboundVideoUrl;
+      
+      if (VideoFeatureFlags.shouldUseCache) {
+        if (VideoFeatureFlags.enableDebugLogs) {
+          debugPrint('💾 Getting cached video URLs...');
+        }
+        
+        final results = await Future.wait([
+          VideoCache.getCachedVideoUrl(widget.inboundVideoUrl),
+          VideoCache.getCachedVideoUrl(widget.outboundVideoUrl),
+        ]);
+        
+        inboundUrl = results[0];
+        outboundUrl = results[1];
+        
+        if (VideoFeatureFlags.enableDebugLogs) {
+          debugPrint('✅ Inbound: ${inboundUrl.contains('cache') ? 'CACHED' : 'NETWORK'}');
+          debugPrint('✅ Outbound: ${outboundUrl.contains('cache') ? 'CACHED' : 'NETWORK'}');
+        }
+      }
+      
       // 플레이어 생성 (고급 설정)
       _inboundPlayer = Player(
         configuration: const PlayerConfiguration(
@@ -76,10 +111,10 @@ class _SideBySideVideoPlayerMediaKitState
       _inboundController = VideoController(_inboundPlayer);
       _outboundController = VideoController(_outboundPlayer);
 
-      // 미디어 로드
+      // 미디어 로드 (캐시된 URL 사용)
       await Future.wait([
-        _inboundPlayer.open(Media(widget.inboundVideoUrl)),
-        _outboundPlayer.open(Media(widget.outboundVideoUrl)),
+        _inboundPlayer.open(Media(inboundUrl)),
+        _outboundPlayer.open(Media(outboundUrl)),
       ]);
 
       if (!mounted || _isDisposed) return;

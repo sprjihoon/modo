@@ -357,10 +357,13 @@ export default function CustomerBehaviorPage() {
 
       {/* 탭 컨텐츠 */}
       <Tabs defaultValue="funnel" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="funnel">퍼널 분석</TabsTrigger>
-          <TabsTrigger value="dropoff">이탈 지점</TabsTrigger>
-          <TabsTrigger value="orders">주문 흐름</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="funnel">퍼널</TabsTrigger>
+          <TabsTrigger value="dropoff">이탈</TabsTrigger>
+          <TabsTrigger value="sessions">세션</TabsTrigger>
+          <TabsTrigger value="time">시간 패턴</TabsTrigger>
+          <TabsTrigger value="devices">디바이스</TabsTrigger>
+          <TabsTrigger value="orders">주문</TabsTrigger>
         </TabsList>
 
         {/* 퍼널 분석 */}
@@ -484,6 +487,69 @@ export default function CustomerBehaviorPage() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 세션 분석 */}
+        <TabsContent value="sessions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>세션 분석</CardTitle>
+              <CardDescription>
+                사용자 세션의 품질과 참여도를 분석합니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12 text-muted-foreground">
+                <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>세션 데이터를 로딩중입니다...</p>
+                <p className="text-sm mt-2">
+                  평균 체류 시간, 바운스율, 세션당 이벤트 수 등을 확인할 수 있습니다
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 시간 패턴 분석 */}
+        <TabsContent value="time" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>시간 패턴 분석</CardTitle>
+              <CardDescription>
+                시간대 및 요일별 활동 패턴을 분석합니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12 text-muted-foreground">
+                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>시간 패턴 데이터를 로딩중입니다...</p>
+                <p className="text-sm mt-2">
+                  피크 타임, 요일별 전환율 등을 확인할 수 있습니다
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 디바이스 분석 */}
+        <TabsContent value="devices" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>디바이스별 분석</CardTitle>
+              <CardDescription>
+                디바이스 타입 및 OS별 성과를 비교합니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>디바이스 데이터를 로딩중입니다...</p>
+                <p className="text-sm mt-2">
+                  디바이스별 전환율, 평균 주문 금액 등을 확인할 수 있습니다
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

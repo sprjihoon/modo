@@ -3,11 +3,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // 🚀 Video Processing Improvements
-// import 'package:media_kit/media_kit.dart';  // Uncomment when media_kit is installed
+import 'package:media_kit/media_kit.dart';
 
 import 'app.dart';
 import 'core/config/supabase_config.dart';
 import 'core/config/feature_flags.dart';
+import 'services/network_monitor_service.dart';
 
 /// 모두의수선 메인 엔트리포인트
 void main() async {
@@ -45,11 +46,15 @@ void main() async {
     
     // 🚀 media_kit 초기화 (Feature Flag로 제어)
     if (VideoFeatureFlags.shouldUseMediaKit) {
-      // MediaKit.ensureInitialized();  // Uncomment when media_kit is installed
+      MediaKit.ensureInitialized();
       print('✅ media_kit 초기화 완료 (Feature Flag: ON)');
     } else {
       print('ℹ️ media_kit 미사용 (Feature Flag: OFF)');
     }
+    
+    // 📡 네트워크 모니터링 서비스 초기화
+    await NetworkMonitorService().initialize();
+    print('✅ Network monitoring 초기화 완료');
   } catch (e, stackTrace) {
     print('❌ 초기화 실패: $e');
     print('   스택 트레이스: $stackTrace');
