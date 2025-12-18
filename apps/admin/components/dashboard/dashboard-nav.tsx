@@ -22,6 +22,7 @@ import {
   FileText,
   DollarSign,
   Activity,
+  Bell,
 } from "lucide-react";
 
 const navItems = [
@@ -89,6 +90,11 @@ const navItems = [
     title: "배너 관리",
     href: "/dashboard/banners",
     icon: Image,
+  },
+  {
+    title: "공지사항 관리",
+    href: "/dashboard/notifications/announcements",
+    icon: Bell,
   },
   {
     title: "작업 내역",

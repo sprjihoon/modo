@@ -156,10 +156,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             // 내 주문 섹션
             _buildMyOrdersSection(context),
             const SizedBox(height: 24),
-
-            // 프로모션 배너
-            _buildPromotionBanner(context),
-            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -946,61 +942,5 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 프로모션 배너
-  Widget _buildPromotionBanner(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE3F5FF),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '11월 한정 최대 혜택',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    '충전 결제하면\n최대 20%적립',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: const Color(0xFF00C896),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.loyalty_outlined,
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 

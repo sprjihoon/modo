@@ -101,6 +101,8 @@ export default function AnnouncementsPage() {
             send_push: editingAnnouncement.send_push,
             target_audience: editingAnnouncement.target_audience,
             is_pinned: editingAnnouncement.is_pinned,
+            image_url: editingAnnouncement.image_url || null,
+            link_url: editingAnnouncement.link_url || null,
             updated_by: userData.id,
           })
           .eq('id', editingAnnouncement.id)
@@ -116,6 +118,8 @@ export default function AnnouncementsPage() {
           send_push: editingAnnouncement.send_push,
           target_audience: editingAnnouncement.target_audience,
           is_pinned: editingAnnouncement.is_pinned,
+          image_url: editingAnnouncement.image_url || null,
+          link_url: editingAnnouncement.link_url || null,
           created_by: userData.id,
         })
 
@@ -263,6 +267,9 @@ export default function AnnouncementsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   제목
                 </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  첨부
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   유형
                 </th>
@@ -291,6 +298,19 @@ export default function AnnouncementsPage() {
                       <span className="inline-block mr-2 text-yellow-500">📌</span>
                     )}
                     {announcement.title}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="flex justify-center space-x-1">
+                      {announcement.image_url && (
+                        <span title="이미지 첨부" className="text-lg">🖼️</span>
+                      )}
+                      {announcement.link_url && (
+                        <span title="링크 첨부" className="text-lg">🔗</span>
+                      )}
+                      {!announcement.image_url && !announcement.link_url && (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {getTypeName(announcement.type)}
@@ -432,6 +452,40 @@ export default function AnnouncementsPage() {
                     <option value="recent_orders">최근 주문자 (7일 내)</option>
                   </select>
                 </div>
+              </div>
+
+              {/* 이미지 URL */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  이미지 URL (선택)
+                </label>
+                <input
+                  type="url"
+                  value={editingAnnouncement.image_url || ''}
+                  onChange={(e) =>
+                    setEditingAnnouncement({ ...editingAnnouncement, image_url: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="https://example.com/image.jpg"
+                />
+                <p className="text-xs text-gray-500 mt-1">공지사항에 표시할 이미지 URL을 입력하세요</p>
+              </div>
+
+              {/* 링크 URL */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  링크 URL (선택)
+                </label>
+                <input
+                  type="url"
+                  value={editingAnnouncement.link_url || ''}
+                  onChange={(e) =>
+                    setEditingAnnouncement({ ...editingAnnouncement, link_url: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="https://example.com/detail"
+                />
+                <p className="text-xs text-gray-500 mt-1">&quot;자세히 보기&quot; 버튼을 클릭하면 이동할 URL</p>
               </div>
 
               {/* 옵션 */}
