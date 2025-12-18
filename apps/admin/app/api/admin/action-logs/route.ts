@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/admin/action-logs
  * 직원 행동 분석 로그 조회 API (관리자 전용)

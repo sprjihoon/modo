@@ -66,8 +66,7 @@ export async function PUT(request: NextRequest) {
         icon_name: icon_name || null,
       })
       .eq('id', id)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('카테고리 수정 실패:', error);
@@ -77,7 +76,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true, data });
+    // 수정된 데이터가 있으면 첫 번째 항목 반환, 없으면 null
+    return NextResponse.json({ success: true, data: data?.[0] || null });
   } catch (error: any) {
     console.error('API 에러:', error);
     return NextResponse.json(
