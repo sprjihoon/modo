@@ -75,6 +75,26 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, data: segmentData });
       }
 
+      case 'cohort': {
+        // 코호트 분석 (Phase 2)
+        const cohortData = await getCohortAnalysis(startDate, endDate);
+        return NextResponse.json({ success: true, data: cohortData });
+      }
+
+      case 'retention': {
+        // 리텐션 분석 (Phase 2)
+        const retentionType = searchParams.get('retentionType') || 'n-day';
+        const retentionData = await getRetentionAnalysis(retentionType, startDate, endDate);
+        return NextResponse.json({ success: true, data: retentionData });
+      }
+
+      case 'journey': {
+        // 고객 여정 분석 (Phase 2)
+        const journeyType = searchParams.get('journeyType') || 'sequences';
+        const journeyData = await getJourneyAnalysis(journeyType);
+        return NextResponse.json({ success: true, data: journeyData });
+      }
+
       case 'user': {
         // 특정 사용자의 행동 분석
         if (!userId) {
@@ -419,6 +439,135 @@ async function getSegmentAnalysis(startDate?: string | null, endDate?: string | 
   if (error) throw error;
 
   return data;
+}
+
+/**
+ * 코호트 분석 (Phase 2)
+ */
+async function getCohortAnalysis(startDate?: string | null, endDate?: string | null) {
+  // 코호트별 성과
+  let performanceQuery = supabaseAdmin
+    .from('cohort_performance')
+    .select('*')
+    .order('cohort_month', { ascending: false })
+    .limit(12); // 최근 12개월
+
+  const { data: performance, error: perfError } = await performanceQuery;
+  if (perfError) throw perfError;
+
+  // 일별 리텐션 (최근 30일)
+  const { data: dailyRetention, error: dailyError } = await supabaseAdmin
+    .from('cohort_retention_daily')
+    .select('*')
+    .gte('cohort_date', startDate || getDaysAgo(30))
+    .lte('cohort_date', endDate || getToday())
+    .order('cohort_date', { ascending: false })
+    .limit(30);
+
+  if (dailyError) throw dailyError;
+
+  // 주별 리텐션 (최근 12주)
+  const { data: weeklyRetention, error: weeklyError } = await supabaseAdmin
+    .from('cohort_retention_weekly')
+    .select('*')
+    .order('cohort_week', { ascending: false })
+    .limit(12);
+
+  if (weeklyError) throw weeklyError;
+
+  return {
+    performance,
+    dailyRetention,
+    weeklyRetention,
+  };
+}
+
+/**
+ * 리텐션 분석 (Phase 2)
+ */
+async function getRetentionAnalysis(
+  retentionType: string,
+  startDate?: string | null,
+  endDate?: string | null
+) {
+  let viewName = 'n_day_retention';
+  
+  switch (retentionType) {
+    case 'n-day':
+      viewName = 'n_day_retention';
+      break;
+    case 'unbounded':
+      viewName = 'unbounded_retention';
+      break;
+    case 'purchase':
+      viewName = 'purchase_retention';
+      break;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from(viewName)
+    .select('*')
+    .order('cohort_date', { ascending: false })
+    .limit(30);
+
+  if (error) throw error;
+
+  return {
+    type: retentionType,
+    data,
+  };
+}
+
+/**
+ * 고객 여정 분석 (Phase 2)
+ */
+async function getJourneyAnalysis(journeyType: string) {
+  let viewName = 'event_sequences';
+  let orderBy = 'sequence_count';
+  let limit = 50;
+
+  switch (journeyType) {
+    case 'sequences':
+      viewName = 'event_sequences';
+      orderBy = 'sequence_count';
+      break;
+    case 'conversion-paths':
+      viewName = 'conversion_paths';
+      orderBy = 'occurrence_count';
+      break;
+    case 'page-flow':
+      viewName = 'page_flow';
+      orderBy = 'transition_count';
+      break;
+    case 'dropout':
+      viewName = 'dropout_paths';
+      orderBy = 'dropout_count';
+      break;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from(viewName)
+    .select('*')
+    .order(orderBy, { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return {
+    type: journeyType,
+    data,
+  };
+}
+
+// Helper functions
+function getToday() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function getDaysAgo(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
 }
 
 /**

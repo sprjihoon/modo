@@ -357,12 +357,15 @@ export default function CustomerBehaviorPage() {
 
       {/* 탭 컨텐츠 */}
       <Tabs defaultValue="funnel" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 gap-1">
           <TabsTrigger value="funnel">퍼널</TabsTrigger>
           <TabsTrigger value="dropoff">이탈</TabsTrigger>
           <TabsTrigger value="sessions">세션</TabsTrigger>
-          <TabsTrigger value="time">시간 패턴</TabsTrigger>
+          <TabsTrigger value="time">시간</TabsTrigger>
           <TabsTrigger value="devices">디바이스</TabsTrigger>
+          <TabsTrigger value="cohort">코호트</TabsTrigger>
+          <TabsTrigger value="retention">리텐션</TabsTrigger>
+          <TabsTrigger value="journey">여정</TabsTrigger>
           <TabsTrigger value="orders">주문</TabsTrigger>
         </TabsList>
 
@@ -549,6 +552,233 @@ export default function CustomerBehaviorPage() {
                 <p className="text-sm mt-2">
                   디바이스별 전환율, 평균 주문 금액 등을 확인할 수 있습니다
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 코호트 분석 */}
+        <TabsContent value="cohort" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>코호트 분석</CardTitle>
+              <CardDescription>
+                사용자 그룹별 행동 패턴과 리텐션을 분석합니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                  <Users className="h-12 w-12 mx-auto mb-4 text-blue-500" />
+                  <h3 className="text-lg font-semibold mb-2">코호트 리텐션 매트릭스</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    가입 시기별 사용자 그룹의 재방문율을 추적합니다
+                  </p>
+                  <div className="text-xs text-muted-foreground">
+                    예시: 1월 가입 고객 100명 중 30일 후 45명 재방문 (45% 리텐션)
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-sm text-muted-foreground mb-1">월별 코호트</div>
+                      <div className="text-2xl font-bold">12개월</div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        최근 1년간의 코호트 분석
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-sm text-muted-foreground mb-1">평균 리텐션</div>
+                      <div className="text-2xl font-bold text-blue-600">API 연동 필요</div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        30일 후 재방문율
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-sm text-muted-foreground mb-1">최고 성과 코호트</div>
+                      <div className="text-2xl font-bold text-green-600">API 연동 필요</div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        가장 높은 전환율
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 리텐션 분석 */}
+        <TabsContent value="retention" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>리텐션 분석</CardTitle>
+              <CardDescription>
+                사용자의 재방문 패턴과 재구매율을 분석합니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
+                    N-Day Retention
+                  </Badge>
+                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
+                    Unbounded
+                  </Badge>
+                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
+                    재구매율
+                  </Badge>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-5">
+                  <Card className="bg-blue-50">
+                    <CardContent className="pt-6 text-center">
+                      <div className="text-3xl font-bold text-blue-600">Day 1</div>
+                      <div className="text-sm text-muted-foreground mt-2">다음날 재방문</div>
+                      <div className="text-2xl font-bold mt-2">API 연동</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-green-50">
+                    <CardContent className="pt-6 text-center">
+                      <div className="text-3xl font-bold text-green-600">Day 3</div>
+                      <div className="text-sm text-muted-foreground mt-2">3일 후 재방문</div>
+                      <div className="text-2xl font-bold mt-2">API 연동</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-purple-50">
+                    <CardContent className="pt-6 text-center">
+                      <div className="text-3xl font-bold text-purple-600">Day 7</div>
+                      <div className="text-sm text-muted-foreground mt-2">7일 후 재방문</div>
+                      <div className="text-2xl font-bold mt-2">API 연동</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-orange-50">
+                    <CardContent className="pt-6 text-center">
+                      <div className="text-3xl font-bold text-orange-600">Day 14</div>
+                      <div className="text-sm text-muted-foreground mt-2">14일 후 재방문</div>
+                      <div className="text-2xl font-bold mt-2">API 연동</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-red-50">
+                    <CardContent className="pt-6 text-center">
+                      <div className="text-3xl font-bold text-red-600">Day 30</div>
+                      <div className="text-sm text-muted-foreground mt-2">30일 후 재방문</div>
+                      <div className="text-2xl font-bold mt-2">API 연동</div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-purple-500" />
+                  <h3 className="text-lg font-semibold mb-2">리텐션 커브</h3>
+                  <p className="text-sm text-muted-foreground">
+                    시간에 따른 사용자 유지율 변화를 시각화합니다
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 고객 여정 분석 */}
+        <TabsContent value="journey" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>고객 여정 시각화</CardTitle>
+              <CardDescription>
+                사용자의 행동 경로와 전환 패턴을 분석합니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
+                    이벤트 시퀀스
+                  </Badge>
+                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
+                    전환 경로
+                  </Badge>
+                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
+                    페이지 흐름
+                  </Badge>
+                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
+                    이탈 경로
+                  </Badge>
+                </div>
+
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                  <Activity className="h-16 w-16 mx-auto mb-4 text-green-500" />
+                  <h3 className="text-xl font-semibold mb-3">Sankey 다이어그램</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    고객의 실제 이동 경로를 흐름으로 시각화합니다
+                  </p>
+                  <div className="max-w-2xl mx-auto text-left space-y-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <ArrowRight className="h-4 w-4" />
+                      <span>APP_OPEN → PRODUCT_VIEW → CART_ADD → ORDER_START → PAYMENT_SUCCESS</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ArrowRight className="h-4 w-4" />
+                      <span>APP_OPEN → PRODUCT_VIEW → CART_ADD → [이탈]</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ArrowRight className="h-4 w-4" />
+                      <span>APP_OPEN → BANNER_CLICK → PRODUCT_VIEW → ORDER_START</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">가장 많은 전환 경로</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between p-2 bg-green-50 rounded">
+                          <span className="text-xs">경로 1</span>
+                          <Badge variant="outline">API 연동</Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
+                          <span className="text-xs">경로 2</span>
+                          <Badge variant="outline">API 연동</Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-purple-50 rounded">
+                          <span className="text-xs">경로 3</span>
+                          <Badge variant="outline">API 연동</Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">주요 이탈 지점</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between p-2 bg-red-50 rounded">
+                          <span className="text-xs">이탈 지점 1</span>
+                          <Badge variant="destructive">API 연동</Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-orange-50 rounded">
+                          <span className="text-xs">이탈 지점 2</span>
+                          <Badge variant="destructive">API 연동</Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-2 bg-yellow-50 rounded">
+                          <span className="text-xs">이탈 지점 3</span>
+                          <Badge variant="destructive">API 연동</Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </CardContent>
           </Card>
