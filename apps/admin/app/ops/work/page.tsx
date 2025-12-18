@@ -47,7 +47,27 @@ export default function WorkPage() {
   // Extra Charge State
   const [showExtraChargeDialog, setShowExtraChargeDialog] = useState(false);
   const [extraChargeReason, setExtraChargeReason] = useState("");
+  const [extraChargeAmount, setExtraChargeAmount] = useState("");
+  const [extraChargeNote, setExtraChargeNote] = useState("");
   const [isSubmittingExtraCharge, setIsSubmittingExtraCharge] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // 사용자 role 로드
+  useEffect(() => {
+    const loadUserRole = async () => {
+      try {
+        const userResponse = await fetch("/api/auth/me");
+        const userData = await userResponse.json();
+        if (userData.success && userData.user) {
+          setUserRole(userData.user.role);
+          console.log("👤 사용자 role:", userData.user.role);
+        }
+      } catch (error) {
+        console.error("사용자 role 로드 실패:", error);
+      }
+    };
+    loadUserRole();
+  }, []);
 
   // 작업 아이템 상태 조회
   const loadWorkItems = async (orderId: string) => {
@@ -216,6 +236,13 @@ export default function WorkPage() {
   const handleRequestExtraCharge = async () => {
     if (!result || !extraChargeReason.trim()) return;
 
+    // 관리자인 경우 금액 필수
+    const isManager = userRole && ['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole);
+    if (isManager && (!extraChargeAmount || parseInt(extraChargeAmount) <= 0)) {
+      alert("금액을 입력해주세요.");
+      return;
+    }
+
     setIsSubmittingExtraCharge(true);
     try {
       const res = await fetch("/api/ops/extra-charge", {
@@ -224,6 +251,8 @@ export default function WorkPage() {
         body: JSON.stringify({
           orderId: result.orderId,
           reason: extraChargeReason,
+          amount: extraChargeAmount ? parseInt(extraChargeAmount) : null,
+          note: extraChargeNote || null,
         }),
       });
 
@@ -232,9 +261,15 @@ export default function WorkPage() {
         throw new Error(json.error || "추가 비용 요청 실패");
       }
 
-      alert("✅ 추가 비용 요청이 접수되었습니다. 관리자가 검토 후 고객에게 안내합니다.");
+      const message = isManager 
+        ? "✅ 고객에게 추가 결제 요청을 보냈습니다." 
+        : "✅ 추가 비용 요청이 접수되었습니다. 관리자가 검토 후 고객에게 안내합니다.";
+      
+      alert(message);
       setShowExtraChargeDialog(false);
       setExtraChargeReason("");
+      setExtraChargeAmount("");
+      setExtraChargeNote("");
     } catch (error: any) {
       console.error("추가 비용 요청 실패:", error);
       alert(`요청 실패: ${error.message}`);
@@ -431,23 +466,52 @@ export default function WorkPage() {
 
       {/* 추가 비용 요청 다이얼로그 */}
       <Dialog open={showExtraChargeDialog} onOpenChange={setShowExtraChargeDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>추가 비용 요청</DialogTitle>
             <DialogDescription>
-              작업 중 추가 비용이 발생하는 사유를 입력해주세요.<br/>
-              금액은 관리자가 검토 후 결정하여 고객에게 청구합니다.
+              {userRole && ['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) 
+                ? "작업 중 추가 비용이 발생했습니다. 금액과 사유를 입력하여 고객에게 직접 청구하세요."
+                : "작업 중 추가 비용이 발생하는 사유를 입력해주세요. 금액은 관리자가 검토 후 결정하여 고객에게 청구합니다."}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="reason" className="mb-2 block">요청 사유</Label>
-            <Textarea
-              id="reason"
-              placeholder="예: 안감 교체 필요, 특수 소재로 인한 추가 공임 등"
-              value={extraChargeReason}
-              onChange={(e) => setExtraChargeReason(e.target.value)}
-              rows={4}
-            />
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="reason" className="mb-2 block">요청 사유 *</Label>
+              <Textarea
+                id="reason"
+                placeholder="예: 안감 교체 필요, 특수 소재로 인한 추가 공임 등"
+                value={extraChargeReason}
+                onChange={(e) => setExtraChargeReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+            
+            {userRole && ['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && (
+              <>
+                <div>
+                  <Label htmlFor="amount" className="mb-2 block">청구 금액 (원) *</Label>
+                  <input
+                    id="amount"
+                    type="number"
+                    placeholder="10000"
+                    value={extraChargeAmount}
+                    onChange={(e) => setExtraChargeAmount(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="note" className="mb-2 block">고객 안내 메시지 (선택)</Label>
+                  <Textarea
+                    id="note"
+                    placeholder="고객에게 전달할 상세 내용을 입력하세요."
+                    value={extraChargeNote}
+                    onChange={(e) => setExtraChargeNote(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowExtraChargeDialog(false)} disabled={isSubmittingExtraCharge}>
@@ -458,7 +522,8 @@ export default function WorkPage() {
               disabled={!extraChargeReason.trim() || isSubmittingExtraCharge}
               className="bg-orange-600 hover:bg-orange-700 text-white"
             >
-              {isSubmittingExtraCharge ? "요청 중..." : "요청 보내기"}
+              {isSubmittingExtraCharge ? "요청 중..." : 
+                userRole && ['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) ? "고객에게 청구" : "요청 보내기"}
             </Button>
           </DialogFooter>
         </DialogContent>

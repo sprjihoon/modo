@@ -92,6 +92,9 @@ export default function OrdersPage() {
   const [endDate, setEndDate] = useState<string>(getToday());
   const [datePreset, setDatePreset] = useState<string>("30days");
   
+  // 프로모션 필터 추가
+  const [promotionFilter, setPromotionFilter] = useState<string>("ALL"); // ALL, USED, NOT_USED
+  
   // 페이징
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
@@ -100,12 +103,12 @@ export default function OrdersPage() {
 
   useEffect(() => {
     loadOrders();
-  }, [statusFilter, startDate, endDate, currentPage, pageSize]);
+  }, [statusFilter, startDate, endDate, currentPage, pageSize, promotionFilter]);
   
   // 필터 변경 시 페이지 1로 리셋
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, startDate, endDate, search]);
+  }, [statusFilter, startDate, endDate, search, promotionFilter]);
 
   // 검색어 변경 시 debounce 적용
   useEffect(() => {
@@ -156,6 +159,7 @@ export default function OrdersPage() {
       if (search) params.append('search', search);
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
+      if (promotionFilter !== "ALL") params.append('promotionFilter', promotionFilter);
       params.append('page', String(currentPage));
       params.append('pageSize', String(pageSize));
 
@@ -256,15 +260,25 @@ export default function OrdersPage() {
               <div className="text-2xl font-bold text-purple-600">{stats.processing}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            className={`cursor-pointer transition-all hover:shadow-md hover:border-green-300 ${promotionFilter === 'USED' ? 'ring-2 ring-green-500' : ''}`}
+            onClick={() => setPromotionFilter(promotionFilter === 'USED' ? 'ALL' : 'USED')}
+          >
             <CardHeader className="pb-2">
               <CardDescription>프로모션 사용</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{stats.promotionUsed}</div>
+              <p className="text-xs text-muted-foreground mt-1">클릭하여 필터링</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            className="cursor-pointer transition-all hover:shadow-md"
+            onClick={() => {
+              setStatusFilter('ALL');
+              setPromotionFilter('ALL');
+            }}
+          >
             <CardHeader className="pb-2">
               <CardDescription>총 할인 금액</CardDescription>
             </CardHeader>
@@ -272,9 +286,16 @@ export default function OrdersPage() {
               <div className="text-2xl font-bold text-red-600">
                 ₩{stats.totalDiscount.toLocaleString()}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">전체 보기</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card 
+            className="cursor-pointer transition-all hover:shadow-md"
+            onClick={() => {
+              setStatusFilter('ALL');
+              setPromotionFilter('ALL');
+            }}
+          >
             <CardHeader className="pb-2">
               <CardDescription>총 매출</CardDescription>
             </CardHeader>
@@ -282,6 +303,7 @@ export default function OrdersPage() {
               <div className="text-2xl font-bold text-blue-600">
                 ₩{stats.totalRevenue.toLocaleString()}
               </div>
+              <p className="text-xs text-muted-foreground mt-1">전체 보기</p>
             </CardContent>
           </Card>
         </div>
@@ -357,7 +379,7 @@ export default function OrdersPage() {
           </div>
           
           {/* 검색 및 상태 필터 */}
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-5">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -377,6 +399,16 @@ export default function OrdersPage() {
                     {value.label}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={promotionFilter} onValueChange={setPromotionFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="프로모션 필터" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">전체</SelectItem>
+                <SelectItem value="USED">프로모션 사용</SelectItem>
+                <SelectItem value="NOT_USED">프로모션 미사용</SelectItem>
               </SelectContent>
             </Select>
             <Select value={sortBy} onValueChange={setSortBy}>

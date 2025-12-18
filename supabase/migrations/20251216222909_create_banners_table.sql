@@ -51,14 +51,14 @@ CREATE POLICY "Anyone can view active banners"
   FOR SELECT
   USING (is_active = true);
 
--- 정책: 관리자는 모든 배너 조회/수정 가능
+-- 정책: 관리자는 모든 배너 조회 가능 (public.users 테이블 사용)
 CREATE POLICY "Admins can view all banners"
   ON public.banners
   FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
+      SELECT 1 FROM public.users
+      WHERE auth_id = auth.uid()
       AND email LIKE '%@admin.modusrepair.com'
     )
   );
@@ -68,8 +68,8 @@ CREATE POLICY "Admins can insert banners"
   FOR INSERT
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
+      SELECT 1 FROM public.users
+      WHERE auth_id = auth.uid()
       AND email LIKE '%@admin.modusrepair.com'
     )
   );
@@ -79,8 +79,8 @@ CREATE POLICY "Admins can update banners"
   FOR UPDATE
   USING (
     EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
+      SELECT 1 FROM public.users
+      WHERE auth_id = auth.uid()
       AND email LIKE '%@admin.modusrepair.com'
     )
   );
@@ -90,8 +90,8 @@ CREATE POLICY "Admins can delete banners"
   FOR DELETE
   USING (
     EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
+      SELECT 1 FROM public.users
+      WHERE auth_id = auth.uid()
       AND email LIKE '%@admin.modusrepair.com'
     )
   );

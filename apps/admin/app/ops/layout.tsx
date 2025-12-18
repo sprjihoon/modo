@@ -12,7 +12,7 @@ const navigation = [
   { name: "입고", href: "/ops/inbound", icon: Package },
   { name: "작업", href: "/ops/work", icon: Wrench },
   { name: "출고", href: "/ops/outbound", icon: Send },
-  { name: "작업 내역", href: "/dashboard/work-history", icon: ClipboardList },
+  { name: "작업 내역", href: "/ops/work-history", icon: ClipboardList },
   { name: "장비", href: "/ops/devices", icon: Cpu },
   { name: "송장 레이아웃", href: "/ops/label-editor", icon: FileText },
 ];
@@ -98,19 +98,20 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
 
     switch (userRole) {
       case "WORKER":
-        // 작업자: 작업 메뉴만
+        // 작업자: 작업 메뉴와 본인의 작업내역
         const workerMenu = navigation.filter(
-          (item) => item.href === "/ops/work" || item.href === "/ops/my-dashboard"
+          (item) => item.href === "/ops/work" || item.href === "/ops/my-dashboard" || item.href === "/ops/work-history"
         );
         console.log("👷 작업자 메뉴:", workerMenu.map((m) => m.name));
         return workerMenu;
       case "MANAGER":
-        // 입출고관리자: 입고, 출고 메뉴만
+        // 입출고관리자: 입고, 출고, 작업내역 메뉴
         const managerMenu = navigation.filter(
           (item) =>
             item.href === "/ops/inbound" ||
             item.href === "/ops/outbound" ||
-            item.href === "/ops/my-dashboard"
+            item.href === "/ops/my-dashboard" ||
+            item.href === "/ops/work-history"
         );
         console.log("📦 입출고관리자 메뉴:", managerMenu.map((m) => m.name));
         return managerMenu;

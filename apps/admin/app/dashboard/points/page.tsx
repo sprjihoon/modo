@@ -62,6 +62,7 @@ interface PointTransaction {
   description: string;
   orderId: string | null;
   orderName: string | null;
+  orderPrice: number | null;
   createdAt: string;
 }
 
@@ -147,6 +148,16 @@ export default function PointsPage() {
       default:
         break;
     }
+  };
+
+  // 카드 클릭 핸들러 - 해당 타입의 내역으로 필터링
+  const handleCardClick = (filterType: string) => {
+    setActiveTab("history");
+    setTypeFilter(filterType);
+    setDatePreset("all");
+    setStartDate("");
+    setEndDate("");
+    setCurrentPage(1);
   };
 
   // 포인트 만료 처리 관련 상태
@@ -393,9 +404,13 @@ export default function PointsPage() {
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card 
+          className="cursor-pointer transition-all hover:shadow-lg hover:scale-105 hover:border-green-300"
+          onClick={() => handleCardClick("적립")}
+        >
           <CardHeader className="pb-2">
             <CardDescription>총 발급 포인트</CardDescription>
+            <p className="text-xs text-muted-foreground">클릭하여 발급 내역 보기 →</p>
           </CardHeader>
           <CardContent>
             {loadingStats ? (
@@ -407,9 +422,13 @@ export default function PointsPage() {
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer transition-all hover:shadow-lg hover:scale-105 hover:border-red-300"
+          onClick={() => handleCardClick("사용")}
+        >
           <CardHeader className="pb-2">
             <CardDescription>사용된 포인트</CardDescription>
+            <p className="text-xs text-muted-foreground">클릭하여 사용 내역 보기 →</p>
           </CardHeader>
           <CardContent>
             {loadingStats ? (
@@ -421,9 +440,13 @@ export default function PointsPage() {
             )}
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer transition-all hover:shadow-lg hover:scale-105 hover:border-gray-400"
+          onClick={() => handleCardClick("만료")}
+        >
           <CardHeader className="pb-2">
             <CardDescription>만료된 포인트</CardDescription>
+            <p className="text-xs text-muted-foreground">클릭하여 만료 내역 보기 →</p>
           </CardHeader>
           <CardContent>
             {loadingStats ? (
@@ -438,6 +461,7 @@ export default function PointsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>보유 중인 포인트</CardDescription>
+            <p className="text-xs text-transparent">-</p>
           </CardHeader>
           <CardContent>
             {loadingStats ? (
@@ -487,37 +511,99 @@ export default function PointsPage() {
           {expiringLoading ? (
             <div className="text-center py-4 text-muted-foreground">로딩 중...</div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <p className="text-sm text-muted-foreground">오늘 만료 예정</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {expiringStats.expiringToday.toLocaleString()}P
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {expiringPoints.filter(
-                    pt => pt.expires_at && new Date(pt.expires_at) <= new Date()
-                  ).length}건
-                </p>
+            <>
+              <div className="grid gap-4 md:grid-cols-3 mb-6">
+                <div>
+                  <p className="text-sm text-muted-foreground">오늘 만료 예정</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {expiringStats.expiringToday.toLocaleString()}P
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {expiringPoints.filter(
+                      pt => pt.expires_at && new Date(pt.expires_at) <= new Date()
+                    ).length}건
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">30일 내 만료 예정</p>
+                  <p className="text-2xl font-bold text-orange-500">
+                    {expiringStats.totalExpiring.toLocaleString()}P
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {expiringStats.expiringCount}건
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">만료 정책</p>
+                  <p className="text-lg font-semibold text-orange-700">
+                    30일 후 자동 소멸
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    오래된 포인트부터 순차 소멸
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">30일 내 만료 예정</p>
-                <p className="text-2xl font-bold text-orange-500">
-                  {expiringStats.totalExpiring.toLocaleString()}P
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {expiringStats.expiringCount}건
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">만료 정책</p>
-                <p className="text-lg font-semibold text-orange-700">
-                  30일 후 자동 소멸
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  오래된 포인트부터 순차 소멸
-                </p>
-              </div>
-            </div>
+              
+              {/* 만료 예정 포인트 상세 리스트 */}
+              {expiringPoints.length > 0 && (
+                <div className="mt-4 border-t pt-4">
+                  <h4 className="font-semibold text-sm mb-3 text-orange-800 dark:text-orange-300">
+                    만료 예정 포인트 상세 (최대 10건 표시)
+                  </h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {expiringPoints.slice(0, 10).map((point: any) => {
+                      const isExpired = point.expires_at && new Date(point.expires_at) <= new Date();
+                      const expiresAt = point.expires_at ? new Date(point.expires_at) : null;
+                      const daysUntilExpiry = expiresAt 
+                        ? Math.ceil((expiresAt.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                        : null;
+                      
+                      return (
+                        <div 
+                          key={point.id}
+                          className={`flex items-center justify-between p-3 rounded-lg border ${
+                            isExpired 
+                              ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' 
+                              : 'bg-white dark:bg-gray-800 border-orange-100 dark:border-orange-900'
+                          } cursor-pointer hover:shadow-md transition-all`}
+                          onClick={() => point.user?.id && router.push(`/dashboard/customers/${point.user.id}`)}
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">
+                              {point.user?.name || '알 수 없음'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {point.user?.email || '이메일 없음'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              발급일: {formatDateTime(point.created_at)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-orange-600">
+                              {point.amount.toLocaleString()}P
+                            </p>
+                            {expiresAt && (
+                              <p className={`text-xs ${isExpired ? 'text-red-600 font-semibold' : 'text-orange-600'}`}>
+                                {isExpired ? '만료됨!' : daysUntilExpiry === 0 ? '오늘 만료' : `${daysUntilExpiry}일 후 만료`}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {expiresAt ? formatDate(expiresAt.toISOString()) : '-'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {expiringPoints.length > 10 && (
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                      ...외 {expiringPoints.length - 10}건 더
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -852,7 +938,7 @@ export default function PointsPage() {
                     transactions.map((point) => (
                     <div
                       key={point.id}
-                      className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                      className={`p-4 border rounded-lg transition-colors ${
                         point.userId 
                           ? "hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer" 
                           : "bg-gray-50 dark:bg-gray-900 cursor-not-allowed opacity-60"
@@ -871,66 +957,96 @@ export default function PointsPage() {
                       }}
                       title={point.userId ? `${point.userName}님의 상세 정보 보기` : '고객 계정 정보 없음'}
                     >
-                      <div className="flex items-center space-x-4">
-                        <div
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                            point.type === "적립"
-                              ? "bg-green-100"
-                              : point.type === "사용"
-                              ? "bg-red-100"
-                              : point.type === "취소"
-                              ? "bg-orange-100"
-                              : "bg-gray-100"
-                          }`}
-                        >
-                          {point.type === "적립" ? (
-                            <TrendingUp className="h-5 w-5 text-green-600" />
-                          ) : point.type === "사용" ? (
-                            <TrendingDown className="h-5 w-5 text-red-600" />
-                          ) : point.type === "취소" ? (
-                            <TrendingDown className="h-5 w-5 text-orange-600" />
-                          ) : (
-                            <TrendingDown className="h-5 w-5 text-gray-600" />
-                          )}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-4 flex-1">
+                          <div
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                              point.type === "적립"
+                                ? "bg-green-100"
+                                : point.type === "사용"
+                                ? "bg-red-100"
+                                : point.type === "취소"
+                                ? "bg-orange-100"
+                                : "bg-gray-100"
+                            }`}
+                          >
+                            {point.type === "적립" ? (
+                              <TrendingUp className="h-5 w-5 text-green-600" />
+                            ) : point.type === "사용" ? (
+                              <TrendingDown className="h-5 w-5 text-red-600" />
+                            ) : point.type === "취소" ? (
+                              <TrendingDown className="h-5 w-5 text-orange-600" />
+                            ) : (
+                              <TrendingDown className="h-5 w-5 text-gray-600" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium">{point.description}</p>
+                            <p className={`text-sm text-muted-foreground ${point.userId ? 'hover:text-blue-600' : ''} transition-colors`}>
+                              👤 {point.userName}
+                            </p>
+                            {point.userEmail && (
+                              <p className="text-xs text-muted-foreground">✉️ {point.userEmail}</p>
+                            )}
+                            {point.orderId && (
+                              <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
+                                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                  📦 주문 정보
+                                </p>
+                                {point.orderName && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    상품: {point.orderName}
+                                  </p>
+                                )}
+                                {point.orderPrice && (
+                                  <p className="text-xs text-muted-foreground">
+                                    금액: {point.orderPrice.toLocaleString()}원
+                                  </p>
+                                )}
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  className="h-auto p-0 text-xs mt-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(`/dashboard/orders/${point.orderId}`);
+                                  }}
+                                >
+                                  주문 상세보기 →
+                                </Button>
+                              </div>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-2">{formatDateTime(point.createdAt)}</p>
+                          </div>
                         </div>
-                      <div>
-                        <p className="font-medium">{point.description}</p>
-                        <p className={`text-sm text-muted-foreground ${point.userId ? 'hover:text-blue-600' : ''} transition-colors`}>
-                          👤 {point.userName} {point.orderName && `• ${point.orderName}`}
-                        </p>
-                        {point.userEmail && (
-                          <p className="text-xs text-muted-foreground">✉️ {point.userEmail}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground">{formatDateTime(point.createdAt)}</p>
-                      </div>
-                      </div>
-                      <div className="text-right">
-                        <p
-                          className={`font-medium text-lg ${
-                            point.type === "적립"
-                              ? "text-green-600"
-                              : point.type === "사용"
-                              ? "text-red-600"
-                              : "text-gray-600"
-                          }`}
-                        >
-                          {point.type === "적립" ? "+" : "-"}
-                          {point.amount.toLocaleString()}P
-                        </p>
-                        <Badge
-                          variant={
-                            point.type === "적립"
-                              ? "default"
-                              : point.type === "사용"
-                              ? "destructive"
-                              : point.type === "취소"
-                              ? "secondary"
-                              : "outline"
-                          }
-                          className="mt-1"
-                        >
-                          {point.type}
-                        </Badge>
+                        <div className="text-right ml-4 flex-shrink-0">
+                          <p
+                            className={`font-medium text-lg ${
+                              point.type === "적립"
+                                ? "text-green-600"
+                                : point.type === "사용"
+                                ? "text-red-600"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            {point.type === "적립" ? "+" : "-"}
+                            {point.amount.toLocaleString()}P
+                          </p>
+                          <Badge
+                            variant={
+                              point.type === "적립"
+                                ? "default"
+                                : point.type === "사용"
+                                ? "destructive"
+                                : point.type === "취소"
+                                ? "secondary"
+                                : "outline"
+                            }
+                            className="mt-1"
+                          >
+                            {point.type}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                     ))

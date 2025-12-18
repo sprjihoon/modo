@@ -95,7 +95,7 @@ export default function AnalyticsPage() {
   // 사용자 통계 상태
   const [userStats, setUserStats] = useState({
     total: 0,
-    newToday: 0,
+    newThisMonth: 0,
     active: 0,
     inactive: 0,
     deleted: 0,
@@ -124,11 +124,9 @@ export default function AnalyticsPage() {
         
         // stats가 있는 경우에만 업데이트
         if (data.stats) {
-          // 오늘 가입한 고객 수는 이번 달 신규 고객 수로 대체 (실제 오늘 가입 수는 별도 계산 필요)
-          // 일단 이번 달 신규 고객 수를 사용
           setUserStats({
             total: data.stats.totalCustomers || 0,
-            newToday: data.stats.newCustomers || 0, // 이번 달 신규 고객 수
+            newThisMonth: data.stats.newCustomers || 0, // 이번 달 신규 고객 수
             active: data.stats.activeCustomers || 0,
             inactive: Math.max(0, (data.stats.totalCustomers || 0) - (data.stats.activeCustomers || 0) - (data.stats.deletedCustomers || 0)),
             deleted: data.stats.deletedCustomers || 0,
@@ -365,8 +363,8 @@ export default function AnalyticsPage() {
                 <p className="text-2xl font-bold">{userStats.total}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">오늘 가입</p>
-                <p className="text-2xl font-bold text-green-600">+{userStats.newToday}</p>
+                <p className="text-sm text-muted-foreground">신규 고객 (이번 달)</p>
+                <p className="text-2xl font-bold text-green-600">{userStats.newThisMonth > 0 ? `+${userStats.newThisMonth}` : '0'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">활성 사용자</p>

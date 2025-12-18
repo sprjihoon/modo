@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const promotionFilter = searchParams.get('promotionFilter');
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '20');
 
@@ -44,6 +45,13 @@ export async function GET(request: NextRequest) {
     if (search) {
       const searchValue = `%${search}%`;
       query = query.or(`order_number.ilike.${searchValue},customer_name.ilike.${searchValue},customer_email.ilike.${searchValue},tracking_no.ilike.${searchValue},item_name.ilike.${searchValue}`);
+    }
+
+    // 프로모션 필터
+    if (promotionFilter === 'USED') {
+      query = query.not('promotion_code_id', 'is', null);
+    } else if (promotionFilter === 'NOT_USED') {
+      query = query.is('promotion_code_id', null);
     }
 
     // 페이징 적용

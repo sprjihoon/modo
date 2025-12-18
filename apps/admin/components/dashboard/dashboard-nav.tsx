@@ -20,6 +20,7 @@ import {
   Image,
   ClipboardList,
   FileText,
+  DollarSign,
 } from "lucide-react";
 
 const navItems = [
@@ -52,6 +53,11 @@ const navItems = [
     title: "결제 내역",
     href: "/dashboard/payments",
     icon: CreditCard,
+  },
+  {
+    title: "정산 관리",
+    href: "/dashboard/settlements",
+    icon: DollarSign,
   },
   {
     title: "포인트 관리",

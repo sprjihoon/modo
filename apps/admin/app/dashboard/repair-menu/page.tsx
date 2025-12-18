@@ -92,19 +92,29 @@ export default function RepairMenuPage() {
       const current = categories[currentIndex];
       const target = categories[targetIndex];
 
-      await supabase
-        .from('repair_categories')
-        .update({ display_order: target.display_order })
-        .eq('id', current.id);
+      const response = await fetch('/api/admin/repair-menu/categories/order', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          updates: [
+            { id: current.id, display_order: target.display_order },
+            { id: target.id, display_order: current.display_order },
+          ],
+        }),
+      });
 
-      await supabase
-        .from('repair_categories')
-        .update({ display_order: current.display_order })
-        .eq('id', target.id);
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '순서 변경 실패');
+      }
 
       await loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('순서 변경 실패:', error);
+      alert('순서 변경 실패: ' + (error.message || error.toString()));
     }
   };
 
@@ -113,16 +123,19 @@ export default function RepairMenuPage() {
     if (!confirm('이 카테고리와 하위 수선 항목을 모두 삭제하시겠습니까?')) return;
 
     try {
-      const { error } = await supabase
-        .from('repair_categories')
-        .delete()
-        .eq('id', categoryId);
+      const response = await fetch(`/api/admin/repair-menu/categories?id=${categoryId}`, {
+        method: 'DELETE',
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '카테고리 삭제 실패');
+      }
 
       await loadData();
-    } catch (error) {
-      alert('삭제 실패: ' + error);
+    } catch (error: any) {
+      alert('삭제 실패: ' + (error.message || error.toString()));
     }
   };
 
@@ -131,16 +144,19 @@ export default function RepairMenuPage() {
     if (!confirm('이 수선 항목을 삭제하시겠습니까?')) return;
 
     try {
-      const { error } = await supabase
-        .from('repair_types')
-        .delete()
-        .eq('id', typeId);
+      const response = await fetch(`/api/admin/repair-menu/types?id=${typeId}`, {
+        method: 'DELETE',
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '수선 항목 삭제 실패');
+      }
 
       await loadData();
-    } catch (error) {
-      alert('삭제 실패: ' + error);
+    } catch (error: any) {
+      alert('삭제 실패: ' + (error.message || error.toString()));
     }
   };
 
@@ -347,17 +363,22 @@ function EditCategoryDialog({
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
-        .from('repair_categories')
-        .update({
+      const response = await fetch('/api/admin/repair-menu/categories', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: category.id,
           name,
           icon_name: iconName || null,
-        })
-        .eq('id', category.id);
+        }),
+      });
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message || error.hint || '카테고리 수정 실패');
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '카테고리 수정 실패');
       }
 
       setOpen(false);
@@ -432,17 +453,22 @@ function AddCategoryDialog({ onAdded, children }: { onAdded: () => void; childre
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('repair_categories')
-        .insert({
+      const response = await fetch('/api/admin/repair-menu/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           name,
           icon_name: iconName || null,
           display_order: 999, // 마지막에 추가
-        });
+        }),
+      });
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message || error.hint || '카테고리 추가 실패');
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '카테고리 추가 실패');
       }
 
       setOpen(false);
@@ -582,9 +608,13 @@ function EditRepairTypeDialog({
         ? [inputLabel1 || '첫 번째 입력', inputLabel2 || '두 번째 입력']
         : ['치수 (cm)'];
 
-      const { error } = await supabase
-        .from('repair_types')
-        .update({
+      const response = await fetch('/api/admin/repair-menu/types', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: repairType.id,
           name,
           description: description || null,
           price: parseInt(price),
@@ -595,47 +625,14 @@ function EditRepairTypeDialog({
           has_sub_parts: hasSubParts,
           allow_multiple_sub_parts: hasSubParts ? allowMultipleSubParts : false,
           sub_parts_title: hasSubParts && subPartsTitle ? subPartsTitle : null,
-        })
-        .eq('id', repairType.id);
+          sub_parts: subParts,
+        }),
+      });
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message || error.hint || '수선 항목 수정 실패');
-      }
+      const result = await response.json();
 
-      // 세부 부위 업데이트
-      if (hasSubParts && subParts.length > 0) {
-        // 기존 세부 부위 삭제
-        await supabase
-          .from('repair_sub_parts')
-          .delete()
-          .eq('repair_type_id', repairType.id)
-          .eq('part_type', 'sub_part');
-
-        // 새 세부 부위 추가
-        const subPartsData = subParts.map((part, index) => ({
-          repair_type_id: repairType.id,
-          name: part.name,
-          part_type: 'sub_part',
-          icon_name: part.icon || null,
-          price: part.price || 0,
-          display_order: index + 1,
-        }));
-
-        const { error: subPartsError } = await supabase
-          .from('repair_sub_parts')
-          .insert(subPartsData);
-
-        if (subPartsError) {
-          console.error('세부 부위 저장 실패:', subPartsError);
-        }
-      } else if (!hasSubParts) {
-        // 세부 부위 체크 해제 시 기존 데이터 삭제
-        await supabase
-          .from('repair_sub_parts')
-          .delete()
-          .eq('repair_type_id', repairType.id)
-          .eq('part_type', 'sub_part');
+      if (!result.success) {
+        throw new Error(result.error || '수선 항목 수정 실패');
       }
 
       setOpen(false);
@@ -965,10 +962,12 @@ function AddRepairTypeDialog({
         ? [inputLabel1 || '첫 번째 입력', inputLabel2 || '두 번째 입력']
         : ['치수 (cm)'];
 
-      // 1. 수선 종류 추가
-      const { data: repairTypeData, error } = await supabase
-        .from('repair_types')
-        .insert({
+      const response = await fetch('/api/admin/repair-menu/types', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           category_id: categoryId,
           name,
           icon_name: iconName || null,
@@ -982,33 +981,14 @@ function AddRepairTypeDialog({
           has_sub_parts: hasSubParts,
           allow_multiple_sub_parts: hasSubParts ? allowMultipleSubParts : false,
           sub_parts_title: hasSubParts && subPartsTitle ? subPartsTitle : null,
-        })
-        .select()
-        .single();
+          sub_parts: subParts,
+        }),
+      });
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message || error.hint || '수선 항목 추가 실패');
-      }
+      const result = await response.json();
 
-      // 2. 세부 부위 추가 (있는 경우)
-      if (hasSubParts && subParts.length > 0 && repairTypeData) {
-        const subPartsData = subParts.map((part, index) => ({
-          repair_type_id: repairTypeData.id,
-          name: part.name,
-          part_type: 'sub_part',
-          icon_name: part.icon || null,
-          price: part.price || 0,
-          display_order: index + 1,
-        }));
-
-        const { error: subPartsError } = await supabase
-          .from('repair_sub_parts')
-          .insert(subPartsData);
-
-        if (subPartsError) {
-          console.error('Sub parts insert error:', subPartsError);
-        }
+      if (!result.success) {
+        throw new Error(result.error || '수선 항목 추가 실패');
       }
 
       setOpen(false);

@@ -11,6 +11,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'ALL';
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = parseInt(searchParams.get('offset') || '0');
+    const startDate = searchParams.get('startDate') || '';
+    const endDate = searchParams.get('endDate') || '';
 
     // 기본 쿼리 (customer_email 필드 포함)
     let query = supabaseAdmin
@@ -21,6 +23,14 @@ export async function GET(request: NextRequest) {
         order:orders(id, item_name, total_price, customer_email)
       `, { count: 'exact' })
       .order('created_at', { ascending: false });
+
+    // 날짜 필터
+    if (startDate) {
+      query = query.gte('created_at', startDate + 'T00:00:00.000Z');
+    }
+    if (endDate) {
+      query = query.lte('created_at', endDate + 'T23:59:59.999Z');
+    }
 
     // 타입 필터
     if (type !== 'ALL') {
@@ -96,6 +106,7 @@ export async function GET(request: NextRequest) {
         description: transaction.description,
         orderId: transaction.order?.id || null,
         orderName: transaction.order?.item_name || null,
+        orderPrice: transaction.order?.total_price || null,
         createdAt: transaction.created_at,
       };
     }) || [];

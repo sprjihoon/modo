@@ -55,7 +55,6 @@ export function ExtraChargeReviewDialog({ orderId, requests, onReviewed }: Extra
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          requestId: selectedRequest.id,
           action,
           amount: action === "APPROVE" ? parseInt(amount) : 0,
           adminNote
@@ -67,6 +66,9 @@ export function ExtraChargeReviewDialog({ orderId, requests, onReviewed }: Extra
 
       alert(action === "APPROVE" ? "✅ 고객에게 추가 결제 요청을 보냈습니다." : "반려되었습니다.");
       setIsOpen(false);
+      setAmount("");
+      setAdminNote("");
+      setSelectedRequest(null);
       onReviewed();
     } catch (error: any) {
       console.error("Review failed:", error);

@@ -290,33 +290,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* App Contents Link */}
-      <Card className="border-green-200 dark:border-green-800">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-green-600" />
-            앱 컨텐츠 관리
-          </CardTitle>
-          <CardDescription>가격표 및 이용가이드를 관리합니다</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">컨텐츠 수정</p>
-              <p className="text-sm text-muted-foreground">
-                앱에 표시되는 가격표와 쉬운가이드 내용을 수정할 수 있습니다
-              </p>
-            </div>
-            <Link href="/dashboard/settings/contents">
-              <Button>
-                컨텐츠 관리
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* My Account Link */}
       <Card className="border-blue-200 dark:border-blue-800">
         <CardHeader>

@@ -1,11 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Scan, Package, Search, FileText, Printer } from "lucide-react";
+import { Scan, Package, Search, FileText, Printer, AlertTriangle } from "lucide-react";
 import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin } from "@/components/ops/work-order-sheet";
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import WebcamRecorder from "@/components/ops/WebcamRecorder";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 // ============================================
 // 타입 정의
 // ============================================
@@ -194,7 +205,7 @@ export default function InboundPage() {
   const [labelLayout, setLabelLayout] = useState<any[] | null>(null); // 저장된 레이아웃
   const [companyInfo, setCompanyInfo] = useState<any>(null); // 회사 정보 (출고 주소지)
 
-  // 저장된 레이아웃 및 회사 정보 불러오기
+  // 저장된 레이아웃 및 회사 정보, 사용자 role 불러오기
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -212,6 +223,14 @@ export default function InboundPage() {
           setCompanyInfo(companyData.data);
           console.log("🏢 회사 정보 로드 완료:", companyData.data);
         }
+
+        // 사용자 role 로드
+        const userResponse = await fetch("/api/auth/me");
+        const userData = await userResponse.json();
+        if (userData.success && userData.user) {
+          setUserRole(userData.user.role);
+          console.log("👤 사용자 role:", userData.user.role);
+        }
       } catch (error) {
         console.error("데이터 로드 실패:", error);
       }
@@ -226,6 +245,14 @@ export default function InboundPage() {
   const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
   const [showBoxOpenVideo, setShowBoxOpenVideo] = useState(false);
   const [inboundVideos, setInboundVideos] = useState<Record<number, { videoId: string; id: string }>>({});
+  
+  // Extra Charge State
+  const [showExtraChargeDialog, setShowExtraChargeDialog] = useState(false);
+  const [extraChargeReason, setExtraChargeReason] = useState("");
+  const [extraChargeAmount, setExtraChargeAmount] = useState("");
+  const [extraChargeNote, setExtraChargeNote] = useState("");
+  const [isSubmittingExtraCharge, setIsSubmittingExtraCharge] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // 송장 조회 함수 (실제 DB 연동)
   const handleLookup = async () => {
@@ -407,14 +434,72 @@ export default function InboundPage() {
     }
   };
 
+  // 추가 비용 요청
+  const handleRequestExtraCharge = async () => {
+    if (!result || !extraChargeReason.trim()) return;
+
+    // 관리자인 경우 금액 필수
+    const isManager = userRole && ['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole);
+    if (isManager && (!extraChargeAmount || parseInt(extraChargeAmount) <= 0)) {
+      alert("금액을 입력해주세요.");
+      return;
+    }
+
+    setIsSubmittingExtraCharge(true);
+    try {
+      const res = await fetch("/api/ops/extra-charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: result.orderId,
+          reason: extraChargeReason,
+          amount: extraChargeAmount ? parseInt(extraChargeAmount) : null,
+          note: extraChargeNote || null,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "추가 비용 요청 실패");
+      }
+
+      const message = isManager 
+        ? "✅ 고객에게 추가 결제 요청을 보냈습니다." 
+        : "✅ 추가 비용 요청이 접수되었습니다. 관리자가 검토 후 고객에게 안내합니다.";
+      
+      alert(message);
+      setShowExtraChargeDialog(false);
+      setExtraChargeReason("");
+      setExtraChargeAmount("");
+      setExtraChargeNote("");
+    } catch (error: any) {
+      console.error("추가 비용 요청 실패:", error);
+      alert(`요청 실패: ${error.message}`);
+    } finally {
+      setIsSubmittingExtraCharge(false);
+    }
+  };
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
       {/* 상단 헤더 */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">입고 처리</h1>
-        <p className="text-sm text-gray-500 mt-2">
-          수거 송장을 스캔해서 입고 처리하고, 출고 송장 및 작업지시서를 발행하는 화면입니다.
-        </p>
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">입고 처리</h1>
+          <p className="text-sm text-gray-500 mt-2">
+            수거 송장을 스캔해서 입고 처리하고, 출고 송장 및 작업지시서를 발행하는 화면입니다.
+          </p>
+        </div>
+        {result && (
+          <Button 
+            variant="outline" 
+            className="text-orange-600 border-orange-200 hover:bg-orange-50"
+            onClick={() => setShowExtraChargeDialog(true)}
+          >
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            추가 비용 요청
+          </Button>
+        )}
       </div>
 
       {/* 송장 입력 섹션 */}
@@ -1190,6 +1275,71 @@ export default function InboundPage() {
           </div>
         );
       })()}
+
+      {/* 추가 비용 요청 다이얼로그 */}
+      <Dialog open={showExtraChargeDialog} onOpenChange={setShowExtraChargeDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>추가 비용 요청</DialogTitle>
+            <DialogDescription>
+              {userRole && ['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) 
+                ? "입고 중 추가 비용이 발생했습니다. 금액과 사유를 입력하여 고객에게 직접 청구하세요."
+                : "입고 중 추가 비용이 발생하는 사유를 입력해주세요. 금액은 관리자가 검토 후 결정하여 고객에게 청구합니다."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="reason" className="mb-2 block">요청 사유 *</Label>
+              <Textarea
+                id="reason"
+                placeholder="예: 오염이 심해 추가 세탁 필요, 손상 부위 발견으로 추가 보수 필요 등"
+                value={extraChargeReason}
+                onChange={(e) => setExtraChargeReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+            
+            {userRole && ['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && (
+              <>
+                <div>
+                  <Label htmlFor="amount" className="mb-2 block">청구 금액 (원) *</Label>
+                  <input
+                    id="amount"
+                    type="number"
+                    placeholder="10000"
+                    value={extraChargeAmount}
+                    onChange={(e) => setExtraChargeAmount(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="note" className="mb-2 block">고객 안내 메시지 (선택)</Label>
+                  <Textarea
+                    id="note"
+                    placeholder="고객에게 전달할 상세 내용을 입력하세요."
+                    value={extraChargeNote}
+                    onChange={(e) => setExtraChargeNote(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExtraChargeDialog(false)} disabled={isSubmittingExtraCharge}>
+              취소
+            </Button>
+            <Button 
+              onClick={handleRequestExtraCharge} 
+              disabled={!extraChargeReason.trim() || isSubmittingExtraCharge}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {isSubmittingExtraCharge ? "요청 중..." : 
+                userRole && ['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) ? "고객에게 청구" : "요청 보내기"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
