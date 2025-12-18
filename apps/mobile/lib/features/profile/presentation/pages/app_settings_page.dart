@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// 앱 설정 페이지
 class AppSettingsPage extends ConsumerStatefulWidget {
@@ -72,7 +73,7 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
                   null,
                   Icons.description_outlined,
                   () {
-                    // TODO: 약관 페이지
+                    context.push('/terms');
                   },
                 ),
                 _buildTile(
@@ -80,7 +81,7 @@ class _AppSettingsPageState extends ConsumerState<AppSettingsPage> {
                   null,
                   Icons.privacy_tip_outlined,
                   () {
-                    // TODO: 개인정보 페이지
+                    context.push('/privacy-policy');
                   },
                 ),
                 _buildTile(

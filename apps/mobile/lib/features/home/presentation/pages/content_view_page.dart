@@ -17,7 +17,7 @@ class ContentViewPage extends StatefulWidget {
 
 class _ContentViewPageState extends State<ContentViewPage> {
   final ContentService _contentService = ContentService();
-  String? _content;
+  AppContent? _content;
   bool _isLoading = true;
 
   @override
@@ -51,17 +51,74 @@ class _ContentViewPageState extends State<ContentViewPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                _content ?? '내용이 없습니다.',
-                style: const TextStyle(
-                  fontSize: 16,
-                  height: 1.6,
-                  color: Colors.black87,
-                ),
+          : _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_content == null || (_content!.text.isEmpty && _content!.images.isEmpty)) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            '내용이 없습니다.',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.black54,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_content!.text.isNotEmpty) ...[
+            Text(
+              _content!.text,
+              style: const TextStyle(
+                fontSize: 16,
+                height: 1.6,
+                color: Colors.black87,
               ),
             ),
+            if (_content!.images.isNotEmpty) const SizedBox(height: 24),
+          ],
+          if (_content!.images.isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _content!.images.map((url) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey.shade200,
+                            alignment: Alignment.center,
+                            child: const Text(
+                              '이미지를 불러오지 못했습니다.',
+                              style: TextStyle(fontSize: 13, color: Colors.black54),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
     );
   }
 }

@@ -177,6 +177,31 @@ export default function WorkHistoryPage() {
     }
   };
 
+  const getOrderDisplayId = (item: WorkItem) => {
+    if (item.orders?.tracking_no) {
+      return item.orders.tracking_no;
+    }
+
+    const rawOrderId = (item as any).order_id;
+
+    if (typeof rawOrderId === "string" && rawOrderId.length > 0) {
+      return rawOrderId.slice(0, 8);
+    }
+
+    if (rawOrderId) {
+      try {
+        const asString = String(rawOrderId);
+        if (asString.length > 0) {
+          return asString.slice(0, 8);
+        }
+      } catch {
+        // ignore and fall through
+      }
+    }
+
+    return "주문 ID 없음";
+  };
+
   const handleResetFilters = () => {
     setStatusFilter("");
     setWorkerNameFilter("");
@@ -311,10 +336,10 @@ export default function WorkHistoryPage() {
                       <div className="flex items-center gap-3 mb-2">
                         {getStatusBadge(item.status)}
                         <Link
-                          href={`/dashboard/orders/${item.order_id}`}
+                          href={item.order_id ? `/dashboard/orders/${item.order_id}` : "#"}
                           className="font-semibold text-blue-600 hover:underline"
                         >
-                          {item.orders?.tracking_no || item.order_id.slice(0, 8)}
+                          {getOrderDisplayId(item)}
                         </Link>
                         <span className="text-sm text-gray-600">
                           {item.orders?.customer_name || "고객명 없음"}

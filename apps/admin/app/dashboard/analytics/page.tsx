@@ -23,15 +23,36 @@ import Link from "next/link";
 
 // 오늘 날짜 (YYYY-MM-DD 형식)
 const getToday = () => {
-  const today = new Date();
-  return today.toISOString().split('T')[0];
+  try {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  } catch (error) {
+    console.error('날짜 생성 실패:', error);
+    // 기본값 반환
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 };
 
 // N일 전 날짜
 const getDaysAgo = (days: number) => {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString().split('T')[0];
+  try {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return date.toISOString().split('T')[0];
+  } catch (error) {
+    console.error('날짜 계산 실패:', error);
+    // 기본값 반환
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 };
 
 export default function AnalyticsPage() {
@@ -87,8 +108,21 @@ export default function AnalyticsPage() {
       setIsLoadingStats(true);
       try {
         const response = await fetch('/api/customers');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
+        // API 에러 응답 처리
+        if (data.error) {
+          console.error('API 에러:', data.error, data.details);
+          // 기본값 유지
+          return;
+        }
+        
+        // stats가 있는 경우에만 업데이트
         if (data.stats) {
           // 오늘 가입한 고객 수는 이번 달 신규 고객 수로 대체 (실제 오늘 가입 수는 별도 계산 필요)
           // 일단 이번 달 신규 고객 수를 사용
@@ -99,9 +133,12 @@ export default function AnalyticsPage() {
             inactive: Math.max(0, (data.stats.totalCustomers || 0) - (data.stats.activeCustomers || 0) - (data.stats.deletedCustomers || 0)),
             deleted: data.stats.deletedCustomers || 0,
           });
+        } else {
+          console.warn('stats 데이터가 없습니다:', data);
         }
       } catch (error) {
         console.error('사용자 통계 로드 실패:', error);
+        // 에러 발생 시에도 기본값 유지 (이미 초기값이 설정되어 있음)
       } finally {
         setIsLoadingStats(false);
       }
@@ -415,21 +452,21 @@ export default function AnalyticsPage() {
           <div className="grid gap-4 md:grid-cols-4 mb-4">
             <div>
               <p className="text-sm text-muted-foreground">총 매출</p>
-              <p className="text-2xl font-bold">₩{paymentStats.total.toLocaleString()}</p>
+              <p className="text-2xl font-bold">₩{(paymentStats.total || 0).toLocaleString()}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">오늘 매출</p>
               <p className="text-2xl font-bold text-green-600">
-                ₩{paymentStats.today.toLocaleString()}
+                ₩{(paymentStats.today || 0).toLocaleString()}
               </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">이번 주</p>
-              <p className="text-2xl font-bold">₩{paymentStats.thisWeek.toLocaleString()}</p>
+              <p className="text-2xl font-bold">₩{(paymentStats.thisWeek || 0).toLocaleString()}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">평균 주문 금액</p>
-              <p className="text-2xl font-bold">₩{paymentStats.average.toLocaleString()}</p>
+              <p className="text-2xl font-bold">₩{(paymentStats.average || 0).toLocaleString()}</p>
             </div>
           </div>
           <div className="border-t pt-4">
@@ -464,23 +501,23 @@ export default function AnalyticsPage() {
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground">총 발급 포인트</p>
-                <p className="text-2xl font-bold">{pointStats.totalIssued.toLocaleString()}P</p>
+                <p className="text-2xl font-bold">{(pointStats.totalIssued || 0).toLocaleString()}P</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">사용된 포인트</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {pointStats.totalUsed.toLocaleString()}P
+                  {(pointStats.totalUsed || 0).toLocaleString()}P
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">보유 중인 포인트</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {pointStats.active.toLocaleString()}P
+                  {(pointStats.active || 0).toLocaleString()}P
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">사용자당 평균</p>
-                <p className="text-2xl font-bold">{pointStats.averagePerUser.toLocaleString()}P</p>
+                <p className="text-2xl font-bold">{(pointStats.averagePerUser || 0).toLocaleString()}P</p>
               </div>
             </div>
           </CardContent>
