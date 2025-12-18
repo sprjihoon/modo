@@ -51,6 +51,30 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, data: funnelData });
       }
 
+      case 'session': {
+        // 세션 분석 (신규)
+        const sessionData = await getSessionAnalysis(startDate, endDate);
+        return NextResponse.json({ success: true, data: sessionData });
+      }
+
+      case 'time-pattern': {
+        // 시간 패턴 분석 (신규)
+        const timeData = await getTimePatternAnalysis(startDate, endDate);
+        return NextResponse.json({ success: true, data: timeData });
+      }
+
+      case 'device': {
+        // 디바이스 분석 (신규)
+        const deviceData = await getDeviceAnalysis(startDate, endDate);
+        return NextResponse.json({ success: true, data: deviceData });
+      }
+
+      case 'segment': {
+        // 고객 세그먼트 분석 (신규)
+        const segmentData = await getSegmentAnalysis(startDate, endDate);
+        return NextResponse.json({ success: true, data: segmentData });
+      }
+
       case 'user': {
         // 특정 사용자의 행동 분석
         if (!userId) {

@@ -18,7 +18,7 @@ class VideoFeatureFlags {
   /// - 재생 성능: +50-80%
   /// - 크래시: -90%
   /// - 버퍼링: -70%
-  static const bool useMediaKit = false;
+  static const bool useMediaKit = true;
 
   /// 비디오 캐싱 사용 여부
   /// 
@@ -28,7 +28,7 @@ class VideoFeatureFlags {
   /// 개선 효과:
   /// - 데이터 사용: -80% (재시청 시)
   /// - 재생 시작: -90% (캐시 히트 시)
-  static const bool useVideoCache = false;
+  static const bool useVideoCache = true;
 
   /// Adaptive Bitrate 자동 조절 사용 여부
   /// 
@@ -38,7 +38,7 @@ class VideoFeatureFlags {
   /// 개선 효과:
   /// - 데이터 사용: -40%
   /// - 버퍼링: -60%
-  static const bool useAdaptiveBitrate = false;
+  static const bool useAdaptiveBitrate = true;
 
   /// 비디오 프리로드 사용 여부
   /// 
@@ -47,13 +47,13 @@ class VideoFeatureFlags {
   /// 
   /// 개선 효과:
   /// - 재생 시작 시간: -50%
-  static const bool useVideoPreload = false;
+  static const bool useVideoPreload = true;
 
   /// 베타 모드 (모든 개선 기능 활성화)
   /// 
   /// - true: 위의 모든 Flag를 무시하고 새 기능 사용
   /// - false: 개별 Flag 설정 사용
-  static const bool betaMode = false;
+  static const bool betaMode = true;
 
   /// 디버그 로그 출력 여부
   static const bool enableDebugLogs = true;
