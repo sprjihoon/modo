@@ -21,6 +21,7 @@ import {
   ClipboardList,
   FileText,
   DollarSign,
+  Activity,
 } from "lucide-react";
 
 const navItems = [
@@ -75,6 +76,11 @@ const navItems = [
     icon: BarChart3,
   },
   {
+    title: "고객 행동 분석",
+    href: "/dashboard/analytics/customer-behavior",
+    icon: Activity,
+  },
+  {
     title: "영상 관리",
     href: "/dashboard/videos",
     icon: Video,
@@ -88,6 +94,11 @@ const navItems = [
     title: "작업 내역",
     href: "/dashboard/work-history",
     icon: ClipboardList,
+  },
+  {
+    title: "직원 행동 분석",
+    href: "/dashboard/action-logs",
+    icon: Activity,
   },
   {
     title: "콘텐츠 관리",
