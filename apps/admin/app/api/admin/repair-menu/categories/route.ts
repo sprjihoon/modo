@@ -16,6 +16,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 중복 체크
+    const { data: existingCategory } = await supabaseAdmin
+      .from('repair_categories')
+      .select('id, name')
+      .eq('name', name)
+      .single();
+
+    if (existingCategory) {
+      return NextResponse.json(
+        { success: false, error: `"${name}" 카테고리가 이미 존재합니다. 다른 이름을 사용해주세요.` },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabaseAdmin
       .from('repair_categories')
       .insert({
@@ -28,6 +42,15 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('카테고리 추가 실패:', error);
+      
+      // 중복 키 에러인 경우 더 명확한 메시지 제공
+      if (error.code === '23505' && error.message.includes('repair_categories_name_key')) {
+        return NextResponse.json(
+          { success: false, error: `"${name}" 카테고리가 이미 존재합니다. 다른 이름을 사용해주세요.` },
+          { status: 400 }
+        );
+      }
+      
       return NextResponse.json(
         { success: false, error: error.message },
         { status: 500 }
