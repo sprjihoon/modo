@@ -12,7 +12,7 @@ import { cancelOrder } from '../_shared/epost/index.ts';
 
 interface ShipmentCancelRequest {
   order_id: string;
-  delete_after_cancel?: boolean; // 취소 후 삭제 여부
+  delete_after_cancel?: boolean; // 취소 후 삭제 여부 (기본값: true = 완전 삭제, false = 취소만 하고 새 송장번호 발급)
 }
 
 Deno.serve(async (req) => {
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
 
     // 요청 본문 파싱
     const body: ShipmentCancelRequest = await req.json();
-    const { order_id, delete_after_cancel } = body;
+    const { order_id, delete_after_cancel = true } = body; // 기본값: true (완전 삭제)
 
     if (!order_id) {
       return errorResponse('Missing order_id', 400, 'MISSING_FIELDS');
@@ -123,11 +123,21 @@ Deno.serve(async (req) => {
         delYn: delete_after_cancel ? 'Y' : 'N',
       });
 
-      console.log('✅ 우체국 소포신청 취소 성공:', cancelResult.canceledYn);
+      console.log(`✅ 우체국 소포신청 취소: ${cancelResult.canceledYn}`, {
+        canceledYn: cancelResult.canceledYn,
+        delYn: delete_after_cancel ? 'Y (완전 삭제)' : 'N (취소만, 새 송장 발급)',
+        cancelRegiNo: cancelResult.cancelRegiNo,
+        newRegiNo: cancelResult.regiNo,
+      });
       
       // 우체국 API 응답 확인
       if (!cancelResult || !cancelResult.canceledYn) {
         console.warn('⚠️ 우체국 API 응답에 canceledYn이 없습니다:', cancelResult);
+      }
+      
+      // 새 송장번호 경고
+      if (delete_after_cancel && cancelResult.regiNo) {
+        console.warn('⚠️ delYn=Y인데 새 송장번호가 발급되었습니다:', cancelResult.regiNo);
       }
     } catch (e) {
       console.error('❌ 우체국 취소 실패:', e.message);
