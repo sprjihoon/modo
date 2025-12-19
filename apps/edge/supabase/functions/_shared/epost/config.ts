@@ -33,12 +33,10 @@ export function getEPostConfig(): EPostConfig {
     );
   }
 
-  // 2. SECURITY KEY 검증 (정확히 16자, SEED128 표준)
-  if (!securityKey || securityKey.length !== 16) {
+  // 2. SECURITY KEY 검증 (존재 여부만 확인, SEED128 암호화는 자동으로 16바이트 사용)
+  if (!securityKey || securityKey.trim().length === 0) {
     throw new Error(
-      'EPOST_SECURITY_KEY가 유효하지 않습니다. ' +
-      'SEED128 암호화를 위해 정확히 16자의 보안키가 필요합니다. ' +
-      `현재 길이: ${securityKey?.length || 0}자. ` +
+      'EPOST_SECURITY_KEY 환경 변수가 설정되지 않았습니다. ' +
       'Supabase Dashboard → Settings → Edge Functions → Secrets에서 설정하세요.'
     );
   }
