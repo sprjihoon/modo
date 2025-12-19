@@ -123,16 +123,29 @@ Deno.serve(async (req) => {
         delYn: delete_after_cancel ? 'Y' : 'N',
       });
 
-      console.log(`✅ 우체국 소포신청 취소: ${cancelResult.canceledYn}`, {
+      // canceledYn 값 해석
+      const cancelStatus = 
+        cancelResult.canceledYn === 'Y' ? '✅ 취소됨 (새 송장 발급)' :
+        cancelResult.canceledYn === 'D' ? '✅ 삭제됨 (완전 삭제)' :
+        cancelResult.canceledYn === 'N' ? '❌ 미취소' :
+        `⚠️ 알 수 없음 (${cancelResult.canceledYn})`;
+      
+      console.log(`${cancelStatus}`, {
         canceledYn: cancelResult.canceledYn,
-        delYn: delete_after_cancel ? 'Y (완전 삭제)' : 'N (취소만, 새 송장 발급)',
+        delYn: delete_after_cancel ? 'Y (완전 삭제 요청)' : 'N (취소만 요청)',
         cancelRegiNo: cancelResult.cancelRegiNo,
-        newRegiNo: cancelResult.regiNo,
+        newRegiNo: cancelResult.regiNo || '없음 (완전 삭제)',
       });
       
       // 우체국 API 응답 확인
       if (!cancelResult || !cancelResult.canceledYn) {
         console.warn('⚠️ 우체국 API 응답에 canceledYn이 없습니다:', cancelResult);
+      }
+      
+      // 성공 여부 확인
+      const isSuccess = cancelResult.canceledYn === 'Y' || cancelResult.canceledYn === 'D';
+      if (!isSuccess) {
+        console.warn('⚠️ 취소가 완료되지 않았습니다:', cancelResult.canceledYn);
       }
       
       // 새 송장번호 경고
@@ -193,13 +206,14 @@ Deno.serve(async (req) => {
       .eq('id', order_id);
 
     // 성공 응답
+    const actuallyDeleted = cancelResult?.canceledYn === 'D' || delete_after_cancel;
     return successResponse({
       order_id,
       cancelled: true,
-      deleted: delete_after_cancel,
-      message: delete_after_cancel 
-        ? '수거예약이 취소되고 삭제되었습니다' 
-        : '수거예약이 취소되었습니다',
+      deleted: actuallyDeleted,
+      message: actuallyDeleted
+        ? '수거예약이 취소되고 완전 삭제되었습니다 (새 송장 발급 안 됨)' 
+        : '수거예약이 취소되었습니다 (새 송장 발급됨)',
       epost_result: cancelResult || null,
     });
 
