@@ -331,7 +331,7 @@ class OrderService {
   }
 
   /// 수거 취소 (Edge Function 호출)
-  Future<Map<String, dynamic>> cancelShipment(String orderId, {bool deleteAfterCancel = false}) async {
+  Future<Map<String, dynamic>> cancelShipment(String orderId, {bool deleteAfterCancel = true}) async {
     try {
       debugPrint('🚫 수거 취소 시작: $orderId');
       
