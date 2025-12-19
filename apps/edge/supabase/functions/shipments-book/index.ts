@@ -13,6 +13,7 @@ import { insertOrder, mockInsertOrder, getApprovalNumber, getResInfo, type Inser
 
 interface ShipmentBookRequest {
   order_id: string;
+  shipment_type?: 'pickup' | 'delivery'; // 'pickup': 수거(고객→센터), 'delivery': 발송(센터→고객), 기본값: 'pickup'
   use_separate_delivery_address?: boolean; // 명시적 플래그: 수거지와 배송지가 다른 경우 true
   pickup_address_id?: string;   // 수거 배송지 ID (addresses 테이블)
   delivery_address_id?: string; // 배송 배송지 ID (addresses 테이블)
@@ -49,6 +50,7 @@ Deno.serve(async (req) => {
     const body: ShipmentBookRequest = await req.json();
     const { 
       order_id,
+      shipment_type = 'pickup', // 기본값: 수거(반품소포)
       use_separate_delivery_address,
       pickup_address_id,
       delivery_address_id,
@@ -224,59 +226,49 @@ Deno.serve(async (req) => {
       pickupInfo_zipcode: pickupInfo.zipcode,
     });
 
-    // 2) 도착지는 기본적으로 "센터 주소"를 사용 (DB에 설정되어 있으면DB 우선)
-    if (CENTER_FORCE || !deliveryInfo.address) {
-      // ⚠️ CENTER_FORCE 경고: 사용자가 입력한 배송지가 있는 경우 경고 로그
-      if (CENTER_FORCE && deliveryInfo.address && 
-          !deliveryInfo.address.includes('모두의수선') && 
-          !deliveryInfo.address.includes('동대구우체국')) {
-        console.warn('⚠️ CENTER_FORCE=true: 사용자 입력 배송지가 무시되고 센터 주소로 강제됩니다:', {
-          use_separate_delivery_address,
-          userInputAddress: deliveryInfo.address,
-          userInputZipcode: deliveryInfo.zipcode,
-          reason: 'CENTER_FORCE 환경 변수가 활성화되어 있습니다',
-          note: '수거 신청의 도착지는 항상 센터여야 합니다',
+    // 2) 🚨 중요: 수거 신청의 도착지는 항상 센터여야 함!
+    // CENTER_FORCE 설정과 관계없이 무조건 센터 주소 사용
+    // (반품소포 특성상 고객→센터 배송이므로 배송지는 항상 센터)
+    console.log('🔒 수거 신청: 배송지를 센터 주소로 강제 설정 (CENTER_FORCE 무시)');
+    
+    // 사용자 입력 배송지가 있으면 경고 로그
+    if (deliveryInfo.address && 
+        !deliveryInfo.address.includes('모두의수선') && 
+        !deliveryInfo.address.includes('동대구우체국')) {
+      console.warn('⚠️ 사용자 입력 배송지가 무시되고 센터 주소로 강제됩니다:', {
+        use_separate_delivery_address,
+        userInputAddress: deliveryInfo.address,
+        userInputZipcode: deliveryInfo.zipcode,
+        reason: '수거 신청은 항상 센터가 배송지입니다 (반품소포)',
+        note: '고객→센터 수거이므로 배송지는 무조건 센터',
+      });
+    }
+    
+    // 항상 센터 주소로 설정 (DB 우선, 없으면 환경변수/기본값)
+    try {
+      const { data: centerRow } = await supabase
+        .from('ops_center_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+      if (centerRow) {
+        const centerPhone = centerRow.phone 
+          ? centerRow.phone.toString().replace(/-/g, '').substring(0, 12)
+          : CENTER_PHONE;
+        console.log('📞 센터 전화번호 설정:', {
+          dbPhone: centerRow.phone,
+          envPhone: Deno.env.get('CENTER_PHONE'),
+          finalPhone: centerPhone,
+          source: centerRow.phone ? 'DB (ops_center_settings)' : Deno.env.get('CENTER_PHONE') ? '환경변수' : '기본값',
         });
-      }
-      
-      // DB에서 ops_center_settings 조회 (있으면 사용)
-      try {
-        const { data: centerRow } = await supabase
-          .from('ops_center_settings')
-          .select('*')
-          .limit(1)
-          .maybeSingle();
-        if (centerRow) {
-          const centerPhone = centerRow.phone 
-            ? centerRow.phone.toString().replace(/-/g, '').substring(0, 12)
-            : CENTER_PHONE;
-          console.log('📞 센터 전화번호 설정:', {
-            dbPhone: centerRow.phone,
-            envPhone: Deno.env.get('CENTER_PHONE'),
-            finalPhone: centerPhone,
-            source: centerRow.phone ? 'DB (ops_center_settings)' : Deno.env.get('CENTER_PHONE') ? '환경변수' : '기본값',
-          });
-          deliveryInfo = {
-            address: centerRow.address1 || CENTER_ADDRESS1,
-            detail: centerRow.address2 || CENTER_ADDRESS2,
-            zipcode: centerRow.zipcode || CENTER_ZIPCODE,
-            phone: centerPhone,
-          };
-        } else {
-          console.log('📞 센터 전화번호 설정:', {
-            envPhone: Deno.env.get('CENTER_PHONE'),
-            finalPhone: CENTER_PHONE,
-            source: Deno.env.get('CENTER_PHONE') ? '환경변수' : '기본값',
-          });
-          deliveryInfo = {
-            address: CENTER_ADDRESS1,
-            detail: CENTER_ADDRESS2,
-            zipcode: CENTER_ZIPCODE,
-            phone: CENTER_PHONE,
-          };
-        }
-      } catch (err) {
-        console.warn('⚠️ ops_center_settings 조회 실패, 기본값 사용:', err);
+        deliveryInfo = {
+          address: centerRow.address1 || CENTER_ADDRESS1,
+          detail: centerRow.address2 || CENTER_ADDRESS2,
+          zipcode: centerRow.zipcode || CENTER_ZIPCODE,
+          phone: centerPhone,
+        };
+        console.log('✅ 센터 주소(DB): ', deliveryInfo);
+      } else {
         console.log('📞 센터 전화번호 설정:', {
           envPhone: Deno.env.get('CENTER_PHONE'),
           finalPhone: CENTER_PHONE,
@@ -288,7 +280,21 @@ Deno.serve(async (req) => {
           zipcode: CENTER_ZIPCODE,
           phone: CENTER_PHONE,
         };
+        console.log('✅ 센터 주소(기본값): ', deliveryInfo);
       }
+    } catch (err) {
+      console.warn('⚠️ ops_center_settings 조회 실패, 기본값 사용:', err);
+      console.log('📞 센터 전화번호 설정:', {
+        envPhone: Deno.env.get('CENTER_PHONE'),
+        finalPhone: CENTER_PHONE,
+        source: Deno.env.get('CENTER_PHONE') ? '환경변수' : '기본값',
+      });
+      deliveryInfo = {
+        address: CENTER_ADDRESS1,
+        detail: CENTER_ADDRESS2,
+        zipcode: CENTER_ZIPCODE,
+        phone: CENTER_PHONE,
+      };
     }
 
     // 필수 필드 검증: 우편번호는 필수
@@ -318,10 +324,23 @@ Deno.serve(async (req) => {
       deliveryInfo.zipcode = trimmedZipcode;
     }
 
-    console.log('✅ 배송지 정보 검증 완료:', {
+    console.log('✅ 배송지 정보 검증 완료 (센터 주소 강제 설정됨):', {
       address: deliveryInfo.address,
       zipcode: deliveryInfo.zipcode,
       phone: deliveryInfo.phone,
+      isCenterAddress: true,
+    });
+    
+    console.log('🔍 주소 비교 (수거지 vs 센터):', {
+      pickup: {
+        address: pickupInfo.address,
+        zipcode: pickupInfo.zipcode,
+      },
+      delivery: {
+        address: deliveryInfo.address,
+        zipcode: deliveryInfo.zipcode,
+      },
+      note: '수거지와 센터 주소는 반드시 달라야 합니다',
     });
 
     // 🚨 중요: 수거지와 센터 주소가 같은지 검증
@@ -453,49 +472,79 @@ Deno.serve(async (req) => {
     });
     
 
-    // 🟦 규칙 1: 수거(Pickup) 라벨 생성일 때
-    // Sender(보내는 사람) = 고객 주소
-    // Receiver(받는 사람) = 센터 주소
-    const isPickup = true;
+    // 🔀 shipment_type에 따라 발송/수거 구분
+    const isPickup = shipment_type === 'pickup'; // true: 수거, false: 발송
+    const isDelivery = shipment_type === 'delivery';
 
-    // 🚨 중요: 우체국 API 필드 매핑 (반품소포 특성상 반대로 동작)
-    // 반품소포(reqType='2')로 접수되기 때문에 필드 의미가 반대입니다:
-    // - ord* = 도착지(센터) = 받는 사람 (반품받는 곳)
-    // - rec* = 출발지(고객) = 보내는 사람 (반품 보내는 곳)
-    // 반품소포: 고객(발송인) → 센터(수취인)
+    console.log('🚚 송장 유형:', {
+      shipment_type,
+      isPickup,
+      isDelivery,
+      description: isPickup ? '수거(고객→센터, 반품소포, 착불, 7로 시작)' : '발송(센터→고객, 일반소포, 선불, 6으로 시작)'
+    });
+
+    // 🚨 중요: 우체국 API 필드 매핑
     // 
-    // 일반소포와 달리 반품소포는 "반품받는 곳"이 도착지이므로 ord*에 센터 주소를 넣습니다.
+    // 🔵 발송(delivery): 일반소포 (센터→고객)
+    //   - payType='1' (선불, 센터가 신용으로 선불)
+    //   - reqType='1' (일반소포)
+    //   - ord* = 센터 (보내는 사람, 발송인)
+    //   - rec* = 고객 (받는 사람, 수취인)
+    //   - 송장번호: 6으로 시작
+    // 
+    // 🟠 수거(pickup): 반품소포 (고객→센터)
+    //   - payType='2' (착불, 센터가 착불로 부담)
+    //   - reqType='2' (반품소포)
+    //   - ord* = 센터 (받는 사람, 반품받는 곳)
+    //   - rec* = 고객 (보내는 사람, 반품 보내는 곳)
+    //   - 송장번호: 7로 시작
     
     const epostParams: InsertOrderParams = {
       custNo,
       apprNo,
-      payType: '2',                           // 2: 착불 (수취인 부담 = 센터가 요금 부담)
-      reqType: '2',                           // 2: 반품소포 (고객→센터 수거)
+      payType: isPickup ? '2' : '1',           // pickup: 착불, delivery: 선불
+      reqType: isPickup ? '2' : '1',           // pickup: 반품소포, delivery: 일반소포
       officeSer: office_ser || Deno.env.get('EPOST_OFFICE_SER') || '251132110', // 공급지 코드 (필수)
       orderNo: existingOrder.order_number || order_id, // 🚨 중요: 짧은 주문번호 사용 (DB 값)
       
-      // 🟦 수거(Pickup) 최종 매핑 (reqType='2' 반품소포)
-      // 반품소포: 고객(반품인=발송인) → 센터(반품받는사람=수취인)
-      // 
-      // 반품소포 특성상:
-      // - ord* = 센터 (도착지, 받는 사람, 반품받는 곳) → 송장 상단
-      ordCompNm: CENTER_RECIPIENT_NAME,
-      ordNm: CENTER_RECIPIENT_NAME,
-      ordZip: deliveryInfo.zipcode.trim(),
-      ordAddr1: deliveryInfo.address,
-      ordAddr2: (deliveryInfo.detail && deliveryInfo.detail.trim() !== '') 
-        ? deliveryInfo.detail.trim() 
-        : '없음',
-      ordMob: deliveryInfo.phone.replace(/-/g, '').substring(0, 12),
-      
-      // - rec* = 고객 (출발지, 보내는 사람, 반품 보내는 곳) → 송장 하단
-      recNm: existingOrder.customer_name || customer_name,
-      recZip: pickupInfo.zipcode ? pickupInfo.zipcode.trim().replace(/-/g, '') : '',
-      recAddr1: pickupInfo.address || '고객 수거지 주소',
-      recAddr2: (pickupInfo.detail && pickupInfo.detail.trim() !== '') 
-        ? pickupInfo.detail.trim() 
-        : '',
-      recTel: pickupInfo.phone ? pickupInfo.phone.replace(/-/g, '').substring(0, 12) : '',
+      // 🔀 발송/수거에 따라 ord*/rec* 필드 매핑
+      ...(isPickup ? {
+        // 🟠 수거(Pickup): ord* = 센터, rec* = 고객
+        ordCompNm: CENTER_RECIPIENT_NAME,
+        ordNm: CENTER_RECIPIENT_NAME,
+        ordZip: deliveryInfo.zipcode.trim(),
+        ordAddr1: deliveryInfo.address,
+        ordAddr2: (deliveryInfo.detail && deliveryInfo.detail.trim() !== '') 
+          ? deliveryInfo.detail.trim() 
+          : '없음',
+        ordMob: deliveryInfo.phone.replace(/-/g, '').substring(0, 12),
+        
+        recNm: existingOrder.customer_name || customer_name,
+        recZip: pickupInfo.zipcode ? pickupInfo.zipcode.trim().replace(/-/g, '') : '',
+        recAddr1: pickupInfo.address || '고객 수거지 주소',
+        recAddr2: (pickupInfo.detail && pickupInfo.detail.trim() !== '') 
+          ? pickupInfo.detail.trim() 
+          : '',
+        recTel: pickupInfo.phone ? pickupInfo.phone.replace(/-/g, '').substring(0, 12) : '',
+      } : {
+        // 🔵 발송(Delivery): ord* = 센터, rec* = 고객
+        ordCompNm: CENTER_RECIPIENT_NAME,
+        ordNm: CENTER_RECIPIENT_NAME,
+        ordZip: pickupInfo.zipcode.trim(), // 발송 시 센터 우편번호
+        ordAddr1: pickupInfo.address || CENTER_ADDRESS1, // 발송 시 센터 주소
+        ordAddr2: (pickupInfo.detail && pickupInfo.detail.trim() !== '') 
+          ? pickupInfo.detail.trim() 
+          : CENTER_ADDRESS2,
+        ordMob: pickupInfo.phone ? pickupInfo.phone.replace(/-/g, '').substring(0, 12) : CENTER_PHONE,
+        
+        recNm: existingOrder.customer_name || customer_name,
+        recZip: deliveryInfo.zipcode ? deliveryInfo.zipcode.trim().replace(/-/g, '') : '',
+        recAddr1: deliveryInfo.address || '고객 배송지 주소',
+        recAddr2: (deliveryInfo.detail && deliveryInfo.detail.trim() !== '') 
+          ? deliveryInfo.detail.trim() 
+          : '',
+        recTel: deliveryInfo.phone ? deliveryInfo.phone.replace(/-/g, '').substring(0, 12) : '',
+      }),
       
       // 상품 정보
       contCd: '025',                          // 025: 의류/패션잡화
@@ -505,18 +554,26 @@ Deno.serve(async (req) => {
       weight: typeof weight === 'number' ? weight : (typeof weight === 'string' ? parseFloat(weight) || 2 : 2),
       volume: typeof volume === 'number' ? volume : (typeof volume === 'string' ? parseFloat(volume) || 60 : 60),
       microYn: 'N' as const,
-      // ordCompNm: 주문처명 - 제거 (센터 이름이 들어가면 송장에 센터 주소가 표시될 수 있음)
       delivMsg: delivery_message,
-      testYn: (test_mode ? 'Y' : 'N') as const, // testYn은 URL 파라미터로 사용
+      testYn: (test_mode ? 'Y' : 'N') as const,
       printYn: 'Y' as const,
-      inqTelCn: pickupInfo.phone ? pickupInfo.phone.replace(/-/g, '').substring(0, 12) : undefined, // 고객 전화번호 (문의처)
+      inqTelCn: isPickup 
+        ? (pickupInfo.phone ? pickupInfo.phone.replace(/-/g, '').substring(0, 12) : undefined)
+        : CENTER_PHONE,
     };
     
     // 🎯 sender/receiver 디버그 로그 (Payload 전송 직전)
-    console.log('🐛 [DEBUG] 수거 라벨 (반품소포) - 고객→센터');
-    console.log(`   payType: 2 (착불), reqType: 2 (반품소포)`);
-    console.log(`   📥 ord* = 센터 (도착지, 받는 사람): ${epostParams.ordNm} / ${epostParams.ordAddr1} (${epostParams.ordZip})`);
-    console.log(`   📤 rec* = 고객 (출발지, 보내는 사람): ${epostParams.recNm} / ${epostParams.recAddr1} (${epostParams.recZip})`);
+    if (isPickup) {
+      console.log('🟠 [DEBUG] 수거 라벨 (반품소포) - 고객→센터');
+      console.log(`   payType: 2 (착불), reqType: 2 (반품소포), 송장번호: 7로 시작`);
+      console.log(`   📥 ord* = 센터 (도착지, 받는 사람): ${epostParams.ordNm} / ${epostParams.ordAddr1} (${epostParams.ordZip})`);
+      console.log(`   📤 rec* = 고객 (출발지, 보내는 사람): ${epostParams.recNm} / ${epostParams.recAddr1} (${epostParams.recZip})`);
+    } else {
+      console.log('🔵 [DEBUG] 발송 라벨 (일반소포) - 센터→고객');
+      console.log(`   payType: 1 (선불), reqType: 1 (일반소포), 송장번호: 6으로 시작`);
+      console.log(`   📤 ord* = 센터 (출발지, 보내는 사람): ${epostParams.ordNm} / ${epostParams.ordAddr1} (${epostParams.ordZip})`);
+      console.log(`   📥 rec* = 고객 (도착지, 받는 사람): ${epostParams.recNm} / ${epostParams.recAddr1} (${epostParams.recZip})`);
+    }
     console.log(`   🔍 주소 비교:`, {
       ordAddr: epostParams.ordAddr1,
       recAddr: epostParams.recAddr1,
@@ -547,20 +604,21 @@ Deno.serve(async (req) => {
       allKeys: Object.keys(epostParams),
     });
 
-    console.log('📦 우체국 소포신청 요청 (수거: 반품소포, 고객→센터):', {
+    console.log(`📦 우체국 소포신청 요청 (${isPickup ? '수거: 반품소포, 고객→센터' : '발송: 일반소포, 센터→고객'}):`, {
       orderNo: epostParams.orderNo,
-      payType: '2 (착불)',
-      reqType: '2 (반품소포)',
-      // ord* = 센터 (도착지, 받는 사람)
-      센터명_ord: epostParams.ordNm,
-      센터우편번호_ord: epostParams.ordZip,
-      센터주소_ord: epostParams.ordAddr1,
-      센터전화_ord: epostParams.ordMob,
-      // rec* = 고객 (출발지, 보내는 사람)
-      고객명_rec: epostParams.recNm,
-      고객우편번호_rec: epostParams.recZip,
-      고객주소_rec: epostParams.recAddr1,
-      고객전화_rec: epostParams.recTel,
+      payType: isPickup ? '2 (착불)' : '1 (선불)',
+      reqType: isPickup ? '2 (반품소포)' : '1 (일반소포)',
+      송장번호_시작: isPickup ? '7' : '6',
+      // ord* = 보내는 사람 또는 받는 사람 (pickup: 센터=받는사람, delivery: 센터=보내는사람)
+      ord명: epostParams.ordNm,
+      ord우편번호: epostParams.ordZip,
+      ord주소: epostParams.ordAddr1,
+      ord전화: epostParams.ordMob,
+      // rec* = 받는 사람 또는 보내는 사람 (pickup: 고객=보내는사람, delivery: 고객=받는사람)
+      rec명: epostParams.recNm,
+      rec우편번호: epostParams.recZip,
+      rec주소: epostParams.recAddr1,
+      rec전화: epostParams.recTel,
       // 기타
       custNo: epostParams.custNo,
       apprNo: epostParams.apprNo,
