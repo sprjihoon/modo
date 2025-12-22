@@ -164,14 +164,6 @@ class _HomePageState extends ConsumerState<HomePage> {
               );
             },
           ),
-          // 주문 목록 아이콘
-          IconButton(
-            icon: const Icon(Icons.receipt_long_outlined, color: Colors.black),
-            tooltip: '내 주문',
-            onPressed: () {
-              context.push('/orders');
-            },
-          ),
           // 마이페이지 아이콘
           IconButton(
             icon: const Icon(Icons.person_outline, color: Colors.black),
@@ -381,7 +373,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           .from('notifications')
           .select('*')
           .eq('user_id', userId)
-          .eq('read', false);
+          .eq('is_read', false);
 
       return (response as List).length;
     } catch (e) {

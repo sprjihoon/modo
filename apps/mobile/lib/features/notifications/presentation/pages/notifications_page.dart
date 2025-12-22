@@ -90,7 +90,7 @@ class _NotificationsPageState extends State<NotificationsPage>
           .toList();
 
       // 읽지 않은 알림 개수
-      _unreadCount = _allNotifications.where((n) => n['read'] == false).length;
+      _unreadCount = _allNotifications.where((n) => n['is_read'] == false).length;
 
       setState(() => _isLoading = false);
     } catch (e) {
@@ -109,8 +109,8 @@ class _NotificationsPageState extends State<NotificationsPage>
       setState(() {
         final index = _allNotifications.indexWhere((n) => n['id'] == notificationId);
         if (index != -1) {
-          _allNotifications[index]['read'] = true;
-          _unreadCount = _allNotifications.where((n) => n['read'] == false).length;
+          _allNotifications[index]['is_read'] = true;
+          _unreadCount = _allNotifications.where((n) => n['is_read'] == false).length;
         }
       });
     } catch (e) {
@@ -135,13 +135,13 @@ class _NotificationsPageState extends State<NotificationsPage>
 
       await _supabase
           .from('notifications')
-          .update({'read': true, 'read_at': DateTime.now().toIso8601String()})
+          .update({'is_read': true, 'read_at': DateTime.now().toIso8601String()})
           .eq('user_id', userId)
-          .eq('read', false);
+          .eq('is_read', false);
 
       setState(() {
         for (var notification in _allNotifications) {
-          notification['read'] = true;
+          notification['is_read'] = true;
         }
         _unreadCount = 0;
       });
@@ -280,7 +280,7 @@ class _NotificationsPageState extends State<NotificationsPage>
 
   /// 알림 카드
   Widget _buildNotificationCard(Map<String, dynamic> notification) {
-    final isRead = notification['read'] == true;
+    final isRead = notification['is_read'] == true;
     final type = notification['type'] as String?;
     final title = notification['title'] as String? ?? '알림';
     final body = notification['body'] as String? ?? '';

@@ -40,6 +40,7 @@ import '../../features/profile/presentation/pages/notices_page.dart';
 import '../../features/profile/presentation/pages/customer_service_page.dart';
 import '../../features/profile/presentation/pages/app_settings_page.dart';
 import '../../features/video/presentation/pages/comparison_video_player_page.dart';
+import '../../features/notifications/presentation/pages/notifications_page.dart';
 
 /// GoRouter 프로바이더
 final routerProvider = Provider<GoRouter>((ref) {
@@ -86,6 +87,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomePage(),
+      ),
+
+      // Notifications (알림)
+      GoRoute(
+        path: '/notifications',
+        name: 'notifications',
+        builder: (context, state) => const NotificationsPage(),
       ),
 
       // Content View (가격표, 쉬운가이드 등)
