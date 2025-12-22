@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/scaffold_with_footer.dart';
 import '../../../auth/data/providers/auth_provider.dart';
 import '../../../orders/providers/cart_provider.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/banner_service.dart';
+import '../widgets/extra_charge_alert_banner.dart';
 
 /// 배너 인덱스 관리를 위한 ValueNotifier
 final bannerIndexProvider = StateNotifierProvider<BannerIndexNotifier, int>((ref) {
@@ -75,6 +77,50 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
         actions: [
+          // 🆕 알림 아이콘
+          FutureBuilder<int>(
+            future: _getUnreadNotificationsCount(),
+            builder: (context, snapshot) {
+              final unreadCount = snapshot.data ?? 0;
+
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined, color: Colors.black),
+                    tooltip: '알림',
+                    onPressed: () {
+                      context.push('/notifications');
+                    },
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           // 장바구니 아이콘
           Consumer(
             builder: (context, ref, child) {
@@ -143,7 +189,10 @@ class _HomePageState extends ConsumerState<HomePage> {
           children: [
             // 인사말
             _buildGreeting(context),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+
+            // 🆕 추가결제 알림 배너 (PENDING_CUSTOMER 상태일 때만 표시)
+            _buildExtraChargeAlertBanner(),
 
             // 슬라이드 배너 (독립적인 스크롤 영역)
             _buildOptimizedBannerSlider(context),
@@ -308,6 +357,60 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
       ),
+    );
+  }
+
+  /// 🆕 읽지 않은 알림 개수 조회
+  Future<int> _getUnreadNotificationsCount() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      if (user == null) return 0;
+
+      final userResponse = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', user.id)
+          .maybeSingle();
+
+      if (userResponse == null) return 0;
+
+      final userId = userResponse['id'] as String;
+
+      final response = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('read', false);
+
+      return (response as List).length;
+    } catch (e) {
+      debugPrint('❌ 알림 개수 조회 실패: $e');
+      return 0;
+    }
+  }
+
+  /// 🆕 추가결제 알림 배너
+  Widget _buildExtraChargeAlertBanner() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _getCachedOrders(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        // PENDING_CUSTOMER 상태인 주문 찾기
+        final pendingOrder = snapshot.data!.firstWhere(
+          (order) => order['extra_charge_status'] == 'PENDING_CUSTOMER',
+          orElse: () => {},
+        );
+
+        if (pendingOrder.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return ExtraChargeAlertBanner(orderData: pendingOrder);
+      },
     );
   }
 
@@ -754,6 +857,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               
               final order = orders.first;
               final status = order['status'] as String? ?? 'BOOKED';
+              final extraChargeStatus = order['extra_charge_status'] as String?;
+              final isPendingCustomer = extraChargeStatus == 'PENDING_CUSTOMER';
               final statusStyle = _statusStyle(status);
               final createdAt = order['created_at'] as String?;
               String dateStr = '';
@@ -774,10 +879,17 @@ class _HomePageState extends ConsumerState<HomePage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(
+                  color: isPendingCustomer 
+                      ? Colors.orange.shade300 
+                      : Colors.grey.shade200,
+                  width: isPendingCustomer ? 2 : 1,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: isPendingCustomer 
+                        ? Colors.orange.withOpacity(0.15)
+                        : Colors.black.withOpacity(0.03),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -786,18 +898,51 @@ class _HomePageState extends ConsumerState<HomePage> {
               child: Row(
                 children: [
                   // 아이콘
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00C896).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.checkroom_rounded,
-                      color: Color(0xFF00C896),
-                      size: 28,
-                    ),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: isPendingCustomer 
+                              ? Colors.orange.withOpacity(0.15)
+                              : const Color(0xFF00C896).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          isPendingCustomer 
+                              ? Icons.payment 
+                              : Icons.checkroom_rounded,
+                          color: isPendingCustomer 
+                              ? Colors.orange.shade700
+                              : const Color(0xFF00C896),
+                          size: 28,
+                        ),
+                      ),
+                      // 🆕 추가결제 배지
+                      if (isPendingCustomer)
+                        Positioned(
+                          right: -6,
+                          top: -6,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Text(
+                              '!',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(width: 16),
                   
@@ -808,6 +953,36 @@ class _HomePageState extends ConsumerState<HomePage> {
                       children: [
                         Row(
                           children: [
+                            // 🆕 추가결제 배지 (우선 표시)
+                            if (isPendingCustomer) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.payment,
+                                      size: 12,
+                                      color: Colors.orange.shade900,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '추가결제',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange.shade900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
                             Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
