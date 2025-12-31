@@ -31,6 +31,7 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
   bool _isDisposed = false;
   bool _isPlaying = false;
   bool _isLoading = false;
+  bool _autoPlayCompleted = false; // 자동 순차 재생 완료 여부
 
   @override
   void initState() {
@@ -68,13 +69,25 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
       }
     }
 
-    // 모든 재생 완료 후 첫 번째 아이템으로 돌아가기
+    // 모든 재생 완료 - 첫 번째 아이템 표시하고 선택 모드로 전환
     if (mounted && !_isDisposed && widget.videoItems.isNotEmpty) {
       setState(() {
-        _currentIndex = 0;
+        _autoPlayCompleted = true;
+        _isPlaying = false;
       });
-      await _playItemAt(0);
     }
+  }
+  
+  /// 특정 아이템 선택해서 재생
+  Future<void> _selectAndPlayItem(int index) async {
+    if (index >= widget.videoItems.length || !mounted || _isDisposed) return;
+    
+    setState(() {
+      _currentIndex = index;
+      _isLoading = true;
+    });
+    
+    await _playItemAt(index);
   }
 
   Future<void> _playItemAt(int index) async {
@@ -179,6 +192,10 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
       inbound.setVolume(0.5);
       outbound.setLooping(false);
       outbound.setVolume(0.5);
+      
+      // 영상 종료 감지 리스너 추가
+      inbound.addListener(_onVideoStateChanged);
+      outbound.addListener(_onVideoStateChanged);
 
       if (!mounted || _isDisposed) return;
 
@@ -197,6 +214,13 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
           : outbound.value.duration;
       
       await Future.delayed(maxDuration);
+      
+      // 재생 완료 후 상태 업데이트
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isPlaying = false;
+        });
+      }
     } catch (e) {
       debugPrint('아이템 $index 재생 실패: $e');
       if (mounted && !_isDisposed) {
@@ -207,8 +231,57 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
     }
   }
 
+  /// 영상 상태 변경 감지
+  void _onVideoStateChanged() {
+    if (_inboundController == null || _outboundController == null) return;
+    if (!mounted || _isDisposed) return;
+    
+    final inboundPos = _inboundController!.value.position;
+    final inboundDur = _inboundController!.value.duration;
+    final outboundPos = _outboundController!.value.position;
+    final outboundDur = _outboundController!.value.duration;
+    
+    // 영상이 시작 위치에 있으면 종료 체크 안함 (seekTo 직후 방지)
+    if (inboundPos.inMilliseconds < 500 || outboundPos.inMilliseconds < 500) {
+      return;
+    }
+    
+    // 두 영상 모두 끝났는지 확인
+    final inboundEnded = inboundDur.inMilliseconds > 0 && 
+                         inboundPos.inMilliseconds >= inboundDur.inMilliseconds - 100;
+    final outboundEnded = outboundDur.inMilliseconds > 0 && 
+                          outboundPos.inMilliseconds >= outboundDur.inMilliseconds - 100;
+    
+    if (inboundEnded && outboundEnded && _isPlaying) {
+      setState(() {
+        _isPlaying = false;
+      });
+    }
+  }
+
   Future<void> _playBoth() async {
     if (_inboundController == null || _outboundController == null) return;
+    
+    // 영상이 끝났으면 처음으로 되돌리기
+    final inboundPos = _inboundController!.value.position;
+    final inboundDur = _inboundController!.value.duration;
+    final outboundPos = _outboundController!.value.position;
+    final outboundDur = _outboundController!.value.duration;
+    
+    final inboundEnded = inboundDur.inMilliseconds > 0 && 
+                         inboundPos.inMilliseconds >= inboundDur.inMilliseconds - 100;
+    final outboundEnded = outboundDur.inMilliseconds > 0 && 
+                          outboundPos.inMilliseconds >= outboundDur.inMilliseconds - 100;
+    
+    if (inboundEnded || outboundEnded) {
+      await Future.wait([
+        _inboundController!.seekTo(Duration.zero),
+        _outboundController!.seekTo(Duration.zero),
+      ]);
+      // iOS에서 seekTo 완료를 위한 딜레이
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    
     setState(() {
       _isPlaying = true;
     });
@@ -267,11 +340,15 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
     final bothReady = inbound?.value.isInitialized == true && 
                       outbound?.value.isInitialized == true;
 
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 비디오 플레이어 영역
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
           // 좌우 분할 영상
           if (bothReady && !_isLoading)
             Row(
@@ -483,8 +560,69 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
                 ),
               ),
             ),
-        ],
-      ),
+            ],
+          ),
+        ),
+        
+        // 하단 아이템 선택 버튼 (여러 아이템이고 자동 재생 완료 후)
+        if (widget.videoItems.length > 1 && _autoPlayCompleted)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            color: Colors.black,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '아이템 선택',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: List.generate(widget.videoItems.length, (index) {
+                      final isSelected = _currentIndex == index;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () => _selectAndPlayItem(index),
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: isSelected 
+                                  ? const Color(0xFF00C896) 
+                                  : Colors.grey[800],
+                              borderRadius: BorderRadius.circular(8),
+                              border: isSelected
+                                  ? Border.all(color: Colors.white, width: 2)
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: isSelected 
+                                      ? FontWeight.bold 
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

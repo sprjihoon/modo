@@ -99,6 +99,10 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
       inbound.setVolume(0.5);
       outbound.setLooping(false);
       outbound.setVolume(0.5);
+      
+      // 영상 종료 감지 리스너 추가
+      inbound.addListener(_onVideoStateChanged);
+      outbound.addListener(_onVideoStateChanged);
 
       setState(() {});
 
@@ -115,8 +119,57 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
     }
   }
 
+  /// 영상 상태 변경 감지
+  void _onVideoStateChanged() {
+    if (_inboundController == null || _outboundController == null) return;
+    if (!mounted || _isDisposed) return;
+    
+    final inboundPos = _inboundController!.value.position;
+    final inboundDur = _inboundController!.value.duration;
+    final outboundPos = _outboundController!.value.position;
+    final outboundDur = _outboundController!.value.duration;
+    
+    // 영상이 시작 위치에 있으면 종료 체크 안함 (seekTo 직후 방지)
+    if (inboundPos.inMilliseconds < 500 || outboundPos.inMilliseconds < 500) {
+      return;
+    }
+    
+    // 두 영상 모두 끝났는지 확인
+    final inboundEnded = inboundDur.inMilliseconds > 0 && 
+                         inboundPos.inMilliseconds >= inboundDur.inMilliseconds - 100;
+    final outboundEnded = outboundDur.inMilliseconds > 0 && 
+                          outboundPos.inMilliseconds >= outboundDur.inMilliseconds - 100;
+    
+    if (inboundEnded && outboundEnded && _isPlaying) {
+      setState(() {
+        _isPlaying = false;
+      });
+    }
+  }
+
   Future<void> _playBoth() async {
     if (_inboundController == null || _outboundController == null) return;
+    
+    // 영상이 끝났으면 처음으로 되돌리기
+    final inboundPos = _inboundController!.value.position;
+    final inboundDur = _inboundController!.value.duration;
+    final outboundPos = _outboundController!.value.position;
+    final outboundDur = _outboundController!.value.duration;
+    
+    final inboundEnded = inboundDur.inMilliseconds > 0 && 
+                         inboundPos.inMilliseconds >= inboundDur.inMilliseconds - 100;
+    final outboundEnded = outboundDur.inMilliseconds > 0 && 
+                          outboundPos.inMilliseconds >= outboundDur.inMilliseconds - 100;
+    
+    if (inboundEnded || outboundEnded) {
+      await Future.wait([
+        _inboundController!.seekTo(Duration.zero),
+        _outboundController!.seekTo(Duration.zero),
+      ]);
+      // iOS에서 seekTo 완료를 위한 딜레이
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    
     setState(() {
       _isPlaying = true;
     });
