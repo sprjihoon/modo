@@ -473,10 +473,13 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
       SnackBar(
         content: Text('${selectedItems.length}개 항목을 장바구니에 담았습니다'),
         backgroundColor: const Color(0xFF00C896),
+        behavior: SnackBarBehavior.floating,
+        dismissDirection: DismissDirection.horizontal,
         action: SnackBarAction(
           label: '보기',
           textColor: Colors.white,
           onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
             context.push('/cart');
           },
         ),
