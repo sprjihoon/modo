@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../utils/adaptive_duration_calculator.dart';
@@ -121,15 +121,29 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
         videoOptions = VideoPlayerOptions();
       }
       
-      // 새 컨트롤러 생성
-      final inbound = VideoPlayerController.networkUrl(
-        Uri.parse(inboundUrl),
-        videoPlayerOptions: videoOptions,
-      );
-      final outbound = VideoPlayerController.networkUrl(
-        Uri.parse(outboundUrl),
-        videoPlayerOptions: videoOptions,
-      );
+      // 새 컨트롤러 생성 (로컬 파일 vs 네트워크 URL 구분)
+      // 캐시된 파일은 '/'로 시작하는 로컬 경로
+      final bool isInboundLocal = inboundUrl.startsWith('/');
+      final bool isOutboundLocal = outboundUrl.startsWith('/');
+      
+      final inbound = isInboundLocal
+          ? VideoPlayerController.file(
+              File(inboundUrl),
+              videoPlayerOptions: videoOptions,
+            )
+          : VideoPlayerController.networkUrl(
+              Uri.parse(inboundUrl),
+              videoPlayerOptions: videoOptions,
+            );
+      final outbound = isOutboundLocal
+          ? VideoPlayerController.file(
+              File(outboundUrl),
+              videoPlayerOptions: videoOptions,
+            )
+          : VideoPlayerController.networkUrl(
+              Uri.parse(outboundUrl),
+              videoPlayerOptions: videoOptions,
+            );
       
       _inboundController = inbound;
       _outboundController = outbound;

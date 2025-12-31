@@ -77,7 +77,16 @@ class VideoFeatureFlags {
   }
 
   /// 캐싱 사용 여부 (베타 모드 고려)
-  static bool get shouldUseCache => betaMode || useVideoCache;
+  /// 
+  /// ⚠️ iOS에서는 HLS 스트리밍 영상 캐싱이 지원되지 않아
+  /// 캐싱을 비활성화합니다.
+  static bool get shouldUseCache {
+    // iOS에서는 캐싱 비활성화 (HLS 스트리밍 캐싱 미지원)
+    if (Platform.isIOS) {
+      return false;
+    }
+    return betaMode || useVideoCache;
+  }
 
   /// ABR 사용 여부 (베타 모드 고려)
   static bool get shouldUseABR => betaMode || useAdaptiveBitrate;
