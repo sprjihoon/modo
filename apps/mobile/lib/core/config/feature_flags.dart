@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 /// 🚀 Feature Flags for Video Processing Improvements
 /// 
 /// 이 파일은 영상 처리 개선 사항을 점진적으로 적용하기 위한
@@ -63,7 +65,16 @@ class VideoFeatureFlags {
   // ==========================================
 
   /// media_kit 사용 여부 (베타 모드 고려)
-  static bool get shouldUseMediaKit => betaMode || useMediaKit;
+  /// 
+  /// ⚠️ iOS에서는 media_kit의 동시 영상 재생에 문제가 있어
+  /// video_player를 사용합니다.
+  static bool get shouldUseMediaKit {
+    // iOS에서는 media_kit 비활성화 (동시 재생 문제)
+    if (Platform.isIOS) {
+      return false;
+    }
+    return betaMode || useMediaKit;
+  }
 
   /// 캐싱 사용 여부 (베타 모드 고려)
   static bool get shouldUseCache => betaMode || useVideoCache;

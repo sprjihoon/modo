@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../utils/adaptive_duration_calculator.dart';
 import '../../../../services/video_cache_service.dart';
-import '../../../../services/video_quality_service.dart';
 import '../../../../core/config/feature_flags.dart';
 
 /// 여러 아이템의 입고/출고 영상을 순차적으로 재생하는 위젯
@@ -109,9 +109,27 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
         }
       }
 
+      // iOS에서 동시 재생을 위한 옵션 설정
+      // mixWithOthers: 다른 오디오/비디오와 동시 재생 허용
+      VideoPlayerOptions videoOptions;
+      if (Platform.isIOS) {
+        videoOptions = VideoPlayerOptions(
+          mixWithOthers: true,
+          allowBackgroundPlayback: false,
+        );
+      } else {
+        videoOptions = VideoPlayerOptions();
+      }
+      
       // 새 컨트롤러 생성
-      final inbound = VideoPlayerController.networkUrl(Uri.parse(inboundUrl));
-      final outbound = VideoPlayerController.networkUrl(Uri.parse(outboundUrl));
+      final inbound = VideoPlayerController.networkUrl(
+        Uri.parse(inboundUrl),
+        videoPlayerOptions: videoOptions,
+      );
+      final outbound = VideoPlayerController.networkUrl(
+        Uri.parse(outboundUrl),
+        videoPlayerOptions: videoOptions,
+      );
       
       _inboundController = inbound;
       _outboundController = outbound;

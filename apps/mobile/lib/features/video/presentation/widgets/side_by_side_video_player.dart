@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../utils/adaptive_duration_calculator.dart';
@@ -34,9 +35,28 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
 
   Future<void> _init() async {
     try {
+      // iOS에서 동시 재생을 위한 옵션 설정
+      // mixWithOthers: 다른 오디오/비디오와 동시 재생 허용
+      // allowBackgroundPlayback: 백그라운드 재생 허용 (선택적)
+      VideoPlayerOptions videoOptions;
+      if (Platform.isIOS) {
+        videoOptions = VideoPlayerOptions(
+          mixWithOthers: true,
+          allowBackgroundPlayback: false,
+        );
+      } else {
+        videoOptions = VideoPlayerOptions();
+      }
+      
       // 두 영상 컨트롤러 생성
-      final inbound = VideoPlayerController.networkUrl(Uri.parse(widget.inboundVideoUrl));
-      final outbound = VideoPlayerController.networkUrl(Uri.parse(widget.outboundVideoUrl));
+      final inbound = VideoPlayerController.networkUrl(
+        Uri.parse(widget.inboundVideoUrl),
+        videoPlayerOptions: videoOptions,
+      );
+      final outbound = VideoPlayerController.networkUrl(
+        Uri.parse(widget.outboundVideoUrl),
+        videoPlayerOptions: videoOptions,
+      );
       
       _inboundController = inbound;
       _outboundController = outbound;
