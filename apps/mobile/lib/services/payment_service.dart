@@ -365,6 +365,58 @@ class PaymentService {
     }
   }
 
+  /// 토스페이먼츠 결제 승인 (결제위젯 사용)
+  /// 
+  /// 결제위젯에서 결제 성공 후 서버에 승인 요청
+  Future<Map<String, dynamic>> confirmTossPayment({
+    required String paymentKey,
+    required String orderId,
+    required int amount,
+    bool isExtraCharge = false,
+  }) async {
+    try {
+      // Admin API 호출 (Next.js 서버)
+      // TODO: 실제 서버 URL로 변경 필요
+      const String apiBaseUrl = 'https://admin.modurepair.com';
+      
+      final response = await _supabase.functions.invoke(
+        'payments-confirm-toss',
+        body: {
+          'payment_key': paymentKey,
+          'order_id': orderId,
+          'amount': amount,
+          'is_extra_charge': isExtraCharge,
+        },
+      );
+
+      if (response.data['success'] != true) {
+        throw Exception(response.data['error'] ?? '결제 승인 실패');
+      }
+
+      return response.data['data'];
+    } catch (e) {
+      throw Exception('결제 승인 실패: $e');
+    }
+  }
+
+  /// 추가 결제 요청 조회 (대기 중인 결제)
+  Future<Map<String, dynamic>?> getPendingExtraChargeRequest(String orderId) async {
+    try {
+      final response = await _supabase
+          .from('extra_charge_requests')
+          .select('*')
+          .eq('order_id', orderId)
+          .eq('status', 'PENDING_PAYMENT')
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      throw Exception('추가 결제 요청 조회 실패: $e');
+    }
+  }
+
   /// 현재 사용자의 user_id 가져오기
   Future<String?> _getCurrentUserId() async {
     try {

@@ -13,6 +13,23 @@ class ExtraChargeAlertBanner extends StatelessWidget {
     required this.orderData,
   }) : super(key: key);
 
+  void _navigateToPayment(BuildContext context) {
+    // extra_charge_data에서 가격 정보 추출
+    final extraChargeData = orderData['extra_charge_data'] as Map<String, dynamic>?;
+    final price = extraChargeData?['managerPrice'] as int? ?? 0;
+    final orderId = orderData['id'] as String;
+    final orderNumber = orderData['order_number'] as String? ?? '주문';
+    final note = extraChargeData?['managerNote'] as String? ?? '추가 작업';
+    
+    // 토스페이먼츠 결제 화면으로 이동
+    context.push('/toss-payment', extra: {
+      'orderId': 'extra_${orderId}_${DateTime.now().millisecondsSinceEpoch}',
+      'amount': price,
+      'orderName': '$orderNumber - $note',
+      'isExtraCharge': true,
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     // extra_charge_data에서 가격 정보 추출
@@ -20,6 +37,7 @@ class ExtraChargeAlertBanner extends StatelessWidget {
     final price = extraChargeData?['managerPrice'] as int? ?? 0;
     final orderId = orderData['id'] as String;
     final orderNumber = orderData['order_number'] as String? ?? '주문';
+    final note = extraChargeData?['managerNote'] as String? ?? '추가 작업이 필요합니다';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -43,83 +61,120 @@ class ExtraChargeAlertBanner extends StatelessWidget {
       ),
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            // 주문 상세 화면으로 이동
-            context.push('/orders/$orderId');
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                // 아이콘
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // 아이콘
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.payment,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.payment,
-                    color: Colors.white,
-                    size: 28,
+                  const SizedBox(width: 16),
+                  
+                  // 텍스트 정보
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '💳 추가 결제 요청',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          note,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withOpacity(0.95),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '추가 금액: ${NumberFormat('#,###').format(price)}원',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                
-                // 텍스트 정보
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '💳 추가 결제 요청',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // 버튼들
+              Row(
+                children: [
+                  // 주문 상세 보기 버튼
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => context.push('/orders/$orderId'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white, width: 1.5),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '$orderNumber에 추가 작업이 필요합니다',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withOpacity(0.95),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: const Text(
+                        '상세보기',
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '추가 금액: ${NumberFormat('#,###').format(price)}원',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // 결제하기 버튼
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () => _navigateToPayment(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.deepOrange,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
+                        elevation: 0,
                       ),
-                    ],
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.credit_card, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${NumberFormat('#,###').format(price)}원 결제',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                
-                // 화살표
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_forward,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

@@ -15,7 +15,7 @@ class NetworkMonitorService {
   NetworkMonitorService._internal();
 
   final Connectivity _connectivity = Connectivity();
-  StreamSubscription<List<ConnectivityResult>>? _subscription;
+  StreamSubscription<ConnectivityResult>? _subscription;
   
   /// 현재 네트워크 상태
   NetworkStatus _currentStatus = NetworkStatus.unknown;
@@ -29,11 +29,11 @@ class NetworkMonitorService {
   Future<void> initialize() async {
     // 현재 상태 확인
     final result = await _connectivity.checkConnectivity();
-    _currentStatus = _parseConnectivityResult(result);
+    _currentStatus = _parseConnectivityResult([result]);
     
     // 변경 감지 시작
-    _subscription = _connectivity.onConnectivityChanged.listen((results) {
-      final newStatus = _parseConnectivityResult(results);
+    _subscription = _connectivity.onConnectivityChanged.listen((result) {
+      final newStatus = _parseConnectivityResult([result]);
       if (newStatus != _currentStatus) {
         _currentStatus = newStatus;
         _statusController.add(newStatus);

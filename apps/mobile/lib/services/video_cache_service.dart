@@ -82,7 +82,7 @@ class VideoCache {
   }
 
   /// 캐시 정보 가져오기
-  static Future<CacheInfo> getCacheInfo() async {
+  static Future<FileInfo?> getCacheInfo() async {
     return await instance.getFileFromCache('');
   }
 

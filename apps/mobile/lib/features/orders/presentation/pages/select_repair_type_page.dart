@@ -296,7 +296,7 @@ class _SelectRepairTypePageState extends ConsumerState<SelectRepairTypePage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '정확한 견적은 입고 후 확정됩니다',
+                              '입고 후 추가 결제 요청이 있을 수 있습니다',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.grey.shade600,

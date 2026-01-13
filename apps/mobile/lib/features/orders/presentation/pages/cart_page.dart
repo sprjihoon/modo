@@ -296,9 +296,9 @@ class _CartPageState extends ConsumerState<CartPage> {
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                onPressed: () {
+                onPressed: () async {
                   _selectedItemIds.remove(cartItem.id);
-                  ref.read(cartProvider.notifier).removeFromCart(cartItem.id);
+                  await ref.read(cartProvider.notifier).removeFromCart(cartItem.id);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('장바구니에서 제거되었습니다'),

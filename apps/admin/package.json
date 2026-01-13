@@ -25,6 +25,7 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.39.0",
     "@tanstack/react-query": "^5.17.0",
+    "@tosspayments/tosspayments-sdk": "^2.5.0",
     "@types/tus-js-client": "^1.8.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",

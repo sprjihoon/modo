@@ -422,7 +422,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
   }
   
   /// 장바구니에 담기
-  void _addToCart() {
+  Future<void> _addToCart() async {
     final selectedItems = _selectedItemIndices
         .map((index) => widget.repairItems[index])
         .toList();
@@ -443,9 +443,9 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
               child: const Text('취소'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                _confirmAddToCart(selectedItems);
+                await _confirmAddToCart(selectedItems);
               },
               child: const Text('장바구니에 담기', style: TextStyle(color: Color(0xFF00C896), fontWeight: FontWeight.bold)),
             ),
@@ -453,14 +453,14 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
         ),
       );
     } else {
-      _confirmAddToCart(selectedItems);
+      await _confirmAddToCart(selectedItems);
     }
   }
   
   /// 장바구니 담기 확정
-  void _confirmAddToCart(List<Map<String, dynamic>> selectedItems) {
+  Future<void> _confirmAddToCart(List<Map<String, dynamic>> selectedItems) async {
     // 장바구니에 추가
-    ref.read(cartProvider.notifier).addToCart(
+    await ref.read(cartProvider.notifier).addToCart(
       repairItems: selectedItems,
       imageUrls: widget.imageUrls,
     );
@@ -975,13 +975,13 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                     text: '수선 신청 시, ',
                                   ),
                                   TextSpan(
-                                    text: '정확한 견적은 입고 후 확정',
+                                    text: '입고 후 추가 결제 요청이 있을 수 있습니다',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color: Colors.red.shade700,
                                     ),
                                   ),
-                                  const TextSpan(text: '됩니다.'),
+                                  const TextSpan(text: '.'),
                                 ],
                               ),
                             ),
@@ -1033,13 +1033,13 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                   text: '수선 신청 시, ',
                                 ),
                                 TextSpan(
-                                  text: '정확한 견적은 입고 후 확정',
+                                  text: '입고 후 추가 결제 요청이 있을 수 있습니다',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.red.shade700,
                                   ),
                                 ),
-                                const TextSpan(text: '됩니다.'),
+                                const TextSpan(text: '.'),
                               ],
                             ),
                           ),
@@ -1094,7 +1094,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
       width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: (_agreeToTerms && _selectedItemIndices.isNotEmpty)
-                      ? () => _addToCart()
+                      ? () async => await _addToCart()
                       : null,
                   icon: const Icon(Icons.shopping_cart_outlined, size: 20),
                   label: Text(

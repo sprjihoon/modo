@@ -21,6 +21,7 @@ import '../../features/orders/presentation/pages/repair_detail_input_page.dart';
 import '../../features/orders/presentation/pages/repair_confirmation_page.dart';
 import '../../features/orders/presentation/pages/pickup_request_page.dart';
 import '../../features/orders/presentation/pages/payment_page.dart';
+import '../../features/orders/presentation/pages/toss_payment_page.dart';
 import '../../features/orders/presentation/pages/image_annotation_page.dart';
 import '../../features/orders/presentation/pages/cart_page.dart';
 import '../../features/orders/domain/models/image_pin.dart';
@@ -29,7 +30,6 @@ import '../../features/profile/presentation/pages/account_info_page.dart';
 import '../../features/profile/presentation/pages/change_password_page.dart';
 import '../../features/profile/presentation/pages/addresses_page.dart';
 import '../../features/profile/presentation/pages/add_address_page.dart';
-import '../../features/analytics/presentation/pages/worker_dashboard_page.dart';
 import '../../features/profile/presentation/pages/payment_methods_page.dart';
 import '../../features/profile/presentation/pages/add_payment_method_page.dart';
 import '../../features/profile/presentation/pages/payment_history_page.dart';
@@ -107,13 +107,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             title: data['title'] as String,
           );
         },
-      ),
-      
-      // Worker Dashboard (작업자 전용 대시보드)
-      GoRoute(
-        path: '/worker-dashboard',
-        name: 'worker-dashboard',
-        builder: (context, state) => const WorkerDashboardPage(),
       ),
       
       // Orders
@@ -321,6 +314,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final orderId = state.pathParameters['orderId']!;
           return PaymentPage(orderId: orderId);
+        },
+      ),
+      
+      // Toss Payment (토스페이먼츠 결제 위젯)
+      GoRoute(
+        path: '/toss-payment',
+        name: 'toss-payment',
+        builder: (context, state) {
+          final data = state.extra as Map<String, dynamic>;
+          return TossPaymentPage(
+            orderId: data['orderId'] as String,
+            amount: data['amount'] as int,
+            orderName: data['orderName'] as String,
+            customerName: data['customerName'] as String?,
+            customerEmail: data['customerEmail'] as String?,
+            customerPhone: data['customerPhone'] as String?,
+            isExtraCharge: data['isExtraCharge'] as bool? ?? false,
+            originalOrderId: data['originalOrderId'] as String?,
+          );
         },
       ),
       

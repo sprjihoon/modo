@@ -1609,7 +1609,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    '정확한 견적은 입고 후 확정됩니다',
+                                    '입고 후 추가 결제 요청이 있을 수 있습니다',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey.shade700,
