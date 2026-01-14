@@ -34,10 +34,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Supabase 클라이언트 생성
+    // Supabase 클라이언트 생성 (Service Role Key로 RLS 우회)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const supabase = createClient(supabaseUrl, anonKey);
+    
+    // Service Role Key가 있으면 사용 (RLS 우회), 없으면 anon key
+    const supabase = createClient(
+      supabaseUrl, 
+      serviceRoleKey || anonKey,
+      serviceRoleKey ? { auth: { autoRefreshToken: false, persistSession: false } } : undefined
+    );
 
     // 파일명 생성 (중복 방지)
     const timestamp = Date.now();
