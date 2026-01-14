@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate');
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '20');
+    
+    // 성능 최적화: 최대 조회 건수 제한 (지연/도서산간 계산은 클라이언트 사이드 필요)
+    const MAX_FETCH_LIMIT = 1000;
 
     let query = supabaseAdmin
       .from('shipments')
@@ -79,6 +82,9 @@ export async function GET(request: NextRequest) {
       const searchValue = `%${search}%`;
       query = query.or(`tracking_no.ilike.${searchValue},pickup_tracking_no.ilike.${searchValue},delivery_tracking_no.ilike.${searchValue},customer_name.ilike.${searchValue},pickup_address.ilike.${searchValue},delivery_address.ilike.${searchValue}`);
     }
+    
+    // 성능 최적화: 최대 조회 건수 제한
+    query = query.limit(MAX_FETCH_LIMIT);
 
     const { data: shipments, error } = await query;
 
@@ -316,6 +322,9 @@ export async function GET(request: NextRequest) {
     const endIndex = startIndex + pageSize;
     const pagedShipments = filteredShipments.slice(startIndex, endIndex);
 
+    // 조회 제한 경고
+    const isLimitReached = (shipments?.length || 0) >= MAX_FETCH_LIMIT;
+
     return NextResponse.json({ 
       data: pagedShipments, 
       stats,
@@ -323,7 +332,12 @@ export async function GET(request: NextRequest) {
       page,
       pageSize,
       totalPages: Math.ceil(totalCount / pageSize),
-      success: true 
+      success: true,
+      // 성능 관련 정보
+      warning: isLimitReached 
+        ? `조회 결과가 ${MAX_FETCH_LIMIT}건을 초과하여 일부만 표시됩니다. 날짜 필터를 사용해주세요.` 
+        : undefined,
+      fetchLimit: MAX_FETCH_LIMIT,
     });
   } catch (error: any) {
     console.error('API 에러:', error);

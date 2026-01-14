@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../features/auth/domain/models/user_model.dart';
 import '../core/enums/user_role.dart';
@@ -208,17 +209,22 @@ class AuthService {
   /// Supabase Dashboard > Authentication > Providers에서 Naver를 활성화하고 설정해야 합니다
   /// 현재는 기본 제공되지 않으므로, Supabase Dashboard에서 커스텀 provider로 추가해야 합니다
   Future<bool> signInWithNaver() async {
-    try {
-      // Naver는 Supabase Dashboard에서 커스텀 OAuth provider로 설정 필요
-      // 설정 후 아래 코드를 활성화하세요
-      // await _supabase.auth.signInWithOAuth(
-      //   OAuthProvider.google, // 임시로 Google 사용, Naver 설정 후 변경 필요
-      //   redirectTo: 'io.flutter.app://',
-      // );
-      throw Exception('네이버 로그인은 Supabase Dashboard에서 커스텀 OAuth provider 설정이 필요합니다');
-    } catch (e) {
-      throw Exception('네이버 로그인 실패: $e');
-    }
+    // 네이버 로그인은 현재 지원하지 않습니다.
+    // Supabase Dashboard에서 커스텀 OAuth provider 설정 후 활성화 예정
+    debugPrint('⚠️ 네이버 로그인: 현재 준비 중입니다.');
+    return false;
+    
+    // TODO: Naver OAuth 설정 후 아래 코드 활성화
+    // try {
+    //   await _supabase.auth.signInWithOAuth(
+    //     OAuthProvider.naver,
+    //     redirectTo: 'io.flutter.app://',
+    //   );
+    //   return true;
+    // } catch (e) {
+    //   debugPrint('네이버 로그인 실패: $e');
+    //   return false;
+    // }
   }
 
   /// 소셜 로그인 (Kakao)
@@ -226,17 +232,22 @@ class AuthService {
   /// Supabase Dashboard > Authentication > Providers에서 Kakao를 활성화하고 설정해야 합니다
   /// 현재는 기본 제공되지 않으므로, Supabase Dashboard에서 커스텀 provider로 추가해야 합니다
   Future<bool> signInWithKakao() async {
-    try {
-      // Kakao는 Supabase Dashboard에서 커스텀 OAuth provider로 설정 필요
-      // 설정 후 아래 코드를 활성화하세요
-      // await _supabase.auth.signInWithOAuth(
-      //   OAuthProvider.google, // 임시로 Google 사용, Kakao 설정 후 변경 필요
-      //   redirectTo: 'io.flutter.app://',
-      // );
-      throw Exception('카카오 로그인은 Supabase Dashboard에서 커스텀 OAuth provider 설정이 필요합니다');
-    } catch (e) {
-      throw Exception('카카오 로그인 실패: $e');
-    }
+    // 카카오 로그인은 현재 지원하지 않습니다.
+    // Supabase Dashboard에서 커스텀 OAuth provider 설정 후 활성화 예정
+    debugPrint('⚠️ 카카오 로그인: 현재 준비 중입니다.');
+    return false;
+    
+    // TODO: Kakao OAuth 설정 후 아래 코드 활성화
+    // try {
+    //   await _supabase.auth.signInWithOAuth(
+    //     OAuthProvider.kakao,
+    //     redirectTo: 'io.flutter.app://',
+    //   );
+    //   return true;
+    // } catch (e) {
+    //   debugPrint('카카오 로그인 실패: $e');
+    //   return false;
+    // }
   }
 
   /// 로그아웃

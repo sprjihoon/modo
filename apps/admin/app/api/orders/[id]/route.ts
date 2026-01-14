@@ -66,93 +66,35 @@ export async function GET(
       }
     }
 
-    // user_id 자동 연결 로직
+    // user_id 연결 상태 확인 (자동 생성 없이 로그만)
+    // 주의: 자동 사용자 생성은 데이터 무결성 문제를 일으킬 수 있어 비활성화됨
     let finalOrder = order;
     if (!order.user_id && order.customer_email) {
-      console.log('🔗 [API] user_id 없음, 자동 연결 시도...', order.customer_email);
+      console.log('⚠️ [API] user_id 없는 주문:', orderId, '- email:', order.customer_email);
       
-      // customer_email로 기존 사용자 찾기
+      // 기존 사용자가 있는지만 확인 (자동 연결은 하지 않음)
       const { data: existingUser } = await supabaseAdmin
         .from('users')
         .select('id')
         .eq('email', order.customer_email)
         .maybeSingle();
 
-      let userId: string | null = null;
-
       if (existingUser) {
-        console.log('✅ [API] 기존 사용자 발견:', existingUser.id);
-        userId = existingUser.id;
+        console.log('ℹ️ [API] 동일 이메일 사용자 존재:', existingUser.id, '- 수동 연결 필요');
       } else {
-        console.log('🆕 [API] 새 사용자 생성 시도...');
-        
-        // 새 사용자 생성
-        const { data: newUser, error: createError } = await supabaseAdmin
-          .from('users')
-          .insert({
-            email: order.customer_email,
-            name: order.customer_name || '고객',
-            phone: order.customer_phone || '',
-            point_balance: 0,
-            total_earned_points: 0,
-            total_used_points: 0,
-            auth_id: null, // 게스트 사용자
-          })
-          .select('id')
-          .single();
-
-        if (!createError && newUser) {
-          console.log('✅ [API] 새 사용자 생성 완료:', newUser.id);
-          userId = newUser.id;
-        } else {
-          console.error('❌ [API] 사용자 생성 실패:', createError);
-        }
-      }
-
-      // 주문에 user_id 연결
-      if (userId) {
-        const { error: updateError } = await supabaseAdmin
-          .from('orders')
-          .update({ user_id: userId })
-          .eq('id', orderId);
-
-        if (!updateError) {
-          console.log('✅ [API] 주문에 user_id 연결 완료');
-          finalOrder = { ...order, user_id: userId };
-        } else {
-          console.error('❌ [API] 주문 업데이트 실패:', updateError);
-        }
+        console.log('ℹ️ [API] 동일 이메일 사용자 없음 - 게스트 주문으로 처리');
       }
     } else if (order.user_id) {
-      // user_id가 있지만 users 테이블에 없는 경우 체크
+      // user_id가 있지만 users 테이블에 없는 경우 로그만
       const { data: userExists } = await supabaseAdmin
         .from('users')
         .select('id')
         .eq('id', order.user_id)
         .maybeSingle();
 
-      if (!userExists && order.customer_email) {
-        console.log('⚠️ [API] user_id는 있지만 users에 없음, 사용자 생성...');
-        
-        // user_id를 유지하면서 사용자 생성
-        const { error: createError } = await supabaseAdmin
-          .from('users')
-          .insert({
-            id: order.user_id, // 기존 UUID 사용
-            email: order.customer_email,
-            name: order.customer_name || '고객',
-            phone: order.customer_phone || '',
-            point_balance: 0,
-            total_earned_points: 0,
-            total_used_points: 0,
-            auth_id: null,
-          });
-
-        if (!createError) {
-          console.log('✅ [API] 기존 user_id로 사용자 생성 완료');
-        } else {
-          console.error('❌ [API] 사용자 생성 실패:', createError);
-        }
+      if (!userExists) {
+        console.warn('⚠️ [API] user_id가 있지만 users 테이블에 없음:', order.user_id);
+        // 자동 생성 없이 경고만 로그
       }
     }
 

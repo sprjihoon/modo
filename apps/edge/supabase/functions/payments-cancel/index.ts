@@ -16,6 +16,11 @@ serve(async (req) => {
   }
 
   try {
+    // 환경변수 확인
+    if (!TOSS_SECRET_KEY) {
+      throw new Error('TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.')
+    }
+
     const {
       payment_key,
       cancel_reason,

@@ -3,8 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
 
-// 테스트용 클라이언트 키 (실제 운영시 환경변수로 변경)
-const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
+// 토스페이먼츠 클라이언트 키 (환경변수 필수)
+function getClientKey(): string {
+  const key = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+  if (!key) {
+    throw new Error('NEXT_PUBLIC_TOSS_CLIENT_KEY 환경변수가 설정되지 않았습니다.');
+  }
+  return key;
+}
 
 interface TossPaymentWidgetProps {
   orderId: string;
@@ -44,7 +50,7 @@ export default function TossPaymentWidget({
         setIsLoading(true);
         
         // SDK 초기화
-        const tossPayments = await loadTossPayments(CLIENT_KEY);
+        const tossPayments = await loadTossPayments(getClientKey());
         
         // 결제위젯 인스턴스 생성 (비회원 결제)
         const paymentWidgets = tossPayments.widgets({

@@ -30,8 +30,8 @@ class ProfilePage extends ConsumerWidget {
               data: (profile) {
                 final userName = profile?.name ?? '고객';
                 final userEmail = profile?.email ?? '';
-                const mockPoints = 0; // TODO: 포인트 정보 가져오기
-                return _buildUserHeader(context, userName, userEmail, mockPoints);
+                final userPoints = profile?.pointBalance ?? 0;
+                return _buildUserHeader(context, userName, userEmail, userPoints);
               },
               loading: () => _buildUserHeader(context, '고객', '', 0),
               error: (_, __) => _buildUserHeader(context, '고객', '', 0),

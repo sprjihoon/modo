@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tosspayments_widget_sdk_flutter/model/payment_info.dart';
 import 'package:tosspayments_widget_sdk_flutter/model/payment_widget_options.dart';
@@ -48,8 +49,14 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
-  // 테스트용 클라이언트 키 (실제 운영시 환경변수로 변경)
-  static const String _clientKey = 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm';
+  // 토스페이먼츠 클라이언트 키 (환경변수에서 로드)
+  static String get _clientKey {
+    final key = dotenv.env['TOSS_CLIENT_KEY'];
+    if (key == null || key.isEmpty) {
+      throw Exception('TOSS_CLIENT_KEY 환경변수가 설정되지 않았습니다. .env 파일을 확인하세요.');
+    }
+    return key;
+  }
   
   // 위젯 selector 식별자
   static const String _paymentMethodSelector = 'payment-method';

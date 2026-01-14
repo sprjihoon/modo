@@ -375,10 +375,6 @@ class PaymentService {
     bool isExtraCharge = false,
   }) async {
     try {
-      // Admin API 호출 (Next.js 서버)
-      // TODO: 실제 서버 URL로 변경 필요
-      const String apiBaseUrl = 'https://admin.modurepair.com';
-      
       final response = await _supabase.functions.invoke(
         'payments-confirm-toss',
         body: {

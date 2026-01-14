@@ -31,11 +31,50 @@ void main() async {
       print('   SUPABASE_URL: ${url.isEmpty ? "없음" : "설정됨"}');
       print('   SUPABASE_ANON_KEY: ${anonKey.isEmpty ? "없음" : "설정됨"}');
       print('   apps/mobile/.env 파일을 확인하세요.');
-    } else {
-      print('✅ Supabase 설정 확인됨');
-      print('   URL: ${url.length > 30 ? url.substring(0, 30) : url}...');
-      print('   Key: ${anonKey.length > 20 ? anonKey.substring(0, 20) : anonKey}...');
+      
+      // 환경변수 없이는 앱 실행 불가 - 에러 화면 표시
+      runApp(
+        MaterialApp(
+          home: Scaffold(
+            backgroundColor: Colors.red.shade50,
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 80, color: Colors.red.shade400),
+                    const SizedBox(height: 24),
+                    const Text(
+                      '앱 초기화 실패',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Supabase 환경변수가 설정되지 않았습니다.\n.env 파일을 확인해주세요.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'SUPABASE_URL: ${url.isEmpty ? "❌ 없음" : "✅ 설정됨"}\n'
+                      'SUPABASE_ANON_KEY: ${anonKey.isEmpty ? "❌ 없음" : "✅ 설정됨"}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 14, fontFamily: 'monospace'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      return; // 앱 초기화 중단
     }
+    
+    print('✅ Supabase 설정 확인됨');
+    print('   URL: ${url.length > 30 ? url.substring(0, 30) : url}...');
+    print('   Key: ${anonKey.length > 20 ? anonKey.substring(0, 20) : anonKey}...');
     
     // Supabase 초기화
     await Supabase.initialize(
@@ -61,11 +100,25 @@ void main() async {
     rethrow;
   }
   
-  // Firebase 초기화 (WEEK 4에서 구현 예정)
-  // TODO: Firebase 패키지 버전 업데이트 후 활성화
-  // await Firebase.initializeApp(
-  //   options: DefaultFirebaseOptions.currentPlatform,
-  // );
+  // ============================================
+  // 🔔 Firebase 푸시 알림 (현재 비활성화)
+  // ============================================
+  // 활성화 방법:
+  // 1. Firebase 프로젝트 생성 및 앱 등록
+  // 2. google-services.json (Android), GoogleService-Info.plist (iOS) 추가
+  // 3. pubspec.yaml에 firebase_core, firebase_messaging 추가
+  // 4. flutterfire configure 실행
+  // 5. 아래 코드 주석 해제
+  //
+  // try {
+  //   await Firebase.initializeApp(
+  //     options: DefaultFirebaseOptions.currentPlatform,
+  //   );
+  //   print('✅ Firebase 초기화 완료');
+  // } catch (e) {
+  //   print('⚠️ Firebase 초기화 실패 (푸시 알림 비활성화): $e');
+  // }
+  // ============================================
   
   runApp(
     const ProviderScope(

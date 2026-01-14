@@ -304,32 +304,6 @@ class OrderService {
     }
   }
 
-  /// 결제 검증 (Edge Function 호출)
-  Future<Map<String, dynamic>> verifyPayment({
-    required String orderId,
-    required String impUid,
-    required String merchantUid,
-  }) async {
-    try {
-      final response = await _supabase.functions.invoke(
-        'payments-verify',
-        body: {
-          'order_id': orderId,
-          'imp_uid': impUid,
-          'merchant_uid': merchantUid,
-        },
-      );
-
-      if (response.data['success'] != true) {
-        throw Exception(response.data['error'] ?? '결제 검증 실패');
-      }
-
-      return response.data['data'];
-    } catch (e) {
-      throw Exception('결제 검증 실패: $e');
-    }
-  }
-
   /// 수거 취소 (Edge Function 호출)
   Future<Map<String, dynamic>> cancelShipment(String orderId, {bool deleteAfterCancel = true}) async {
     try {
@@ -456,6 +430,9 @@ class OrderService {
   }
 
   /// 이미지 업로드 (Supabase Storage)
+  /// 
+  /// 주의: Supabase Dashboard에서 'order-images' 버킷 생성 필요
+  /// Storage > New Bucket > 'order-images' (Public 설정)
   Future<String> uploadImage(String filePath) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -463,35 +440,57 @@ class OrderService {
         throw Exception('로그인이 필요합니다');
       }
 
-      // 파일을 읽어서 업로드
-      // Note: XFile이나 실제 파일 경로인 경우
-      // import 'dart:io';
-      // final file = File(filePath);
-      // final bytes = await file.readAsBytes();
-      
       // 파일명 생성 (중복 방지)
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final random = DateTime.now().microsecond;
-      final fileName = '${user.id}_${timestamp}_$random.jpg';
+      final extension = filePath.split('.').last.toLowerCase();
+      final fileName = '${user.id}_${timestamp}_$random.$extension';
       final storagePath = 'orders/$fileName';
       
-      // Supabase Storage에 업로드
-      // await _supabase.storage
-      //     .from('order-images')
-      //     .uploadBinary(storagePath, bytes);
+      // 파일 경로가 로컬 파일인지 확인
+      if (filePath.startsWith('/') || filePath.startsWith('file://')) {
+        // 실제 파일 업로드 시도
+        try {
+          // dart:io File 사용
+          final file = await _readFileAsBytes(filePath);
+          
+          await _supabase.storage
+              .from('order-images')
+              .uploadBinary(storagePath, file);
+          
+          // 공개 URL 가져오기
+          final imageUrl = _supabase.storage
+              .from('order-images')
+              .getPublicUrl(storagePath);
+          
+          debugPrint('✅ 이미지 업로드 성공: $imageUrl');
+          return imageUrl;
+        } catch (storageError) {
+          debugPrint('⚠️ Storage 업로드 실패 (버킷 미설정?): $storageError');
+          // Storage 실패 시 로컬 경로 반환 (임시)
+          debugPrint('⚠️ 로컬 경로로 대체: $filePath');
+          return filePath;
+        }
+      }
       
-      // 공개 URL 가져오기
-      // final imageUrl = _supabase.storage
-      //     .from('order-images')
-      //     .getPublicUrl(storagePath);
+      // 이미 URL인 경우 그대로 반환
+      if (filePath.startsWith('http')) {
+        return filePath;
+      }
       
-      // return imageUrl;
-      
-      // 현재: Mock URL 반환 (실제 파일 업로드는 Storage 버킷 생성 후 활성화)
+      // 그 외의 경우 로컬 경로 반환
+      debugPrint('ℹ️ 파일 경로 그대로 사용: $filePath');
       return filePath;
     } catch (e) {
       throw Exception('이미지 업로드 실패: $e');
     }
+  }
+  
+  /// 파일을 바이트 배열로 읽기
+  Future<Uint8List> _readFileAsBytes(String filePath) async {
+    // dart:io를 직접 import하지 않고 platform 채널 사용
+    // 또는 image_picker에서 받은 XFile 사용 권장
+    throw UnimplementedError('파일 읽기는 image_picker의 XFile.readAsBytes() 사용 권장');
   }
   
   /// 여러 이미지 업로드

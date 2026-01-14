@@ -259,6 +259,38 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
       }).toList();
     }
     
+    // 기간 필터링
+    if (_selectedPeriod != '전체') {
+      final now = DateTime.now();
+      DateTime? startDate;
+      
+      switch (_selectedPeriod) {
+        case '1개월':
+          startDate = DateTime(now.year, now.month - 1, now.day);
+          break;
+        case '3개월':
+          startDate = DateTime(now.year, now.month - 3, now.day);
+          break;
+        case '6개월':
+          startDate = DateTime(now.year, now.month - 6, now.day);
+          break;
+      }
+      
+      if (startDate != null) {
+        filteredOrders = filteredOrders.where((order) {
+          final createdAtStr = order['created_at'] as String?;
+          if (createdAtStr == null) return false;
+          
+          try {
+            final createdAt = DateTime.parse(createdAtStr);
+            return createdAt.isAfter(startDate!);
+          } catch (e) {
+            return false;
+          }
+        }).toList();
+      }
+    }
+    
     // 페이징 계산
     final totalPages = filteredOrders.isEmpty ? 1 : (filteredOrders.length / _itemsPerPage).ceil();
     // 현재 페이지가 총 페이지 수를 초과하지 않도록 제한 (UI 렌더링 시에만 사용)

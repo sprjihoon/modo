@@ -3,8 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// 시크릿 키
-const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || "test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6";
+// 토스페이먼츠 시크릿 키 (환경변수 필수)
+function getTossSecretKey(): string {
+  const key = process.env.TOSS_SECRET_KEY;
+  if (!key) {
+    throw new Error('TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.');
+  }
+  return key;
+}
 
 interface CancelRequest {
   paymentKey: string;
@@ -52,7 +58,7 @@ export async function POST(request: NextRequest) {
     const supabase = createClient();
 
     // Basic 인증 헤더 생성
-    const encodedSecretKey = Buffer.from(`${TOSS_SECRET_KEY}:`).toString("base64");
+    const encodedSecretKey = Buffer.from(`${getTossSecretKey()}:`).toString("base64");
 
     // 토스페이먼츠 결제 취소 API 호출
     const cancelBody: any = {

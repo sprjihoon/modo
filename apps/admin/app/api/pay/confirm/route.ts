@@ -3,8 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// 테스트용 시크릿 키 (실제 운영시 환경변수로 변경)
-const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || "test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6";
+// 토스페이먼츠 시크릿 키 (환경변수 필수)
+function getTossSecretKey(): string {
+  const key = process.env.TOSS_SECRET_KEY;
+  if (!key) {
+    throw new Error('TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.');
+  }
+  return key;
+}
 
 interface PaymentConfirmRequest {
   paymentKey: string;
@@ -67,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     // 토스페이먼츠 결제 승인 API 호출
     // Basic 인증: base64(시크릿키 + ":")
-    const encodedSecretKey = Buffer.from(`${TOSS_SECRET_KEY}:`).toString("base64");
+    const encodedSecretKey = Buffer.from(`${getTossSecretKey()}:`).toString("base64");
 
     const tossResponse = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
       method: "POST",
@@ -131,6 +137,7 @@ export async function POST(request: NextRequest) {
       const { error: updateError } = await supabase
         .from("orders")
         .update({
+          status: "PAID",  // 주문 상태도 함께 업데이트
           payment_status: "PAID",
           payment_key: paymentKey,
           paid_at: new Date().toISOString(),

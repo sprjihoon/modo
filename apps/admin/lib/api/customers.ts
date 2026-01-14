@@ -178,12 +178,13 @@ export async function getCustomerStats() {
 
   const totalSales = allOrders?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0;
 
-  // 탈퇴 회원 수 (CUSTOMER 역할 중 auth_id가 NULL이거나 이메일이 deleted_로 시작하는 경우)
+  // 탈퇴 회원 수 (CUSTOMER 역할 중 이메일이 deleted_ 패턴인 경우만)
+  // 주의: auth_id가 null인 것만으로는 탈퇴 회원으로 판단하지 않음 (게스트 사용자일 수 있음)
   const { count: deletedCustomers, error: deletedError } = await supabaseAdmin
     .from('users')
     .select('*', { count: 'exact', head: true })
     .eq('role', 'CUSTOMER')
-    .or('auth_id.is.null,email.like.deleted_%@deleted.modusrepair.com');
+    .like('email', 'deleted_%@deleted.modurepair.com');
 
   if (deletedError) {
     console.warn('탈퇴 회원 수 조회 실패:', deletedError);

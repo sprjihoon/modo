@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -294,46 +295,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         title: const Text('주문 상세'),
         elevation: 0,
         actions: [
-          // 상태 변경 버튼 (테스트용)
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            tooltip: '상태 변경 (테스트)',
-            onSelected: (status) {
-              setState(() {
-                _currentStatus = status;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('상태: $status'),
-                  backgroundColor: const Color(0xFF00C896),
-                  duration: const Duration(seconds: 1),
-                ),
-              );
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'BOOKED',
-                child: Text('수거예약 (수정O/취소O)'),
-              ),
-              const PopupMenuItem(
-                value: 'INBOUND',
-                child: Text('입고완료 (수정O/취소X)'),
-              ),
-              const PopupMenuItem(
-                value: 'PROCESSING',
-                child: Text('수선중 (수정X/취소X)'),
-              ),
-              const PopupMenuItem(
-                value: 'READY_TO_SHIP',
-                child: Text('출고완료 (수정X/취소X)'),
-              ),
-            ],
-          ),
+          // 새로고침 버튼
           IconButton(
-            icon: const Icon(Icons.share_outlined),
-            onPressed: () {
-              // TODO: 공유 기능
-            },
+            icon: const Icon(Icons.refresh),
+            tooltip: '새로고침',
+            onPressed: () => _loadOrderData(),
           ),
         ],
       ),
@@ -709,7 +675,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           _buildInfoRow('주문일시', _formatDateTime(_orderData?['created_at'])),
           Divider(height: 24, color: Colors.grey.shade200),
           _buildInfoRow('결제금액', _formatPrice(_orderData?['total_price']), isHighlight: true),
-          _buildInfoRow('결제방법', '신용카드'), // TODO: 실제 결제 방법 표시
+          _buildInfoRow('결제방법', _getPaymentMethodDisplay(_orderData?['payment_method'])),
         ],
       ),
     );
@@ -780,6 +746,33 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     )}';
   }
 
+  /// 결제 방법 표시 텍스트
+  String _getPaymentMethodDisplay(dynamic paymentMethod) {
+    if (paymentMethod == null) return '미결제';
+    
+    final method = paymentMethod.toString().toUpperCase();
+    switch (method) {
+      case 'CARD':
+        return '신용카드';
+      case 'VIRTUAL_ACCOUNT':
+        return '가상계좌';
+      case 'TRANSFER':
+        return '계좌이체';
+      case 'MOBILE':
+        return '휴대폰결제';
+      case 'BILLING':
+        return '정기결제';
+      case 'TOSS':
+        return '토스페이';
+      case 'NAVERPAY':
+        return '네이버페이';
+      case 'KAKAOPAY':
+        return '카카오페이';
+      default:
+        return paymentMethod.toString();
+    }
+  }
+
   /// 주소 포맷팅
   String _formatAddress(dynamic address, dynamic detail) {
     final addr = address?.toString() ?? '';
@@ -788,6 +781,90 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       return '$addr $det';
     }
     return addr.isNotEmpty ? addr : '주소 없음';
+  }
+
+  /// 고객센터 연결
+  Future<void> _openCustomerService(BuildContext context) async {
+    // 고객센터 연락 방법 선택 다이얼로그
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '고객센터',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.phone, color: Color(0xFF00C896)),
+                title: const Text('전화 문의'),
+                subtitle: const Text('1588-0000'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final uri = Uri.parse('tel:1588-0000');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('전화 앱을 열 수 없습니다')),
+                      );
+                    }
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.chat_bubble, color: Colors.yellow),
+                title: const Text('카카오톡 문의'),
+                subtitle: const Text('@모두리페어'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final uri = Uri.parse('https://pf.kakao.com/_modurepair');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('카카오톡을 열 수 없습니다')),
+                      );
+                    }
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.email, color: Colors.blue),
+                title: const Text('이메일 문의'),
+                subtitle: const Text('support@modurepair.com'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final uri = Uri.parse('mailto:support@modurepair.com?subject=주문문의&body=주문번호: ${widget.orderId}');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('이메일 앱을 열 수 없습니다')),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// 송장번호 카드 빌더
@@ -1740,30 +1817,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               // 개별 영상 재생
               final videoUrl = isInbound ? _inboundVideoUrl : _outboundVideoUrl;
               if (videoUrl != null && videoUrl.isNotEmpty) {
-                // 간단한 비디오 플레이어 다이얼로그
+                // VideoPlayerDialog 사용 (리소스 누수 방지)
                 showDialog(
                   context: context,
-                  builder: (context) => Dialog(
-                    backgroundColor: Colors.black,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppBar(
-                          title: Text(title),
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                        ),
-                        AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: VideoPlayer(
-                            VideoPlayerController.networkUrl(Uri.parse(videoUrl))
-                              ..initialize().then((_) {
-                                // 초기화 후 자동 재생은 하지 않음
-                              }),
-                          ),
-                        ),
-                      ],
-                    ),
+                  builder: (context) => _VideoPlayerDialog(
+                    title: title,
+                    videoUrl: videoUrl,
                   ),
                 );
               }
@@ -2194,9 +2253,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           child: ElevatedButton.icon(
             icon: const Icon(Icons.headset_mic_outlined, size: 20),
             label: const Text('문의하기'),
-            onPressed: () {
-              // TODO: 고객센터 연결
-            },
+            onPressed: () => _openCustomerService(context),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
@@ -2272,9 +2329,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           child: ElevatedButton.icon(
             icon: const Icon(Icons.headset_mic_outlined, size: 20),
             label: const Text('문의하기'),
-            onPressed: () {
-              // TODO: 고객센터 연결
-            },
+            onPressed: () => _openCustomerService(context),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
@@ -2296,9 +2351,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           child: OutlinedButton.icon(
             icon: const Icon(Icons.headset_mic_outlined, size: 20),
             label: const Text('문의하기'),
-            onPressed: () {
-              // TODO: 고객센터 연결
-            },
+            onPressed: () => _openCustomerService(context),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
@@ -2528,6 +2581,156 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         }
       }
     }
+  }
+}
+
+/// 비디오 플레이어 다이얼로그 (리소스 관리를 위한 StatefulWidget)
+class _VideoPlayerDialog extends StatefulWidget {
+  final String title;
+  final String videoUrl;
+
+  const _VideoPlayerDialog({
+    required this.title,
+    required this.videoUrl,
+  });
+
+  @override
+  State<_VideoPlayerDialog> createState() => _VideoPlayerDialogState();
+}
+
+class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeController();
+  }
+
+  Future<void> _initializeController() async {
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    try {
+      await _controller.initialize();
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+        _controller.play(); // 자동 재생
+      }
+    } catch (e) {
+      debugPrint('❌ 비디오 초기화 실패: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose(); // 리소스 해제
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.black,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppBar(
+            title: Text(widget.title),
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: _hasError
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, color: Colors.red, size: 48),
+                        SizedBox(height: 8),
+                        Text(
+                          '영상을 불러올 수 없습니다',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  )
+                : _isInitialized
+                    ? Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          VideoPlayer(_controller),
+                          // 재생/일시정지 버튼
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                if (_controller.value.isPlaying) {
+                                  _controller.pause();
+                                } else {
+                                  _controller.play();
+                                }
+                              });
+                            },
+                            child: Container(
+                              color: Colors.transparent,
+                              child: Center(
+                                child: AnimatedOpacity(
+                                  opacity: _controller.value.isPlaying ? 0 : 1,
+                                  duration: const Duration(milliseconds: 300),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(50),
+                                    ),
+                                    child: Icon(
+                                      _controller.value.isPlaying
+                                          ? Icons.pause
+                                          : Icons.play_arrow,
+                                      color: Colors.white,
+                                      size: 48,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+          ),
+          // 재생 컨트롤 바
+          if (_isInitialized)
+            Container(
+              color: Colors.black,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: VideoProgressIndicator(
+                _controller,
+                allowScrubbing: true,
+                colors: const VideoProgressColors(
+                  playedColor: Colors.blue,
+                  bufferedColor: Colors.grey,
+                  backgroundColor: Colors.white24,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 

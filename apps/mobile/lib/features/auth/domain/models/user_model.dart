@@ -12,6 +12,9 @@ class UserModel {
   final String? defaultAddressDetail;
   final String? defaultZipcode;
   final String? fcmToken;
+  final int pointBalance;
+  final int totalEarnedPoints;
+  final int totalUsedPoints;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -26,6 +29,9 @@ class UserModel {
     this.defaultAddressDetail,
     this.defaultZipcode,
     this.fcmToken,
+    this.pointBalance = 0,
+    this.totalEarnedPoints = 0,
+    this.totalUsedPoints = 0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -45,6 +51,9 @@ class UserModel {
       defaultAddressDetail: json['default_address_detail'] as String?,
       defaultZipcode: json['default_zipcode'] as String?,
       fcmToken: json['fcm_token'] as String?,
+      pointBalance: json['point_balance'] as int? ?? 0,
+      totalEarnedPoints: json['total_earned_points'] as int? ?? 0,
+      totalUsedPoints: json['total_used_points'] as int? ?? 0,
       createdAt: json['created_at'] is String
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
@@ -67,6 +76,9 @@ class UserModel {
       'default_address_detail': defaultAddressDetail,
       'default_zipcode': defaultZipcode,
       'fcm_token': fcmToken,
+      'point_balance': pointBalance,
+      'total_earned_points': totalEarnedPoints,
+      'total_used_points': totalUsedPoints,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -84,6 +96,9 @@ class UserModel {
     String? defaultAddressDetail,
     String? defaultZipcode,
     String? fcmToken,
+    int? pointBalance,
+    int? totalEarnedPoints,
+    int? totalUsedPoints,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -98,6 +113,9 @@ class UserModel {
       defaultAddressDetail: defaultAddressDetail ?? this.defaultAddressDetail,
       defaultZipcode: defaultZipcode ?? this.defaultZipcode,
       fcmToken: fcmToken ?? this.fcmToken,
+      pointBalance: pointBalance ?? this.pointBalance,
+      totalEarnedPoints: totalEarnedPoints ?? this.totalEarnedPoints,
+      totalUsedPoints: totalUsedPoints ?? this.totalUsedPoints,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
