@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { updateOrderStatus, updateShipmentStatus } from "@/lib/api/orders";
 
 interface StatusChangeDialogProps {
   orderId: string;
@@ -52,19 +51,30 @@ export function StatusChangeDialog({
     setLoading(true);
 
     try {
-      // 주문 상태 변경
-      await updateOrderStatus(orderId, selectedStatus);
+      // API를 통해 주문 상태 변경
+      const response = await fetch(`/api/orders/${orderId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          status: selectedStatus,
+          trackingNo: trackingNo,
+        }),
+      });
 
-      // 송장 상태도 변경 (있을 경우)
-      if (trackingNo) {
-        await updateShipmentStatus(trackingNo, selectedStatus);
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || result.message || "상태 변경에 실패했습니다.");
       }
 
       setOpen(false);
       onStatusChanged?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Status update error:', error);
-      alert('상태 변경 실패: ' + error);
+      const errorMessage = error?.message || error?.toString() || "알 수 없는 오류가 발생했습니다.";
+      alert('상태 변경 실패: ' + errorMessage);
     } finally {
       setLoading(false);
     }
