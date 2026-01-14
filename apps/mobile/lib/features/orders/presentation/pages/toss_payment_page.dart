@@ -135,6 +135,7 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
       // 약관 동의 위젯 렌더링
       _agreementWidgetControl = await _paymentWidget.renderAgreement(
         selector: _agreementSelector,
+        options: RenderAgreementOptions(variantKey: 'AGREEMENT'),
       );
 
       setState(() {
