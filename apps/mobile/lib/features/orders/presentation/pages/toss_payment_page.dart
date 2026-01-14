@@ -5,6 +5,7 @@ import 'package:tosspayments_widget_sdk_flutter/model/payment_info.dart';
 import 'package:tosspayments_widget_sdk_flutter/model/payment_widget_options.dart';
 import 'package:tosspayments_widget_sdk_flutter/model/tosspayments_result.dart';
 import 'package:tosspayments_widget_sdk_flutter/payment_widget.dart';
+import 'package:tosspayments_widget_sdk_flutter/widgets/agreement.dart';
 import 'package:tosspayments_widget_sdk_flutter/widgets/payment_method.dart';
 import '../../../../services/payment_service.dart';
 
@@ -40,6 +41,7 @@ class TossPaymentPage extends StatefulWidget {
 class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProviderStateMixin {
   late PaymentWidget _paymentWidget;
   PaymentMethodWidgetControl? _paymentMethodWidgetControl;
+  AgreementWidgetControl? _agreementWidgetControl;
   
   bool _isLoading = true;
   bool _isPaymentReady = false;
@@ -64,6 +66,7 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
   
   // 위젯 selector 식별자
   static const String _paymentMethodSelector = 'payment-method';
+  static const String _agreementSelector = 'agreement';
 
   @override
   void initState() {
@@ -119,7 +122,7 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
         _isLoading = true;
       });
 
-      // 결제수단 위젯 렌더링 (약관은 결제수단 위젯에 포함됨)
+      // 결제수단 위젯 렌더링
       _paymentMethodWidgetControl = await _paymentWidget.renderPaymentMethods(
         selector: _paymentMethodSelector,
         amount: Amount(
@@ -127,6 +130,11 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
           currency: Currency.KRW,
           country: 'KR',
         ),
+      );
+
+      // 약관 동의 위젯 렌더링
+      _agreementWidgetControl = await _paymentWidget.renderAgreement(
+        selector: _agreementSelector,
       );
 
       setState(() {
@@ -655,18 +663,30 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
                   ),
                 ),
                 
-                // 토스페이먼츠 결제수단 위젯 - SingleChildScrollView 없이 Expanded로 처리
-                // WebView가 자체 스크롤을 처리하므로 외부 스크롤뷰 불필요
+                // 토스페이먼츠 결제수단 위젯
                 Expanded(
-                  child: PaymentMethodWidget(
-                    paymentWidget: _paymentWidget,
-                    selector: _paymentMethodSelector,
-                    onCustomPaymentMethodSelected: (paymentMethodKey) {
-                      debugPrint('결제수단 선택됨: $paymentMethodKey');
-                    },
-                    onCustomPaymentMethodUnselected: (paymentMethodKey) {
-                      debugPrint('결제수단 해제됨: $paymentMethodKey');
-                    },
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        // 결제 방법 위젯
+                        PaymentMethodWidget(
+                          paymentWidget: _paymentWidget,
+                          selector: _paymentMethodSelector,
+                          onCustomPaymentMethodSelected: (paymentMethodKey) {
+                            debugPrint('결제수단 선택됨: $paymentMethodKey');
+                          },
+                          onCustomPaymentMethodUnselected: (paymentMethodKey) {
+                            debugPrint('결제수단 해제됨: $paymentMethodKey');
+                          },
+                        ),
+                        
+                        // 약관 동의 위젯
+                        AgreementWidget(
+                          paymentWidget: _paymentWidget,
+                          selector: _agreementSelector,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
