@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../services/repair_service.dart';
 import '../../../../services/image_service.dart';
 import '../../../../core/utils/snackbar_util.dart';
+import '../../../../core/widgets/category_icon_widget.dart';
 
 /// 수선 의류 종류 선택 페이지
 class SelectClothingTypePage extends ConsumerStatefulWidget {
@@ -420,14 +421,15 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                 // 의류 종류 리스트 (DB에서 로드)
                 ..._clothingTypes.map((type) {
                   final typeName = type['name'] as String;
+                  final iconName = type['icon_name'] as String?;
                   final isSelected = _selectedType == typeName;
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 8,
                     ),
-                    leading: Icon(
-                      Icons.checkroom, // 고정 아이콘 (TODO: icon_name으로 SVG 로드)
+                    leading: CategoryIconWidget(
+                      iconName: iconName,
                       size: 32,
                       color: isSelected 
                           ? const Color(0xFF00C896) 
