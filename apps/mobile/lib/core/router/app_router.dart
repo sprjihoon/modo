@@ -30,8 +30,6 @@ import '../../features/profile/presentation/pages/account_info_page.dart';
 import '../../features/profile/presentation/pages/change_password_page.dart';
 import '../../features/profile/presentation/pages/addresses_page.dart';
 import '../../features/profile/presentation/pages/add_address_page.dart';
-import '../../features/profile/presentation/pages/payment_methods_page.dart';
-import '../../features/profile/presentation/pages/add_payment_method_page.dart';
 import '../../features/profile/presentation/pages/payment_history_page.dart';
 import '../../features/profile/presentation/pages/receipt_page.dart';
 import '../../features/profile/presentation/pages/points_history_page.dart';
@@ -403,20 +401,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                   final existingAddress = state.extra as Map<String, dynamic>?;
                   return AddAddressPage(existingAddress: existingAddress);
                 },
-              ),
-            ],
-          ),
-          // 결제수단 관리
-          GoRoute(
-            path: 'payment-methods',
-            name: 'profile-payment-methods',
-            builder: (context, state) => const PaymentMethodsPage(),
-            routes: [
-              // 결제수단 추가
-              GoRoute(
-                path: 'add',
-                name: 'profile-payment-methods-add',
-                builder: (context, state) => const AddPaymentMethodPage(),
               ),
             ],
           ),

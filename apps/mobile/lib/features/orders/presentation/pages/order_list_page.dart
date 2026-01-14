@@ -432,6 +432,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
 
   Widget _buildOrderCard(BuildContext context, Map<String, dynamic> order) {
     final statusMap = {
+      'PENDING': {'label': '결제대기', 'color': Colors.amber, 'icon': Icons.hourglass_empty_outlined},
       'BOOKED': {'label': '수거예약', 'color': Colors.blue, 'icon': Icons.schedule_outlined},
       'INBOUND': {'label': '입고완료', 'color': Colors.orange, 'icon': Icons.inventory_outlined},
       'PROCESSING': {'label': '수선중', 'color': Colors.purple, 'icon': Icons.content_cut_rounded},
@@ -439,6 +440,10 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
       'DELIVERED': {'label': '배송완료', 'color': Colors.grey.shade600, 'icon': Icons.check_circle_outline},
       'CANCELLED': {'label': '수거취소', 'color': Colors.red, 'icon': Icons.cancel_outlined},
     };
+    
+    // 결제 상태
+    final paymentStatus = order['payment_status'] as String?;
+    final isPaid = paymentStatus == 'PAID';
     
     final status = order['status'] as String? ?? 'BOOKED';
     final statusInfo = statusMap[status] ?? statusMap['BOOKED']!;
@@ -625,12 +630,36 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '결제금액',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          '결제금액',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // 결제 상태 배지
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isPaid ? Colors.green.shade100 : Colors.amber.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isPaid ? '결제완료' : '결제대기',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isPaid ? Colors.green.shade700 : Colors.amber.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     Text(
                       priceStr,

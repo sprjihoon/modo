@@ -468,26 +468,8 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
     // Provider 초기화
     ref.read(repairItemsProvider.notifier).clear();
     
-    // 성공 메시지 표시
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${selectedItems.length}개 항목을 장바구니에 담았습니다'),
-        backgroundColor: const Color(0xFF00C896),
-        behavior: SnackBarBehavior.floating,
-        dismissDirection: DismissDirection.horizontal,
-        action: SnackBarAction(
-          label: '보기',
-          textColor: Colors.white,
-          onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            context.push('/cart');
-          },
-        ),
-        duration: const Duration(seconds: 3),
-      ),
-    );
-    
-    // 홈으로 이동
+    // 장바구니 아이콘 배지로 추가된 것을 확인할 수 있으므로 SnackBar 없이 홈으로 이동
+    // (SnackBar는 페이지 이동 시 사라지지 않는 문제가 있음)
     context.go('/home');
   }
   

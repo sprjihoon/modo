@@ -54,11 +54,6 @@ class ProfilePage extends ConsumerWidget {
                   onTap: () => context.push('/profile/addresses'),
                 ),
                 _MenuItem(
-                  icon: Icons.credit_card_outlined,
-                  title: '결제수단 관리',
-                  onTap: () => context.push('/profile/payment-methods'),
-                ),
-                _MenuItem(
                   icon: Icons.receipt_long_outlined,
                   title: '결제내역',
                   onTap: () => context.push('/profile/payment-history'),

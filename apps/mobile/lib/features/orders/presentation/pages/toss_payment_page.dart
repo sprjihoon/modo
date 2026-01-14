@@ -4,7 +4,6 @@ import 'package:tosspayments_widget_sdk_flutter/model/payment_info.dart';
 import 'package:tosspayments_widget_sdk_flutter/model/payment_widget_options.dart';
 import 'package:tosspayments_widget_sdk_flutter/model/tosspayments_result.dart';
 import 'package:tosspayments_widget_sdk_flutter/payment_widget.dart';
-import 'package:tosspayments_widget_sdk_flutter/widgets/agreement.dart';
 import 'package:tosspayments_widget_sdk_flutter/widgets/payment_method.dart';
 import '../../../../services/payment_service.dart';
 
@@ -40,7 +39,6 @@ class TossPaymentPage extends StatefulWidget {
 class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProviderStateMixin {
   late PaymentWidget _paymentWidget;
   PaymentMethodWidgetControl? _paymentMethodWidgetControl;
-  AgreementWidgetControl? _agreementWidgetControl;
   
   bool _isLoading = true;
   bool _isPaymentReady = false;
@@ -55,7 +53,6 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
   
   // 위젯 selector 식별자
   static const String _paymentMethodSelector = 'payment-method';
-  static const String _agreementSelector = 'agreement';
 
   @override
   void initState() {
@@ -91,16 +88,15 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
       _isLoading = false;
     });
     
-    // 페이지 로드 후 자동으로 결제수단 렌더링
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _renderPaymentWidgets();
-    });
-    
-    // 1.5초 후 준비 화면 숨기기
+    // 1.5초 후 준비 화면 숨기고 위젯 렌더링 시작
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) {
         setState(() {
           _showPreparingScreen = false;
+        });
+        // 준비 화면이 사라진 후 다음 프레임에서 위젯 렌더링
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _renderPaymentWidgets();
         });
       }
     });
@@ -112,7 +108,7 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
         _isLoading = true;
       });
 
-      // 결제수단 위젯 렌더링
+      // 결제수단 위젯 렌더링 (약관은 결제수단 위젯에 포함됨)
       _paymentMethodWidgetControl = await _paymentWidget.renderPaymentMethods(
         selector: _paymentMethodSelector,
         amount: Amount(
@@ -120,11 +116,6 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
           currency: Currency.KRW,
           country: 'KR',
         ),
-      );
-
-      // 약관 위젯 렌더링
-      _agreementWidgetControl = await _paymentWidget.renderAgreement(
-        selector: _agreementSelector,
       );
 
       setState(() {
@@ -157,6 +148,10 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
         paymentInfo: PaymentInfo(
           orderId: widget.orderId,
           orderName: widget.orderName,
+          customerName: widget.customerName,
+          customerEmail: widget.customerEmail,
+          customerMobilePhone: widget.customerPhone,
+          appScheme: 'modurepair://', // iOS/Android 앱으로 복귀하기 위한 URL scheme
         ),
       );
 
@@ -604,7 +599,7 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
               children: [
                 // 결제 정보 헤더
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade50,
                     border: Border(
@@ -649,86 +644,18 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
                   ),
                 ),
                 
-                // 결제 위젯
+                // 토스페이먼츠 결제수단 위젯 - SingleChildScrollView 없이 Expanded로 처리
+                // WebView가 자체 스크롤을 처리하므로 외부 스크롤뷰 불필요
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 테스트 환경 안내
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.amber.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.amber.shade700,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '테스트 환경 - 실제 결제가 이루어지지 않습니다',
-                                  style: TextStyle(
-                                    color: Colors.amber.shade800,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        // 결제 수단 선택
-                        const Text(
-                          '결제 수단',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // 토스페이먼츠 결제수단 위젯 (항상 렌더링)
-                        PaymentMethodWidget(
-                          paymentWidget: _paymentWidget,
-                          selector: _paymentMethodSelector,
-                          onCustomPaymentMethodSelected: (paymentMethodKey) {
-                            debugPrint('결제수단 선택됨: $paymentMethodKey');
-                          },
-                          onCustomPaymentMethodUnselected: (paymentMethodKey) {
-                            debugPrint('결제수단 해제됨: $paymentMethodKey');
-                          },
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // 약관 동의
-                        const Text(
-                          '약관 동의',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // 토스페이먼츠 약관 위젯 (항상 렌더링)
-                        AgreementWidget(
-                          paymentWidget: _paymentWidget,
-                          selector: _agreementSelector,
-                        ),
-                        
-                        const SizedBox(height: 100), // 버튼 영역 여백
-                      ],
-                    ),
+                  child: PaymentMethodWidget(
+                    paymentWidget: _paymentWidget,
+                    selector: _paymentMethodSelector,
+                    onCustomPaymentMethodSelected: (paymentMethodKey) {
+                      debugPrint('결제수단 선택됨: $paymentMethodKey');
+                    },
+                    onCustomPaymentMethodUnselected: (paymentMethodKey) {
+                      debugPrint('결제수단 해제됨: $paymentMethodKey');
+                    },
                   ),
                 ),
               ],
