@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Upload, X, Image } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
 
@@ -357,6 +357,43 @@ function EditCategoryDialog({
   const [name, setName] = useState(category.name);
   const [iconName, setIconName] = useState(category.icon_name || "");
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // icon_name이 URL인지 확인
+  const isIconUrl = iconName.startsWith('http');
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'category-icons');
+
+      const response = await fetch('/api/admin/upload/svg', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '업로드 실패');
+      }
+
+      // 업로드된 URL을 icon_name에 저장
+      setIconName(result.data.url);
+    } catch (error: any) {
+      console.error('SVG 업로드 실패:', error);
+      alert(`SVG 업로드 실패: ${error.message}`);
+    } finally {
+      setIsUploading(false);
+      // input 초기화
+      e.target.value = '';
+    }
+  };
 
   const handleSubmit = async () => {
     if (!name) return;
@@ -415,17 +452,82 @@ function EditCategoryDialog({
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          <div>
-            <Label htmlFor="edit-cat-icon">아이콘명 (선택)</Label>
-            <Input
-              id="edit-cat-icon"
-              placeholder="예: outer"
-              value={iconName}
-              onChange={(e) => setIconName(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              SVG 파일명 (확장자 제외)
-            </p>
+          
+          {/* SVG 아이콘 업로드 */}
+          <div className="space-y-3">
+            <Label>아이콘 (SVG)</Label>
+            
+            {/* 현재 아이콘 미리보기 */}
+            {iconName && (
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                {isIconUrl ? (
+                  <img 
+                    src={iconName} 
+                    alt="카테고리 아이콘" 
+                    className="w-12 h-12 object-contain"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                    <Image className="w-6 h-6 text-gray-400" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {isIconUrl ? 'SVG 업로드됨' : iconName}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {isIconUrl ? iconName : '로컬 아이콘 (앱에 포함된 파일)'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIconName('')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            
+            {/* 업로드 버튼 */}
+            <div className="flex gap-2">
+              <label className="flex-1">
+                <input
+                  type="file"
+                  accept=".svg,image/svg+xml"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={isUploading}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isUploading}
+                  asChild
+                >
+                  <span>
+                    <Upload className="h-4 w-4 mr-2" />
+                    {isUploading ? '업로드 중...' : 'SVG 파일 업로드'}
+                  </span>
+                </Button>
+              </label>
+            </div>
+            
+            {/* 수동 입력 (로컬 아이콘용) */}
+            <div>
+              <Label htmlFor="edit-cat-icon-manual" className="text-xs text-muted-foreground">
+                또는 로컬 아이콘명 직접 입력
+              </Label>
+              <Input
+                id="edit-cat-icon-manual"
+                placeholder="예: outer (앱에 포함된 SVG)"
+                value={isIconUrl ? '' : iconName}
+                onChange={(e) => setIconName(e.target.value)}
+                className="mt-1"
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -447,6 +549,43 @@ function AddCategoryDialog({ onAdded, children }: { onAdded: () => void; childre
   const [name, setName] = useState("");
   const [iconName, setIconName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // icon_name이 URL인지 확인
+  const isIconUrl = iconName.startsWith('http');
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'category-icons');
+
+      const response = await fetch('/api/admin/upload/svg', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '업로드 실패');
+      }
+
+      // 업로드된 URL을 icon_name에 저장
+      setIconName(result.data.url);
+    } catch (error: any) {
+      console.error('SVG 업로드 실패:', error);
+      alert(`SVG 업로드 실패: ${error.message}`);
+    } finally {
+      setIsUploading(false);
+      // input 초기화
+      e.target.value = '';
+    }
+  };
 
   const handleSubmit = async () => {
     if (!name) return;
@@ -510,17 +649,82 @@ function AddCategoryDialog({ onAdded, children }: { onAdded: () => void; childre
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          <div>
-            <Label htmlFor="icon">아이콘명 (선택)</Label>
-            <Input
-              id="icon"
-              placeholder="예: outer"
-              value={iconName}
-              onChange={(e) => setIconName(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              SVG 파일명 (확장자 제외)
-            </p>
+          
+          {/* SVG 아이콘 업로드 */}
+          <div className="space-y-3">
+            <Label>아이콘 (SVG)</Label>
+            
+            {/* 현재 아이콘 미리보기 */}
+            {iconName && (
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                {isIconUrl ? (
+                  <img 
+                    src={iconName} 
+                    alt="카테고리 아이콘" 
+                    className="w-12 h-12 object-contain"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                    <Image className="w-6 h-6 text-gray-400" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {isIconUrl ? 'SVG 업로드됨' : iconName}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {isIconUrl ? iconName : '로컬 아이콘 (앱에 포함된 파일)'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIconName('')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            
+            {/* 업로드 버튼 */}
+            <div className="flex gap-2">
+              <label className="flex-1">
+                <input
+                  type="file"
+                  accept=".svg,image/svg+xml"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={isUploading}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isUploading}
+                  asChild
+                >
+                  <span>
+                    <Upload className="h-4 w-4 mr-2" />
+                    {isUploading ? '업로드 중...' : 'SVG 파일 업로드'}
+                  </span>
+                </Button>
+              </label>
+            </div>
+            
+            {/* 수동 입력 (로컬 아이콘용) */}
+            <div>
+              <Label htmlFor="icon-manual" className="text-xs text-muted-foreground">
+                또는 로컬 아이콘명 직접 입력
+              </Label>
+              <Input
+                id="icon-manual"
+                placeholder="예: outer (앱에 포함된 SVG)"
+                value={isIconUrl ? '' : iconName}
+                onChange={(e) => setIconName(e.target.value)}
+                className="mt-1"
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>

@@ -4,7 +4,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 /// 카테고리 아이콘 위젯
 /// 
 /// DB에 저장된 icon_name을 기반으로 SVG 아이콘을 렌더링합니다.
-/// SVG가 없거나 로드에 실패하면 기본 Material 아이콘을 표시합니다.
+/// - URL인 경우: 네트워크에서 SVG 로드
+/// - 파일명인 경우: 로컬 assets에서 SVG 로드
+/// - SVG가 없거나 로드에 실패하면 기본 Material 아이콘을 표시합니다.
 class CategoryIconWidget extends StatelessWidget {
   final String? iconName;
   final double size;
@@ -16,6 +18,9 @@ class CategoryIconWidget extends StatelessWidget {
     this.size = 32,
     this.color,
   });
+  
+  /// icon_name이 URL인지 확인
+  bool get _isUrl => iconName != null && iconName!.startsWith('http');
   
   @override
   Widget build(BuildContext context) {
@@ -33,7 +38,31 @@ class CategoryIconWidget extends StatelessWidget {
     // 카테고리명 → 기본 아이콘 매핑 (SVG 파일이 없을 때 fallback)
     final fallbackIcon = _getFallbackIcon(iconName!);
     
-    // SVG 파일 경로
+    // URL인 경우 네트워크에서 로드
+    if (_isUrl) {
+      return SvgPicture.network(
+        iconName!,
+        width: size,
+        height: size,
+        colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
+        placeholderBuilder: (context) => SizedBox(
+          width: size,
+          height: size,
+          child: Center(
+            child: SizedBox(
+              width: size * 0.5,
+              height: size * 0.5,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(effectiveColor.withOpacity(0.5)),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // 로컬 파일인 경우 assets에서 로드
     final svgPath = 'assets/icons/${iconName!.toLowerCase()}.svg';
     
     return SvgPicture.asset(
