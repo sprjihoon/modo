@@ -49,11 +49,15 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
-  // 토스페이먼츠 클라이언트 키 (환경변수에서 로드)
+  // 토스페이먼츠 클라이언트 키 (환경변수에서 로드, 없으면 테스트 키 사용)
+  // ⚠️ 프로덕션 배포 전 반드시 환경변수 설정 필요!
+  static const String _testClientKey = 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm';
+  
   static String get _clientKey {
     final key = dotenv.env['TOSS_CLIENT_KEY'];
     if (key == null || key.isEmpty) {
-      throw Exception('TOSS_CLIENT_KEY 환경변수가 설정되지 않았습니다. .env 파일을 확인하세요.');
+      debugPrint('⚠️ TOSS_CLIENT_KEY 환경변수 미설정 - 테스트 키 사용');
+      return _testClientKey;
     }
     return key;
   }
