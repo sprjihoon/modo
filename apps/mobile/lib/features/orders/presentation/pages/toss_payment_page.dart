@@ -252,6 +252,36 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
             )}원'),
             const SizedBox(height: 8),
             _buildInfoRow('결제수단', result['method'] ?? '-'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '결제 완료 후 수선된 의류를 받으시기까지\n약 5영업일이 소요됩니다.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade800,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '택배 수거 → 입고 확인 → 수선 작업 → 배송 완료',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [

@@ -43,17 +43,12 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   
   final _addressService = AddressService();
   final _orderService = OrderService();
-  final _paymentService = PaymentService();
   final _promotionService = PromotionService();
   
   String? _selectedAddressId;
   bool _isLoading = false;
   bool _isLoadingAddress = true;
-  bool _isLoadingPaymentMethods = true;
   bool _isValidatingPromoCode = false;
-  
-  List<Map<String, dynamic>> _paymentMethods = [];
-  String? _selectedPaymentMethodId;
   
   // 프로모션 코드 관련
   Map<String, dynamic>? _appliedPromotion;
@@ -63,37 +58,6 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   void initState() {
     super.initState();
     _loadDefaultAddress();
-    _loadPaymentMethods();
-  }
-  
-  /// 결제수단 목록 로드
-  Future<void> _loadPaymentMethods() async {
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) {
-        setState(() => _isLoadingPaymentMethods = false);
-        return;
-      }
-
-      final methods = await _paymentService.getPaymentMethods();
-      setState(() {
-        _paymentMethods = methods;
-        _isLoadingPaymentMethods = false;
-        // 기본 결제수단 자동 선택
-        if (methods.isNotEmpty) {
-          final defaultMethod = methods.firstWhere(
-            (m) => m['is_default'] == true,
-            orElse: () => methods.first,
-          );
-          _selectedPaymentMethodId = defaultMethod['id'];
-        }
-      });
-    } catch (e) {
-      debugPrint('결제수단 로드 실패: $e');
-      if (mounted) {
-        setState(() => _isLoadingPaymentMethods = false);
-      }
-    }
   }
   
   @override
@@ -995,278 +959,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                         contentPadding: const EdgeInsets.all(16),
                       ),
                     ),
-                    const SizedBox(height: 32),
-                    
-                    // 결제수단
-                    const Text(
-                      '결제수단',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
                     const SizedBox(height: 16),
-                    
-                    // 결제수단 표시
-                    if (_isLoadingPaymentMethods)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(20.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else if (_paymentMethods.isEmpty)
-                      // 결제수단이 없을 때
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.red.shade100,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              color: Colors.red.shade700,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: RichText(
-                                text: TextSpan(
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
-                                  children: [
-                                    TextSpan(
-                                      text: '결제수단을 등록',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.red.shade700,
-                                      ),
-                                    ),
-                                    const TextSpan(text: '해주세요'),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                final result = await context.push<bool>('/profile/payment-methods/add');
-                                if (result == true && mounted) {
-                                  _loadPaymentMethods();
-                                }
-                              },
-                              style: TextButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: const Text(
-                                '등록하기',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.black87,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      // 결제수단이 있을 때
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFF00C896),
-                            width: 2,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF00C896).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.credit_card,
-                                color: Color(0xFF00C896),
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _paymentMethods.firstWhere(
-                                      (m) => m['id'] == _selectedPaymentMethodId,
-                                      orElse: () => _paymentMethods.first,
-                                    )['card_company'].toString(),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _paymentMethods.firstWhere(
-                                      (m) => m['id'] == _selectedPaymentMethodId,
-                                      orElse: () => _paymentMethods.first,
-                                    )['card_number'].toString(),
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                final result = await context.push('/profile/payment-methods');
-                                if (result == true && mounted) {
-                                  _loadPaymentMethods();
-                                }
-                              },
-                              style: TextButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C896).withOpacity(0.1),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: const Text(
-                                '변경',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF00C896),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-                    
-                    // 안내 메시지
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Text(
-                        '• 선택한 대표 결제수단으로 결제금액이 자동 결제됩니다.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // 토스페이 이벤트 배너
-                    InkWell(
-                      onTap: () {
-                        // TODO: 토스페이 이벤트 상세
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.grey.shade200,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            // 토스페이 로고
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0064FF),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.payment,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    '토스페이 첫 결제 이벤트',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade800,
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: const Text(
-                                          '13/14',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              size: 16,
-                              color: Colors.grey.shade400,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 24),
                     
                     // 프로모션 코드 섹션
@@ -1497,7 +1190,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                             '• 수선은 의류 상태에 따라 불가할 수 있으며, 이 경우 수선비는 청구되지 않습니다.',
                           ),
                           _buildNoticeItem(
-                            '• 수선 소요 기간은 평균 7~10일이며, 의류 상태에 따라 변동될 수 있습니다.',
+                            '• 수선 소요 기간은 약 5영업일이며, 의류 상태에 따라 변동될 수 있습니다.',
                           ),
                           _buildNoticeItem(
                             '• 의류 상태에 따라 추가 수선이 필요할 수 있으며, 사전 안내 후 진행됩니다.',
