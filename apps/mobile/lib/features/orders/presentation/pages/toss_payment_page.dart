@@ -664,31 +664,24 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
                   ),
                 ),
                 
-                // 토스페이먼츠 결제수단 위젯
+                // 토스페이먼츠 결제수단 위젯 - WebView 자체 스크롤 사용
                 Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        // 결제 방법 위젯
-                        PaymentMethodWidget(
-                          paymentWidget: _paymentWidget,
-                          selector: _paymentMethodSelector,
-                          onCustomPaymentMethodSelected: (paymentMethodKey) {
-                            debugPrint('결제수단 선택됨: $paymentMethodKey');
-                          },
-                          onCustomPaymentMethodUnselected: (paymentMethodKey) {
-                            debugPrint('결제수단 해제됨: $paymentMethodKey');
-                          },
-                        ),
-                        
-                        // 약관 동의 위젯
-                        AgreementWidget(
-                          paymentWidget: _paymentWidget,
-                          selector: _agreementSelector,
-                        ),
-                      ],
-                    ),
+                  child: PaymentMethodWidget(
+                    paymentWidget: _paymentWidget,
+                    selector: _paymentMethodSelector,
+                    onCustomPaymentMethodSelected: (paymentMethodKey) {
+                      debugPrint('결제수단 선택됨: $paymentMethodKey');
+                    },
+                    onCustomPaymentMethodUnselected: (paymentMethodKey) {
+                      debugPrint('결제수단 해제됨: $paymentMethodKey');
+                    },
                   ),
+                ),
+                
+                // 약관 동의 위젯 - 하단 고정
+                AgreementWidget(
+                  paymentWidget: _paymentWidget,
+                  selector: _agreementSelector,
                 ),
               ],
             ),
