@@ -437,9 +437,10 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
     final bothReady = inbound?.value.isInitialized == true && 
                       outbound?.value.isInitialized == true;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
         // 비디오 플레이어 영역
         AspectRatio(
           aspectRatio: 16 / 9,
@@ -659,6 +660,8 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
                       Text(
                         _errorMessage!,
                         textAlign: TextAlign.center,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 12,
@@ -774,7 +777,8 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
               ],
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
