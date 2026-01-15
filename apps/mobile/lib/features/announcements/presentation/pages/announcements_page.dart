@@ -131,10 +131,11 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('공지사항'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: Colors.white,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -35,7 +35,7 @@ import '../../features/profile/presentation/pages/payment_history_page.dart';
 import '../../features/profile/presentation/pages/receipt_page.dart';
 import '../../features/profile/presentation/pages/points_history_page.dart';
 import '../../features/profile/presentation/pages/invite_friends_page.dart';
-import '../../features/profile/presentation/pages/notices_page.dart';
+import '../../features/announcements/presentation/pages/announcements_page.dart';
 import '../../features/profile/presentation/pages/customer_service_page.dart';
 import '../../features/profile/presentation/pages/app_settings_page.dart';
 import '../../features/video/presentation/pages/comparison_video_player_page.dart';
@@ -439,11 +439,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'profile-invite-friends',
             builder: (context, state) => const InviteFriendsPage(),
           ),
-          // 공지사항
+          // 공지사항 (실제 DB 연동)
           GoRoute(
             path: 'notices',
             name: 'profile-notices',
-            builder: (context, state) => const NoticesPage(),
+            builder: (context, state) => const AnnouncementsPage(),
           ),
           // 고객센터
           GoRoute(

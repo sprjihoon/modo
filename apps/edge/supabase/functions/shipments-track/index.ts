@@ -74,8 +74,68 @@ Deno.serve(async (req) => {
 
       console.log('✅ 우체국 배송 상태 조회 성공:', epostStatus?.treatStusCd);
       
-      // 배송완료 상태(treatStusCd: '05') 감지 시 자동으로 DELIVERED 상태로 업데이트
-      if (epostStatus?.treatStusCd === '05' && shipment.status !== 'DELIVERED') {
+      // 어떤 송장번호로 조회했는지 확인 (수거 vs 배송)
+      const isPickupTracking = trackingNo === shipment.pickup_tracking_no;
+      const isDeliveryTracking = trackingNo === shipment.delivery_tracking_no;
+      
+      console.log('📋 송장번호 타입:', { isPickupTracking, isDeliveryTracking, trackingNo });
+      
+      // 주문 상태 조회
+      const { data: currentOrder } = await supabase
+        .from('orders')
+        .select('status')
+        .eq('id', shipment.order_id)
+        .single();
+      
+      const currentOrderStatus = currentOrder?.status || '';
+      
+      // 🚚 수거 송장 + 배송완료(05) = 입고 완료 (BOOKED → INBOUND)
+      if (isPickupTracking && epostStatus?.treatStusCd === '05' && currentOrderStatus === 'BOOKED') {
+        console.log('📦 수거 완료 감지! 상태를 INBOUND로 업데이트합니다.');
+        
+        // shipments 테이블 업데이트
+        const { error: shipmentUpdateError } = await supabase
+          .from('shipments')
+          .update({
+            status: 'PICKED_UP',
+            pickup_completed_at: new Date().toISOString(),
+          })
+          .eq('id', shipment.id);
+        
+        if (shipmentUpdateError) {
+          console.error('⚠️ shipments 상태 업데이트 실패:', shipmentUpdateError);
+        } else {
+          console.log('✅ shipments 상태가 PICKED_UP으로 업데이트되었습니다.');
+        }
+        
+        // orders 테이블도 INBOUND로 업데이트
+        const { error: orderUpdateError } = await supabase
+          .from('orders')
+          .update({
+            status: 'INBOUND',
+          })
+          .eq('id', shipment.order_id);
+        
+        if (orderUpdateError) {
+          console.error('⚠️ orders 상태 업데이트 실패:', orderUpdateError);
+        } else {
+          console.log('✅ orders 상태가 INBOUND로 업데이트되었습니다.');
+        }
+        
+        // 업데이트된 shipment 정보 다시 조회
+        const { data: updatedShipment } = await supabase
+          .from('shipments')
+          .select('*')
+          .eq('id', shipment.id)
+          .single();
+        
+        if (updatedShipment) {
+          shipment = updatedShipment;
+        }
+      }
+      
+      // 🚚 배송 송장 + 배송완료(05) = 배송 완료 (READY_TO_SHIP → DELIVERED)
+      if (isDeliveryTracking && epostStatus?.treatStusCd === '05' && currentOrderStatus === 'READY_TO_SHIP') {
         console.log('📦 배송완료 감지! 상태를 DELIVERED로 업데이트합니다.');
         
         // shipments 테이블 업데이트

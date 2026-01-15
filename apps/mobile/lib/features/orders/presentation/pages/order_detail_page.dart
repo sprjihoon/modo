@@ -199,6 +199,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       
       // 입고/출고 영상 URL 조회 (비동기, 별도 처리)
       _loadVideoUrls();
+      
+      // 🚚 배송/수거 완료 자동 체크
+      // - BOOKED: 수거 완료 시 → INBOUND로 변경
+      // - READY_TO_SHIP: 배송 완료 시 → DELIVERED로 변경
+      if (newStatus == 'BOOKED' || newStatus == 'READY_TO_SHIP') {
+        _checkDeliveryCompletion(newStatus);
+      }
     } catch (e, stackTrace) {
       debugPrint('❌ 주문 상세 조회 실패: $e');
       debugPrint('스택 트레이스: $stackTrace');
@@ -1999,6 +2006,68 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         ),
       ),
     );
+  }
+
+  /// 🚚 배송/수거 완료 자동 체크
+  /// - BOOKED 상태: 수거 송장으로 추적 → 수거 완료 시 INBOUND로 변경
+  /// - READY_TO_SHIP 상태: 배송 송장으로 추적 → 배송 완료 시 DELIVERED로 변경
+  Future<void> _checkDeliveryCompletion(String currentStatus) async {
+    try {
+      // 상태에 따라 적절한 송장번호 선택
+      String? trackingNo;
+      String trackingType;
+      
+      if (currentStatus == 'BOOKED') {
+        // 수거 중: 수거 송장번호 사용
+        trackingNo = _shipmentData?['pickup_tracking_no']?.toString();
+        trackingType = '수거';
+      } else {
+        // 배송 중: 배송 송장번호 사용
+        trackingNo = _shipmentData?['delivery_tracking_no']?.toString();
+        trackingType = '배송';
+      }
+      
+      if (trackingNo == null || trackingNo.isEmpty) {
+        debugPrint('⚠️ $trackingType 추적 체크: 송장번호 없음');
+        return;
+      }
+      
+      debugPrint('🚚 $trackingType 완료 자동 체크 시작: $trackingNo');
+      
+      // 배송 추적 API 호출 (이 API에서 완료 감지 시 자동으로 DB 업데이트)
+      final trackingData = await _orderService.trackShipment(trackingNo);
+      
+      // 완료 감지되었는지 확인
+      final epost = trackingData['epost'] as Map<String, dynamic>?;
+      final treatStusCd = epost?['treatStusCd'] as String?;
+      
+      if (treatStusCd == '05') {
+        debugPrint('✅ $trackingType 완료 감지됨! 상태 업데이트 완료');
+        
+        // 주문 데이터 새로고침 (상태 변경 반영)
+        if (mounted) {
+          await _loadOrderData(showLoading: false);
+          
+          // 상태에 따른 알림 메시지
+          final message = currentStatus == 'BOOKED' 
+              ? '📦 수거가 완료되어 입고되었습니다!'
+              : '🎉 배송이 완료되었습니다!';
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: const Color(0xFF00C896),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        debugPrint('📦 $trackingType 상태: ${epost?['treatStusNm'] ?? '확인 중'} (코드: $treatStusCd)');
+      }
+    } catch (e) {
+      debugPrint('⚠️ 추적 체크 실패 (무시): $e');
+      // 실패해도 무시 - 사용자 경험에 영향 없음
+    }
   }
 
   Future<void> _loadVideoUrls() async {

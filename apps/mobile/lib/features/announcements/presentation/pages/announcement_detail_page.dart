@@ -126,10 +126,11 @@ class _AnnouncementDetailPageState extends State<AnnouncementDetailPage> {
     final linkUrl = widget.announcement['link_url'] as String?;
 
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('공지사항'),
-        backgroundColor: _getTypeColor(type),
-        foregroundColor: Colors.white,
+        elevation: 0,
+        backgroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         child: Column(
