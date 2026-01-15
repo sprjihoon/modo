@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
@@ -11,6 +11,8 @@ export async function GET(
 
     console.log('📦 [API] 주문 상세 조회:', orderId);
 
+    const supabaseAdmin = getSupabaseAdmin();
+    
     // Get order with related data
     const { data: order, error } = await supabaseAdmin
       .from('orders')
@@ -50,18 +52,22 @@ export async function GET(
     let videos: any[] = [];
     
     if (trackingNumbers.length > 0) {
+      // .in()을 두 번 연속 사용하면 문제가 발생하므로
+      // 먼저 final_waybill_no로 필터링 후 JS에서 type 필터링
       const { data: videoData, error: videoError } = await supabaseAdmin
         .from('media')
         .select('*')
         .in('final_waybill_no', trackingNumbers)
-        .in('type', ['inbound_video', 'outbound_video'])
         .order('type')
         .order('sequence');
 
       if (videoError) {
         console.error('📹 [API] 영상 조회 실패:', videoError);
       } else {
-        videos = videoData || [];
+        // JavaScript에서 type 필터링
+        videos = (videoData || []).filter(
+          (v: any) => v.type === 'inbound_video' || v.type === 'outbound_video'
+        );
         console.log('📹 [API] 찾은 영상:', videos.length, '개');
       }
     }
