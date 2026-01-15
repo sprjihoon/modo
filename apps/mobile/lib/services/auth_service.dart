@@ -253,14 +253,26 @@ class AuthService {
   /// 로그아웃
   Future<void> signOut() async {
     try {
-      // 📊 로그아웃 액션 로그 기록 (로그아웃 전에 기록)
-      await _logService.log(
-        actionType: ActionType.LOGOUT,
-        metadata: {'logoutTime': DateTime.now().toIso8601String()},
-      );
+      // 📊 로그아웃 액션 로그 기록 (로그아웃 전에 기록, 실패해도 로그아웃 진행)
+      try {
+        await _logService.log(
+          actionType: ActionType.LOGOUT,
+          metadata: {'logoutTime': DateTime.now().toIso8601String()},
+        );
+      } catch (logError) {
+        print('⚠️ 로그아웃 로그 기록 실패 (무시됨): $logError');
+      }
       
-      await _supabase.auth.signOut();
+      // SignOutScope.local: 현재 디바이스에서만 로그아웃 (더 빠름)
+      await _supabase.auth.signOut(scope: SignOutScope.local);
+      
+      print('✅ 로그아웃 완료');
     } catch (e) {
+      print('❌ 로그아웃 실패: $e');
+      // 에러가 발생해도 로컬 세션은 클리어 시도
+      try {
+        await _supabase.auth.signOut(scope: SignOutScope.local);
+      } catch (_) {}
       throw Exception('로그아웃 실패: $e');
     }
   }

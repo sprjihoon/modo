@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/onboarding/presentation/pages/permission_onboarding_page.dart';
 import '../../features/auth/presentation/pages/signup_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/terms_page.dart';
@@ -51,6 +52,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/',
         name: 'splash',
         builder: (context, state) => const SplashPage(),
+      ),
+      
+      // 권한 온보딩 (첫 실행 시)
+      GoRoute(
+        path: '/permission-onboarding',
+        name: 'permission-onboarding',
+        builder: (context, state) => const PermissionOnboardingPage(),
       ),
       
       // Auth

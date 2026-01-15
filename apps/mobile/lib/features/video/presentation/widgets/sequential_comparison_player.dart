@@ -32,6 +32,7 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
   bool _isPlaying = false;
   bool _isLoading = false;
   bool _autoPlayCompleted = false; // 자동 순차 재생 완료 여부
+  String? _errorMessage; // 에러 메시지
 
   @override
   void initState() {
@@ -94,6 +95,13 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
     if (index >= widget.videoItems.length || !mounted || _isDisposed) return;
     
     try {
+      // 에러 상태 초기화
+      if (mounted) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+      
       // 이전 컨트롤러 정리
       await _disposeControllers();
       if (!mounted || _isDisposed) return;
@@ -104,8 +112,18 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
 
       if (inboundUrl == null || outboundUrl == null) {
         debugPrint('❌ 아이템 $index의 영상 URL이 없습니다');
+        if (mounted) {
+          setState(() {
+            _errorMessage = '영상 URL이 없습니다';
+            _isLoading = false;
+          });
+        }
         return;
       }
+
+      debugPrint('🎬 아이템 $index 초기화 시작');
+      debugPrint('📹 입고 URL: $inboundUrl');
+      debugPrint('📹 출고 URL: $outboundUrl');
 
       // 📦 캐싱: URL을 캐시된 로컬 경로로 변환
       if (VideoFeatureFlags.shouldUseCache) {
@@ -130,6 +148,7 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
           mixWithOthers: true,
           allowBackgroundPlayback: false,
         );
+        debugPrint('📱 iOS: mixWithOthers 옵션 활성화');
       } else {
         videoOptions = VideoPlayerOptions();
       }
@@ -138,6 +157,9 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
       // 캐시된 파일은 '/'로 시작하는 로컬 경로
       final bool isInboundLocal = inboundUrl.startsWith('/');
       final bool isOutboundLocal = outboundUrl.startsWith('/');
+      
+      debugPrint('📂 입고 소스: ${isInboundLocal ? 'LOCAL' : 'NETWORK'}');
+      debugPrint('📂 출고 소스: ${isOutboundLocal ? 'LOCAL' : 'NETWORK'}');
       
       final inbound = isInboundLocal
           ? VideoPlayerController.file(
@@ -161,20 +183,85 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
       _inboundController = inbound;
       _outboundController = outbound;
 
-      // 병렬 초기화
-      await Future.wait([
-        inbound.initialize(),
-        outbound.initialize(),
-      ]);
+      // 에러 리스너 추가 (초기화 전)
+      inbound.addListener(() {
+        if (inbound.value.hasError) {
+          debugPrint('❌ 입고 영상 에러: ${inbound.value.errorDescription}');
+          if (mounted && !_isDisposed) {
+            setState(() {
+              _errorMessage = '입고 영상 재생 오류: ${inbound.value.errorDescription}';
+              _isLoading = false;
+            });
+          }
+        }
+      });
+      outbound.addListener(() {
+        if (outbound.value.hasError) {
+          debugPrint('❌ 출고 영상 에러: ${outbound.value.errorDescription}');
+          if (mounted && !_isDisposed) {
+            setState(() {
+              _errorMessage = '출고 영상 재생 오류: ${outbound.value.errorDescription}';
+              _isLoading = false;
+            });
+          }
+        }
+      });
+
+      // 병렬 초기화 (타임아웃 추가)
+      debugPrint('⏳ 영상 초기화 중...');
+      try {
+        await Future.wait([
+          inbound.initialize(),
+          outbound.initialize(),
+        ]).timeout(const Duration(seconds: 30), onTimeout: () {
+          throw Exception('영상 초기화 타임아웃 (30초)');
+        });
+      } catch (initError) {
+        debugPrint('❌ 영상 초기화 실패: $initError');
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _errorMessage = '영상 로드 실패: $initError';
+            _isLoading = false;
+          });
+        }
+        return;
+      }
 
       if (!mounted || _isDisposed) {
         await _disposeControllers(); // 초기화 중 dispose된 경우 정리
         return;
       }
 
+      // 초기화 후 상태 확인
+      debugPrint('✅ 영상 초기화 완료');
+      debugPrint('📹 입고 - isInitialized: ${inbound.value.isInitialized}, hasError: ${inbound.value.hasError}');
+      debugPrint('📹 출고 - isInitialized: ${outbound.value.isInitialized}, hasError: ${outbound.value.hasError}');
+      debugPrint('📹 입고 duration: ${inbound.value.duration}');
+      debugPrint('📹 출고 duration: ${outbound.value.duration}');
+
+      // 에러 체크
+      if (inbound.value.hasError || outbound.value.hasError) {
+        final errorMsg = inbound.value.errorDescription ?? outbound.value.errorDescription ?? '알 수 없는 오류';
+        debugPrint('❌ 영상 에러 발생: $errorMsg');
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _errorMessage = '영상 재생 오류: $errorMsg';
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
       // Duration 및 속도 계산
       final inboundDuration = inbound.value.duration.inSeconds.toDouble();
       final outboundDuration = outbound.value.duration.inSeconds.toDouble();
+
+      // Duration이 0인 경우 체크 (HLS 스트림 로드 실패 가능성)
+      if (inboundDuration <= 0 || outboundDuration <= 0) {
+        debugPrint('⚠️ 영상 duration이 0입니다. HLS 스트림 로드 실패 가능성');
+        debugPrint('   입고: $inboundDuration초, 출고: $outboundDuration초');
+        // Duration이 0이어도 재생 시도 (일부 HLS는 duration이 늦게 로드됨)
+      }
 
       final result = AdaptiveDurationCalculator.calculate(
         inboundDuration: inboundDuration,
@@ -183,6 +270,8 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
 
       final inboundSpeed = result['inboundSpeed']!;
       final outboundSpeed = result['outboundSpeed']!;
+
+      debugPrint('⚡ 재생 속도 - 입고: ${inboundSpeed}x, 출고: ${outboundSpeed}x');
 
       // 재생 속도 설정
       await inbound.setPlaybackSpeed(inboundSpeed);
@@ -204,6 +293,7 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
       });
 
       // 재생 시작
+      debugPrint('▶️ 재생 시작');
       await _playBoth();
 
       // 재생 완료 대기 (더 긴 영상 기준)
@@ -213,7 +303,12 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
           ? inbound.value.duration
           : outbound.value.duration;
       
-      await Future.delayed(maxDuration);
+      // Duration이 0이면 기본 대기 시간 설정
+      final waitDuration = maxDuration.inMilliseconds > 0 
+          ? maxDuration 
+          : const Duration(seconds: 10);
+      
+      await Future.delayed(waitDuration);
       
       // 재생 완료 후 상태 업데이트
       if (mounted && !_isDisposed) {
@@ -221,10 +316,12 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
           _isPlaying = false;
         });
       }
-    } catch (e) {
-      debugPrint('아이템 $index 재생 실패: $e');
+    } catch (e, stackTrace) {
+      debugPrint('❌ 아이템 $index 재생 실패: $e');
+      debugPrint('📍 Stack trace: $stackTrace');
       if (mounted && !_isDisposed) {
         setState(() {
+          _errorMessage = '영상 재생 오류: $e';
           _isLoading = false;
         });
       }
@@ -511,7 +608,7 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
             ),
 
           // 로딩 오버레이
-          if (_isLoading && !_showIntro)
+          if (_isLoading && !_showIntro && _errorMessage == null)
             Container(
               color: Colors.black54,
               child: Center(
@@ -530,6 +627,61 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+          
+          // 에러 오버레이
+          if (_errorMessage != null)
+            Container(
+              color: Colors.black87,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Colors.redAccent,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        '영상을 재생할 수 없습니다',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _errorMessage = null;
+                            _isLoading = true;
+                          });
+                          _playItemAt(_currentIndex);
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('다시 시도'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

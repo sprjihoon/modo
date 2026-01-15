@@ -58,6 +58,10 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>수선 사진을 저장하기 위해 사진 라이브러리 접근이 필요합니다.</string>
 	
+	<!-- 푸시 알림 권한 -->
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>주문 상태 변경, 수선 완료 알림 등 중요한 정보를 받으시려면 알림을 허용해주세요.</string>
+	
 	<!-- 앱 URL 스킴 (토스페이먼츠 결제 후 앱으로 복귀) -->
 	<key>CFBundleURLTypes</key>
 	<array>
@@ -72,6 +76,27 @@
 			</array>
 		</dict>
 	</array>
+	
+	<!-- HLS 비디오 스트리밍을 위한 App Transport Security 설정 -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsArbitraryLoadsForMedia</key>
+		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>videodelivery.net</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<false/>
+			</dict>
+		</dict>
+	</dict>
 	
 	<!-- 토스페이먼츠 결제를 위한 외부 앱 스킴 -->
 	<key>LSApplicationQueriesSchemes</key>

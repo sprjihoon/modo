@@ -344,7 +344,7 @@ class ProfilePage extends ConsumerWidget {
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -355,7 +355,7 @@ class ProfilePage extends ConsumerWidget {
         content: const Text('로그아웃 하시겠습니까?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               '취소',
               style: TextStyle(color: Colors.grey.shade600),
@@ -363,23 +363,49 @@ class ProfilePage extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
+              
+              // 로딩 다이얼로그 표시
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
               
               try {
+                // 🔄 먼저 모든 auth 관련 provider를 invalidate
+                ref.invalidate(userProfileProvider);
+                ref.invalidate(currentUserProvider);
+                
                 final authService = ref.read(authServiceProvider);
                 await authService.signOut();
                 
+                // 상태가 확실히 업데이트되도록 짧은 딜레이
+                await Future.delayed(const Duration(milliseconds: 300));
+                
                 if (context.mounted) {
+                  // 로딩 다이얼로그 닫기
+                  Navigator.of(context, rootNavigator: true).pop();
+                  
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('로그아웃되었습니다'),
                       backgroundColor: Color(0xFF00C896),
                     ),
                   );
+                  
+                  // 로그인 페이지로 이동 (스택 완전 초기화)
                   context.go('/login');
                 }
               } catch (e) {
                 if (context.mounted) {
+                  // 로딩 다이얼로그 닫기
+                  Navigator.of(context, rootNavigator: true).pop();
+                  
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('로그아웃 실패: ${e.toString().replaceAll('Exception: ', '')}'),

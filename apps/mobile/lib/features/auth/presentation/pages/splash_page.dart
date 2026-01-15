@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/providers/auth_provider.dart';
 
 /// 스플래시 화면
@@ -23,6 +24,18 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     await Future.delayed(const Duration(seconds: 2));
     
     if (!mounted) return;
+    
+    // 첫 실행 여부 확인 (권한 온보딩)
+    final prefs = await SharedPreferences.getInstance();
+    final permissionOnboardingCompleted = prefs.getBool('permission_onboarding_completed') ?? false;
+    
+    if (!permissionOnboardingCompleted) {
+      // 첫 실행: 권한 온보딩으로 이동
+      if (mounted) {
+        context.go('/permission-onboarding');
+      }
+      return;
+    }
     
     // Supabase 인증 상태 확인
     final authService = ref.read(authServiceProvider);

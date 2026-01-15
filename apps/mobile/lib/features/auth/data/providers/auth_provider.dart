@@ -9,44 +9,55 @@ final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService();
 });
 
-/// 현재 사용자 Provider (Supabase Auth)
+/// 현재 사용자 Provider (Supabase Auth) - 실시간 auth 상태 감지
 final currentUserProvider = StreamProvider<User?>((ref) {
   final authService = ref.watch(authServiceProvider);
   return authService.authStateChanges.map((event) => event.session?.user);
 });
 
-/// 로그인 상태 Provider
+/// 로그인 상태 Provider - currentUserProvider 기반으로 실시간 반영
 final isLoggedInProvider = Provider<bool>((ref) {
-  final authService = ref.watch(authServiceProvider);
-  return authService.isLoggedIn;
+  final currentUserAsync = ref.watch(currentUserProvider);
+  return currentUserAsync.when(
+    data: (user) => user != null,
+    loading: () => false,
+    error: (_, __) => false,
+  );
 });
 
 /// 사용자 프로필 Provider (users 테이블에서 UserModel로 가져옴)
+/// currentUserProvider를 watch하여 auth 상태 변경 시 자동으로 다시 fetch
 final userProfileProvider = FutureProvider<UserModel?>((ref) async {
-  final authService = ref.watch(authServiceProvider);
-  final currentUser = authService.currentUser;
+  // currentUserProvider를 watch하여 auth 상태 변경 감지
+  final currentUserAsync = ref.watch(currentUserProvider);
   
-  if (currentUser == null) {
-    return null;
-  }
-  
-  try {
-    final supabase = Supabase.instance.client;
-    final response = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_id', currentUser.id)
-        .maybeSingle();
-    
-    if (response != null) {
-      return UserModel.fromJson(response);
-    }
-    
-    return null;
-  } catch (e) {
-    print('사용자 프로필 가져오기 실패: $e');
-    return null;
-  }
+  return currentUserAsync.when(
+    data: (user) async {
+      if (user == null) {
+        return null;
+      }
+      
+      try {
+        final supabase = Supabase.instance.client;
+        final response = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', user.id)
+            .maybeSingle();
+        
+        if (response != null) {
+          return UserModel.fromJson(response);
+        }
+        
+        return null;
+      } catch (e) {
+        print('사용자 프로필 가져오기 실패: $e');
+        return null;
+      }
+    },
+    loading: () => null,
+    error: (_, __) => null,
+  );
 });
 
 /// 사용자 역할 Provider (role만 추출)

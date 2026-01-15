@@ -373,27 +373,31 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                 top: BorderSide(color: Colors.grey.shade200),
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  onPressed: safeCurrentPage > 1
-                      ? () => setState(() => _currentPage = safeCurrentPage - 1)
-                      : null,
-                  icon: const Icon(Icons.chevron_left),
-                  color: const Color(0xFF00C896),
-                ),
-                const SizedBox(width: 16),
-                ..._buildPageNumbers(safeCurrentPage, totalPages),
-                const SizedBox(width: 16),
-                IconButton(
-                  onPressed: safeCurrentPage < totalPages
-                      ? () => setState(() => _currentPage = safeCurrentPage + 1)
-                      : null,
-                  icon: const Icon(Icons.chevron_right),
-                  color: const Color(0xFF00C896),
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: safeCurrentPage > 1
+                        ? () => setState(() => _currentPage = safeCurrentPage - 1)
+                        : null,
+                    icon: const Icon(Icons.chevron_left),
+                    color: const Color(0xFF00C896),
+                  ),
+                  const SizedBox(width: 8),
+                  ..._buildPageNumbers(safeCurrentPage, totalPages),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: safeCurrentPage < totalPages
+                        ? () => setState(() => _currentPage = safeCurrentPage + 1)
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                    color: const Color(0xFF00C896),
+                  ),
+                ],
+              ),
             ),
           ),
       ],

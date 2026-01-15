@@ -35,8 +35,7 @@ class ExtraChargeAlertBanner extends StatelessWidget {
     // extra_charge_data에서 가격 정보 추출
     final extraChargeData = orderData['extra_charge_data'] as Map<String, dynamic>?;
     final price = extraChargeData?['managerPrice'] as int? ?? 0;
-    // orderId is used for navigation via _navigateToPayment
-    final _ = orderData['id'] as String;
+    final orderId = orderData['id'] as String;
     final note = extraChargeData?['managerNote'] as String? ?? '추가 작업이 필요합니다';
 
     return Container(

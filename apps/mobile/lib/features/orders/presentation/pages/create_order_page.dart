@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../../services/permission_service.dart';
 
 /// 주문 생성 페이지
 class CreateOrderPage extends ConsumerStatefulWidget {
@@ -29,9 +30,31 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
     });
   }
 
-  /// 이미지 선택 (테스트용 - Mock 데이터)
+  /// 이미지 선택 (권한 요청 포함)
   Future<void> _pickImage(ImageSource source) async {
-      setState(() => _isLoading = true);
+    // 1. 권한 확인 및 요청
+    bool hasPermission = false;
+    if (source == ImageSource.camera) {
+      hasPermission = await PermissionService.requestCameraPermission(context);
+    } else {
+      hasPermission = await PermissionService.requestPhotosPermission(context);
+    }
+    
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(source == ImageSource.camera 
+              ? '카메라 권한이 필요합니다' 
+              : '사진 접근 권한이 필요합니다'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
 
     try {
       // TODO: 실제 이미지 선택 및 업로드 (Supabase Storage 설정 후)

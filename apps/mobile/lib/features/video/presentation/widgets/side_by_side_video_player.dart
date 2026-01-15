@@ -26,6 +26,7 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
   bool _showIntro = true;
   bool _isDisposed = false;
   bool _isPlaying = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -35,6 +36,10 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
 
   Future<void> _init() async {
     try {
+      debugPrint('🎬 영상 초기화 시작');
+      debugPrint('📹 입고 URL: ${widget.inboundVideoUrl}');
+      debugPrint('📹 출고 URL: ${widget.outboundVideoUrl}');
+      
       // iOS에서 동시 재생을 위한 옵션 설정
       // mixWithOthers: 다른 오디오/비디오와 동시 재생 허용
       // allowBackgroundPlayback: 백그라운드 재생 허용 (선택적)
@@ -44,6 +49,7 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
           mixWithOthers: true,
           allowBackgroundPlayback: false,
         );
+        debugPrint('📱 iOS: mixWithOthers 옵션 활성화');
       } else {
         videoOptions = VideoPlayerOptions();
       }
@@ -61,13 +67,61 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
       _inboundController = inbound;
       _outboundController = outbound;
 
-      // 병렬 초기화
-      await Future.wait([
-        inbound.initialize(),
-        outbound.initialize(),
-      ]);
+      // 에러 리스너 추가
+      inbound.addListener(() {
+        if (inbound.value.hasError && mounted && !_isDisposed) {
+          debugPrint('❌ 입고 영상 에러: ${inbound.value.errorDescription}');
+          setState(() {
+            _errorMessage = '입고 영상 재생 오류: ${inbound.value.errorDescription}';
+          });
+        }
+      });
+      outbound.addListener(() {
+        if (outbound.value.hasError && mounted && !_isDisposed) {
+          debugPrint('❌ 출고 영상 에러: ${outbound.value.errorDescription}');
+          setState(() {
+            _errorMessage = '출고 영상 재생 오류: ${outbound.value.errorDescription}';
+          });
+        }
+      });
+
+      // 병렬 초기화 (타임아웃 추가)
+      debugPrint('⏳ 영상 초기화 중...');
+      try {
+        await Future.wait([
+          inbound.initialize(),
+          outbound.initialize(),
+        ]).timeout(const Duration(seconds: 30), onTimeout: () {
+          throw Exception('영상 초기화 타임아웃 (30초)');
+        });
+      } catch (initError) {
+        debugPrint('❌ 영상 초기화 실패: $initError');
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _errorMessage = '영상 로드 실패: $initError';
+          });
+        }
+        return;
+      }
 
       if (!mounted || _isDisposed) return;
+
+      // 초기화 후 상태 확인
+      debugPrint('✅ 영상 초기화 완료');
+      debugPrint('📹 입고 - isInitialized: ${inbound.value.isInitialized}, hasError: ${inbound.value.hasError}');
+      debugPrint('📹 출고 - isInitialized: ${outbound.value.isInitialized}, hasError: ${outbound.value.hasError}');
+
+      // 에러 체크
+      if (inbound.value.hasError || outbound.value.hasError) {
+        final errorMsg = inbound.value.errorDescription ?? outbound.value.errorDescription ?? '알 수 없는 오류';
+        debugPrint('❌ 영상 에러 발생: $errorMsg');
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _errorMessage = '영상 재생 오류: $errorMsg';
+          });
+        }
+        return;
+      }
 
       // Duration 가져오기
       final inboundDuration = inbound.value.duration.inSeconds.toDouble();
@@ -75,6 +129,11 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
 
       debugPrint('📹 입고 영상 길이: $inboundDuration초');
       debugPrint('📹 출고 영상 길이: $outboundDuration초');
+
+      // Duration이 0인 경우 경고
+      if (inboundDuration <= 0 || outboundDuration <= 0) {
+        debugPrint('⚠️ 영상 duration이 0입니다. HLS 스트림 로드 확인 필요');
+      }
 
       // Adaptive Target Duration 계산
       final result = AdaptiveDurationCalculator.calculate(
@@ -112,10 +171,17 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
         setState(() {
           _showIntro = false;
         });
+        debugPrint('▶️ 재생 시작');
         await _playBoth();
       }),);
-    } catch (e) {
-      debugPrint('영상 초기화 실패: $e');
+    } catch (e, stackTrace) {
+      debugPrint('❌ 영상 초기화 실패: $e');
+      debugPrint('📍 Stack trace: $stackTrace');
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _errorMessage = '영상 초기화 오류: $e';
+        });
+      }
     }
   }
 
@@ -343,7 +409,7 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
             ),
 
           // 재생/일시정지 버튼
-          if (bothReady && !_showIntro)
+          if (bothReady && !_showIntro && _errorMessage == null)
             Center(
               child: GestureDetector(
                 onTap: () {
@@ -364,6 +430,60 @@ class _SideBySideVideoPlayerState extends State<SideBySideVideoPlayer> {
                     _isPlaying ? Icons.pause : Icons.play_arrow,
                     color: Colors.white,
                     size: 40,
+                  ),
+                ),
+              ),
+            ),
+          
+          // 에러 오버레이
+          if (_errorMessage != null)
+            Container(
+              color: Colors.black87,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Colors.redAccent,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        '영상을 재생할 수 없습니다',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _errorMessage = null;
+                          });
+                          _init();
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('다시 시도'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black87,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
