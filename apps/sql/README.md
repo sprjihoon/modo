@@ -126,7 +126,7 @@ supabase db push
 - `auth.uid()`를 통한 인증 확인
 
 ### 관리자 정책
-- `@admin.modusrepair.com` 이메일 도메인 체크
+- `@admin.modorepair.com` 이메일 도메인 체크
 - 모든 데이터 조회/수정 가능
 
 ### 예시
@@ -148,7 +148,7 @@ CREATE POLICY "Admins can view all orders"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 ```

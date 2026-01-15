@@ -33,7 +33,7 @@ CREATE POLICY "Admins can view all banners"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 
@@ -43,7 +43,7 @@ CREATE POLICY "Admins can insert banners"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 
@@ -53,7 +53,7 @@ CREATE POLICY "Admins can update banners"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 
@@ -63,7 +63,7 @@ CREATE POLICY "Admins can delete banners"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 ```

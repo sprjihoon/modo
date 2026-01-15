@@ -328,8 +328,8 @@ WHERE tablename = 'users' AND cmd = 'INSERT';
 UPDATE public.users
 SET role = 'CUSTOMER'
 WHERE role IS NULL OR role = 'WORKER'
-  AND email NOT LIKE '%@admin.modusrepair.com'
-  AND email NOT LIKE '%@manager.modusrepair.com';
+  AND email NOT LIKE '%@admin.modorepair.com'
+  AND email NOT LIKE '%@manager.modorepair.com';
 ```
 
 ---

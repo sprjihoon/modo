@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       // 1. users 테이블의 개인정보 익명화 (주문 기록은 보관)
       // UUID 기반으로 고유한 익명화 값 생성
       const userIdShort = userProfile.id.replace(/-/g, '').substring(0, 16);
-      const anonymizedEmail = `deleted_${userIdShort}@deleted.modusrepair.com`;
+      const anonymizedEmail = `deleted_${userIdShort}@deleted.modorepair.com`;
       const anonymizedName = '탈퇴한 사용자';
       // 전화번호도 UUID 기반으로 고유하게 생성 (중복 방지)
       const anonymizedPhone = `0100000${userIdShort.substring(0, 4)}`;

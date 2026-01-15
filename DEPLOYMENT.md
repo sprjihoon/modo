@@ -54,7 +54,7 @@ TOSS_SECRET_KEY=your_toss_secret_key
 
 ### 커스텀 도메인 추가
 1. Vercel 대시보드 → Settings → Domains
-2. 도메인 입력 (예: admin.modusrepair.com)
+2. 도메인 입력 (예: admin.modorepair.com)
 3. DNS 설정 안내에 따라 도메인 제공업체에서 설정:
 
 #### A 레코드 방식

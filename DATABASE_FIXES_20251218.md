@@ -25,15 +25,15 @@
 
 **Problem:**
 - The API endpoint `/api/admin/settings/contents` was returning 500 error
-- Admin user `admin@modusrepair.com` couldn't access the `app_contents` table
-- RLS policy was checking for emails ending with `@admin.modusrepair.com` but the actual admin email is `admin@modusrepair.com`
+- Admin user `admin@modorepair.com` couldn't access the `app_contents` table
+- RLS policy was checking for emails ending with `@admin.modorepair.com` but the actual admin email is `admin@modorepair.com`
 
 **Solution:**
 - Created migration `20251218141000_fix_app_contents_rls.sql`
 - Updated RLS policy to allow access for:
   - Users with `ADMIN` or `MANAGER` role
-  - Users with email ending in `@admin.modusrepair.com`
-  - Specifically the user `admin@modusrepair.com`
+  - Users with email ending in `@admin.modorepair.com`
+  - Specifically the user `admin@modorepair.com`
 
 ## Migration Status
 

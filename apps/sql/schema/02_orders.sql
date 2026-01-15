@@ -93,7 +93,7 @@ CREATE POLICY "Admins can view all orders"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 
@@ -104,7 +104,7 @@ CREATE POLICY "Admins can update all orders"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 

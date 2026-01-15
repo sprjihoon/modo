@@ -122,7 +122,7 @@ void main() async {
   
   runApp(
     const ProviderScope(
-      child: ModuRepairApp(),
+      child: ModoRepairApp(),
     ),
   );
 }

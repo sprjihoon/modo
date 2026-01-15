@@ -171,7 +171,7 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
           customerName: widget.customerName,
           customerEmail: widget.customerEmail,
           customerMobilePhone: widget.customerPhone,
-          appScheme: 'modurepair://', // iOS/Android 앱으로 복귀하기 위한 URL scheme
+          appScheme: 'modorepair://', // iOS/Android 앱으로 복귀하기 위한 URL scheme
         ),
       );
 

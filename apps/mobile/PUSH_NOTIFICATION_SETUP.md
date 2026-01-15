@@ -34,7 +34,7 @@
 1. Firebase Console > 프로젝트 설정 > **Android 앱 추가**
 2. **Android 패키지 이름** 입력:
    ```
-   com.modusrepair.mobile
+   com.modorepair.mobile
    ```
    (실제 패키지명은 `android/app/build.gradle`에서 확인)
 3. **google-services.json** 다운로드
@@ -48,7 +48,7 @@
 1. Firebase Console > 프로젝트 설정 > **iOS 앱 추가**
 2. **iOS 번들 ID** 입력:
    ```
-   com.modusrepair.mobile
+   com.modorepair.mobile
    ```
    (실제 번들 ID는 Xcode에서 확인)
 3. **GoogleService-Info.plist** 다운로드

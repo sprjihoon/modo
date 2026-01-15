@@ -141,7 +141,7 @@ void main() async {
     print('✅ media_kit 초기화 완료');
   }
   
-  runApp(const ProviderScope(child: ModuRepairApp()));
+  runApp(const ProviderScope(child: ModoRepairApp()));
 }
 ```
 

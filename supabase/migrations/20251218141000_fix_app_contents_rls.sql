@@ -2,7 +2,7 @@
 -- Fix app_contents RLS policy for admin access
 -- ============================================
 -- 작성일: 2025-12-18
--- 설명: admin@modusrepair.com 사용자가 app_contents에 접근할 수 있도록 RLS 정책 수정
+-- 설명: admin@modorepair.com 사용자가 app_contents에 접근할 수 있도록 RLS 정책 수정
 
 -- 기존 정책 삭제
 drop policy if exists "Allow admin full access" on app_contents;
@@ -15,8 +15,8 @@ create policy "Allow admin full access" on app_contents
       where auth_id = auth.uid()
       and (
         role in ('ADMIN', 'MANAGER')
-        or email like '%@admin.modusrepair.com'
-        or email = 'admin@modusrepair.com'
+        or email like '%@admin.modorepair.com'
+        or email = 'admin@modorepair.com'
       )
     )
   );
@@ -25,7 +25,7 @@ create policy "Allow admin full access" on app_contents
 do $$ 
 begin
   raise notice '✅ app_contents RLS 정책 수정 완료';
-  raise notice '   - admin@modusrepair.com 사용자 접근 허용';
+  raise notice '   - admin@modorepair.com 사용자 접근 허용';
   raise notice '   - ADMIN, MANAGER role 사용자 접근 허용';
 end $$;
 

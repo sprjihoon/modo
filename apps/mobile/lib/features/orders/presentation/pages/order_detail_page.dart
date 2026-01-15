@@ -830,7 +830,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                 subtitle: const Text('@모두리페어'),
                 onTap: () async {
                   Navigator.pop(context);
-                  final uri = Uri.parse('https://pf.kakao.com/_modurepair');
+                  final uri = Uri.parse('https://pf.kakao.com/_modorepair');
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri, mode: LaunchMode.externalApplication);
                   } else {
@@ -845,10 +845,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ListTile(
                 leading: const Icon(Icons.email, color: Colors.blue),
                 title: const Text('이메일 문의'),
-                subtitle: const Text('support@modurepair.com'),
+                subtitle: const Text('support@modorepair.com'),
                 onTap: () async {
                   Navigator.pop(context);
-                  final uri = Uri.parse('mailto:support@modurepair.com?subject=주문문의&body=주문번호: ${widget.orderId}');
+                  final uri = Uri.parse('mailto:support@modorepair.com?subject=주문문의&body=주문번호: ${widget.orderId}');
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri);
                   } else {

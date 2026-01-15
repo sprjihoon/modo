@@ -83,7 +83,7 @@ CREATE POLICY "Admins can manage all addresses"
     EXISTS (
       SELECT 1 FROM auth.users
       WHERE id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 

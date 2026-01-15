@@ -70,7 +70,7 @@ CREATE POLICY "Admins can view all point transactions"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 
@@ -82,7 +82,7 @@ CREATE POLICY "Admins can insert point transactions"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 
@@ -135,7 +135,7 @@ CREATE POLICY "Admins can manage point settings"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 

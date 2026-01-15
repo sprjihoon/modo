@@ -104,7 +104,7 @@ CREATE POLICY "Admins can manage promotion codes"
       SELECT 1 FROM auth.users
       WHERE id = auth.uid()
       AND (
-        email LIKE '%@admin.modusrepair.com'
+        email LIKE '%@admin.modorepair.com'
         OR true  -- 개발 중에는 모든 인증된 사용자에게 권한 부여
       )
     )

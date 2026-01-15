@@ -300,7 +300,7 @@ USING (
   EXISTS (
     SELECT 1 FROM users
     WHERE auth_id = auth.uid()
-    AND email LIKE '%@admin.modusrepair.com'
+    AND email LIKE '%@admin.modorepair.com'
   )
 );
 ```

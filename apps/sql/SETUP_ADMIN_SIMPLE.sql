@@ -3,7 +3,7 @@
 -- ============================================
 -- 사용법:
 -- 1. Supabase Dashboard > Authentication > Users에서 계정 생성
---    이메일: admin@modusrepair.com (또는 원하는 이메일)
+--    이메일: admin@modorepair.com (또는 원하는 이메일)
 --    비밀번호: 강력한 비밀번호 입력
 --    Auto Confirm User: ✅ 체크
 -- 2. 아래 SQL 실행 (이메일만 수정)
@@ -11,7 +11,7 @@
 
 DO $$
 DECLARE
-  v_admin_email TEXT := 'admin@modusrepair.com';  -- 👈 여기만 수정하세요!
+  v_admin_email TEXT := 'admin@modorepair.com';  -- 👈 여기만 수정하세요!
   v_auth_id UUID;
   v_user_exists BOOLEAN;
 BEGIN

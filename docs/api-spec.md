@@ -9,7 +9,7 @@ https://{project-id}.supabase.co/functions/v1
 
 ### Production
 ```
-https://api.modusrepair.com/v1
+https://api.modorepair.com/v1
 ```
 
 ## 🔐 인증

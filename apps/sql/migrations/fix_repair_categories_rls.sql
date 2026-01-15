@@ -1,7 +1,7 @@
 -- ============================================
 -- repair_categories RLS 정책 수정
--- 문제: 관리자 이메일 패턴이 '%@admin.modusrepair.com'으로 되어있어
---       실제 관리자 이메일 'admin@modusrepair.com'이 매칭되지 않음
+-- 문제: 관리자 이메일 패턴이 '%@admin.modorepair.com'으로 되어있어
+--       실제 관리자 이메일 'admin@modorepair.com'이 매칭되지 않음
 -- ============================================
 
 -- 기존 정책 삭제
@@ -15,7 +15,7 @@ CREATE POLICY "Anyone can view all repair categories"
   USING (true);
 
 -- 새 정책: 관리자만 메뉴 관리 가능 (INSERT, UPDATE, DELETE)
--- 이메일 패턴 수정: admin@modusrepair.com 또는 @modusrepair.com 도메인
+-- 이메일 패턴 수정: admin@modorepair.com 또는 @modorepair.com 도메인
 CREATE POLICY "Admins can manage repair categories"
   ON public.repair_categories
   FOR ALL

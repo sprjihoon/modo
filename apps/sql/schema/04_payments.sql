@@ -88,7 +88,7 @@ CREATE POLICY "Admins can view all payments"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 

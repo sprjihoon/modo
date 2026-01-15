@@ -5,8 +5,8 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 
 /// 모두의수선 메인 앱
-class ModuRepairApp extends ConsumerWidget {
-  const ModuRepairApp({super.key});
+class ModoRepairApp extends ConsumerWidget {
+  const ModoRepairApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

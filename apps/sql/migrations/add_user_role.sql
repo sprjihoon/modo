@@ -32,10 +32,10 @@ ADD COLUMN IF NOT EXISTS role user_role NOT NULL DEFAULT 'WORKER';
 CREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);
 
 -- 5. 기존 관리자 계정에 ADMIN 역할 부여
--- (@admin.modusrepair.com 이메일 도메인을 가진 사용자)
+-- (@admin.modorepair.com 이메일 도메인을 가진 사용자)
 UPDATE public.users 
 SET role = 'ADMIN'
-WHERE email LIKE '%@admin.modusrepair.com';
+WHERE email LIKE '%@admin.modorepair.com';
 
 -- 6. RLS 정책 수정: 역할 기반 접근 제어
 -- 기존 관리자 정책 삭제

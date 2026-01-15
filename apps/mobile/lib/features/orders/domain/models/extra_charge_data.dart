@@ -1,5 +1,3 @@
-import '../../../../core/enums/extra_charge_status.dart';
-
 /// 추가 과금 상세 데이터 모델
 class ExtraChargeData {
   /// 현장 상황 메모 (작업자 또는 관리자가 작성)

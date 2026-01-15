@@ -10,7 +10,7 @@
 ### Step 2: 관리자 계정 생성
 1. 우측 상단 **Add User** 버튼 클릭
 2. 입력:
-   - **Email**: `admin@modusrepair.com` (또는 원하는 이메일)
+   - **Email**: `admin@modorepair.com` (또는 원하는 이메일)
    - **Password**: `강력한비밀번호입력` (최소 6자)
    - **Auto Confirm User**: ✅ 체크 (이메일 확인 없이 즉시 활성화)
 3. **Create User** 클릭
@@ -21,7 +21,7 @@
 
 ```sql
 -- 방금 생성한 계정의 auth_id 확인
-SELECT id, email FROM auth.users WHERE email = 'admin@modusrepair.com';
+SELECT id, email FROM auth.users WHERE email = 'admin@modorepair.com';
 
 -- 결과에서 나온 id를 복사하여 아래 YOUR_AUTH_ID에 붙여넣기
 DO $$
@@ -37,7 +37,7 @@ BEGIN
   ELSE
     -- 없으면 새로 생성
     INSERT INTO public.users (auth_id, email, name, phone, role)
-    VALUES (v_auth_id, 'admin@modusrepair.com', '최고관리자', '010-0000-0000', 'ADMIN');
+    VALUES (v_auth_id, 'admin@modorepair.com', '최고관리자', '010-0000-0000', 'ADMIN');
     RAISE NOTICE '✅ 새로운 ADMIN 계정을 생성했습니다.';
   END IF;
 END $$;
@@ -45,7 +45,7 @@ END $$;
 
 ### Step 4: 로그인 테스트
 - 관리자 페이지: http://localhost:3000/login
-- 이메일: `admin@modusrepair.com`
+- 이메일: `admin@modorepair.com`
 - 비밀번호: 위에서 설정한 비밀번호
 
 ---
@@ -62,7 +62,7 @@ Supabase SQL Editor에서 아래 전체 스크립트 실행:
 DO $$
 DECLARE
   admin_auth_id UUID;
-  admin_email TEXT := 'admin@modusrepair.com';
+  admin_email TEXT := 'admin@modorepair.com';
   admin_password TEXT := 'AdminPassword123!';  -- 강력한 비밀번호로 변경하세요!
 BEGIN
   -- 1. 이미 존재하는 계정 확인
@@ -165,7 +165,7 @@ WHERE role = 'ADMIN';
   SELECT u.email, u.role, a.id as auth_id
   FROM public.users u
   JOIN auth.users a ON u.auth_id = a.id
-  WHERE u.email = 'admin@modusrepair.com';
+  WHERE u.email = 'admin@modorepair.com';
   ```
 - role이 'ADMIN'인지 확인
 

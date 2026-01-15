@@ -184,7 +184,7 @@ export async function getCustomerStats() {
     .from('users')
     .select('*', { count: 'exact', head: true })
     .eq('role', 'CUSTOMER')
-    .like('email', 'deleted_%@deleted.modurepair.com');
+    .like('email', 'deleted_%@deleted.modorepair.com');
 
   if (deletedError) {
     console.warn('탈퇴 회원 수 조회 실패:', deletedError);

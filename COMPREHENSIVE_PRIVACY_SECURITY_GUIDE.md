@@ -417,7 +417,7 @@ if (isAccessDenied) {
 
 ### Q2: 관리자가 모든 데이터에 접근할 수 있는데 안전한가요?
 **A**: 관리자 계정은 엄격하게 관리되어야 합니다.
-- 관리자 이메일 도메인 제한 (`@admin.modusrepair.com`)
+- 관리자 이메일 도메인 제한 (`@admin.modorepair.com`)
 - 관리자 활동 로깅 필수
 - 2FA 사용 권장
 - 정기적인 권한 검토
@@ -439,7 +439,7 @@ if (isAccessDenied) {
 ## 📞 문의 및 보고
 
 ### 보안 취약점 발견 시
-- **긴급**: security@modusrepair.com (가상 이메일)
+- **긴급**: security@modorepair.com (가상 이메일)
 - **일반**: GitHub Issues (보안 관련 이슈는 Private로 생성)
 
 ### 질문 및 제안

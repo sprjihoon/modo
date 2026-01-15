@@ -48,7 +48,7 @@
 - [ ] RLS 활성화 확인 (모든 테이블)
 
 ### 관리자 계정
-- [ ] `admin@admin.modusrepair.com` 계정 생성
+- [ ] `admin@admin.modorepair.com` 계정 생성
 - [ ] `users` 테이블에 데이터 추가
 - [ ] 관리자 권한 확인
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
-import '../../../../services/auth_service.dart';
 import '../../data/providers/auth_provider.dart';
 
 /// 로그인 화면

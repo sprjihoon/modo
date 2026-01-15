@@ -112,7 +112,7 @@ Dashboard → SQL Editor → New Query
 Authentication → Users → Add User
 
 ```
-Email: admin@admin.modusrepair.com
+Email: admin@admin.modorepair.com
 Password: (강력한 비밀번호)
 Auto Confirm: ON
 ```
@@ -123,8 +123,8 @@ Auto Confirm: ON
 -- 관리자 role 설정 (users 테이블에 데이터 추가)
 INSERT INTO public.users (auth_id, email, name, phone)
 VALUES (
-  (SELECT id FROM auth.users WHERE email = 'admin@admin.modusrepair.com'),
-  'admin@admin.modusrepair.com',
+  (SELECT id FROM auth.users WHERE email = 'admin@admin.modorepair.com'),
+  'admin@admin.modorepair.com',
   '관리자',
   '010-0000-0000'
 );
@@ -255,7 +255,7 @@ npm run dev
       "client_info": {
         "mobilesdk_app_id": "1:123456789:android:abc123",
         "android_client_info": {
-          "package_name": "com.modusrepair.app"
+          "package_name": "com.modorepair.app"
         }
       },
       "oauth_client": [],

@@ -33,7 +33,7 @@ CREATE POLICY "Admins can view all banners"
     EXISTS (
       SELECT 1 FROM auth.users  -- ❌ 문제: 일반 사용자가 접근할 수 없는 테이블
       WHERE id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 ```
@@ -136,7 +136,7 @@ CREATE POLICY "Admins can view all banners"
     EXISTS (
       SELECT 1 FROM public.users  -- ✅ 수정: public.users 사용
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 ```

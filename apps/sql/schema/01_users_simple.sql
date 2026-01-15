@@ -65,7 +65,7 @@ CREATE POLICY "Admins can view all users"
     EXISTS (
       SELECT 1 FROM auth.users
       WHERE id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 
@@ -76,7 +76,7 @@ CREATE POLICY "Admins can update all users"
     EXISTS (
       SELECT 1 FROM auth.users
       WHERE id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 

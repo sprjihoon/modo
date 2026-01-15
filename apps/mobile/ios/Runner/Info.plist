@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Modu Repair</string>
+	<string>Modo Repair</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -65,10 +65,10 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.example.moduRepair</string>
+			<string>com.example.modoRepair</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>modurepair</string>
+				<string>modorepair</string>
 			</array>
 		</dict>
 	</array>

@@ -16,7 +16,7 @@ INSERT INTO public.company_info (
   '2024-서울강남-0000',
   '서울특별시 강남구 테헤란로 123',
   '1588-0000',
-  'help@modusrepair.com',
+  'help@modorepair.com',
   '김철수',
   '모두의수선',
   '모두의 수선'

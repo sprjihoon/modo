@@ -32,8 +32,8 @@ COMMENT ON COLUMN public.users.role IS '사용자 역할: CUSTOMER(고객), ADMI
 UPDATE public.users
 SET role = 'CUSTOMER'
 WHERE (role = 'WORKER' OR role IS NULL)
-  AND email NOT LIKE '%@admin.modusrepair.com'
-  AND email NOT LIKE '%@manager.modusrepair.com';
+  AND email NOT LIKE '%@admin.modorepair.com'
+  AND email NOT LIKE '%@manager.modorepair.com';
 
 -- 업데이트된 레코드 수 출력
 DO $$
@@ -89,12 +89,12 @@ COMMENT ON FUNCTION auto_create_user_profile IS '회원가입 시 자동으로 p
 -- (관리자 이메일 도메인을 가진 사용자는 자동으로 ADMIN role 부여)
 UPDATE public.users
 SET role = 'ADMIN'
-WHERE email LIKE '%@admin.modusrepair.com'
+WHERE email LIKE '%@admin.modorepair.com'
   AND role != 'ADMIN';
 
 UPDATE public.users
 SET role = 'MANAGER'
-WHERE email LIKE '%@manager.modusrepair.com'
+WHERE email LIKE '%@manager.modorepair.com'
   AND role != 'MANAGER'
   AND role != 'ADMIN';
 
@@ -128,8 +128,8 @@ BEGIN
   RAISE NOTICE '🔒 보안 설정:';
   RAISE NOTICE '   - 기본 role: CUSTOMER (고객)';
   RAISE NOTICE '   - 회원가입 시 자동으로 CUSTOMER role 부여';
-  RAISE NOTICE '   - 관리자 이메일 (@admin.modusrepair.com): ADMIN';
-  RAISE NOTICE '   - 매니저 이메일 (@manager.modusrepair.com): MANAGER';
+  RAISE NOTICE '   - 관리자 이메일 (@admin.modorepair.com): ADMIN';
+  RAISE NOTICE '   - 매니저 이메일 (@manager.modorepair.com): MANAGER';
   RAISE NOTICE '';
   RAISE NOTICE '⚠️ 중요: 이 마이그레이션을 add_comprehensive_rls_privacy_all_tables.sql보다 먼저 실행하세요!';
   RAISE NOTICE '═══════════════════════════════════════════════════════';

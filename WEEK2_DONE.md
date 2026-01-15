@@ -290,7 +290,7 @@ CREATE POLICY "Admins can view all orders"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 
@@ -301,7 +301,7 @@ CREATE POLICY "Admins can update all orders"
     EXISTS (
       SELECT 1 FROM public.users
       WHERE auth_id = auth.uid()
-      AND email LIKE '%@admin.modusrepair.com'
+      AND email LIKE '%@admin.modorepair.com'
     )
   );
 ```
@@ -415,7 +415,7 @@ curl -X POST https://xxx.supabase.co/functions/v1/videos-upload \
 
 ```sql
 -- Admin 계정으로 테스트
--- 1. admin@admin.modusrepair.com 계정 생성
+-- 1. admin@admin.modorepair.com 계정 생성
 -- 2. 모든 주문 조회 가능 확인
 SELECT COUNT(*) FROM orders; -- 전체 주문 수
 

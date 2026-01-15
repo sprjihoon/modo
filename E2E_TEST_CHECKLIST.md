@@ -176,7 +176,7 @@ WHERE s.tracking_no = '{{TRACKING_NO}}';
 #### Admin 권한 테스트
 
 ```sql
--- Admin 계정 (admin@admin.modusrepair.com)으로 로그인 후
+-- Admin 계정 (admin@admin.modorepair.com)으로 로그인 후
 
 -- 모든 주문 조회 가능
 SELECT COUNT(*) FROM orders;
@@ -268,7 +268,7 @@ WHERE user_id != '{{MY_USER_ID}}';
 #### Admin Web
 
 **주문 관리**:
-1. 로그인 (admin@admin.modusrepair.com)
+1. 로그인 (admin@admin.modorepair.com)
 2. 대시보드 → 주문 통계
 3. 주문 목록 → 검색/필터
 4. 주문 상세 → tracking_no 확인

@@ -348,7 +348,7 @@ flutter run
 
 보안 관련 문의나 버그 발견 시:
 - 이슈 등록: [GitHub Issues](your-repo-issues-url)
-- 이메일: security@modusrepair.com (예시)
+- 이메일: security@modorepair.com (예시)
 
 ---
 
