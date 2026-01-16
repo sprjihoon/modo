@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../features/auth/domain/models/user_model.dart';
 import '../core/enums/user_role.dart';
 import '../core/enums/action_type.dart';
@@ -191,16 +193,111 @@ class AuthService {
     }
   }
 
-  /// 소셜 로그인 (Google)
+  /// 소셜 로그인 (Google) - Firebase Auth 사용
   Future<bool> signInWithGoogle() async {
     try {
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'io.flutter.app://',
+      print('🔐 Google 로그인 시작');
+      
+      // 1. Google Sign In 시작
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
       );
+      
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        print('⚠️ Google 로그인 취소됨');
+        return false;
+      }
+      
+      print('✅ Google 계정 선택: ${googleUser.email}');
+      
+      // 2. Google 인증 토큰 가져오기
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      // 3. Firebase Auth로 로그인
+      final credential = firebase_auth.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      
+      final firebase_auth.UserCredential firebaseUser = 
+          await firebase_auth.FirebaseAuth.instance.signInWithCredential(credential);
+      
+      print('✅ Firebase 로그인 성공: ${firebaseUser.user?.email}');
+      
+      // 4. Supabase에도 로그인 (ID Token 사용)
+      if (googleAuth.idToken != null) {
+        try {
+          final response = await _supabase.auth.signInWithIdToken(
+            provider: OAuthProvider.google,
+            idToken: googleAuth.idToken!,
+            accessToken: googleAuth.accessToken,
+          );
+          
+          print('✅ Supabase 로그인 성공: ${response.user?.email}');
+          
+          // 5. Supabase users 테이블에 프로필 생성/업데이트
+          if (response.user != null) {
+            await _createOrUpdateGoogleUserProfile(
+              authId: response.user!.id,
+              email: googleUser.email,
+              name: googleUser.displayName ?? '사용자',
+            );
+          }
+        } catch (supabaseError) {
+          print('⚠️ Supabase 로그인 실패 (Firebase만 사용): $supabaseError');
+          // Firebase 로그인은 성공했으므로 계속 진행
+        }
+      }
+      
+      // 📊 로그인 액션 로그 기록
+      await _logService.log(
+        actionType: ActionType.LOGIN,
+        metadata: {
+          'provider': 'google',
+          'email': googleUser.email,
+          'loginTime': DateTime.now().toIso8601String(),
+        },
+      );
+      
       return true;
     } catch (e) {
+      print('❌ Google 로그인 실패: $e');
       throw Exception('구글 로그인 실패: $e');
+    }
+  }
+  
+  /// Google 사용자 프로필 생성 또는 업데이트
+  Future<void> _createOrUpdateGoogleUserProfile({
+    required String authId,
+    required String email,
+    required String name,
+  }) async {
+    try {
+      // 기존 프로필 확인
+      final existingProfile = await _supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', authId)
+          .maybeSingle();
+      
+      if (existingProfile != null) {
+        // 기존 사용자 - 업데이트
+        print('✅ 기존 Google 사용자 프로필 확인됨');
+      } else {
+        // 신규 사용자 - 프로필 생성
+        await _supabase.from('users').insert({
+          'auth_id': authId,
+          'email': email,
+          'name': name,
+          'role': 'CUSTOMER',
+        });
+        print('✅ 신규 Google 사용자 프로필 생성됨');
+      }
+    } catch (e) {
+      print('⚠️ Google 사용자 프로필 처리 실패: $e');
+      // 프로필 생성 실패해도 로그인은 성공 처리
     }
   }
 

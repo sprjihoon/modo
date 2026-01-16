@@ -75,6 +75,17 @@
 				<string>modorepair</string>
 			</array>
 		</dict>
+		<!-- Google Sign-In URL Scheme -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.googleusercontent.apps.897539440647-043lh9p63dca7dnittq80kl2c4fp1fo3</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.897539440647-043lh9p63dca7dnittq80kl2c4fp1fo3</string>
+			</array>
+		</dict>
 	</array>
 	
 	<!-- HLS 비디오 스트리밍을 위한 App Transport Security 설정 -->
