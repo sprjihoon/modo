@@ -850,6 +850,16 @@ Deno.serve(async (req) => {
     const pickupTrackingNo = epostResponse.regiNo;
     const labelUrl = `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${pickupTrackingNo}`;
     const pickupDate = epostResponse.resDate.substring(0, 8); // YYYYMMDD
+    
+    // 🗓️ 수거 예정일을 Date 형식으로 변환 (DB 저장용)
+    const pickupScheduledDate = pickupDate 
+      ? `${pickupDate.substring(0, 4)}-${pickupDate.substring(4, 6)}-${pickupDate.substring(6, 8)}`
+      : null;
+    
+    console.log('📅 수거 예정일:', {
+      pickupDate,           // YYYYMMDD
+      pickupScheduledDate,  // YYYY-MM-DD
+    });
 
     // 송장 정보를 DB에 저장 (insert 또는 update)
     console.log('💾 shipments 테이블 저장 시도:', {
@@ -980,6 +990,7 @@ Deno.serve(async (req) => {
           status: 'BOOKED',
           carrier: 'EPOST',
           pickup_requested_at: new Date().toISOString(),
+          pickup_scheduled_date: pickupScheduledDate, // 🗓️ 수거 예정일 (D-1, 당일 알림용)
           delivery_info: deliveryInfoData, // notifyMsg와 도서산간 정보 포함
           tracking_events: [{
             timestamp: new Date().toISOString(),
@@ -1020,6 +1031,7 @@ Deno.serve(async (req) => {
           status: 'BOOKED',
           carrier: 'EPOST',
           pickup_requested_at: new Date().toISOString(),
+          pickup_scheduled_date: pickupScheduledDate, // 🗓️ 수거 예정일 (D-1, 당일 알림용)
           delivery_info: deliveryInfoData, // notifyMsg와 도서산간 정보 포함
           tracking_events: [{
             timestamp: new Date().toISOString(),
