@@ -82,6 +82,7 @@ Deno.serve(async (req) => {
     if (reminderType === 'D-1' || reminderType === 'ALL') {
       console.log('📦 D-1 알림 대상 조회 중... (내일:', tomorrowStr, ')');
       
+      // 단순 조인으로 변경 (중첩 조인 문제 해결)
       const { data: d1Targets, error: d1Error } = await supabase
         .from('shipments')
         .select(`
@@ -92,11 +93,7 @@ Deno.serve(async (req) => {
           customer_name,
           pickup_address,
           orders!inner (
-            user_id,
-            users!inner (
-              id,
-              fcm_token
-            )
+            user_id
           )
         `)
         .eq('pickup_scheduled_date', tomorrowStr)
@@ -111,7 +108,17 @@ Deno.serve(async (req) => {
         for (const target of d1Targets || []) {
           try {
             const userId = (target.orders as any)?.user_id;
-            const fcmToken = (target.orders as any)?.users?.fcm_token;
+            
+            // user의 fcm_token 별도 조회
+            let fcmToken: string | null = null;
+            if (userId) {
+              const { data: userData } = await supabase
+                .from('users')
+                .select('fcm_token')
+                .eq('id', userId)
+                .single();
+              fcmToken = userData?.fcm_token || null;
+            }
 
             // 1. notifications 테이블에 알림 생성
             const { error: notifError } = await supabase
@@ -122,7 +129,7 @@ Deno.serve(async (req) => {
                 type: 'pickup_reminder',
                 title: '📦 내일 수거 예정',
                 body: `${formatKoreanDate(tomorrowStr)} 의류 수거가 예정되어 있습니다. 의류를 준비해주세요!`,
-                data: {
+                metadata: {
                   tracking_no: target.tracking_no,
                   pickup_date: target.pickup_scheduled_date,
                   reminder_type: 'D-1',
@@ -175,6 +182,7 @@ Deno.serve(async (req) => {
     if (reminderType === 'TODAY' || reminderType === 'ALL') {
       console.log('🚚 당일 알림 대상 조회 중... (오늘:', today, ')');
       
+      // 단순 조인으로 변경 (중첩 조인 문제 해결)
       const { data: todayTargets, error: todayError } = await supabase
         .from('shipments')
         .select(`
@@ -185,11 +193,7 @@ Deno.serve(async (req) => {
           customer_name,
           pickup_address,
           orders!inner (
-            user_id,
-            users!inner (
-              id,
-              fcm_token
-            )
+            user_id
           )
         `)
         .eq('pickup_scheduled_date', today)
@@ -204,7 +208,17 @@ Deno.serve(async (req) => {
         for (const target of todayTargets || []) {
           try {
             const userId = (target.orders as any)?.user_id;
-            const fcmToken = (target.orders as any)?.users?.fcm_token;
+            
+            // user의 fcm_token 별도 조회
+            let fcmToken: string | null = null;
+            if (userId) {
+              const { data: userData } = await supabase
+                .from('users')
+                .select('fcm_token')
+                .eq('id', userId)
+                .single();
+              fcmToken = userData?.fcm_token || null;
+            }
 
             // 1. notifications 테이블에 알림 생성
             const { error: notifError } = await supabase
@@ -215,7 +229,7 @@ Deno.serve(async (req) => {
                 type: 'pickup_today',
                 title: '🚚 오늘 수거일입니다',
                 body: '택배기사님이 방문 예정입니다. 문 앞에 의류를 준비해주세요!',
-                data: {
+                metadata: {
                   tracking_no: target.tracking_no,
                   pickup_date: target.pickup_scheduled_date,
                   reminder_type: 'TODAY',
