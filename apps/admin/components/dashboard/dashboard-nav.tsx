@@ -23,6 +23,7 @@ import {
   DollarSign,
   Activity,
   Bell,
+  MessageSquareText,
 } from "lucide-react";
 
 const navItems = [
@@ -95,6 +96,11 @@ const navItems = [
     title: "공지사항 관리",
     href: "/dashboard/notifications/announcements",
     icon: Bell,
+  },
+  {
+    title: "알림 템플릿",
+    href: "/dashboard/notifications/templates",
+    icon: MessageSquareText,
   },
   {
     title: "작업 내역",
