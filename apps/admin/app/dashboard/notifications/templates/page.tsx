@@ -100,6 +100,8 @@ export default function NotificationTemplatesPage() {
         return '추가 과금'
       case 'announcement':
         return '공지사항'
+      case 'pickup_reminder':
+        return '수거 알림'
       default:
         return category
     }

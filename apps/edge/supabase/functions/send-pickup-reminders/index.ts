@@ -39,6 +39,23 @@ function formatKoreanDate(dateStr: string): string {
   return `${parseInt(month)}월 ${parseInt(day)}일`;
 }
 
+// 템플릿 변수 치환 함수
+function replaceTemplateVariables(template: string, variables: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+  }
+  return result;
+}
+
+interface NotificationTemplate {
+  id: string;
+  template_key: string;
+  title: string;
+  body: string;
+  is_active: boolean;
+}
+
 Deno.serve(async (req) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
@@ -78,8 +95,41 @@ Deno.serve(async (req) => {
       today: { sent: 0, failed: 0, targets: [] as string[] },
     };
 
+    // 📋 알림 템플릿 조회
+    const { data: templates } = await supabase
+      .from('notification_templates')
+      .select('template_key, title, body, is_active')
+      .in('template_key', ['pickup_reminder_d1', 'pickup_reminder_today']);
+
+    const templateMap: Record<string, NotificationTemplate> = {};
+    for (const t of templates || []) {
+      templateMap[t.template_key] = t;
+    }
+
+    // 기본 템플릿 (DB에 없을 경우 사용)
+    const defaultD1Template = {
+      title: '📦 내일 수거 예정',
+      body: '{{pickup_date}} 의류 수거가 예정되어 있습니다. 의류를 준비해주세요!',
+      is_active: true,
+    };
+    const defaultTodayTemplate = {
+      title: '🚚 오늘 수거일입니다',
+      body: '택배기사님이 방문 예정입니다. 문 앞에 의류를 준비해주세요!',
+      is_active: true,
+    };
+
+    const d1Template = templateMap['pickup_reminder_d1'] || defaultD1Template;
+    const todayTemplate = templateMap['pickup_reminder_today'] || defaultTodayTemplate;
+
+    console.log('📋 템플릿 로드:', {
+      d1: d1Template.title,
+      today: todayTemplate.title,
+      d1Active: d1Template.is_active,
+      todayActive: todayTemplate.is_active,
+    });
+
     // ===== D-1 알림 (내일 수거 예정) =====
-    if (reminderType === 'D-1' || reminderType === 'ALL') {
+    if ((reminderType === 'D-1' || reminderType === 'ALL') && d1Template.is_active) {
       console.log('📦 D-1 알림 대상 조회 중... (내일:', tomorrowStr, ')');
       
       // 단순 조인으로 변경 (중첩 조인 문제 해결)
@@ -120,6 +170,11 @@ Deno.serve(async (req) => {
               fcmToken = userData?.fcm_token || null;
             }
 
+            // 템플릿 변수 치환
+            const pickupDateStr = formatKoreanDate(tomorrowStr);
+            const d1Title = replaceTemplateVariables(d1Template.title, { pickup_date: pickupDateStr });
+            const d1Body = replaceTemplateVariables(d1Template.body, { pickup_date: pickupDateStr });
+
             // 1. notifications 테이블에 알림 생성
             const { error: notifError } = await supabase
               .from('notifications')
@@ -127,8 +182,8 @@ Deno.serve(async (req) => {
                 user_id: userId,
                 order_id: target.order_id,
                 type: 'pickup_reminder',
-                title: '📦 내일 수거 예정',
-                body: `${formatKoreanDate(tomorrowStr)} 의류 수거가 예정되어 있습니다. 의류를 준비해주세요!`,
+                title: d1Title,
+                body: d1Body,
                 metadata: {
                   tracking_no: target.tracking_no,
                   pickup_date: target.pickup_scheduled_date,
@@ -146,8 +201,8 @@ Deno.serve(async (req) => {
             if (fcmToken) {
               try {
                 await sendFCMNotification(fcmToken, {
-                  title: '📦 내일 수거 예정',
-                  body: `${formatKoreanDate(tomorrowStr)} 의류 수거가 예정되어 있습니다. 의류를 준비해주세요!`,
+                  title: d1Title,
+                  body: d1Body,
                   data: {
                     order_id: target.order_id,
                     tracking_no: target.tracking_no,
@@ -179,7 +234,7 @@ Deno.serve(async (req) => {
     }
 
     // ===== 당일 알림 (오늘 수거 예정) =====
-    if (reminderType === 'TODAY' || reminderType === 'ALL') {
+    if ((reminderType === 'TODAY' || reminderType === 'ALL') && todayTemplate.is_active) {
       console.log('🚚 당일 알림 대상 조회 중... (오늘:', today, ')');
       
       // 단순 조인으로 변경 (중첩 조인 문제 해결)
@@ -220,6 +275,10 @@ Deno.serve(async (req) => {
               fcmToken = userData?.fcm_token || null;
             }
 
+            // 템플릿 사용 (당일 알림은 변수 없음)
+            const todayTitle = todayTemplate.title;
+            const todayBody = todayTemplate.body;
+
             // 1. notifications 테이블에 알림 생성
             const { error: notifError } = await supabase
               .from('notifications')
@@ -227,8 +286,8 @@ Deno.serve(async (req) => {
                 user_id: userId,
                 order_id: target.order_id,
                 type: 'pickup_today',
-                title: '🚚 오늘 수거일입니다',
-                body: '택배기사님이 방문 예정입니다. 문 앞에 의류를 준비해주세요!',
+                title: todayTitle,
+                body: todayBody,
                 metadata: {
                   tracking_no: target.tracking_no,
                   pickup_date: target.pickup_scheduled_date,
@@ -246,8 +305,8 @@ Deno.serve(async (req) => {
             if (fcmToken) {
               try {
                 await sendFCMNotification(fcmToken, {
-                  title: '🚚 오늘 수거일입니다',
-                  body: '택배기사님이 방문 예정입니다. 문 앞에 의류를 준비해주세요!',
+                  title: todayTitle,
+                  body: todayBody,
                   data: {
                     order_id: target.order_id,
                     tracking_no: target.tracking_no,
