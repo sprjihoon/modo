@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart' as provider_pkg;
 import 'package:supabase_flutter/supabase_flutter.dart';
 // 🚀 Video Processing Improvements
 import 'package:media_kit/media_kit.dart';
 
 import 'app.dart';
+import 'features/orders/providers/extra_charge_provider.dart';
 import 'core/config/supabase_config.dart';
 import 'core/config/feature_flags.dart';
 import 'services/network_monitor_service.dart';
@@ -121,8 +123,14 @@ void main() async {
   // ============================================
   
   runApp(
-    const ProviderScope(
-      child: ModoRepairApp(),
+    // provider 패키지의 MultiProvider (ExtraChargeProvider 등)
+    provider_pkg.MultiProvider(
+      providers: [
+        provider_pkg.ChangeNotifierProvider(create: (_) => ExtraChargeProvider()),
+      ],
+      child: const ProviderScope(
+        child: ModoRepairApp(),
+      ),
     ),
   );
 }
