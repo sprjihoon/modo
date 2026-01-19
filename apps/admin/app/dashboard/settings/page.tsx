@@ -8,15 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Settings,
-  Key,
-  Mail,
   Bell,
-  Shield,
   Database,
-  Globe,
   Save,
-  Eye,
-  EyeOff,
   FileText,
   Coins,
   ArrowRight,
@@ -29,7 +23,6 @@ import {
 import Link from "next/link";
 
 export default function SettingsPage() {
-  const [showApiKey, setShowApiKey] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState({
     siteName: "모두의수선",
@@ -38,11 +31,6 @@ export default function SettingsPage() {
     supportEmail: "support@modu-repair.com",
     enableNotifications: true,
     enableEmailAlerts: true,
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-    cloudflareApiKey: "",
-    tosspaymentsClientKey: "",
-    tosspaymentsSecretKey: "",
   });
 
   // 센터(입고 도착지) 설정
@@ -608,93 +596,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* API Keys */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            API 키 관리
-          </CardTitle>
-          <CardDescription>외부 서비스 API 키를 관리합니다</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="supabaseUrl">Supabase URL</Label>
-              <Badge variant="outline">필수</Badge>
-            </div>
-            <Input
-              id="supabaseUrl"
-              type="text"
-              value={settings.supabaseUrl}
-              onChange={(e) => setSettings({ ...settings, supabaseUrl: e.target.value })}
-              placeholder="https://xxx.supabase.co"
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="supabaseKey">Supabase Anon Key</Label>
-              <Badge variant="outline">필수</Badge>
-            </div>
-            <div className="relative">
-              <Input
-                id="supabaseKey"
-                type={showApiKey ? "text" : "password"}
-                value={settings.supabaseAnonKey}
-                onChange={(e) => setSettings({ ...settings, supabaseAnonKey: e.target.value })}
-                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute right-2 top-1/2 -translate-y-1/2"
-                onClick={() => setShowApiKey(!showApiKey)}
-              >
-                {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="cloudflareKey">Cloudflare API Key</Label>
-              <Badge variant="secondary">선택</Badge>
-            </div>
-            <Input
-              id="cloudflareKey"
-              type="password"
-              value={settings.cloudflareApiKey}
-              onChange={(e) => setSettings({ ...settings, cloudflareApiKey: e.target.value })}
-              placeholder="영상 스트리밍용"
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="tosspaymentsClientKey">토스페이먼츠 Client Key</Label>
-              <Badge variant="secondary">선택</Badge>
-            </div>
-            <Input
-              id="tosspaymentsClientKey"
-              type="text"
-              value={settings.tosspaymentsClientKey}
-              onChange={(e) => setSettings({ ...settings, tosspaymentsClientKey: e.target.value })}
-              placeholder="test_ck_..."
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="tosspaymentsSecretKey">토스페이먼츠 Secret Key</Label>
-              <Badge variant="secondary">선택</Badge>
-            </div>
-            <Input
-              id="tosspaymentsSecretKey"
-              type="password"
-              value={settings.tosspaymentsSecretKey}
-              onChange={(e) => setSettings({ ...settings, tosspaymentsSecretKey: e.target.value })}
-              placeholder="test_sk_... (서버에서 사용)"
-            />
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Footer Settings */}
       <Card>
