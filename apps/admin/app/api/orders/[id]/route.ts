@@ -13,22 +13,27 @@ export async function GET(
 
     const supabaseAdmin = getSupabaseAdmin();
     
-    // Get order with related data (extra_charge 필드 명시적 포함)
-    const { data: order, error } = await supabaseAdmin
-      .from('orders')
-      .select(`
-        id, user_id, order_number, status, clothing_type, repair_type, repair_parts, repair_detail,
-        images, base_price, additional_price, total_price, created_at, updated_at, images_with_pins,
-        promotion_code_id, promotion_discount_amount, original_total_price,
-        customer_name, customer_email, customer_phone, item_name, item_description,
-        pickup_address, pickup_address_detail, pickup_zipcode, pickup_phone,
-        delivery_address, delivery_address_detail, delivery_zipcode, delivery_phone,
-        notes, item_category, tracking_no, image_urls, payment_status, worker_id,
-        extra_charge_status, extra_charge_data,
-        promotion_codes:promotion_code_id (code, discount_type, discount_value)
-      `)
-      .eq('id', orderId)
-      .single();
+    // Get order with related data using raw SQL to bypass PostgREST cache
+    const { data: orderResult, error: sqlError } = await supabaseAdmin.rpc('get_order_by_id', { 
+      p_order_id: orderId 
+    });
+    
+    let order = orderResult;
+    let error = sqlError;
+    
+    // RPC 함수가 없으면 일반 쿼리로 fallback
+    if (sqlError?.code === 'PGRST202') {
+      const result = await supabaseAdmin
+        .from('orders')
+        .select(`
+          *,
+          promotion_codes:promotion_code_id (code, discount_type, discount_value)
+        `)
+        .eq('id', orderId)
+        .single();
+      order = result.data;
+      error = result.error;
+    }
 
     if (error) {
       console.error('📦 [API] 주문 조회 실패:', error);
