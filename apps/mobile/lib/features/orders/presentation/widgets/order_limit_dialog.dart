@@ -6,21 +6,29 @@ import '../../../../services/order_limit_service.dart';
 /// - 제한 메시지 표시
 /// - "알림 받기" 버튼으로 대기자 등록
 class OrderLimitDialog extends StatefulWidget {
+  final String title;
   final String message;
   final VoidCallback? onClose;
 
   const OrderLimitDialog({
     super.key,
+    required this.title,
     required this.message,
     this.onClose,
   });
 
   /// 다이얼로그 표시
-  static Future<bool?> show(BuildContext context, {required String message}) {
+  static Future<bool?> show(BuildContext context, {
+    String? title,
+    required String message,
+  }) {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => OrderLimitDialog(message: message),
+      builder: (context) => OrderLimitDialog(
+        title: title ?? '잠시만요!',
+        message: message,
+      ),
     );
   }
 
@@ -91,10 +99,10 @@ class _OrderLimitDialogState extends State<OrderLimitDialog> {
             ),
             const SizedBox(height: 20),
 
-            // 제목
-            const Text(
-              '잠시만요!',
-              style: TextStyle(
+            // 제목 (관리자 설정 가능)
+            Text(
+              widget.title,
+              style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,

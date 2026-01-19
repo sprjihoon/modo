@@ -239,6 +239,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (limitStatus.isLimited) {
         await OrderLimitDialog.show(
           context,
+          title: limitStatus.title,
           message: limitStatus.message ?? 
               '오늘 하루 처리 가능한 주문량이 다 찼어요.\n알림 신청하시면 접수 가능할 때 알려드릴게요!',
         );
@@ -704,7 +705,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                           const SizedBox(height: 24),
                           ElevatedButton(
-                            onPressed: () => _showPreparationDialog(context),
+                            onPressed: _isCheckingOrderLimit ? null : () => _showPreparationDialog(this.context),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF00C896),
                               foregroundColor: Colors.white,

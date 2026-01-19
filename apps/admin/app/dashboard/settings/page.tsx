@@ -69,6 +69,7 @@ export default function SettingsPage() {
   // 일일 주문 제한량 설정
   const [orderLimitSettings, setOrderLimitSettings] = useState({
     dailyOrderLimit: "",
+    orderLimitTitle: "잠시만요!",
     orderLimitMessage: "오늘 하루 처리 가능한 주문량이 다 찼어요. 알림 신청하시면 접수 가능할 때 알려드릴게요!",
     todayOrderCount: 0,
     waitlistCount: 0,
@@ -107,6 +108,7 @@ export default function SettingsPage() {
       if (json?.data) {
         setOrderLimitSettings({
           dailyOrderLimit: json.data.daily_order_limit?.toString() || "",
+          orderLimitTitle: json.data.order_limit_title || "잠시만요!",
           orderLimitMessage: json.data.order_limit_message || "오늘 하루 처리 가능한 주문량이 다 찼어요. 알림 신청하시면 접수 가능할 때 알려드릴게요!",
           todayOrderCount: json.data.today_order_count || 0,
           waitlistCount: json.data.waitlist_count || 0,
@@ -183,6 +185,7 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           daily_order_limit: orderLimitSettings.dailyOrderLimit,
+          order_limit_title: orderLimitSettings.orderLimitTitle,
           order_limit_message: orderLimitSettings.orderLimitMessage,
         }),
       });
@@ -410,6 +413,19 @@ export default function SettingsPage() {
             <p className="text-xs text-muted-foreground">
               비워두거나 0을 입력하면 제한 없이 주문을 받습니다
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="orderLimitTitle">제한 초과 시 제목</Label>
+            <Input
+              id="orderLimitTitle"
+              value={orderLimitSettings.orderLimitTitle}
+              onChange={(e) => setOrderLimitSettings({ 
+                ...orderLimitSettings, 
+                orderLimitTitle: e.target.value 
+              })}
+              placeholder="잠시만요!"
+            />
           </div>
 
           <div className="space-y-2">

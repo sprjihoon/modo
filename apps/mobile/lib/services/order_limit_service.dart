@@ -7,6 +7,7 @@ class OrderLimitStatus {
   final int? dailyLimit;
   final int todayCount;
   final int? remaining;
+  final String? title;
   final String? message;
 
   OrderLimitStatus({
@@ -14,6 +15,7 @@ class OrderLimitStatus {
     this.dailyLimit,
     required this.todayCount,
     this.remaining,
+    this.title,
     this.message,
   });
 
@@ -23,6 +25,7 @@ class OrderLimitStatus {
       dailyLimit: json['daily_limit'],
       todayCount: json['today_count'] ?? 0,
       remaining: json['remaining'],
+      title: json['title'],
       message: json['message'],
     );
   }
@@ -34,6 +37,7 @@ class OrderLimitStatus {
       dailyLimit: null,
       todayCount: 0,
       remaining: null,
+      title: null,
       message: null,
     );
   }

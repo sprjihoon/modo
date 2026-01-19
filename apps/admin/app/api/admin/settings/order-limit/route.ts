@@ -6,7 +6,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("company_info")
-      .select("daily_order_limit, order_limit_message")
+      .select("daily_order_limit, order_limit_title, order_limit_message")
       .limit(1)
       .maybeSingle();
 
@@ -34,6 +34,7 @@ export async function GET() {
       success: true, 
       data: {
         daily_order_limit: data?.daily_order_limit ?? null,
+        order_limit_title: data?.order_limit_title ?? '잠시만요!',
         order_limit_message: data?.order_limit_message ?? '오늘 하루 처리 가능한 주문량이 다 찼어요. 알림 신청하시면 접수 가능할 때 알려드릴게요!',
         today_order_count: todayOrderCount ?? 0,
         waitlist_count: waitlistCount ?? 0,
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
       daily_order_limit: body.daily_order_limit === '' || body.daily_order_limit === null 
         ? null 
         : parseInt(body.daily_order_limit),
+      order_limit_title: body.order_limit_title || '잠시만요!',
       order_limit_message: body.order_limit_message || '오늘 하루 처리 가능한 주문량이 다 찼어요. 알림 신청하시면 접수 가능할 때 알려드릴게요!',
       updated_at: new Date().toISOString(),
     };
