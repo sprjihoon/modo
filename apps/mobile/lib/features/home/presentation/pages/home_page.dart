@@ -352,7 +352,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 🆕 읽지 않은 알림 개수 조회
+  /// 🆕 읽지 않은 알림 개수 조회 (취소된 주문 알림 제외)
   Future<int> _getUnreadNotificationsCount() async {
     try {
       final supabase = Supabase.instance.client;
@@ -369,13 +369,28 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       final userId = userResponse['id'] as String;
 
+      // 취소된 주문의 알림 제외하여 조회
       final response = await supabase
           .from('notifications')
-          .select('*')
+          .select('id, order_id, orders!left(id, status)')
           .eq('user_id', userId)
           .eq('is_read', false);
 
-      return (response as List).length;
+      // 취소된 주문의 알림 필터링
+      final validNotifications = (response as List).where((notification) {
+        // order_id가 없는 알림은 포함
+        if (notification['order_id'] == null) return true;
+        
+        // orders 조인 결과 확인
+        final orders = notification['orders'];
+        if (orders == null) return false; // 주문이 삭제된 경우 제외
+        
+        // 취소된 주문의 알림 제외
+        final orderStatus = orders['status'] as String?;
+        return orderStatus != 'CANCELLED';
+      }).toList();
+
+      return validNotifications.length;
     } catch (e) {
       debugPrint('❌ 알림 개수 조회 실패: $e');
       return 0;

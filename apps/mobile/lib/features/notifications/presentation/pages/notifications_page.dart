@@ -64,16 +64,34 @@ class _NotificationsPageState extends State<NotificationsPage>
 
       final userId = userResponse['id'] as String;
 
-      // 1. 개인 알림 조회 (notifications 테이블)
+      // 1. 개인 알림 조회 (notifications 테이블 + orders 조인하여 취소된 주문 필터링)
       final notificationsResponse = await _supabase
           .from('notifications')
-          .select('*')
+          .select('*, orders!left(id, status)')
           .eq('user_id', userId)
           .order('created_at', ascending: false)
           .limit(50);
 
+      // 취소된 주문의 알림 제외
       _allNotifications = (notificationsResponse as List)
           .map((item) => Map<String, dynamic>.from(item as Map))
+          .where((notification) {
+            // order_id가 없는 알림은 포함
+            if (notification['order_id'] == null) return true;
+            
+            // orders 조인 결과 확인
+            final orders = notification['orders'];
+            if (orders == null) return true; // 주문이 삭제된 경우 제외
+            
+            // 취소된 주문의 알림 제외
+            final orderStatus = orders['status'] as String?;
+            if (orderStatus == 'CANCELLED') {
+              debugPrint('🚫 취소된 주문 알림 필터링: ${notification['id']}');
+              return false;
+            }
+            
+            return true;
+          })
           .toList();
 
       // 2. 공지사항 조회 (announcements 테이블)
@@ -103,7 +121,7 @@ class _NotificationsPageState extends State<NotificationsPage>
     try {
       await _supabase
           .from('notifications')
-          .update({'read': true, 'read_at': DateTime.now().toIso8601String()})
+          .update({'is_read': true, 'read_at': DateTime.now().toIso8601String()})
           .eq('id', notificationId);
 
       setState(() {
@@ -330,11 +348,20 @@ class _NotificationsPageState extends State<NotificationsPage>
       ),
       child: InkWell(
         onTap: () {
+          debugPrint('🔔 알림 클릭: id=${notification['id']}, order_id=$orderId, type=$type');
+          
           if (!isRead) {
             _markAsRead(notification['id'] as String);
           }
+          
+          // order_id가 있으면 해당 주문 상세로 이동
           if (orderId != null && orderId.isNotEmpty) {
+            debugPrint('📦 주문 상세로 이동: /orders/$orderId');
             context.push('/orders/$orderId');
+          } else {
+            // order_id가 없으면 주문 목록으로 이동
+            debugPrint('📋 order_id 없음, 주문 목록으로 이동');
+            context.push('/orders');
           }
         },
         borderRadius: BorderRadius.circular(12),
@@ -462,7 +489,11 @@ class _NotificationsPageState extends State<NotificationsPage>
       ),
       child: InkWell(
         onTap: () {
-          // TODO: 공지사항 상세 페이지로 이동
+          // 공지사항 상세 페이지로 이동
+          final announcementId = announcement['id'] as String?;
+          if (announcementId != null) {
+            context.push('/announcements/$announcementId');
+          }
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(

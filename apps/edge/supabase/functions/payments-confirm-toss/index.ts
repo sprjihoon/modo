@@ -26,6 +26,7 @@ serve(async (req) => {
       order_id,
       amount,
       is_extra_charge = false,
+      original_order_id, // 추가 결제 시 원본 주문 ID
     } = await req.json()
 
     // 필수 파라미터 검증
@@ -43,8 +44,34 @@ serve(async (req) => {
     let originalAmount: number | null = null
     let orderData: any = null
 
-    if (is_extra_charge) {
-      // 추가 비용 결제인 경우 extra_charge_requests에서 조회
+    if (is_extra_charge && original_order_id) {
+      // 추가 비용 결제인 경우 orders 테이블의 extra_charge_data에서 금액 조회
+      const { data, error } = await supabaseClient
+        .from('orders')
+        .select('id, extra_charge_status, extra_charge_data, user_id, order_number, item_name')
+        .eq('id', original_order_id)
+        .single()
+
+      if (error || !data) {
+        throw new Error('주문 정보를 찾을 수 없습니다.')
+      }
+
+      // 추가 결제 대기 상태인지 확인
+      if (data.extra_charge_status !== 'PENDING_CUSTOMER') {
+        throw new Error('추가 결제 대기 상태가 아닙니다.')
+      }
+
+      // extra_charge_data에서 관리자가 지정한 금액 조회
+      const extraChargeData = data.extra_charge_data || {}
+      originalAmount = extraChargeData.manager_price || extraChargeData.managerPrice
+      
+      if (!originalAmount) {
+        throw new Error('추가 결제 금액 정보를 찾을 수 없습니다.')
+      }
+
+      orderData = data
+    } else if (is_extra_charge) {
+      // original_order_id 없이 is_extra_charge만 있는 경우 (기존 호환)
       const { data, error } = await supabaseClient
         .from('extra_charge_requests')
         .select('*')
@@ -106,8 +133,55 @@ serve(async (req) => {
     console.log('✅ 토스페이먼츠 결제 승인 성공:', order_id)
 
     // DB 업데이트
-    if (is_extra_charge) {
-      // 추가 비용 결제인 경우
+    if (is_extra_charge && original_order_id) {
+      // 추가 비용 결제인 경우 (orders 테이블 기반)
+      // extra_charge_status를 COMPLETED로 업데이트
+      const updatedExtraChargeData = {
+        ...(orderData.extra_charge_data || {}),
+        customer_paid_at: new Date().toISOString(),
+        payment_key: payment_key,
+        paid_amount: amount,
+      }
+
+      await supabaseClient
+        .from('orders')
+        .update({
+          extra_charge_status: 'COMPLETED',
+          extra_charge_data: updatedExtraChargeData,
+        })
+        .eq('id', original_order_id)
+
+      console.log('✅ 추가 결제 완료 - extra_charge_status: COMPLETED')
+
+      // 관리자/작업자에게 알림 전송 (추가 결제 완료 알림)
+      try {
+        // 관리자들에게 알림
+        const { data: managers } = await supabaseClient
+          .from('users')
+          .select('id')
+          .in('role', ['MANAGER', 'ADMIN'])
+
+        if (managers && managers.length > 0) {
+          const notifications = managers.map((manager: any) => ({
+            user_id: manager.id,
+            type: 'extra_charge_status_changed',
+            title: '추가 결제 완료',
+            body: `주문(${orderData.order_number || original_order_id})의 추가 결제가 완료되었습니다. 작업을 재개해주세요.`,
+            order_id: original_order_id,
+            metadata: {
+              extra_charge_status: 'COMPLETED',
+              amount: amount,
+              payment_key: payment_key,
+            },
+          }))
+
+          await supabaseClient.from('notifications').insert(notifications)
+        }
+      } catch (notifyError) {
+        console.log('알림 전송 실패 (무시):', notifyError)
+      }
+    } else if (is_extra_charge) {
+      // 기존 extra_charge_requests 테이블 기반 (호환)
       await supabaseClient
         .from('extra_charge_requests')
         .update({

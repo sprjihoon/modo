@@ -373,6 +373,7 @@ class PaymentService {
     required String orderId,
     required int amount,
     bool isExtraCharge = false,
+    String? originalOrderId, // 추가 결제 시 원본 주문 ID
   }) async {
     try {
       final response = await _supabase.functions.invoke(
@@ -382,6 +383,7 @@ class PaymentService {
           'order_id': orderId,
           'amount': amount,
           'is_extra_charge': isExtraCharge,
+          if (originalOrderId != null) 'original_order_id': originalOrderId,
         },
       );
 

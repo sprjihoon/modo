@@ -7,9 +7,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart' as provider;
 
 import '../../../../services/image_service.dart';
 import '../../../../services/order_service.dart';
+import '../../../../core/enums/extra_charge_status.dart';
+import '../../providers/extra_charge_provider.dart';
+import '../../domain/models/extra_charge_data.dart';
 
 /// 주문 상세 화면
 class OrderDetailPage extends ConsumerStatefulWidget {
@@ -316,6 +320,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           children: [
             // 상태 배너
             _buildStatusBanner(context),
+            
+            // 🆕 추가 결제 요청 카드 (PENDING_CUSTOMER 상태일 때만 표시)
+            _buildExtraChargeCard(context),
+            
             const SizedBox(height: 16),
             
             Padding(
@@ -352,6 +360,423 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       ),
       bottomNavigationBar: _buildBottomBar(context),
     );
+  }
+
+  /// 🆕 추가 결제 요청 카드 빌드
+  Widget _buildExtraChargeCard(BuildContext context) {
+    // extra_charge_status 확인
+    final extraChargeStatusStr = _orderData?['extra_charge_status'] as String?;
+    if (extraChargeStatusStr == null || extraChargeStatusStr != 'PENDING_CUSTOMER') {
+      return const SizedBox.shrink();
+    }
+
+    // extra_charge_data 파싱
+    final extraChargeDataJson = _orderData?['extra_charge_data'];
+    ExtraChargeData? extraChargeData;
+    if (extraChargeDataJson != null && extraChargeDataJson is Map<String, dynamic>) {
+      extraChargeData = ExtraChargeData.fromJson(extraChargeDataJson);
+    }
+
+    final price = extraChargeData?.managerPrice ?? 0;
+    final note = extraChargeData?.managerNote ?? '추가 작업이 필요합니다';
+    final memo = extraChargeData?.workerMemo ?? '';
+    final orderName = _orderData?['item_name'] as String? ?? '수선';
+
+    return Card(
+      margin: const EdgeInsets.all(16),
+      elevation: 4,
+      color: Colors.orange[50],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.orange[300]!, width: 2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 헤더
+            Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange[700],
+                  size: 28,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '💳 추가 결제 요청',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[900],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 안내 문구
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                note,
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 추가 금액
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '추가 청구 금액',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${_formatNumberWithComma(price)}원',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[900],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 현장 메모 (있으면 표시)
+            if (memo.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                '현장 메모: $memo',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+
+            // 액션 버튼들
+            Column(
+              children: [
+                // 결제하기 버튼 (토스페이먼츠로 이동)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _handleExtraChargePay(context, price, orderName),
+                    icon: const Icon(Icons.payment),
+                    label: Text('${_formatNumberWithComma(price)}원 결제하기'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0064FF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // 그냥 진행 / 반송하기 버튼
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _handleExtraChargeSkip(context),
+                        icon: const Icon(Icons.arrow_forward, size: 18),
+                        label: const Text('그냥 진행'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green,
+                          side: const BorderSide(color: Colors.green),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _handleExtraChargeReturn(context),
+                        icon: const Icon(Icons.keyboard_return, size: 18),
+                        label: const Text('반송하기'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // 안내 메시지
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.grey[600],
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '• 그냥 진행: 추가 작업 없이 원안대로 진행합니다\n• 반송: 왕복 배송비 6,000원이 차감됩니다',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 숫자에 콤마 추가
+  String _formatNumberWithComma(int number) {
+    return number.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
+
+  /// 추가 결제하기 (토스페이먼츠로 이동)
+  Future<void> _handleExtraChargePay(BuildContext context, int price, String orderName) async {
+    // 결제 확인 다이얼로그
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('추가 결제'),
+        content: Text('${_formatNumberWithComma(price)}원을 결제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('취소', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0064FF),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('결제'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // 토스페이먼츠 결제 페이지로 이동
+    final result = await context.push<bool>(
+      '/toss-payment',
+      extra: {
+        'orderId': 'EXTRA_${widget.orderId}_${DateTime.now().millisecondsSinceEpoch}',
+        'amount': price,
+        'orderName': '$orderName 추가 결제',
+        'isExtraCharge': true,
+        'originalOrderId': widget.orderId,
+      },
+    );
+
+    // 결제 완료 시 주문 데이터 새로고침
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ 추가 결제가 완료되었습니다. 작업을 재개합니다.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await _loadOrderData();
+    }
+  }
+
+  /// 그냥 진행 (추가 작업 없이)
+  Future<void> _handleExtraChargeSkip(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('원안대로 진행'),
+        content: const Text('추가 작업 없이 원안대로 진행하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('취소', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('진행'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // 로딩 표시
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final extraChargeProvider = provider.Provider.of<ExtraChargeProvider>(context, listen: false);
+      final success = await extraChargeProvider.processCustomerDecision(
+        orderId: widget.orderId,
+        action: CustomerDecisionAction.SKIP,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 로딩 닫기
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('원안대로 진행합니다'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        await _loadOrderData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(extraChargeProvider.errorMessage ?? '처리 실패'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 로딩 닫기
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('오류 발생: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  /// 반송하기
+  Future<void> _handleExtraChargeReturn(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('반송 요청'),
+        content: const Text(
+          '반송을 요청하시겠습니까?\n\n'
+          '⚠️ 왕복 배송비 6,000원이 차감됩니다.\n'
+          '이 금액은 환불 시 공제됩니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('취소', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('반송 요청'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // 로딩 표시
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final extraChargeProvider = provider.Provider.of<ExtraChargeProvider>(context, listen: false);
+      final success = await extraChargeProvider.processCustomerDecision(
+        orderId: widget.orderId,
+        action: CustomerDecisionAction.RETURN,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 로딩 닫기
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('반송 요청 완료. 배송비 6,000원이 차감됩니다'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        await _loadOrderData();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(extraChargeProvider.errorMessage ?? '반송 요청 실패'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 로딩 닫기
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('오류 발생: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildStatusBanner(BuildContext context) {

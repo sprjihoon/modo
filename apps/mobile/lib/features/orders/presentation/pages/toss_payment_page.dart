@@ -203,6 +203,7 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
         orderId: success.orderId,
         amount: success.amount.toInt(),
         isExtraCharge: widget.isExtraCharge,
+        originalOrderId: widget.originalOrderId, // 추가 결제 시 원본 주문 ID 전달
       );
 
       if (mounted) {
@@ -263,7 +264,9 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '결제 완료 후 수선된 의류를 받으시기까지\n약 5영업일이 소요됩니다.',
+                    widget.isExtraCharge 
+                        ? '추가 결제가 완료되었습니다.\n작업이 재개됩니다.'
+                        : '결제 완료 후 수선된 의류를 받으시기까지\n약 5영업일이 소요됩니다.',
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.grey.shade800,
@@ -272,7 +275,9 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '택배 수거 → 입고 확인 → 수선 작업 → 배송 완료',
+                    widget.isExtraCharge
+                        ? '추가 작업 진행 → 출고 → 배송 완료'
+                        : '택배 수거 → 입고 확인 → 수선 작업 → 배송 완료',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.blue.shade700,
