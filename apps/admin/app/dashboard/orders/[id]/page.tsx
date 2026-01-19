@@ -12,6 +12,8 @@ import { TrackingManageDialog } from "@/components/orders/tracking-manage-dialog
 import { WorkOrderPrintDialog } from "@/components/orders/work-order-print-dialog";
 import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
 import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review-dialog";
+import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
+import { ReturnShipmentButton } from "@/components/orders/return-shipment-button";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
 import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins } from "lucide-react";
 
@@ -323,6 +325,16 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
       {/* Timeline */}
       <OrderTimeline status={displayOrder.status} />
 
+      {/* 추가 결제 현황 카드 */}
+      {order?.extra_charge_status && (
+        <ExtraChargeStatusCard 
+          status={order.extra_charge_status}
+          data={order.extra_charge_data}
+          orderId={order.id}
+          onReturnShipmentCreated={() => loadOrder()}
+        />
+      )}
+
       <div className="grid gap-6 md:grid-cols-2">
         {/* Order Info */}
         <Card>
@@ -576,6 +588,58 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
               <p className="text-sm text-muted-foreground">배송지</p>
               <p className="font-medium text-sm">{displayOrder.deliveryAddress}</p>
             </div>
+
+            {/* 반송 송장 정보 - 반송 요청 상태인 경우에만 표시 */}
+            {order?.extra_charge_status === 'RETURN_REQUESTED' && (
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-red-600 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    반송 송장
+                  </p>
+                  {!order?.extra_charge_data?.returnTrackingNo && (
+                    <ReturnShipmentButton 
+                      orderId={displayOrder.id}
+                      onCreated={() => loadOrder()}
+                    />
+                  )}
+                </div>
+                {order?.extra_charge_data?.returnTrackingNo ? (
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium font-mono text-sm">
+                      {order.extra_charge_data.returnTrackingNo}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigator.clipboard.writeText(order.extra_charge_data.returnTrackingNo)}
+                    >
+                      복사
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(
+                        `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${order.extra_charge_data.returnTrackingNo}`,
+                        '_blank'
+                      )}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      추적
+                    </Button>
+                    <LabelPrintDialog 
+                      trackingNo={order.extra_charge_data.returnTrackingNo} 
+                      type="return"
+                      orderId={displayOrder.id}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    반송 송장이 아직 생성되지 않았습니다
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

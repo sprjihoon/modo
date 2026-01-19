@@ -49,7 +49,21 @@ interface Order {
     discount_type: string;
     discount_value: number;
   } | null;
+  // 추가 결제 상태
+  extra_charge_status: string | null;
+  extra_charge_data: {
+    managerPrice?: number;
+    customerAction?: string;
+  } | null;
 }
+
+// 추가 결제 상태 맵
+const extraChargeStatusMap: Record<string, { label: string; color: string; icon: string }> = {
+  PENDING_CUSTOMER: { label: "추가결제 대기", color: "bg-orange-100 text-orange-800 border-orange-300", icon: "💳" },
+  COMPLETED: { label: "추가결제 완료", color: "bg-green-100 text-green-800 border-green-300", icon: "✅" },
+  SKIPPED: { label: "기존작업만", color: "bg-blue-100 text-blue-800 border-blue-300", icon: "⏭️" },
+  RETURN_REQUESTED: { label: "반송요청", color: "bg-red-100 text-red-800 border-red-300", icon: "📦" },
+};
 
 interface Stats {
   total: number;
@@ -479,6 +493,15 @@ export default function OrdersPage() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
+                        {/* 추가 결제 상태 배지 */}
+                        {order.extra_charge_status && extraChargeStatusMap[order.extra_charge_status] && (
+                          <Badge 
+                            variant="outline" 
+                            className={`${extraChargeStatusMap[order.extra_charge_status].color} border`}
+                          >
+                            {extraChargeStatusMap[order.extra_charge_status].icon} {extraChargeStatusMap[order.extra_charge_status].label}
+                          </Badge>
+                        )}
                         <Badge className={statusMap[order.status as keyof typeof statusMap]?.color || statusMap.PENDING.color}>
                           {statusMap[order.status as keyof typeof statusMap]?.label || order.status}
                         </Badge>

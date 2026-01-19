@@ -17,7 +17,7 @@ import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shi
 
 interface LabelPrintDialogProps {
   trackingNo: string;
-  type: "pickup" | "delivery";
+  type: "pickup" | "delivery" | "return";
   orderId: string;
 }
 
@@ -257,24 +257,30 @@ export function LabelPrintDialog({ trackingNo, type, orderId }: LabelPrintDialog
         }
       }
 
-      // 보내는 사람 정보 (회사 정보)
-      const senderAddress = companyInfo?.address || "대구 동구 동촌로 1 동대구우체국";
-      const senderName = companyInfo?.company_name?.split('(')[0].trim() || "모두의수선";
-      const senderPhone = companyInfo?.phone || "010-2723-9490";
+      // 회사 정보
+      const companyAddress = companyInfo?.address || "대구 동구 동촌로 1 동대구우체국";
+      const companyName = companyInfo?.company_name?.split('(')[0].trim() || "모두의수선";
+      const companyPhone = companyInfo?.phone || "010-2723-9490";
 
-      console.log('🏢 [LabelPrint] 보낸분 정보:', { senderAddress, senderName, senderPhone });
-
-      // 받는 사람 정보
+      // 고객 주소 정보
       const isSameAddress = order.is_pickup_delivery_same !== false && order.is_same_address !== false;
       const pickupAddr = [order.pickup_address, order.pickup_address_detail].filter(Boolean).join(" ");
       const deliveryAddr = [order.delivery_address, order.delivery_address_detail].filter(Boolean).join(" ");
-      const recipientAddress = isSameAddress ? pickupAddr : deliveryAddr;
-      const recipientZipcode = isSameAddress ? order.pickup_zipcode : order.delivery_zipcode;
+      const customerAddress = isSameAddress ? pickupAddr : deliveryAddr;
+      const customerZipcode = isSameAddress ? order.pickup_zipcode : order.delivery_zipcode;
 
-      console.log('📍 [LabelPrint] 받는 사람 주소:', {
-        isSameAddress,
-        pickupAddr,
-        deliveryAddr,
+      // 반송인 경우: 회사 → 고객 (보내는 사람이 회사, 받는 사람이 고객)
+      // 배송/수거인 경우: 회사 → 고객 (동일하게 처리)
+      const senderAddress = type === 'return' ? companyAddress : companyAddress;
+      const senderName = type === 'return' ? companyName : companyName;
+      const senderPhone = type === 'return' ? companyPhone : companyPhone;
+      const recipientAddress = type === 'return' ? customerAddress : customerAddress;
+      const recipientZipcode = type === 'return' ? customerZipcode : customerZipcode;
+
+      console.log(`🏢 [LabelPrint] ${type === 'return' ? '반송' : '배송'} 송장 정보:`, {
+        senderAddress,
+        senderName,
+        senderPhone,
         recipientAddress,
         recipientZipcode,
       });
@@ -317,7 +323,9 @@ export function LabelPrintDialog({ trackingNo, type, orderId }: LabelPrintDialog
         // 상품 정보
         totalQuantity: repairParts.length || 1,
         itemsList: itemsList,
-        memo: order.item_description || order.item_name,
+        memo: type === 'return' 
+          ? `[반송] ${order.item_name || '수선 의류'}` 
+          : (order.item_description || order.item_name),
         
         // 기타
         weight: fullOrder?.weight ? `${fullOrder.weight}kg` : "2kg",
@@ -370,9 +378,13 @@ export function LabelPrintDialog({ trackingNo, type, orderId }: LabelPrintDialog
         </DialogTrigger>
         <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle>{type === 'pickup' ? '수거' : '배송'} 송장 출력</DialogTitle>
+            <DialogTitle>
+              {type === 'pickup' ? '수거' : type === 'return' ? '반송' : '배송'} 송장 출력
+            </DialogTitle>
             <DialogDescription>
-              운송장을 출력하거나 확인할 수 있습니다.
+              {type === 'return' 
+                ? '고객에게 반송할 물품의 송장을 출력합니다.'
+                : '운송장을 출력하거나 확인할 수 있습니다.'}
             </DialogDescription>
           </DialogHeader>
           
@@ -399,7 +411,9 @@ export function LabelPrintDialog({ trackingNo, type, orderId }: LabelPrintDialog
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">유형:</span>
-                    <span className="font-medium">{type === 'pickup' ? '수거용' : '배송용'}</span>
+                    <span className="font-medium">
+                      {type === 'pickup' ? '수거용' : type === 'return' ? '반송용' : '배송용'}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">고객명:</span>
