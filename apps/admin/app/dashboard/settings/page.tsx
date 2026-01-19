@@ -22,6 +22,9 @@ import {
   ArrowRight,
   Users,
   User,
+  Package,
+  Clock,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -63,6 +66,16 @@ export default function SettingsPage() {
     customerCenter: "",
   });
 
+  // 일일 주문 제한량 설정
+  const [orderLimitSettings, setOrderLimitSettings] = useState({
+    dailyOrderLimit: "",
+    orderLimitMessage: "오늘 하루 처리 가능한 주문량이 다 찼어요. 알림 신청하시면 접수 가능할 때 알려드릴게요!",
+    todayOrderCount: 0,
+    waitlistCount: 0,
+    isLimited: false,
+  });
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
+
   // 초기 데이터 로드
   useEffect(() => {
     loadCompanyInfo().then(() => setIsLoading(false));
@@ -86,7 +99,27 @@ export default function SettingsPage() {
     }
   };
 
+  // 일일 주문 제한량 로드
+  const loadOrderLimit = async () => {
+    try {
+      const res = await fetch('/api/admin/settings/order-limit');
+      const json = await res.json();
+      if (json?.data) {
+        setOrderLimitSettings({
+          dailyOrderLimit: json.data.daily_order_limit?.toString() || "",
+          orderLimitMessage: json.data.order_limit_message || "오늘 하루 처리 가능한 주문량이 다 찼어요. 알림 신청하시면 접수 가능할 때 알려드릴게요!",
+          todayOrderCount: json.data.today_order_count || 0,
+          waitlistCount: json.data.waitlist_count || 0,
+          isLimited: json.data.is_limited || false,
+        });
+      }
+    } catch (e) {
+      console.warn('주문 제한 설정 로드 실패:', e);
+    }
+  };
+
   loadCenter();
+  loadOrderLimit();
   }, []);
 
   const handleSave = async () => {
@@ -137,6 +170,65 @@ export default function SettingsPage() {
       alert(`저장 실패: ${error.message}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 일일 주문 제한량 저장
+  const handleSaveOrderLimit = async () => {
+    try {
+      setIsLoading(true);
+      
+      const res = await fetch('/api/admin/settings/order-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          daily_order_limit: orderLimitSettings.dailyOrderLimit,
+          order_limit_message: orderLimitSettings.orderLimitMessage,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || '주문 제한 설정 저장 실패');
+      
+      alert("일일 주문 제한 설정이 저장되었습니다.");
+    } catch (error: any) {
+      alert(`저장 실패: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 대기자에게 푸시 알림 발송
+  const handleSendWaitlistNotification = async () => {
+    if (orderLimitSettings.waitlistCount === 0) {
+      alert("대기 중인 고객이 없습니다.");
+      return;
+    }
+
+    if (!confirm(`대기 중인 ${orderLimitSettings.waitlistCount}명의 고객에게 "접수 가능" 푸시 알림을 발송하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      setIsSendingNotification(true);
+      
+      const res = await fetch('/api/admin/settings/order-limit?action=notify-waitlist', {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      
+      if (!res.ok) throw new Error(json?.error || '알림 발송 실패');
+      
+      alert(`${json.notified_count}명에게 푸시 알림을 발송했습니다.`);
+      
+      // 대기자 수 갱신
+      setOrderLimitSettings(prev => ({
+        ...prev,
+        waitlistCount: prev.waitlistCount - json.notified_count,
+      }));
+    } catch (error: any) {
+      alert(`알림 발송 실패: ${error.message}`);
+    } finally {
+      setIsSendingNotification(false);
     }
   };
   
@@ -259,6 +351,100 @@ export default function SettingsPage() {
             >
               {settings.enableEmailAlerts ? "활성화" : "비활성화"}
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 일일 주문 제한량 설정 */}
+      <Card className="border-orange-200 dark:border-orange-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-orange-600" />
+            일일 주문 제한량 설정
+          </CardTitle>
+          <CardDescription>하루에 접수 가능한 주문 수를 제한합니다</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 현재 상태 표시 */}
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="flex items-center gap-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-orange-600">{orderLimitSettings.todayOrderCount}</p>
+                <p className="text-xs text-muted-foreground">오늘 주문</p>
+              </div>
+              <div className="text-gray-300">/</div>
+              <div className="text-center">
+                <p className="text-2xl font-bold">
+                  {orderLimitSettings.dailyOrderLimit || '∞'}
+                </p>
+                <p className="text-xs text-muted-foreground">제한량</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <Badge variant={orderLimitSettings.isLimited ? "destructive" : "default"}>
+                {orderLimitSettings.isLimited ? "접수 마감" : "접수 가능"}
+              </Badge>
+              {orderLimitSettings.waitlistCount > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  <Clock className="h-3 w-3 inline mr-1" />
+                  대기자 {orderLimitSettings.waitlistCount}명
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 설정 입력 */}
+          <div className="space-y-2">
+            <Label htmlFor="dailyOrderLimit">일일 최대 주문 수</Label>
+            <Input
+              id="dailyOrderLimit"
+              type="number"
+              min="0"
+              value={orderLimitSettings.dailyOrderLimit}
+              onChange={(e) => setOrderLimitSettings({ 
+                ...orderLimitSettings, 
+                dailyOrderLimit: e.target.value 
+              })}
+              placeholder="비워두면 무제한"
+            />
+            <p className="text-xs text-muted-foreground">
+              비워두거나 0을 입력하면 제한 없이 주문을 받습니다
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="orderLimitMessage">제한 초과 시 메시지</Label>
+            <Input
+              id="orderLimitMessage"
+              value={orderLimitSettings.orderLimitMessage}
+              onChange={(e) => setOrderLimitSettings({ 
+                ...orderLimitSettings, 
+                orderLimitMessage: e.target.value 
+              })}
+              placeholder="오늘 하루 처리 가능한 주문량이 다 찼어요..."
+            />
+          </div>
+
+          {/* 버튼 영역 */}
+          <div className="flex gap-2">
+            <Button onClick={handleSaveOrderLimit} disabled={isLoading}>
+              <Save className="h-4 w-4 mr-2" />
+              저장
+            </Button>
+            
+            {orderLimitSettings.waitlistCount > 0 && (
+              <Button 
+                variant="outline" 
+                onClick={handleSendWaitlistNotification}
+                disabled={isSendingNotification}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {isSendingNotification 
+                  ? "발송 중..." 
+                  : `대기자 ${orderLimitSettings.waitlistCount}명에게 알림 발송`
+                }
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

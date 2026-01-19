@@ -7,7 +7,9 @@ import '../../../auth/data/providers/auth_provider.dart';
 import '../../../orders/providers/cart_provider.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/banner_service.dart';
+import '../../../../services/order_limit_service.dart';
 import '../widgets/extra_charge_alert_banner.dart';
+import '../../../orders/presentation/widgets/order_limit_dialog.dart';
 
 /// 배너 인덱스 관리를 위한 ValueNotifier
 final bannerIndexProvider = StateNotifierProvider<BannerIndexNotifier, int>((ref) {
@@ -34,10 +36,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   final PageController _bannerController = PageController();
   final OrderService _orderService = OrderService();
   final BannerService _bannerService = BannerService();
+  final OrderLimitService _orderLimitService = OrderLimitService();
 
   /// 주문 데이터를 한 번만 가져오기 위한 캐시
   List<Map<String, dynamic>>? _cachedOrders;
   bool _ordersLoaded = false;
+  bool _isCheckingOrderLimit = false;
 
   @override
   void dispose() {
@@ -218,8 +222,44 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  /// 수선물 준비 안내 다이얼로그
-  void _showPreparationDialog(BuildContext context) {
+  /// 수선물 준비 안내 다이얼로그 (주문 제한 체크 포함)
+  Future<void> _showPreparationDialog(BuildContext context) async {
+    // 주문 제한 체크 중이면 중복 호출 방지
+    if (_isCheckingOrderLimit) return;
+    
+    setState(() => _isCheckingOrderLimit = true);
+
+    try {
+      // 주문 제한 상태 확인
+      final limitStatus = await _orderLimitService.checkOrderLimitStatus();
+      
+      if (!mounted) return;
+
+      // 제한 초과 시 알림 다이얼로그 표시
+      if (limitStatus.isLimited) {
+        await OrderLimitDialog.show(
+          context,
+          message: limitStatus.message ?? 
+              '오늘 하루 처리 가능한 주문량이 다 찼어요.\n알림 신청하시면 접수 가능할 때 알려드릴게요!',
+        );
+        return;
+      }
+
+      // 제한이 없으면 기존 준비 다이얼로그 표시
+      _showActualPreparationDialog(context);
+    } catch (e) {
+      debugPrint('주문 제한 체크 실패: $e');
+      // 에러 발생 시 기본적으로 주문 허용 (사용자 경험 우선)
+      _showActualPreparationDialog(context);
+    } finally {
+      if (mounted) {
+        setState(() => _isCheckingOrderLimit = false);
+      }
+    }
+  }
+
+  /// 실제 수선물 준비 안내 다이얼로그
+  void _showActualPreparationDialog(BuildContext context) {
     showDialog(
       context: context,
       barrierDismissible: true,
