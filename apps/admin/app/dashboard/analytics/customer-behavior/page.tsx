@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Users, ShoppingCart, CreditCard, TrendingDown, Activity, Calendar, ArrowRight, ArrowDown, Filter } from "lucide-react";
+import { Loader2, Users, ShoppingCart, CreditCard, TrendingDown, TrendingUp, Activity, Calendar, ArrowRight, ArrowDown, Filter, Smartphone, Monitor, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 
@@ -57,6 +56,45 @@ interface DropoffAnalysis {
   dropoffPoints: DropoffPoint[];
 }
 
+interface SessionData {
+  summary: {
+    totalSessions: number;
+    avgDuration: number;
+    avgEventsPerSession: number;
+    bounceRate: number;
+  };
+  daily: any[];
+}
+
+interface TimePatternData {
+  hourly: any[];
+  daily: any[];
+}
+
+interface DeviceData {
+  device_type: string;
+  device_os: string;
+  total_sessions: number;
+  total_events: number;
+  conversion_rate: number;
+}
+
+interface CohortData {
+  performance: any[];
+  dailyRetention: any[];
+  weeklyRetention: any[];
+}
+
+interface RetentionData {
+  type: string;
+  data: any[];
+}
+
+interface JourneyData {
+  type: string;
+  data: any[];
+}
+
 export default function CustomerBehaviorPage() {
   // 날짜 필터
   const [startDate, setStartDate] = useState<string>(getDaysAgo(30));
@@ -67,7 +105,14 @@ export default function CustomerBehaviorPage() {
   const [overviewStats, setOverviewStats] = useState<OverviewStats | null>(null);
   const [funnelData, setFunnelData] = useState<FunnelStage[]>([]);
   const [dropoffData, setDropoffData] = useState<DropoffAnalysis | null>(null);
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [timePatternData, setTimePatternData] = useState<TimePatternData | null>(null);
+  const [deviceData, setDeviceData] = useState<DeviceData[]>([]);
+  const [cohortData, setCohortData] = useState<CohortData | null>(null);
+  const [retentionData, setRetentionData] = useState<RetentionData | null>(null);
+  const [journeyData, setJourneyData] = useState<JourneyData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("funnel");
 
   // 날짜 프리셋 변경
   const handleDatePreset = (preset: string) => {
@@ -101,6 +146,11 @@ export default function CustomerBehaviorPage() {
     loadData();
   }, [startDate, endDate]);
 
+  // 탭 변경 시 해당 데이터 로드
+  useEffect(() => {
+    loadTabData(activeTab);
+  }, [activeTab, startDate, endDate]);
+
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -113,6 +163,33 @@ export default function CustomerBehaviorPage() {
       console.error('데이터 로드 실패:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadTabData = async (tab: string) => {
+    try {
+      switch (tab) {
+        case "sessions":
+          if (!sessionData) await loadSessionData();
+          break;
+        case "time":
+          if (!timePatternData) await loadTimePatternData();
+          break;
+        case "devices":
+          if (deviceData.length === 0) await loadDeviceData();
+          break;
+        case "cohort":
+          if (!cohortData) await loadCohortData();
+          break;
+        case "retention":
+          if (!retentionData) await loadRetentionData();
+          break;
+        case "journey":
+          if (!journeyData) await loadJourneyData();
+          break;
+      }
+    } catch (error) {
+      console.error(`${tab} 데이터 로드 실패:`, error);
     }
   };
 
@@ -173,6 +250,120 @@ export default function CustomerBehaviorPage() {
     }
   };
 
+  const loadSessionData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'session',
+        startDate,
+        endDate,
+      });
+
+      const response = await fetch(`/api/analytics/customer-behavior?${params}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setSessionData(result.data);
+      }
+    } catch (error) {
+      console.error('세션 데이터 로드 실패:', error);
+    }
+  };
+
+  const loadTimePatternData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'time-pattern',
+        startDate,
+        endDate,
+      });
+
+      const response = await fetch(`/api/analytics/customer-behavior?${params}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setTimePatternData(result.data);
+      }
+    } catch (error) {
+      console.error('시간 패턴 데이터 로드 실패:', error);
+    }
+  };
+
+  const loadDeviceData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'device',
+        startDate,
+        endDate,
+      });
+
+      const response = await fetch(`/api/analytics/customer-behavior?${params}`);
+      const result = await response.json();
+      
+      if (result.success && Array.isArray(result.data)) {
+        setDeviceData(result.data);
+      }
+    } catch (error) {
+      console.error('디바이스 데이터 로드 실패:', error);
+    }
+  };
+
+  const loadCohortData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'cohort',
+        startDate,
+        endDate,
+      });
+
+      const response = await fetch(`/api/analytics/customer-behavior?${params}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setCohortData(result.data);
+      }
+    } catch (error) {
+      console.error('코호트 데이터 로드 실패:', error);
+    }
+  };
+
+  const loadRetentionData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'retention',
+        retentionType: 'n-day',
+        startDate,
+        endDate,
+      });
+
+      const response = await fetch(`/api/analytics/customer-behavior?${params}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setRetentionData(result.data);
+      }
+    } catch (error) {
+      console.error('리텐션 데이터 로드 실패:', error);
+    }
+  };
+
+  const loadJourneyData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: 'journey',
+        journeyType: 'sequences',
+      });
+
+      const response = await fetch(`/api/analytics/customer-behavior?${params}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setJourneyData(result.data);
+      }
+    } catch (error) {
+      console.error('여정 데이터 로드 실패:', error);
+    }
+  };
+
   // 이벤트 타입 한글 변환
   const getEventTypeLabel = (eventType: string) => {
     const labels: Record<string, string> = {
@@ -199,6 +390,13 @@ export default function CustomerBehaviorPage() {
     return labels[eventType] || eventType;
   };
 
+  // 시간 포맷
+  const formatDuration = (seconds: number) => {
+    if (seconds < 60) return `${seconds}초`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}분 ${seconds % 60}초`;
+    return `${Math.floor(seconds / 3600)}시간 ${Math.floor((seconds % 3600) / 60)}분`;
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -217,6 +415,10 @@ export default function CustomerBehaviorPage() {
             고객의 모든 액션을 추적하고 이탈 지점을 분석합니다
           </p>
         </div>
+        <Button onClick={loadData} variant="outline" size="sm">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          새로고침
+        </Button>
       </div>
 
       {/* 날짜 필터 */}
@@ -356,7 +558,7 @@ export default function CustomerBehaviorPage() {
       )}
 
       {/* 탭 컨텐츠 */}
-      <Tabs defaultValue="funnel" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 gap-1">
           <TabsTrigger value="funnel">퍼널</TabsTrigger>
           <TabsTrigger value="dropoff">이탈</TabsTrigger>
@@ -379,56 +581,63 @@ export default function CustomerBehaviorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {funnelData.map((stage, index) => {
-                  const maxCount = funnelData[0]?.count || 1;
-                  const widthPercentage = (stage.count / maxCount) * 100;
+              {funnelData.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>퍼널 데이터가 없습니다</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {funnelData.map((stage, index) => {
+                    const maxCount = funnelData[0]?.count || 1;
+                    const widthPercentage = (stage.count / maxCount) * 100;
 
-                  return (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm">
-                            {index + 1}
+                    return (
+                      <div key={index} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <p className="font-medium">{stage.stage}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {stage.count.toLocaleString()}명
+                                {index > 0 && (
+                                  <span className="ml-2 text-green-600">
+                                    전환율: {stage.conversionRate}%
+                                  </span>
+                                )}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium">{stage.stage}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {stage.count.toLocaleString()}명
-                              {index > 0 && (
-                                <span className="ml-2 text-green-600">
-                                  전환율: {stage.conversionRate}%
-                                </span>
-                              )}
-                            </p>
+                          {index > 0 && stage.dropoffCount > 0 && (
+                            <Badge variant="destructive" className="gap-1">
+                              <TrendingDown className="h-3 w-3" />
+                              이탈 {stage.dropoffCount}명 ({stage.dropoffRate}%)
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="relative h-8 bg-gray-100 rounded-lg overflow-hidden">
+                          <div
+                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 to-blue-400 flex items-center justify-end px-3"
+                            style={{ width: `${widthPercentage}%` }}
+                          >
+                            <span className="text-white text-sm font-medium">
+                              {widthPercentage.toFixed(1)}%
+                            </span>
                           </div>
                         </div>
-                        {index > 0 && stage.dropoffCount > 0 && (
-                          <Badge variant="destructive" className="gap-1">
-                            <TrendingDown className="h-3 w-3" />
-                            이탈 {stage.dropoffCount}명 ({stage.dropoffRate}%)
-                          </Badge>
+                        {index < funnelData.length - 1 && (
+                          <div className="flex justify-center">
+                            <ArrowDown className="h-5 w-5 text-muted-foreground" />
+                          </div>
                         )}
                       </div>
-                      <div className="relative h-8 bg-gray-100 rounded-lg overflow-hidden">
-                        <div
-                          className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 to-blue-400 flex items-center justify-end px-3"
-                          style={{ width: `${widthPercentage}%` }}
-                        >
-                          <span className="text-white text-sm font-medium">
-                            {widthPercentage.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                      {index < funnelData.length - 1 && (
-                        <div className="flex justify-center">
-                          <ArrowDown className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -443,7 +652,7 @@ export default function CustomerBehaviorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {dropoffData && (
+              {dropoffData ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                     <div>
@@ -489,6 +698,11 @@ export default function CustomerBehaviorPage() {
                     ))}
                   </div>
                 </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <TrendingDown className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>이탈 데이터가 없습니다</p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -504,13 +718,32 @@ export default function CustomerBehaviorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12 text-muted-foreground">
-                <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>세션 데이터를 로딩중입니다...</p>
-                <p className="text-sm mt-2">
-                  평균 체류 시간, 바운스율, 세션당 이벤트 수 등을 확인할 수 있습니다
-                </p>
-              </div>
+              {sessionData?.summary ? (
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">총 세션 수</p>
+                    <p className="text-2xl font-bold">{sessionData.summary.totalSessions.toLocaleString()}</p>
+                  </div>
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">평균 체류 시간</p>
+                    <p className="text-2xl font-bold">{formatDuration(sessionData.summary.avgDuration)}</p>
+                  </div>
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">세션당 이벤트</p>
+                    <p className="text-2xl font-bold">{sessionData.summary.avgEventsPerSession}</p>
+                  </div>
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">바운스율</p>
+                    <p className="text-2xl font-bold text-orange-600">{sessionData.summary.bounceRate}%</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>세션 데이터가 없습니다</p>
+                  <p className="text-sm mt-2">고객 이벤트가 수집되면 세션 분석이 표시됩니다</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -525,13 +758,39 @@ export default function CustomerBehaviorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12 text-muted-foreground">
-                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>시간 패턴 데이터를 로딩중입니다...</p>
-                <p className="text-sm mt-2">
-                  피크 타임, 요일별 전환율 등을 확인할 수 있습니다
-                </p>
-              </div>
+              {timePatternData?.hourly && timePatternData.hourly.length > 0 ? (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-medium mb-3">시간대별 활동</h4>
+                    <div className="grid grid-cols-12 gap-1">
+                      {Array.from({ length: 24 }, (_, hour) => {
+                        const data = timePatternData.hourly.find((h: any) => h.hour_of_day === hour);
+                        const count = data?.event_count || 0;
+                        const maxCount = Math.max(...timePatternData.hourly.map((h: any) => h.event_count || 0), 1);
+                        const intensity = count / maxCount;
+                        return (
+                          <div key={hour} className="text-center">
+                            <div
+                              className="h-16 rounded"
+                              style={{
+                                backgroundColor: `rgba(59, 130, 246, ${intensity})`,
+                              }}
+                              title={`${hour}시: ${count}건`}
+                            />
+                            <span className="text-xs text-muted-foreground">{hour}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>시간 패턴 데이터가 없습니다</p>
+                  <p className="text-sm mt-2">고객 이벤트가 수집되면 시간대별 분석이 표시됩니다</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -546,13 +805,36 @@ export default function CustomerBehaviorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>디바이스 데이터를 로딩중입니다...</p>
-                <p className="text-sm mt-2">
-                  디바이스별 전환율, 평균 주문 금액 등을 확인할 수 있습니다
-                </p>
-              </div>
+              {deviceData.length > 0 ? (
+                <div className="space-y-4">
+                  {deviceData.map((device, index) => (
+                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {device.device_type === 'mobile' ? (
+                          <Smartphone className="h-5 w-5 text-blue-600" />
+                        ) : (
+                          <Monitor className="h-5 w-5 text-gray-600" />
+                        )}
+                        <div>
+                          <p className="font-medium">{device.device_os || device.device_type || '알 수 없음'}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {device.total_sessions?.toLocaleString() || 0}개 세션 · {device.total_events?.toLocaleString() || 0}개 이벤트
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="outline">
+                        전환율 {(device.conversion_rate || 0).toFixed(1)}%
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Smartphone className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>디바이스 데이터가 없습니다</p>
+                  <p className="text-sm mt-2">고객 이벤트가 수집되면 디바이스별 분석이 표시됩니다</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -567,48 +849,32 @@ export default function CustomerBehaviorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                <div className="text-center py-8 border-2 border-dashed rounded-lg">
-                  <Users className="h-12 w-12 mx-auto mb-4 text-blue-500" />
-                  <h3 className="text-lg font-semibold mb-2">코호트 리텐션 매트릭스</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    가입 시기별 사용자 그룹의 재방문율을 추적합니다
-                  </p>
-                  <div className="text-xs text-muted-foreground">
-                    예시: 1월 가입 고객 100명 중 30일 후 45명 재방문 (45% 리텐션)
+              {cohortData?.performance && cohortData.performance.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="p-4 border rounded-lg">
+                      <p className="text-sm text-muted-foreground">분석 코호트 수</p>
+                      <p className="text-2xl font-bold">{cohortData.performance.length}개</p>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                      <p className="text-sm text-muted-foreground">최근 코호트</p>
+                      <p className="text-2xl font-bold">{cohortData.performance[0]?.cohort_month || '-'}</p>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                      <p className="text-sm text-muted-foreground">총 사용자</p>
+                      <p className="text-2xl font-bold">
+                        {cohortData.performance.reduce((sum: number, c: any) => sum + (c.user_count || 0), 0).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
                 </div>
-
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-sm text-muted-foreground mb-1">월별 코호트</div>
-                      <div className="text-2xl font-bold">12개월</div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        최근 1년간의 코호트 분석
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-sm text-muted-foreground mb-1">평균 리텐션</div>
-                      <div className="text-2xl font-bold text-blue-600">API 연동 필요</div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        30일 후 재방문율
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="text-sm text-muted-foreground mb-1">최고 성과 코호트</div>
-                      <div className="text-2xl font-bold text-green-600">API 연동 필요</div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        가장 높은 전환율
-                      </p>
-                    </CardContent>
-                  </Card>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>코호트 데이터가 없습니다</p>
+                  <p className="text-sm mt-2">사용자 데이터가 누적되면 코호트 분석이 표시됩니다</p>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -623,65 +889,33 @@ export default function CustomerBehaviorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                <div className="flex items-center gap-4 mb-4">
-                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
-                    N-Day Retention
-                  </Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
-                    Unbounded
-                  </Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
-                    재구매율
-                  </Badge>
+              {retentionData?.data && retentionData.data.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-5">
+                    {['Day 1', 'Day 3', 'Day 7', 'Day 14', 'Day 30'].map((day, index) => {
+                      const colors = ['bg-blue-50', 'bg-green-50', 'bg-purple-50', 'bg-orange-50', 'bg-red-50'];
+                      const textColors = ['text-blue-600', 'text-green-600', 'text-purple-600', 'text-orange-600', 'text-red-600'];
+                      return (
+                        <Card key={day} className={colors[index]}>
+                          <CardContent className="pt-6 text-center">
+                            <div className={`text-3xl font-bold ${textColors[index]}`}>{day}</div>
+                            <div className="text-sm text-muted-foreground mt-2">재방문율</div>
+                            <div className="text-2xl font-bold mt-2">
+                              {retentionData.data[0]?.[`day_${[1, 3, 7, 14, 30][index]}_retention`]?.toFixed(1) || '-'}%
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 </div>
-
-                <div className="grid gap-4 md:grid-cols-5">
-                  <Card className="bg-blue-50">
-                    <CardContent className="pt-6 text-center">
-                      <div className="text-3xl font-bold text-blue-600">Day 1</div>
-                      <div className="text-sm text-muted-foreground mt-2">다음날 재방문</div>
-                      <div className="text-2xl font-bold mt-2">API 연동</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-green-50">
-                    <CardContent className="pt-6 text-center">
-                      <div className="text-3xl font-bold text-green-600">Day 3</div>
-                      <div className="text-sm text-muted-foreground mt-2">3일 후 재방문</div>
-                      <div className="text-2xl font-bold mt-2">API 연동</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-purple-50">
-                    <CardContent className="pt-6 text-center">
-                      <div className="text-3xl font-bold text-purple-600">Day 7</div>
-                      <div className="text-sm text-muted-foreground mt-2">7일 후 재방문</div>
-                      <div className="text-2xl font-bold mt-2">API 연동</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-orange-50">
-                    <CardContent className="pt-6 text-center">
-                      <div className="text-3xl font-bold text-orange-600">Day 14</div>
-                      <div className="text-sm text-muted-foreground mt-2">14일 후 재방문</div>
-                      <div className="text-2xl font-bold mt-2">API 연동</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-red-50">
-                    <CardContent className="pt-6 text-center">
-                      <div className="text-3xl font-bold text-red-600">Day 30</div>
-                      <div className="text-sm text-muted-foreground mt-2">30일 후 재방문</div>
-                      <div className="text-2xl font-bold mt-2">API 연동</div>
-                    </CardContent>
-                  </Card>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>리텐션 데이터가 없습니다</p>
+                  <p className="text-sm mt-2">사용자 재방문 데이터가 누적되면 리텐션 분석이 표시됩니다</p>
                 </div>
-
-                <div className="text-center py-8 border-2 border-dashed rounded-lg">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-purple-500" />
-                  <h3 className="text-lg font-semibold mb-2">리텐션 커브</h3>
-                  <p className="text-sm text-muted-foreground">
-                    시간에 따른 사용자 유지율 변화를 시각화합니다
-                  </p>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -696,90 +930,32 @@ export default function CustomerBehaviorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                <div className="flex items-center gap-4 mb-4">
-                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
-                    이벤트 시퀀스
-                  </Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
-                    전환 경로
-                  </Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
-                    페이지 흐름
-                  </Badge>
-                  <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
-                    이탈 경로
-                  </Badge>
-                </div>
-
-                <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                  <Activity className="h-16 w-16 mx-auto mb-4 text-green-500" />
-                  <h3 className="text-xl font-semibold mb-3">Sankey 다이어그램</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    고객의 실제 이동 경로를 흐름으로 시각화합니다
-                  </p>
-                  <div className="max-w-2xl mx-auto text-left space-y-2 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <ArrowRight className="h-4 w-4" />
-                      <span>APP_OPEN → PRODUCT_VIEW → CART_ADD → ORDER_START → PAYMENT_SUCCESS</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <ArrowRight className="h-4 w-4" />
-                      <span>APP_OPEN → PRODUCT_VIEW → CART_ADD → [이탈]</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <ArrowRight className="h-4 w-4" />
-                      <span>APP_OPEN → BANNER_CLICK → PRODUCT_VIEW → ORDER_START</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">가장 많은 전환 경로</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                          <span className="text-xs">경로 1</span>
-                          <Badge variant="outline">API 연동</Badge>
-                        </div>
-                        <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
-                          <span className="text-xs">경로 2</span>
-                          <Badge variant="outline">API 연동</Badge>
-                        </div>
-                        <div className="flex items-center justify-between p-2 bg-purple-50 rounded">
-                          <span className="text-xs">경로 3</span>
-                          <Badge variant="outline">API 연동</Badge>
-                        </div>
+              {journeyData?.data && journeyData.data.length > 0 ? (
+                <div className="space-y-4">
+                  <h4 className="font-medium">주요 이벤트 시퀀스</h4>
+                  {journeyData.data.slice(0, 10).map((seq: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {seq.event_sequence?.split(' → ').map((event: string, i: number, arr: string[]) => (
+                          <span key={i} className="flex items-center gap-1">
+                            <Badge variant="outline" className="text-xs">
+                              {getEventTypeLabel(event)}
+                            </Badge>
+                            {i < arr.length - 1 && <ArrowRight className="h-3 w-3 text-muted-foreground" />}
+                          </span>
+                        ))}
                       </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">주요 이탈 지점</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center justify-between p-2 bg-red-50 rounded">
-                          <span className="text-xs">이탈 지점 1</span>
-                          <Badge variant="destructive">API 연동</Badge>
-                        </div>
-                        <div className="flex items-center justify-between p-2 bg-orange-50 rounded">
-                          <span className="text-xs">이탈 지점 2</span>
-                          <Badge variant="destructive">API 연동</Badge>
-                        </div>
-                        <div className="flex items-center justify-between p-2 bg-yellow-50 rounded">
-                          <span className="text-xs">이탈 지점 3</span>
-                          <Badge variant="destructive">API 연동</Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <Badge>{seq.sequence_count?.toLocaleString() || 0}회</Badge>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>여정 데이터가 없습니다</p>
+                  <p className="text-sm mt-2">고객 이벤트가 수집되면 여정 분석이 표시됩니다</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -853,4 +1029,3 @@ export default function CustomerBehaviorPage() {
     </div>
   );
 }
-
