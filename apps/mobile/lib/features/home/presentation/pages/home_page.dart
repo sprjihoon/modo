@@ -800,266 +800,250 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
 
-  /// 내 주문 섹션
+  /// 내 주문 섹션 (주문이 없으면 섹션 전체 숨김)
   Widget _buildMyOrdersSection(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 섹션 헤더
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _getCachedOrders(),
+      builder: (context, snapshot) {
+        // 로딩 중, 에러, 빈 목록일 경우 섹션 전체 숨김
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+        if (snapshot.hasError || (snapshot.data ?? []).isEmpty) {
+          return const SizedBox.shrink();
+        }
+        
+        final orders = snapshot.data!;
+        final order = orders.first;
+        final status = order['status'] as String? ?? 'BOOKED';
+        final extraChargeStatus = order['extra_charge_status'] as String?;
+        final isPendingCustomer = extraChargeStatus == 'PENDING_CUSTOMER';
+        final statusStyle = _statusStyle(status);
+        final createdAt = order['created_at'] as String?;
+        String dateStr = '';
+        if (createdAt != null) {
+          try {
+            final dt = DateTime.parse(createdAt);
+            dateStr = '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
+          } catch (_) {}
+        }
+        final price = order['total_price'] as num? ?? 0;
+        final priceStr = '₩${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
+        
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '내 주문',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  context.push('/orders');
-                },
-                icon: const Icon(Icons.arrow_forward, size: 16),
-                label: const Text('전체보기'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.grey.shade700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          
-          // 실데이터: 최근 주문 1건
-          FutureBuilder<List<Map<String, dynamic>>>(
-            future: _getCachedOrders(), // 캐싱된 주문 데이터 사용
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Container(
-                  height: 92,
-                  alignment: Alignment.center,
-                  child: const CircularProgressIndicator(strokeWidth: 2),
-                );
-              }
-              if (snapshot.hasError) {
-                return _buildEmptyOrderCard(
-                  context,
-                  title: '주문을 불러오지 못했어요',
-                  subtitle: '다시 시도해 주세요',
-                  icon: Icons.error_outline,
-                );
-              }
-              final orders = snapshot.data ?? [];
-              if (orders.isEmpty) {
-                return _buildEmptyOrderCard(
-                  context,
-                  title: '아직 주문이 없어요',
-                  subtitle: '첫 수거신청을 시작해 보세요',
-                  icon: Icons.inbox_outlined,
-                );
-              }
-              
-              final order = orders.first;
-              final status = order['status'] as String? ?? 'BOOKED';
-              final extraChargeStatus = order['extra_charge_status'] as String?;
-              final isPendingCustomer = extraChargeStatus == 'PENDING_CUSTOMER';
-              final statusStyle = _statusStyle(status);
-              final createdAt = order['created_at'] as String?;
-              String dateStr = '';
-              if (createdAt != null) {
-                try {
-                  final dt = DateTime.parse(createdAt);
-                  dateStr = '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
-                } catch (_) {}
-              }
-              final price = order['total_price'] as num? ?? 0;
-              final priceStr = '₩${price.toString().replaceAllMapped(RegExp(r'(\\d{1,3})(?=(\\d{3})+(?!\\d))'), (m) => '${m[1]},')}';
-              
-              return InkWell(
-                onTap: () => context.push('/orders/${order['id']}'),
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isPendingCustomer 
-                      ? Colors.orange.shade300 
-                      : Colors.grey.shade200,
-                  width: isPendingCustomer ? 2 : 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isPendingCustomer 
-                        ? Colors.orange.withOpacity(0.15)
-                        : Colors.black.withOpacity(0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+              // 섹션 헤더
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '내 주문',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      context.push('/orders');
+                    },
+                    icon: const Icon(Icons.arrow_forward, size: 16),
+                    label: const Text('전체보기'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey.shade700,
+                    ),
                   ),
                 ],
               ),
-              child: Row(
-                children: [
-                  // 아이콘
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: isPendingCustomer 
-                              ? Colors.orange.withOpacity(0.15)
-                              : const Color(0xFF00C896).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          isPendingCustomer 
-                              ? Icons.payment 
-                              : Icons.checkroom_rounded,
-                          color: isPendingCustomer 
-                              ? Colors.orange.shade700
-                              : const Color(0xFF00C896),
-                          size: 28,
-                        ),
+              const SizedBox(height: 12),
+              
+              // 최근 주문 1건
+              InkWell(
+                onTap: () => context.push('/orders/${order['id']}'),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isPendingCustomer 
+                          ? Colors.orange.shade300 
+                          : Colors.grey.shade200,
+                      width: isPendingCustomer ? 2 : 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isPendingCustomer 
+                            ? Colors.orange.withOpacity(0.15)
+                            : Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                      // 🆕 추가결제 배지
-                      if (isPendingCustomer)
-                        Positioned(
-                          right: -6,
-                          top: -6,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: const Text(
-                              '!',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
                     ],
                   ),
-                  const SizedBox(width: 16),
-                  
-                  // 주문 정보
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            // 🆕 추가결제 배지 (우선 표시)
-                            if (isPendingCustomer) ...[
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    children: [
+                      // 아이콘
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: isPendingCustomer 
+                                  ? Colors.orange.withOpacity(0.15)
+                                  : const Color(0xFF00C896).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              isPendingCustomer 
+                                  ? Icons.payment 
+                                  : Icons.checkroom_rounded,
+                              color: isPendingCustomer 
+                                  ? Colors.orange.shade700
+                                  : const Color(0xFF00C896),
+                              size: 28,
+                            ),
+                          ),
+                          // 추가결제 배지
+                          if (isPendingCustomer)
+                            Positioned(
+                              right: -6,
+                              top: -6,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: Colors.orange.shade100,
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.payment,
-                                      size: 12,
-                                      color: Colors.orange.shade900,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '추가결제',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.orange.shade900,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                            Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                    color: statusStyle['color']!.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                                  child: Text(
-                                    statusStyle['label']! as String,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                      color: statusStyle['color']! as Color,
+                                child: const Text(
+                                  '!',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+                      
+                      // 주문 정보
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                // 추가결제 배지 (우선 표시)
+                                if (isPendingCustomer) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.payment,
+                                          size: 12,
+                                          color: Colors.orange.shade900,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '추가결제',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.orange.shade900,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: (statusStyle['color'] as Color).withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    statusStyle['label'] as String,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: statusStyle['color'] as Color,
+                                    ),
+                                  ),
+                                ),
                                 if (dateStr.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Text(
+                                  const SizedBox(width: 8),
+                                  Text(
                                     dateStr,
                                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                            ),
+                                  ),
                                 ],
-                          ],
-                        ),
-                        const SizedBox(height: 8),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
                             Text(
                               (order['item_name'] as String?) ?? '수선 항목',
                               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
                               priceStr,
                               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  
+                      ),
+                      
                       const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                ],
-              ),
-            ),
-              );
-            },
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // 주문 목록으로 가는 버튼
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                context.push('/orders');
-              },
-              icon: const Icon(Icons.list_alt_rounded, size: 20),
-              label: const Text('전체 주문 보기'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                    ],
+                  ),
                 ),
-                side: BorderSide(color: Colors.grey.shade300),
               ),
-            ),
+              
+              const SizedBox(height: 12),
+              
+              // 주문 목록으로 가는 버튼
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    context.push('/orders');
+                  },
+                  icon: const Icon(Icons.list_alt_rounded, size: 20),
+                  label: const Text('전체 주문 보기'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1080,48 +1064,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       default:
         return {'label': '수거예약', 'color': Colors.blue};
     }
-  }
-
-  Widget _buildEmptyOrderCard(BuildContext context,
-      {required String title, required String subtitle, required IconData icon,}) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: Colors.grey.shade500, size: 28),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87,),),
-                const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () => context.push('/orders'),
-            child: const Text('주문 보기'),
-          ),
-        ],
-      ),
-    );
   }
 
 }
