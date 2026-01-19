@@ -236,6 +236,7 @@ class OrderService {
       }
 
       debugPrint('✅ 주문 조회 성공: ${response['id']}');
+      debugPrint('📋 extra_charge_status: ${response['extra_charge_status']}');
 
       // 타입 안전하게 변환
       final order = Map<String, dynamic>.from(response as Map);
