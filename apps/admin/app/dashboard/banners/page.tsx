@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit, Trash2, Check, X, ArrowUp, ArrowDown, Image as ImageIcon, Upload } from "lucide-react";
+import { Plus, Edit, Trash2, Check, X, ArrowUp, ArrowDown, Image as ImageIcon, Upload, ExternalLink, Navigation, ShoppingCart } from "lucide-react";
 
 interface Banner {
   id: string;
@@ -252,19 +252,32 @@ export default function BannersPage() {
                       <p className="text-sm text-gray-600 mb-2">
                         버튼 텍스트: {banner.button_text}
                       </p>
-                      {banner.action_value && (
-                        <p className="text-sm text-blue-600 mb-2 flex items-center gap-1">
-                          <span className="text-gray-500">클릭 시 이동:</span>
-                          <a 
-                            href={banner.action_value} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="hover:underline truncate max-w-md"
-                          >
-                            {banner.action_value}
-                          </a>
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2 text-sm mb-2">
+                        <span className="text-gray-500">클릭 시:</span>
+                        {banner.action_type === 'url' && banner.action_value ? (
+                          <span className="flex items-center gap-1 text-blue-600">
+                            <ExternalLink className="h-3 w-3" />
+                            <a 
+                              href={banner.action_value} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="hover:underline truncate max-w-md"
+                            >
+                              {banner.action_value}
+                            </a>
+                          </span>
+                        ) : banner.action_type === 'navigate' && banner.action_value ? (
+                          <span className="flex items-center gap-1 text-purple-600">
+                            <Navigation className="h-3 w-3" />
+                            앱 내 이동: {banner.action_value}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-green-600">
+                            <ShoppingCart className="h-3 w-3" />
+                            수거신청 페이지 (기본)
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span>순서: {banner.display_order}</span>
                         <span>배경색: {banner.background_color}</span>
@@ -599,19 +612,98 @@ function BannerModal({ banner, onClose, onSuccess }: BannerModalProps) {
             </div>
           </div>
 
-          {/* 클릭 시 이동 URL */}
+          {/* 클릭 시 동작 */}
           <div>
-            <Label htmlFor="actionValue">클릭 시 이동 URL (선택사항)</Label>
-            <Input
-              id="actionValue"
-              value={actionValue}
-              onChange={(e) => setActionValue(e.target.value)}
-              placeholder="https://example.com 또는 앱 내 경로"
-              className="mt-1"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              비워두면 기본 동작(수거신청 페이지)으로 이동합니다
-            </p>
+            <Label>클릭 시 동작</Label>
+            <div className="mt-2 space-y-3">
+              {/* 액션 타입 선택 */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setActionType('order'); setActionValue(''); }}
+                  className={`flex-1 p-3 rounded-lg border-2 text-left ${
+                    actionType === 'order' 
+                      ? 'border-green-500 bg-green-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className={`h-4 w-4 ${actionType === 'order' ? 'text-green-600' : 'text-gray-400'}`} />
+                    <span className="font-medium">수거신청</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">기본 동작</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActionType('navigate')}
+                  className={`flex-1 p-3 rounded-lg border-2 text-left ${
+                    actionType === 'navigate' 
+                      ? 'border-purple-500 bg-purple-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Navigation className={`h-4 w-4 ${actionType === 'navigate' ? 'text-purple-600' : 'text-gray-400'}`} />
+                    <span className="font-medium">앱 내 이동</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">다른 페이지로</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActionType('url')}
+                  className={`flex-1 p-3 rounded-lg border-2 text-left ${
+                    actionType === 'url' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <ExternalLink className={`h-4 w-4 ${actionType === 'url' ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <span className="font-medium">외부 URL</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">브라우저 열기</p>
+                </button>
+              </div>
+
+              {/* 앱 내 페이지 선택 */}
+              {actionType === 'navigate' && (
+                <div>
+                  <Label htmlFor="navigatePath">이동할 페이지</Label>
+                  <select
+                    id="navigatePath"
+                    value={actionValue}
+                    onChange={(e) => setActionValue(e.target.value)}
+                    className="mt-1 w-full p-2 border rounded-lg"
+                  >
+                    <option value="">페이지 선택...</option>
+                    <option value="/orders">📋 주문 내역</option>
+                    <option value="/profile">👤 마이페이지</option>
+                    <option value="/notifications">🔔 알림</option>
+                    <option value="/announcements">📢 공지사항</option>
+                    <option value="/addresses">📍 배송지 관리</option>
+                    <option value="/payment-history">💳 결제 내역</option>
+                    <option value="/points-history">🎁 포인트 내역</option>
+                    <option value="/invite-friends">👥 친구 초대</option>
+                    <option value="/customer-service">💬 고객센터</option>
+                    <option value="/app-settings">⚙️ 앱 설정</option>
+                  </select>
+                </div>
+              )}
+
+              {/* 외부 URL 입력 */}
+              {actionType === 'url' && (
+                <div>
+                  <Label htmlFor="externalUrl">외부 URL</Label>
+                  <Input
+                    id="externalUrl"
+                    value={actionValue}
+                    onChange={(e) => setActionValue(e.target.value)}
+                    placeholder="https://example.com"
+                    className="mt-1"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 표시 순서 */}

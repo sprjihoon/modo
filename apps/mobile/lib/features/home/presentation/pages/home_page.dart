@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/widgets/scaffold_with_footer.dart';
 import '../../../auth/data/providers/auth_provider.dart';
 import '../../../orders/providers/cart_provider.dart';
@@ -220,6 +221,37 @@ class _HomePageState extends ConsumerState<HomePage> {
         },
       ),
     );
+  }
+
+  /// 배너 클릭 처리 (action_type에 따라 다른 동작)
+  Future<void> _handleBannerTap(BuildContext context, Map<String, dynamic> banner) async {
+    final actionType = banner['action_type'] as String? ?? 'order';
+    final actionValue = banner['action_value'] as String?;
+
+    switch (actionType) {
+      case 'navigate':
+        // 앱 내 페이지 이동
+        if (actionValue != null && actionValue.isNotEmpty) {
+          context.push(actionValue);
+        } else {
+          _showPreparationDialog(context);
+        }
+        break;
+      case 'url':
+        // 외부 URL 열기
+        if (actionValue != null && actionValue.isNotEmpty) {
+          final uri = Uri.parse(actionValue);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        }
+        break;
+      case 'order':
+      default:
+        // 기본: 수거신청 다이얼로그
+        _showPreparationDialog(context);
+        break;
+    }
   }
 
   /// 수선물 준비 안내 다이얼로그 (주문 제한 체크 포함)
@@ -705,7 +737,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                           const SizedBox(height: 24),
                           ElevatedButton(
-                            onPressed: _isCheckingOrderLimit ? null : () => _showPreparationDialog(this.context),
+                            onPressed: _isCheckingOrderLimit ? null : () => _handleBannerTap(this.context, banner),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF00C896),
                               foregroundColor: Colors.white,
