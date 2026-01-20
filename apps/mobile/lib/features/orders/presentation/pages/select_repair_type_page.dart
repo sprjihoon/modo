@@ -286,22 +286,14 @@ class _SelectRepairTypePageState extends ConsumerState<SelectRepairTypePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '상세 수선 부위를 선택해주세요',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade800,
-                              ),
+                          Text(
+                            '상세 수선 부위를 선택해주세요',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade800,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '입고 후 추가 결제 요청이 있을 수 있습니다',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
+                          ),
                           ],
                         ),
                       ),

@@ -925,54 +925,6 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                     ),
                   ),
                   
-                  const SizedBox(height: 24),
-                  
-                  // 안내 메시지
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.check_circle_outline,
-                            color: Colors.red,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.black87,
-                                  height: 1.5,
-                                ),
-                                children: [
-                                  const TextSpan(
-                                    text: '수선 신청 시, ',
-                                  ),
-                                  TextSpan(
-                                    text: '입고 후 추가 결제 요청이 있을 수 있습니다',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.red.shade700,
-                                    ),
-                                  ),
-                                  const TextSpan(text: '.'),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  
             const SizedBox(height: 24),
             
             // 동의 체크박스 (페이지 내)
