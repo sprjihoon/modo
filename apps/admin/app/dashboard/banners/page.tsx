@@ -252,6 +252,19 @@ export default function BannersPage() {
                       <p className="text-sm text-gray-600 mb-2">
                         버튼 텍스트: {banner.button_text}
                       </p>
+                      {banner.action_value && (
+                        <p className="text-sm text-blue-600 mb-2 flex items-center gap-1">
+                          <span className="text-gray-500">클릭 시 이동:</span>
+                          <a 
+                            href={banner.action_value} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="hover:underline truncate max-w-md"
+                          >
+                            {banner.action_value}
+                          </a>
+                        </p>
+                      )}
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span>순서: {banner.display_order}</span>
                         <span>배경색: {banner.background_color}</span>
@@ -364,6 +377,8 @@ function BannerModal({ banner, onClose, onSuccess }: BannerModalProps) {
   const [backgroundImageUrl, setBackgroundImageUrl] = useState(banner?.background_image_url || "");
   const [displayOrder, setDisplayOrder] = useState(banner?.display_order ?? 0);
   const [isActive, setIsActive] = useState(banner?.is_active ?? true);
+  const [actionType, setActionType] = useState(banner?.action_type || "navigate");
+  const [actionValue, setActionValue] = useState(banner?.action_value || "");
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -421,6 +436,8 @@ function BannerModal({ banner, onClose, onSuccess }: BannerModalProps) {
         background_image_url: backgroundImageUrl || null,
         display_order: displayOrder,
         is_active: isActive,
+        action_type: actionType,
+        action_value: actionValue || null,
       };
 
       const url = banner
@@ -580,6 +597,21 @@ function BannerModal({ banner, onClose, onSuccess }: BannerModalProps) {
                 </Label>
               </div>
             </div>
+          </div>
+
+          {/* 클릭 시 이동 URL */}
+          <div>
+            <Label htmlFor="actionValue">클릭 시 이동 URL (선택사항)</Label>
+            <Input
+              id="actionValue"
+              value={actionValue}
+              onChange={(e) => setActionValue(e.target.value)}
+              placeholder="https://example.com 또는 앱 내 경로"
+              className="mt-1"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              비워두면 기본 동작(수거신청 페이지)으로 이동합니다
+            </p>
           </div>
 
           {/* 표시 순서 */}
