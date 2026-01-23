@@ -30,9 +30,16 @@ Deno.serve(async (req) => {
       return errorResponse('Method not allowed', 405);
     }
 
-    // 인증된 사용자 확인
+    // Authorization 헤더에서 JWT 토큰 추출
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return errorResponse('인증이 필요합니다', 401, 'UNAUTHORIZED');
+    }
+    const jwt = authHeader.replace('Bearer ', '');
+
+    // 인증된 사용자 확인 (JWT 토큰 직접 전달)
     const supabase = createSupabaseClient(req);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
 
     if (authError || !user) {
       return errorResponse('인증이 필요합니다', 401, 'UNAUTHORIZED');

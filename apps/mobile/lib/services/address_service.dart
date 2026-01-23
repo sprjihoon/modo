@@ -231,34 +231,26 @@ class AddressService {
         return null;
       }
 
-      // RLS 정책 우회: auth_id를 직접 사용하여 user_id 조회
+      _logger.i('🔍 user_id 조회 시작 - auth_id: $authId');
+
+      // RLS 정책 우회: RPC 함수 사용 (SECURITY DEFINER)
       final response = await _supabase
           .rpc('get_user_id_by_auth_id', params: {'auth_user_id': authId});
+
+      _logger.i('📋 RPC 응답: $response (타입: ${response.runtimeType})');
 
       if (response == null) {
         _logger.w('⚠️ user_id를 찾을 수 없습니다. auth_id: $authId');
         return null;
       }
 
-      return response as String;
+      // UUID는 String으로 반환됨
+      final userId = response.toString();
+      _logger.i('✅ user_id 조회 성공: $userId');
+      return userId;
     } catch (e) {
       _logger.e('❌ user_id 조회 실패: $e');
-      // RPC 함수가 없는 경우 대체 방법
-      try {
-        final authId = _supabase.auth.currentUser?.id;
-        if (authId == null) return null;
-        
-        final response = await _supabase
-            .from('users')
-            .select('id')
-            .eq('auth_id', authId as Object)
-            .maybeSingle();
-        
-        return response?['id'] as String?;
-      } catch (e2) {
-        _logger.e('❌ 대체 방법도 실패: $e2');
-        return null;
-      }
+      return null;
     }
   }
 }
