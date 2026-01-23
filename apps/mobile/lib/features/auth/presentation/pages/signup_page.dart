@@ -666,6 +666,21 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     _buildSocialButton(
+                      'Apple',
+                      Colors.black,
+                      Colors.white,
+                      () {
+                        // TODO: 애플 회원가입
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('애플 회원가입 (준비 중)'),
+                            backgroundColor: Color(0xFF00C896),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    _buildSocialButton(
                       'Google',
                       Colors.white,
                       Colors.black87,
@@ -679,7 +694,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                         );
                       },
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     _buildSocialButton(
                       'Naver',
                       const Color(0xFF03C75A),
@@ -694,7 +709,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                         );
                       },
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     _buildSocialButton(
                       'Kakao',
                       const Color(0xFFFFE812),
