@@ -465,17 +465,43 @@ class ProfilePage extends ConsumerWidget {
 
               try {
                 final authService = ref.read(authServiceProvider);
-                await authService.deleteAccount();
+                final success = await authService.deleteAccount();
                 
                 if (context.mounted) {
                   Navigator.of(context, rootNavigator: true).pop(); // 로딩 닫기
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('회원 탈퇴가 완료되었습니다'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  context.go('/login');
+                  
+                  if (success) {
+                    // 탈퇴 성공 다이얼로그 표시 후 로그인 페이지로 이동
+                    await showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('회원 탈퇴 완료'),
+                        content: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_circle_outline, 
+                                 color: Colors.green, size: 64),
+                            SizedBox(height: 16),
+                            Text('회원 탈퇴가 완료되었습니다.'),
+                            SizedBox(height: 8),
+                            Text('그동안 이용해주셔서 감사합니다.\n다음에 또 만나요! 👋',
+                                 textAlign: TextAlign.center,
+                                 style: TextStyle(color: Colors.grey)),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              context.go('/login');
+                            },
+                            child: const Text('확인'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
                 }
               } catch (e) {
                 if (context.mounted) {

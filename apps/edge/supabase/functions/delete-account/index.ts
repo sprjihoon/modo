@@ -14,7 +14,7 @@
  * Response: { success: true, message: "..." }
  */
 
-import { createSupabaseClient } from '../_shared/supabase.ts';
+import { createSupabaseClient, createSupabaseAdminClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { handleCorsOptions } from '../_shared/cors.ts';
 
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
 
     // 5. auth.users 삭제 (인증 정보만 삭제)
     // 주문 및 작업 기록은 user_id로 연결되어 있어 보관됨
-    const supabaseAdmin = createSupabaseClient(req);
+    const supabaseAdmin = createSupabaseAdminClient();
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
 
     if (deleteError) {

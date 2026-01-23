@@ -378,7 +378,8 @@ class AuthService {
 
   /// 회원 탈퇴
   /// Edge Function을 호출하여 계정 및 모든 관련 데이터를 삭제합니다
-  Future<void> deleteAccount() async {
+  /// 반환값: 성공 시 true
+  Future<bool> deleteAccount() async {
     try {
       final currentUser = this.currentUser;
       if (currentUser == null) {
@@ -392,21 +393,26 @@ class AuthService {
         'delete-account',
       );
 
+      print('📋 회원 탈퇴 응답: status=${response.status}, data=${response.data}');
+
       if (response.status != 200) {
         final errorData = response.data;
         final errorMessage = errorData?['error'] ?? '회원 탈퇴에 실패했습니다';
         throw Exception(errorMessage);
       }
 
-      final result = response.data;
-      if (result?['success'] != true) {
-        throw Exception(result?['error'] ?? '회원 탈퇴에 실패했습니다');
+      print('✅ 회원 탈퇴 완료 - 로컬 세션 정리 중...');
+      
+      // 로컬 세션만 정리 (auth listener 트리거하지 않도록 조용히 처리)
+      try {
+        await _supabase.auth.signOut(scope: SignOutScope.local);
+      } catch (signOutError) {
+        // 계정이 이미 삭제되었으므로 signOut 에러는 무시
+        print('⚠️ signOut 에러 (무시됨 - 계정 이미 삭제): $signOutError');
       }
 
-      print('✅ 회원 탈퇴 완료');
-      
-      // 로그아웃 처리 (계정이 삭제되었으므로 세션도 무효화됨)
-      await _supabase.auth.signOut();
+      print('✅ 회원 탈퇴 및 세션 정리 완료');
+      return true;
     } catch (e) {
       print('❌ 회원 탈퇴 실패: $e');
       throw Exception('회원 탈퇴 실패: $e');
