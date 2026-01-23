@@ -241,18 +241,45 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5. 세션 생성 (Magic Link 방식)
-    // generateLink를 사용하여 인증 링크 생성 후 세션 추출
-    const { data: linkData, error: linkError } =
+    // 5. 세션 생성 (Admin API로 직접 토큰 생성)
+    console.log("🔑 세션 생성 중...");
+    
+    // Admin API로 사용자의 세션 직접 생성
+    const { data: sessionData, error: sessionError } = 
       await supabaseAdmin.auth.admin.generateLink({
         type: "magiclink",
         email: userEmail,
+        options: {
+          redirectTo: "modorepair://login-callback",
+        }
       });
 
-    if (linkError || !linkData) {
-      console.error("❌ 세션 생성 실패:", linkError);
+    // 세션 생성을 위해 signInWithPassword 시도 (임시 비밀번호 사용)
+    // 네이버 사용자는 임시 비밀번호가 설정되어 있음
+    const tempPassword = `naver_${naverId}_secure_login`;
+    
+    // 비밀번호 업데이트 (매번 동일한 비밀번호로)
+    await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: tempPassword,
+    });
 
-      // 대안: 직접 사용자 정보 반환 (클라이언트에서 처리)
+    // 일반 클라이언트로 로그인하여 실제 세션 획득
+    const supabaseClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    const { data: signInData, error: signInError } = 
+      await supabaseClient.auth.signInWithPassword({
+        email: userEmail,
+        password: tempPassword,
+      });
+
+    if (signInError || !signInData.session) {
+      console.error("❌ 세션 생성 실패:", signInError);
+      
       return new Response(
         JSON.stringify({
           success: true,
@@ -260,7 +287,7 @@ Deno.serve(async (req) => {
           email: userEmail,
           name: userName,
           provider: "naver",
-          message: "사용자 생성/확인 완료. 앱에서 세션을 설정해주세요.",
+          message: "사용자 확인 완료. 이메일로 로그인해주세요.",
         }),
         {
           status: 200,
@@ -269,43 +296,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Magic link에서 토큰 추출
-    const actionLink = linkData.properties?.action_link;
-    if (actionLink) {
-      // URL에서 토큰 파라미터 추출
-      const url = new URL(actionLink);
-      const accessToken = url.searchParams.get("token");
-      const tokenHash = url.hash?.replace("#", "");
+    console.log("✅ 세션 생성 완료");
 
-      if (accessToken || tokenHash) {
-        console.log("✅ 인증 토큰 생성 완료");
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            access_token: accessToken || tokenHash,
-            user_id: userId,
-            email: userEmail,
-            name: userName,
-            provider: "naver",
-          }),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-    }
-
-    // 토큰 추출 실패 시 기본 응답
+    // 실제 access_token과 refresh_token 반환
     return new Response(
       JSON.stringify({
         success: true,
+        access_token: signInData.session.access_token,
+        refresh_token: signInData.session.refresh_token,
+        expires_in: signInData.session.expires_in,
         user_id: userId,
         email: userEmail,
         name: userName,
         provider: "naver",
-        message: "로그인 성공",
       }),
       {
         status: 200,

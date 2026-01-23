@@ -244,6 +244,14 @@ class AuthService {
         throw Exception('네이버 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
       }
       
+      // 0.5. 기존 토큰 삭제 (Refresh token is not valid 에러 방지)
+      try {
+        await FlutterNaverLogin.logOutAndDeleteToken();
+        print('🧹 기존 네이버 토큰 삭제 완료');
+      } catch (e) {
+        print('ℹ️ 기존 토큰 삭제 실패 (무시): $e');
+      }
+      
       // 1. 네이버 SDK로 로그인 (2.x API)
       final result = await FlutterNaverLogin.logIn();
       
@@ -297,9 +305,16 @@ class AuthService {
       
       // 4. Edge Function에서 반환한 세션으로 로그인
       final sessionData = response.data;
-      if (sessionData != null && sessionData['access_token'] != null) {
-        await _supabase.auth.setSession(sessionData['access_token']);
+      final sessionAccessToken = sessionData?['access_token'] as String?;
+      final sessionRefreshToken = sessionData?['refresh_token'] as String?;
+      
+      if (sessionAccessToken != null && sessionRefreshToken != null) {
+        // setSession은 refresh_token을 인자로 받음
+        await _supabase.auth.setSession(sessionRefreshToken);
         print('✅ Supabase 세션 설정 완료');
+      } else {
+        print('⚠️ 세션 토큰이 없습니다. 응답: $sessionData');
+        throw Exception('로그인 세션을 생성할 수 없습니다. 다시 시도해주세요.');
       }
       
       // 📊 로그인 액션 로그 기록
