@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../features/auth/domain/models/user_model.dart';
 import '../core/enums/user_role.dart';
 import '../core/enums/action_type.dart';
@@ -193,111 +191,39 @@ class AuthService {
     }
   }
 
-  /// 소셜 로그인 (Google) - Firebase Auth 사용
+  /// 소셜 로그인 (Google)
+  /// Supabase OAuth를 통한 구글 로그인
   Future<bool> signInWithGoogle() async {
     try {
-      print('🔐 Google 로그인 시작');
+      print('🔐 구글 로그인 시작');
       
-      // 1. Google Sign In 시작
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile'],
+      // Supabase OAuth를 통한 구글 로그인
+      final response = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'modorepair://login-callback',
+        authScreenLaunchMode: LaunchMode.externalApplication,
       );
       
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      
-      if (googleUser == null) {
-        print('⚠️ Google 로그인 취소됨');
+      if (!response) {
+        print('⚠️ 구글 로그인 시작 실패');
         return false;
       }
       
-      print('✅ Google 계정 선택: ${googleUser.email}');
-      
-      // 2. Google 인증 토큰 가져오기
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      
-      // 3. Firebase Auth로 로그인
-      final credential = firebase_auth.GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      
-      final firebase_auth.UserCredential firebaseUser = 
-          await firebase_auth.FirebaseAuth.instance.signInWithCredential(credential);
-      
-      print('✅ Firebase 로그인 성공: ${firebaseUser.user?.email}');
-      
-      // 4. Supabase에도 로그인 (ID Token 사용)
-      if (googleAuth.idToken != null) {
-        try {
-          final response = await _supabase.auth.signInWithIdToken(
-            provider: OAuthProvider.google,
-            idToken: googleAuth.idToken!,
-            accessToken: googleAuth.accessToken,
-          );
-          
-          print('✅ Supabase 로그인 성공: ${response.user?.email}');
-          
-          // 5. Supabase users 테이블에 프로필 생성/업데이트
-          if (response.user != null) {
-            await _createOrUpdateGoogleUserProfile(
-              authId: response.user!.id,
-              email: googleUser.email,
-              name: googleUser.displayName ?? '사용자',
-            );
-          }
-        } catch (supabaseError) {
-          print('⚠️ Supabase 로그인 실패 (Firebase만 사용): $supabaseError');
-          // Firebase 로그인은 성공했으므로 계속 진행
-        }
-      }
+      print('✅ 구글 OAuth 시작됨 - 브라우저로 이동');
       
       // 📊 로그인 액션 로그 기록
       await _logService.log(
         actionType: ActionType.LOGIN,
         metadata: {
           'provider': 'google',
-          'email': googleUser.email,
           'loginTime': DateTime.now().toIso8601String(),
         },
       );
       
       return true;
     } catch (e) {
-      print('❌ Google 로그인 실패: $e');
+      print('❌ 구글 로그인 실패: $e');
       throw Exception('구글 로그인 실패: $e');
-    }
-  }
-  
-  /// Google 사용자 프로필 생성 또는 업데이트
-  Future<void> _createOrUpdateGoogleUserProfile({
-    required String authId,
-    required String email,
-    required String name,
-  }) async {
-    try {
-      // 기존 프로필 확인
-      final existingProfile = await _supabase
-          .from('users')
-          .select('id')
-          .eq('auth_id', authId)
-          .maybeSingle();
-      
-      if (existingProfile != null) {
-        // 기존 사용자 - 업데이트
-        print('✅ 기존 Google 사용자 프로필 확인됨');
-      } else {
-        // 신규 사용자 - 프로필 생성
-        await _supabase.from('users').insert({
-          'auth_id': authId,
-          'email': email,
-          'name': name,
-          'role': 'CUSTOMER',
-        });
-        print('✅ 신규 Google 사용자 프로필 생성됨');
-      }
-    } catch (e) {
-      print('⚠️ Google 사용자 프로필 처리 실패: $e');
-      // 프로필 생성 실패해도 로그인은 성공 처리
     }
   }
 
@@ -325,26 +251,40 @@ class AuthService {
   }
 
   /// 소셜 로그인 (Kakao)
-  /// 주의: Supabase에서 Kakao는 커스텀 OAuth provider로 설정해야 합니다
-  /// Supabase Dashboard > Authentication > Providers에서 Kakao를 활성화하고 설정해야 합니다
-  /// 현재는 기본 제공되지 않으므로, Supabase Dashboard에서 커스텀 provider로 추가해야 합니다
+  /// Supabase OAuth를 통한 카카오 로그인
   Future<bool> signInWithKakao() async {
-    // 카카오 로그인은 현재 지원하지 않습니다.
-    // Supabase Dashboard에서 커스텀 OAuth provider 설정 후 활성화 예정
-    debugPrint('⚠️ 카카오 로그인: 현재 준비 중입니다.');
-    return false;
-    
-    // TODO: Kakao OAuth 설정 후 아래 코드 활성화
-    // try {
-    //   await _supabase.auth.signInWithOAuth(
-    //     OAuthProvider.kakao,
-    //     redirectTo: 'io.flutter.app://',
-    //   );
-    //   return true;
-    // } catch (e) {
-    //   debugPrint('카카오 로그인 실패: $e');
-    //   return false;
-    // }
+    try {
+      print('🔐 카카오 로그인 시작');
+      
+      // Supabase OAuth를 통한 카카오 로그인
+      // 비즈 앱 전환 완료 - account_email 포함 모든 동의항목 요청 가능
+      final response = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.kakao,
+        redirectTo: 'modorepair://login-callback',
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      
+      if (!response) {
+        print('⚠️ 카카오 로그인 시작 실패');
+        return false;
+      }
+      
+      print('✅ 카카오 OAuth 시작됨 - 브라우저로 이동');
+      
+      // 📊 로그인 액션 로그 기록
+      await _logService.log(
+        actionType: ActionType.LOGIN,
+        metadata: {
+          'provider': 'kakao',
+          'loginTime': DateTime.now().toIso8601String(),
+        },
+      );
+      
+      return true;
+    } catch (e) {
+      print('❌ 카카오 로그인 실패: $e');
+      throw Exception('카카오 로그인 실패: $e');
+    }
   }
 
   /// 로그아웃

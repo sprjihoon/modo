@@ -9,6 +9,7 @@ import '../../features/auth/presentation/pages/signup_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/terms_page.dart';
 import '../../features/auth/presentation/pages/privacy_policy_page.dart';
+import '../../features/auth/presentation/pages/complete_profile_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/home/presentation/pages/content_view_page.dart';
 import '../../features/orders/presentation/pages/order_list_page.dart';
@@ -42,6 +43,8 @@ import '../../features/video/presentation/pages/comparison_video_player_page.dar
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 
 /// GoRouter 프로바이더
+/// 참고: OAuth 딥링크(modorepair://)는 GoRouter가 파싱하다 에러가 발생하지만,
+/// app.dart의 auth 리스너가 로그인 성공 시 자동으로 /home으로 네비게이션함
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
@@ -86,6 +89,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/privacy-policy',
         name: 'privacy-policy',
         builder: (context, state) => const PrivacyPolicyPage(),
+      ),
+      
+      // 소셜 로그인 후 추가 정보 입력 (약관 동의 포함)
+      GoRoute(
+        path: '/complete-profile',
+        name: 'complete-profile',
+        builder: (context, state) => const CompleteProfilePage(),
       ),
       
       // Home

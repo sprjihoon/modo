@@ -11,6 +11,7 @@ import 'package:provider/provider.dart' as provider;
 
 import '../../../../services/image_service.dart';
 import '../../../../services/order_service.dart';
+import '../../../../services/company_info_service.dart';
 import '../../../../core/enums/extra_charge_status.dart';
 import '../../providers/extra_charge_provider.dart';
 import '../../domain/models/extra_charge_data.dart';
@@ -29,10 +30,12 @@ class OrderDetailPage extends ConsumerStatefulWidget {
 
 class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   final _orderService = OrderService();
+  final _companyInfoService = CompanyInfoService();
   bool _isLoading = true;
   bool _isCancelling = false; // 취소 중 상태 추가
   Map<String, dynamic>? _orderData;
   Map<String, dynamic>? _shipmentData;
+  String _customerServicePhone = '1833-3429'; // 기본값
   
   // 실제 사진 데이터 (State로 관리)
   List<Map<String, dynamic>> _images = [];
@@ -61,8 +64,19 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   void initState() {
     super.initState();
     _loadOrderData();
+    _loadCustomerServicePhone();
     // 주기적 새로고침 시작 (30초마다)
     _startPeriodicRefresh();
+  }
+
+  /// 고객센터 전화번호 로드
+  Future<void> _loadCustomerServicePhone() async {
+    final phone = await _companyInfoService.getCustomerServicePhone();
+    if (mounted) {
+      setState(() {
+        _customerServicePhone = phone;
+      });
+    }
   }
   
   @override
@@ -1241,10 +1255,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ListTile(
                 leading: const Icon(Icons.phone, color: Color(0xFF00C896)),
                 title: const Text('전화 문의'),
-                subtitle: const Text('1588-0000'),
+                subtitle: Text(_customerServicePhone),
                 onTap: () async {
                   Navigator.pop(context);
-                  final uri = Uri.parse('tel:1588-0000');
+                  final phoneNumber = _customerServicePhone.replaceAll('-', '');
+                  final uri = Uri.parse('tel:$phoneNumber');
                   if (await canLaunchUrl(uri)) {
                     await launchUrl(uri);
                   } else {
@@ -1257,22 +1272,20 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.chat_bubble, color: Colors.yellow),
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEE500),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(
+                    child: Text('💬', style: TextStyle(fontSize: 18)),
+                  ),
+                ),
                 title: const Text('카카오톡 문의'),
-                subtitle: const Text('@모두리페어'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final uri = Uri.parse('https://pf.kakao.com/_modorepair');
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('카카오톡을 열 수 없습니다')),
-                      );
-                    }
-                  }
-                },
+                subtitle: const Text('@모두수선 (주문정보 자동첨부)'),
+                onTap: () => _openKakaoChat(context),
               ),
               ListTile(
                 leading: const Icon(Icons.email, color: Colors.blue),
@@ -1297,6 +1310,165 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         ),
       ),
     );
+  }
+
+  /// 카카오톡 채널 채팅 열기 (주문 정보 포함)
+  Future<void> _openKakaoChat(BuildContext context) async {
+    Navigator.pop(context); // 바텀시트 닫기
+    
+    // 주문 정보 포맷팅
+    final orderInfo = _formatOrderInfoForChat();
+    
+    // 클립보드에 복사
+    await Clipboard.setData(ClipboardData(text: orderInfo));
+    
+    // 카카오톡 채널 URL
+    const kakaoChannelId = '_dLhAX';
+    final kakaoChannelChatUrl = Uri.parse('https://pf.kakao.com/$kakaoChannelId/chat');
+    final kakaoAppUrl = Uri.parse('kakaoplus://plusfriend/chat/$kakaoChannelId');
+    
+    if (!context.mounted) return;
+    
+    // 안내 다이얼로그
+    final shouldProceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE500),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Center(
+                child: Text('💬', style: TextStyle(fontSize: 20)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('카카오톡 문의'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green.shade600, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '주문 정보가 복사되었습니다',
+                      style: TextStyle(
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '카카오톡 채널로 이동합니다.\n채팅창에서 붙여넣기하면\n주문 정보가 자동으로 입력됩니다.',
+              style: TextStyle(height: 1.5),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFEE500),
+              foregroundColor: Colors.black87,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('카카오톡으로 이동'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldProceed != true || !context.mounted) return;
+
+    // 카카오톡 앱 시도 → 실패시 웹 URL
+    try {
+      if (await canLaunchUrl(kakaoAppUrl)) {
+        await launchUrl(kakaoAppUrl, mode: LaunchMode.externalApplication);
+      } else if (await canLaunchUrl(kakaoChannelChatUrl)) {
+        await launchUrl(kakaoChannelChatUrl, mode: LaunchMode.externalApplication);
+      } else {
+        throw Exception('카카오톡을 열 수 없습니다');
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('카카오톡을 열 수 없습니다. 앱이 설치되어 있는지 확인해주세요.'),
+          backgroundColor: Colors.red.shade400,
+        ),
+      );
+    }
+  }
+
+  /// 주문 정보를 채팅용 텍스트로 포맷팅
+  String _formatOrderInfoForChat() {
+    final buffer = StringBuffer();
+    buffer.writeln('안녕하세요, 모두의수선 고객입니다.');
+    buffer.writeln();
+    buffer.writeln('📦 문의 주문 정보');
+    buffer.writeln('─────────────');
+    
+    // 주문번호
+    final orderNumber = _orderData?['order_number'] ?? widget.orderId;
+    buffer.writeln('주문번호: $orderNumber');
+    
+    // 의류/수선 정보
+    final clothingType = _orderData?['clothing_type'] ?? '-';
+    final repairType = _orderData?['repair_type'] ?? '-';
+    buffer.writeln('의류: $clothingType');
+    buffer.writeln('수선: $repairType');
+    
+    // 상태
+    final statusTextMap = {
+      'BOOKED': '수거예약',
+      'INBOUND': '입고완료',
+      'PROCESSING': '수선중',
+      'READY_TO_SHIP': '출고완료',
+      'DELIVERED': '배송완료',
+      'CANCELLED': '취소됨',
+    };
+    buffer.writeln('상태: ${statusTextMap[_currentStatus] ?? _currentStatus}');
+    
+    // 송장번호 (있으면)
+    final trackingNo = _shipmentData?['pickup_tracking_no'] ?? 
+                      _shipmentData?['delivery_tracking_no'] ?? 
+                      _shipmentData?['tracking_no'];
+    if (trackingNo != null) {
+      buffer.writeln('송장번호: $trackingNo');
+    }
+    
+    buffer.writeln('─────────────');
+    buffer.writeln();
+    buffer.writeln('문의 내용:');
+    
+    return buffer.toString();
   }
 
   /// 송장번호 카드 빌더

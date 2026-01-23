@@ -63,6 +63,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="modorepair" />
             </intent-filter>
+            
+            <!-- Kakao Login OAuth Callback -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kakao1369868" android:host="oauth" />
+            </intent-filter>
         </activity>
         
         <!-- Firebase Messaging 서비스 -->
@@ -120,6 +128,12 @@
         
         <!-- 카카오톡 -->
         <package android:name="com.kakao.talk" />
+        
+        <!-- 카카오톡 채널 (kakaoplus 스킴) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="kakaoplus" />
+        </intent>
         
         <!-- 토스페이먼츠 및 결제 관련 앱들 -->
         <package android:name="viva.republica.toss" />

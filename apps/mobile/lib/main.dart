@@ -3,6 +3,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider/provider.dart' as provider_pkg;
 import 'package:supabase_flutter/supabase_flutter.dart';
+// Firebase Core - 푸시 알림용 (Google 로그인 비활성화 상태)
+import 'package:firebase_core/firebase_core.dart';
 // 🚀 Video Processing Improvements
 import 'package:media_kit/media_kit.dart';
 
@@ -15,6 +17,15 @@ import 'services/network_monitor_service.dart';
 /// 모두의수선 메인 엔트리포인트
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 🔥 Firebase 초기화 (Google 로그인, 푸시 알림에 필요)
+  try {
+    await Firebase.initializeApp();
+    print('✅ Firebase 초기화 완료');
+  } catch (e) {
+    print('⚠️ Firebase 초기화 실패 (카카오 로그인은 정상 작동): $e');
+    // Firebase 초기화 실패해도 앱은 계속 실행 (카카오/Supabase 로그인은 정상 작동)
+  }
   
   // 🚀 Feature Flags 상태 출력
   VideoFeatureFlags.printStatus();
@@ -78,12 +89,28 @@ void main() async {
     print('   URL: ${url.length > 30 ? url.substring(0, 30) : url}...');
     print('   Key: ${anonKey.length > 20 ? anonKey.substring(0, 20) : anonKey}...');
     
-    // Supabase 초기화
+    // Supabase 초기화 (OAuth 딥링크 처리 포함)
+    // ⚠️ 카카오 OAuth는 implicit flow 사용 (PKCE가 제대로 작동하지 않는 경우)
     await Supabase.initialize(
       url: url,
       anonKey: anonKey,
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.implicit,
+      ),
+      debug: true,
     );
-    print('✅ Supabase 초기화 완료');
+    
+    // 🔗 딥링크 리스너 설정 (OAuth 콜백 처리)
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+      final session = data.session;
+      print('🔔 Auth 상태 변경: $event');
+      if (session != null) {
+        print('✅ 세션 획득: ${session.user.email ?? session.user.id}');
+      }
+    });
+    
+    print('✅ Supabase 초기화 완료 (OAuth 딥링크 지원)');
     
     // 🚀 media_kit 초기화 (Feature Flag로 제어)
     if (VideoFeatureFlags.shouldUseMediaKit) {
@@ -103,23 +130,7 @@ void main() async {
   }
   
   // ============================================
-  // 🔔 Firebase 푸시 알림 (현재 비활성화)
-  // ============================================
-  // 활성화 방법:
-  // 1. Firebase 프로젝트 생성 및 앱 등록
-  // 2. google-services.json (Android), GoogleService-Info.plist (iOS) 추가
-  // 3. pubspec.yaml에 firebase_core, firebase_messaging 추가
-  // 4. flutterfire configure 실행
-  // 5. 아래 코드 주석 해제
-  //
-  // try {
-  //   await Firebase.initializeApp(
-  //     options: DefaultFirebaseOptions.currentPlatform,
-  //   );
-  //   print('✅ Firebase 초기화 완료');
-  // } catch (e) {
-  //   print('⚠️ Firebase 초기화 실패 (푸시 알림 비활성화): $e');
-  // }
+  // 🔔 Firebase 초기화는 main() 시작 부분에서 처리됨
   // ============================================
   
   runApp(

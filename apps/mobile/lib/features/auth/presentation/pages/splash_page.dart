@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/providers/auth_provider.dart';
 
 /// 스플래시 화면
@@ -43,12 +44,45 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     
     if (mounted) {
       if (isLoggedIn) {
-        // 로그인된 경우 홈으로 이동
-        context.go('/home');
+        // 로그인된 경우 프로필 완료 여부 확인
+        final targetRoute = await _checkProfileCompletion();
+        if (mounted) {
+          context.go(targetRoute);
+        }
       } else {
         // 로그인되지 않은 경우 로그인 페이지로 이동
         context.go('/login');
       }
+    }
+  }
+
+  /// 프로필 완료 여부 확인
+  Future<String> _checkProfileCompletion() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return '/login';
+
+      final response = await Supabase.instance.client.rpc(
+        'check_profile_completed',
+        params: {'p_auth_id': user.id},
+      );
+
+      debugPrint('📋 [Splash] 프로필 체크: $response');
+
+      if (response is List && response.isNotEmpty) {
+        final result = response.first;
+        final isCompleted = result['is_completed'] as bool? ?? false;
+
+        if (!isCompleted) {
+          debugPrint('⚠️ [Splash] 프로필 미완료 → /complete-profile');
+          return '/complete-profile';
+        }
+      }
+
+      return '/home';
+    } catch (e) {
+      debugPrint('❌ [Splash] 프로필 체크 실패: $e');
+      return '/home'; // 에러 시 홈으로 (기존 사용자일 수 있음)
     }
   }
 

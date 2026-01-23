@@ -58,9 +58,7 @@ dependencies:
   firebase_messaging: ^15.0.4
   flutter_local_notifications: ^17.2.1
   
-  # Google Sign In
-  google_sign_in: ^6.2.1
-  firebase_auth: ^5.1.4
+  # Google Sign In - Supabase OAuth 방식 사용 (별도 패키지 불필요)
   
   # Local Storage
   shared_preferences: ^2.2.2
@@ -69,6 +67,9 @@ dependencies:
   logger: ^2.0.2
   uuid: ^4.2.2
   url_launcher: ^6.2.0
+  
+  # Deep Links (OAuth 콜백 처리용)
+  app_links: ^6.1.1
   
   # Permissions
   permission_handler: ^11.3.0
