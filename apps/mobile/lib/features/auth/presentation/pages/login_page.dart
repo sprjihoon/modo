@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../data/providers/auth_provider.dart';
 
@@ -18,6 +20,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _isSocialLoginInProgress = false;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
@@ -27,10 +31,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ref.invalidate(userProfileProvider);
       ref.invalidate(currentUserProvider);
     });
+    
+    // 소셜 로그인 완료 감지
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedIn && mounted) {
+        setState(() => _isSocialLoginInProgress = true);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -98,35 +110,36 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _handleSocialLogin(String provider) async {
+    // 소셜 로그인 시작 시 로딩 표시
+    setState(() => _isSocialLoginInProgress = true);
+    
     try {
       final authService = ref.read(authServiceProvider);
+      bool success = false;
       
       switch (provider) {
         case 'google':
-          await authService.signInWithGoogle();
+          success = await authService.signInWithGoogle();
           break;
         case 'naver':
-          await authService.signInWithNaver();
+          success = await authService.signInWithNaver();
           break;
         case 'kakao':
-          await authService.signInWithKakao();
+          success = await authService.signInWithKakao();
           break;
         case 'apple':
-          await authService.signInWithApple();
+          success = await authService.signInWithApple();
           break;
       }
       
-      // OAuth는 리다이렉트로 처리되므로 여기서는 성공 메시지만 표시
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$provider 로그인을 시작합니다'),
-            backgroundColor: const Color(0xFF00C896),
-          ),
-        );
+      // OAuth는 외부 브라우저로 이동 (로딩 유지)
+      // 네이버는 인앱에서 처리되므로 성공 시 홈으로 이동
+      if (provider == 'naver' && success && mounted) {
+        context.go('/home');
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isSocialLoginInProgress = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$provider 로그인 실패: ${e.toString().replaceAll('Exception: ', '')}'),
@@ -139,6 +152,63 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 소셜 로그인 진행 중이면 로딩 화면 표시
+    if (_isSocialLoginInProgress) {
+      return Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+              ],
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // 로딩 인디케이터
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Theme.of(context).colorScheme.primary,
+                        Theme.of(context).colorScheme.secondary,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(
+                    Icons.checkroom_rounded,
+                    size: 48,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 24),
+                Text(
+                  '로그인 중...',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
     return Scaffold(
       body: Column(
         children: [

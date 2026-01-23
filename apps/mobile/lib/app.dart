@@ -86,13 +86,24 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp> {
       
       // 로그아웃 시 로그인 페이지로
       if (event == AuthChangeEvent.signedOut) {
-        debugPrint('🚪 [App] 로그아웃 - 로그인 페이지로 이동');
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) {
-            final router = ref.read(routerProvider);
-            router.go('/login');
-          }
-        });
+        debugPrint('🚪 [App] 로그아웃 감지');
+        // profile_page에서 이미 로그인 페이지로 이동했을 수 있으므로
+        // 현재 경로가 login이 아닐 때만 이동 (세션 만료 등의 케이스)
+        final router = ref.read(routerProvider);
+        final currentPath = router.routerDelegate.currentConfiguration.uri.path;
+        
+        if (currentPath != '/login' && mounted) {
+          debugPrint('🚪 [App] 로그인 페이지로 이동');
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) {
+              try {
+                router.go('/login');
+              } catch (e) {
+                debugPrint('❌ [App] 로그아웃 네비게이션 실패: $e');
+              }
+            }
+          });
+        }
       }
     });
   }

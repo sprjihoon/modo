@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 네이버 로그인 SDK 설정 -->
+    <string name="client_id">b7QJILomSlfsFL7RuAQs</string>
+    <string name="client_secret">M_cxR3WuTs</string>
+    <string name="client_name">모두의수선</string>
+</resources>
+

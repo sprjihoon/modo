@@ -114,24 +114,12 @@ void main() async {
     
     print('✅ Supabase 초기화 완료 (OAuth 딥링크 지원)');
     
-    // 🟢 네이버 로그인 SDK 초기화
+    // 🟢 네이버 로그인 SDK 초기화 (2.x 버전은 Android/iOS 설정 파일에서 자동 초기화)
     final naverClientId = dotenv.env['NAVER_CLIENT_ID'];
-    final naverClientSecret = dotenv.env['NAVER_CLIENT_SECRET'];
-    final naverClientName = dotenv.env['NAVER_CLIENT_NAME'] ?? '모두의수선';
-    
-    if (naverClientId != null && naverClientSecret != null) {
-      try {
-        await FlutterNaverLogin.initSdk(
-          clientId: naverClientId,
-          clientSecret: naverClientSecret,
-          clientName: naverClientName,
-        );
-        print('✅ 네이버 로그인 SDK 초기화 완료');
-      } catch (e) {
-        print('⚠️ 네이버 로그인 SDK 초기화 실패 (다른 로그인은 정상 작동): $e');
-      }
+    if (naverClientId != null && naverClientId.isNotEmpty) {
+      print('✅ 네이버 로그인 설정 확인됨 (SDK는 네이티브 설정에서 자동 초기화)');
     } else {
-      print('ℹ️ 네이버 로그인 설정 없음 (NAVER_CLIENT_ID/SECRET 미설정)');
+      print('ℹ️ 네이버 로그인 설정 없음 (NAVER_CLIENT_ID 미설정)');
     }
     
     // 🚀 media_kit 초기화 (Feature Flag로 제어)

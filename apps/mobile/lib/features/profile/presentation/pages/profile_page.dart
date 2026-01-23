@@ -365,54 +365,26 @@ class ProfilePage extends ConsumerWidget {
             onPressed: () async {
               Navigator.of(dialogContext).pop();
               
-              // 로딩 다이얼로그 표시
-              if (context.mounted) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                );
-              }
-              
               try {
                 // 🔄 먼저 모든 auth 관련 provider를 invalidate
                 ref.invalidate(userProfileProvider);
                 ref.invalidate(currentUserProvider);
                 
                 final authService = ref.read(authServiceProvider);
-                await authService.signOut();
                 
-                // 상태가 확실히 업데이트되도록 짧은 딜레이
-                await Future.delayed(const Duration(milliseconds: 300));
-                
+                // 🚀 먼저 로그인 페이지로 이동 후 로그아웃 처리
+                // (로그아웃 후 context가 유효하지 않을 수 있으므로)
                 if (context.mounted) {
-                  // 로딩 다이얼로그 닫기
-                  Navigator.of(context, rootNavigator: true).pop();
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('로그아웃되었습니다'),
-                      backgroundColor: Color(0xFF00C896),
-                    ),
-                  );
-                  
-                  // 로그인 페이지로 이동 (스택 완전 초기화)
                   context.go('/login');
                 }
+                
+                // 페이지 이동 후 로그아웃 실행
+                await Future.delayed(const Duration(milliseconds: 100));
+                await authService.signOut();
+                
               } catch (e) {
-                if (context.mounted) {
-                  // 로딩 다이얼로그 닫기
-                  Navigator.of(context, rootNavigator: true).pop();
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('로그아웃 실패: ${e.toString().replaceAll('Exception: ', '')}'),
-                      backgroundColor: Colors.red.shade400,
-                    ),
-                  );
-                }
+                debugPrint('❌ 로그아웃 오류: $e');
+                // 에러가 발생해도 이미 로그인 페이지로 이동했으므로 무시
               }
             },
             style: ElevatedButton.styleFrom(

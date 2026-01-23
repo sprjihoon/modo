@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_naver_login/flutter_naver_login.dart';
+import 'package:flutter_naver_login/interface/types/naver_login_status.dart';
 import '../features/auth/domain/models/user_model.dart';
 import '../core/enums/user_role.dart';
 import '../core/enums/action_type.dart';
@@ -243,20 +244,32 @@ class AuthService {
         throw Exception('네이버 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
       }
       
-      // 1. 네이버 SDK로 로그인
-      final NaverLoginResult result = await FlutterNaverLogin.logIn();
+      // 1. 네이버 SDK로 로그인 (2.x API)
+      final result = await FlutterNaverLogin.logIn();
       
-      if (result.status != NaverLoginStatus.loggedIn) {
-        print('⚠️ 네이버 로그인 취소 또는 실패: ${result.status}');
+      if (result.status == NaverLoginStatus.error) {
+        print('⚠️ 네이버 로그인 취소 또는 실패: ${result.errorMessage}');
         return false;
       }
       
-      print('✅ 네이버 로그인 성공: ${result.account.email}');
+      final account = result.account;
+      if (account == null) {
+        print('⚠️ 네이버 계정 정보를 가져올 수 없습니다');
+        return false;
+      }
       
-      // 2. 네이버 액세스 토큰 가져오기
-      final NaverAccessToken token = await FlutterNaverLogin.currentAccessToken;
+      final email = account.email ?? '';
+      final name = account.name ?? '';
+      final profileImage = account.profileImage ?? '';
+      final userId = account.id ?? '';
       
-      if (token.accessToken.isEmpty) {
+      print('✅ 네이버 로그인 성공: $email');
+      
+      // 2. 네이버 액세스 토큰 가져오기 (2.x API)
+      final tokenResult = await FlutterNaverLogin.getCurrentAccessToken();
+      final accessToken = tokenResult.accessToken;
+      
+      if (accessToken.isEmpty) {
         throw Exception('네이버 액세스 토큰을 가져올 수 없습니다');
       }
       
@@ -266,11 +279,11 @@ class AuthService {
       final response = await _supabase.functions.invoke(
         'naver-auth',
         body: {
-          'accessToken': token.accessToken,
-          'email': result.account.email,
-          'name': result.account.name,
-          'profileImage': result.account.profileImage,
-          'id': result.account.id,
+          'accessToken': accessToken,
+          'email': email,
+          'name': name,
+          'profileImage': profileImage,
+          'id': userId,
         },
       );
       
@@ -294,7 +307,7 @@ class AuthService {
         actionType: ActionType.LOGIN,
         metadata: {
           'provider': 'naver',
-          'email': result.account.email,
+          'email': email,
           'loginTime': DateTime.now().toIso8601String(),
         },
       );
