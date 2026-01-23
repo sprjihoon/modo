@@ -451,9 +451,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     Color textColor,
     VoidCallback onTap,
   ) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
       child: Container(
         width: 70,
         height: 70,

@@ -97,6 +97,19 @@
 				<string>kakao1369868</string>
 			</array>
 		</dict>
+		<!-- Naver Login OAuth Callback -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>naver-login-callback</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- 네이버 개발자 센터에서 발급받은 URL Scheme -->
+				<!-- 형식: naver{clientId} 또는 커스텀 스킴 -->
+				<string>modorepairnaver</string>
+			</array>
+		</dict>
 	</array>
 	
 	<!-- HLS 비디오 스트리밍을 위한 App Transport Security 설정 -->
@@ -123,6 +136,10 @@
 	<!-- 토스페이먼츠 결제를 위한 외부 앱 스킴 -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
+		<!-- 네이버 앱 스킴 -->
+		<string>naversearchapp</string>
+		<string>naversearchthirdlogin</string>
+		<!-- 토스페이먼츠 결제 스킴 -->
 		<string>supertoss</string>
 		<string>kb-acp</string>
 		<string>liivbank</string>

@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_naver_login/flutter_naver_login.dart';
 import '../features/auth/domain/models/user_model.dart';
 import '../core/enums/user_role.dart';
 import '../core/enums/action_type.dart';
@@ -228,26 +230,97 @@ class AuthService {
   }
 
   /// 소셜 로그인 (Naver)
-  /// 주의: Supabase에서 Naver는 커스텀 OAuth provider로 설정해야 합니다
-  /// Supabase Dashboard > Authentication > Providers에서 Naver를 활성화하고 설정해야 합니다
-  /// 현재는 기본 제공되지 않으므로, Supabase Dashboard에서 커스텀 provider로 추가해야 합니다
+  /// flutter_naver_login 패키지를 사용하여 네이버 로그인 후
+  /// Edge Function을 통해 Supabase 세션을 생성합니다
   Future<bool> signInWithNaver() async {
-    // 네이버 로그인은 현재 지원하지 않습니다.
-    // Supabase Dashboard에서 커스텀 OAuth provider 설정 후 활성화 예정
-    debugPrint('⚠️ 네이버 로그인: 현재 준비 중입니다.');
-    return false;
-    
-    // TODO: Naver OAuth 설정 후 아래 코드 활성화
-    // try {
-    //   await _supabase.auth.signInWithOAuth(
-    //     OAuthProvider.naver,
-    //     redirectTo: 'io.flutter.app://',
-    //   );
-    //   return true;
-    // } catch (e) {
-    //   debugPrint('네이버 로그인 실패: $e');
-    //   return false;
-    // }
+    try {
+      print('🔐 네이버 로그인 시작');
+      
+      // 0. 네이버 SDK 초기화 확인 (환경 변수 체크)
+      final naverClientId = dotenv.env['NAVER_CLIENT_ID'];
+      if (naverClientId == null || naverClientId.isEmpty) {
+        print('❌ 네이버 로그인 설정이 없습니다 (NAVER_CLIENT_ID 미설정)');
+        throw Exception('네이버 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
+      }
+      
+      // 1. 네이버 SDK로 로그인
+      final NaverLoginResult result = await FlutterNaverLogin.logIn();
+      
+      if (result.status != NaverLoginStatus.loggedIn) {
+        print('⚠️ 네이버 로그인 취소 또는 실패: ${result.status}');
+        return false;
+      }
+      
+      print('✅ 네이버 로그인 성공: ${result.account.email}');
+      
+      // 2. 네이버 액세스 토큰 가져오기
+      final NaverAccessToken token = await FlutterNaverLogin.currentAccessToken;
+      
+      if (token.accessToken.isEmpty) {
+        throw Exception('네이버 액세스 토큰을 가져올 수 없습니다');
+      }
+      
+      print('🔑 네이버 토큰 획득 완료');
+      
+      // 3. Edge Function 호출하여 Supabase 세션 생성
+      final response = await _supabase.functions.invoke(
+        'naver-auth',
+        body: {
+          'accessToken': token.accessToken,
+          'email': result.account.email,
+          'name': result.account.name,
+          'profileImage': result.account.profileImage,
+          'id': result.account.id,
+        },
+      );
+      
+      print('📋 Edge Function 응답: status=${response.status}');
+      
+      if (response.status != 200) {
+        final errorData = response.data;
+        final errorMessage = errorData?['error'] ?? '네이버 로그인 처리에 실패했습니다';
+        throw Exception(errorMessage);
+      }
+      
+      // 4. Edge Function에서 반환한 세션으로 로그인
+      final sessionData = response.data;
+      if (sessionData != null && sessionData['access_token'] != null) {
+        await _supabase.auth.setSession(sessionData['access_token']);
+        print('✅ Supabase 세션 설정 완료');
+      }
+      
+      // 📊 로그인 액션 로그 기록
+      await _logService.log(
+        actionType: ActionType.LOGIN,
+        metadata: {
+          'provider': 'naver',
+          'email': result.account.email,
+          'loginTime': DateTime.now().toIso8601String(),
+        },
+      );
+      
+      print('✅ 네이버 로그인 완료');
+      return true;
+    } on Exception catch (e) {
+      print('❌ 네이버 로그인 실패: $e');
+      
+      // 네이버 로그아웃 (실패 시 정리)
+      try {
+        await FlutterNaverLogin.logOut();
+      } catch (_) {}
+      
+      throw Exception('네이버 로그인 실패: $e');
+    }
+  }
+  
+  /// 네이버 로그아웃
+  Future<void> signOutNaver() async {
+    try {
+      await FlutterNaverLogin.logOut();
+      print('✅ 네이버 로그아웃 완료');
+    } catch (e) {
+      print('⚠️ 네이버 로그아웃 실패 (무시됨): $e');
+    }
   }
 
   /// 소셜 로그인 (Kakao)

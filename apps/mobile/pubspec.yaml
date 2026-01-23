@@ -60,6 +60,9 @@ dependencies:
   
   # Google Sign In - Supabase OAuth 방식 사용 (별도 패키지 불필요)
   
+  # Naver Login
+  flutter_naver_login: ^1.8.0
+  
   # Local Storage
   shared_preferences: ^2.2.2
   
