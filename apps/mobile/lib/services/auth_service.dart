@@ -360,6 +360,46 @@ class AuthService {
     }
   }
 
+  /// 소셜 로그인 (Apple)
+  /// Supabase OAuth를 통한 애플 로그인
+  /// ⚠️ Apple Developer 계정 설정 필요:
+  /// 1. App ID에서 "Sign In with Apple" 활성화
+  /// 2. Service ID 생성 (웹 로그인용)
+  /// 3. Supabase Dashboard > Auth > Providers > Apple 설정
+  Future<bool> signInWithApple() async {
+    try {
+      print('🔐 애플 로그인 시작');
+      
+      // Supabase OAuth를 통한 애플 로그인
+      final response = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: 'modorepair://login-callback',
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      
+      if (!response) {
+        print('⚠️ 애플 로그인 시작 실패');
+        return false;
+      }
+      
+      print('✅ 애플 OAuth 시작됨 - 브라우저로 이동');
+      
+      // 📊 로그인 액션 로그 기록
+      await _logService.log(
+        actionType: ActionType.LOGIN,
+        metadata: {
+          'provider': 'apple',
+          'loginTime': DateTime.now().toIso8601String(),
+        },
+      );
+      
+      return true;
+    } catch (e) {
+      print('❌ 애플 로그인 실패: $e');
+      throw Exception('애플 로그인 실패: $e');
+    }
+  }
+
   /// 로그아웃
   Future<void> signOut() async {
     try {

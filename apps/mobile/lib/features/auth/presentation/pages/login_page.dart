@@ -111,6 +111,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         case 'kakao':
           await authService.signInWithKakao();
           break;
+        case 'apple':
+          await authService.signInWithApple();
+          break;
       }
       
       // OAuth는 리다이렉트로 처리되므로 여기서는 성공 메시지만 표시
@@ -323,19 +326,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                         _buildSocialButton(
+                          'Apple',
+                          Colors.black,
+                          Colors.white,
+                          () => _handleSocialLogin('apple'),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildSocialButton(
                           'Google',
                           Colors.white,
                           Colors.black87,
                           () => _handleSocialLogin('google'),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         _buildSocialButton(
                           'Naver',
                           const Color(0xFF03C75A),
                           Colors.white,
                           () => _handleSocialLogin('naver'),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         _buildSocialButton(
                           'Kakao',
                           const Color(0xFFFFE812),
