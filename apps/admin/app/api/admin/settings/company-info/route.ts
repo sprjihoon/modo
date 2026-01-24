@@ -42,6 +42,10 @@ export async function POST(req: NextRequest) {
       privacy_officer: body.privacy_officer ?? null,
       email: body.email ?? null,
       phone: body.phone ? String(body.phone) : null,
+      // 운영시간 필드
+      operating_hours_weekday: body.operating_hours_weekday ?? null,
+      operating_hours_lunch: body.operating_hours_lunch ?? null,
+      operating_hours_weekend: body.operating_hours_weekend ?? null,
       updated_at: new Date().toISOString(),
     };
 

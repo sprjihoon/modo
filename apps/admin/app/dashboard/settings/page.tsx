@@ -54,6 +54,13 @@ export default function SettingsPage() {
     customerCenter: "",
   });
 
+  // 운영시간 설정
+  const [operatingHours, setOperatingHours] = useState({
+    weekday: "09:00 - 18:00",
+    lunch: "12:00 - 13:00",
+    weekend: "휴무",
+  });
+
   // 일일 주문 제한량 설정
   const [orderLimitSettings, setOrderLimitSettings] = useState({
     dailyOrderLimit: "",
@@ -131,6 +138,10 @@ export default function SettingsPage() {
             privacy_officer: footerSettings.privacyOfficer,
             email: footerSettings.email,
             phone: footerSettings.customerCenter,
+            // 운영시간
+            operating_hours_weekday: operatingHours.weekday,
+            operating_hours_lunch: operatingHours.lunch,
+            operating_hours_weekend: operatingHours.weekend,
           }),
         });
         const json = await res.json();
@@ -241,6 +252,12 @@ export default function SettingsPage() {
           privacyOfficer: data.privacy_officer || "",
           email: data.email || "",
           customerCenter: data.phone || "",
+        });
+        // 운영시간 로드
+        setOperatingHours({
+          weekday: data.operating_hours_weekday || "09:00 - 18:00",
+          lunch: data.operating_hours_lunch || "12:00 - 13:00",
+          weekend: data.operating_hours_weekend || "휴무",
         });
         console.log('✅ 푸터 정보 로드 성공:', data);
       } else {
@@ -596,6 +613,56 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+
+      {/* 고객센터 운영시간 설정 */}
+      <Card className="border-green-200 dark:border-green-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-green-600" />
+            고객센터 운영시간 설정
+          </CardTitle>
+          <CardDescription>앱 고객센터 페이지에 표시되는 운영시간입니다</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="operatingHoursWeekday">평일 운영시간</Label>
+            <Input
+              id="operatingHoursWeekday"
+              value={operatingHours.weekday}
+              onChange={(e) =>
+                setOperatingHours({ ...operatingHours, weekday: e.target.value })
+              }
+              placeholder="09:00 - 18:00"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="operatingHoursLunch">점심시간</Label>
+            <Input
+              id="operatingHoursLunch"
+              value={operatingHours.lunch}
+              onChange={(e) =>
+                setOperatingHours({ ...operatingHours, lunch: e.target.value })
+              }
+              placeholder="12:00 - 13:00"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="operatingHoursWeekend">주말 및 공휴일</Label>
+            <Input
+              id="operatingHoursWeekend"
+              value={operatingHours.weekend}
+              onChange={(e) =>
+                setOperatingHours({ ...operatingHours, weekend: e.target.value })
+              }
+              placeholder="휴무"
+            />
+          </div>
+          <Button onClick={handleSave} disabled={isLoading}>
+            <Save className="h-4 w-4 mr-2" />
+            저장
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Footer Settings */}
       <Card>

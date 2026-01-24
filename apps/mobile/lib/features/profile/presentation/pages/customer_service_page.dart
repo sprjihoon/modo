@@ -18,19 +18,28 @@ class _CustomerServicePageState extends ConsumerState<CustomerServicePage> {
   final CompanyInfoService _companyInfoService = CompanyInfoService();
   
   String _customerServicePhone = '070-8211-1500'; // 모두의수선 고객센터 기본값
+  
+  // 운영시간 (DB에서 로드)
+  String _operatingHoursWeekday = '09:00 - 18:00';
+  String _operatingHoursLunch = '12:00 - 13:00';
+  String _operatingHoursWeekend = '휴무';
 
   @override
   void initState() {
     super.initState();
-    _loadCustomerServicePhone();
+    _loadCompanyInfo();
   }
 
-  /// 고객센터 전화번호 로드
-  Future<void> _loadCustomerServicePhone() async {
+  /// 회사 정보 로드 (전화번호 + 운영시간)
+  Future<void> _loadCompanyInfo() async {
     final phone = await _companyInfoService.getCustomerServicePhone();
+    final operatingHours = await _companyInfoService.getOperatingHours();
     if (mounted) {
       setState(() {
         _customerServicePhone = phone;
+        _operatingHoursWeekday = operatingHours['weekday'] ?? '09:00 - 18:00';
+        _operatingHoursLunch = operatingHours['lunch'] ?? '12:00 - 13:00';
+        _operatingHoursWeekend = operatingHours['weekend'] ?? '휴무';
       });
     }
   }
@@ -209,9 +218,9 @@ class _CustomerServicePageState extends ConsumerState<CustomerServicePage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildTimeRow('평일', '09:00 - 18:00'),
-                  _buildTimeRow('점심시간', '12:00 - 13:00'),
-                  _buildTimeRow('주말 및 공휴일', '휴무'),
+                  _buildTimeRow('평일', _operatingHoursWeekday),
+                  _buildTimeRow('점심시간', _operatingHoursLunch),
+                  _buildTimeRow('주말 및 공휴일', _operatingHoursWeekend),
                 ],
               ),
             ),

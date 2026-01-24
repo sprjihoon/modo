@@ -61,6 +61,34 @@ class CompanyInfoService {
     return info?['email']?.toString() ?? 'support@modorepair.com';
   }
 
+  /// 운영시간 조회 (평일)
+  Future<String> getOperatingHoursWeekday() async {
+    final info = await getCompanyInfo();
+    return info?['operating_hours_weekday']?.toString() ?? '09:00 - 18:00';
+  }
+
+  /// 운영시간 조회 (점심시간)
+  Future<String> getOperatingHoursLunch() async {
+    final info = await getCompanyInfo();
+    return info?['operating_hours_lunch']?.toString() ?? '12:00 - 13:00';
+  }
+
+  /// 운영시간 조회 (주말/공휴일)
+  Future<String> getOperatingHoursWeekend() async {
+    final info = await getCompanyInfo();
+    return info?['operating_hours_weekend']?.toString() ?? '휴무';
+  }
+
+  /// 운영시간 전체 조회
+  Future<Map<String, String>> getOperatingHours() async {
+    final info = await getCompanyInfo();
+    return {
+      'weekday': info?['operating_hours_weekday']?.toString() ?? '09:00 - 18:00',
+      'lunch': info?['operating_hours_lunch']?.toString() ?? '12:00 - 13:00',
+      'weekend': info?['operating_hours_weekend']?.toString() ?? '휴무',
+    };
+  }
+
   /// 캐시 초기화
   void clearCache() {
     _cachedInfo = null;
