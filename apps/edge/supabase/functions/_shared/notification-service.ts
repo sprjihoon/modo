@@ -10,7 +10,9 @@ import {
   sendAlimtalk, 
   AlimtalkRequest, 
   AlimtalkResponse,
-  ALIMTALK_TEMPLATES 
+  AlimtalkButton,
+  ALIMTALK_TEMPLATES,
+  createChatButton,
 } from './kakao-alimtalk.ts';
 
 // 알림 타입 정의
@@ -161,10 +163,14 @@ export async function sendNotification(
     
     if (templateCode) {
       try {
+        // 채팅상담 버튼 추가 (BK 타입 → 카카오톡 채널 채팅 가능)
+        const chatButton = createChatButton('문의하기');
+        
         const alimtalkResult = await sendAlimtalk({
           phoneNumber: request.phoneNumber,
           templateCode,
           templateVariables: request.alimtalkVariables || {},
+          buttons: [chatButton],
         });
         
         result.alimtalk = {

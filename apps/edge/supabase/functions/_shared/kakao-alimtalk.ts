@@ -268,6 +268,52 @@ export async function sendAlimtalk(
 }
 
 /**
+ * 채팅상담 버튼 생성 (BK 타입)
+ * 이 버튼을 누르면 카카오톡 채널 채팅창이 열림
+ */
+export function createChatButton(name: string = '문의하기'): AlimtalkButton {
+  return {
+    name,
+    type: 'BK', // 봇키워드 → 채팅상담 가능
+  };
+}
+
+/**
+ * 웹링크 버튼 생성 (WL 타입)
+ */
+export function createWebLinkButton(
+  name: string,
+  urlMobile: string,
+  urlPc?: string
+): AlimtalkButton {
+  return {
+    name,
+    type: 'WL',
+    url_mobile: urlMobile,
+    url_pc: urlPc || urlMobile,
+  };
+}
+
+/**
+ * 앱링크 버튼 생성 (AL 타입)
+ */
+export function createAppLinkButton(
+  name: string,
+  schemeIos: string,
+  schemeAndroid: string,
+  fallbackUrl?: string
+): AlimtalkButton {
+  return {
+    name,
+    type: 'AL',
+    scheme_ios: schemeIos,
+    scheme_android: schemeAndroid,
+    url_mobile: fallbackUrl,
+    url_pc: fallbackUrl,
+  };
+}
+
+/**
  * 알림톡 템플릿 코드 상수
  */
 export const ALIMTALK_TEMPLATES = {

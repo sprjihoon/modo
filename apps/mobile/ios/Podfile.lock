@@ -50,7 +50,7 @@ PODS:
     - Flutter
   - flutter_naver_login (0.0.1):
     - Flutter
-    - naveridlogin-sdk-ios (~> 4.1.0)
+    - NidThirdPartyLogin (~> 5.0.0)
   - GoogleDataTransport (10.1.0):
     - nanopb (~> 3.30910.0)
     - PromisesObjC (~> 2.4)
@@ -89,7 +89,7 @@ PODS:
     - nanopb/encode (= 3.30910.0)
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
-  - naveridlogin-sdk-ios (4.1.6)
+  - NidThirdPartyLogin (5.0.1)
   - OrderedSet (6.0.3)
   - os_info_plugin (0.0.1):
     - Flutter
@@ -105,6 +105,8 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - sign_in_with_apple (0.0.1):
+    - Flutter
   - sqflite_darwin (0.0.4):
     - Flutter
     - FlutterMacOS
@@ -141,6 +143,7 @@ DEPENDENCIES:
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - sign_in_with_apple (from `.symlinks/plugins/sign_in_with_apple/ios`)
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - tosspayments_webview_flutter (from `.symlinks/plugins/tosspayments_webview_flutter/ios`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
@@ -159,7 +162,7 @@ SPEC REPOS:
     - GoogleDataTransport
     - GoogleUtilities
     - nanopb
-    - naveridlogin-sdk-ios
+    - NidThirdPartyLogin
     - OrderedSet
     - PromisesObjC
     - ReachabilitySwift
@@ -199,6 +202,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  sign_in_with_apple:
+    :path: ".symlinks/plugins/sign_in_with_apple/ios"
   sqflite_darwin:
     :path: ".symlinks/plugins/sqflite_darwin/darwin"
   tosspayments_webview_flutter:
@@ -228,14 +233,14 @@ SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
   flutter_local_notifications: ad39620c743ea4c15127860f4b5641649a988100
-  flutter_naver_login: ada4d0b967fda547619095f412ac95b352dd91a1
+  flutter_naver_login: 965ca284c1a64f0185dfaf9dfd1b8f69f34e6c11
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   media_kit_libs_ios_video: 5a18affdb97d1f5d466dc79988b13eff6c5e2854
   media_kit_video: 1746e198cb697d1ffb734b1d05ec429d1fcd1474
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
-  naveridlogin-sdk-ios: cdd34e3585a3d5aaf37c1d84c1f41faba4a25d1a
+  NidThirdPartyLogin: ed291a543cc60a433bcad522b6bf7d3126ad4fdc
   OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
   os_info_plugin: 898ad76e6d00d84bb2115a166bd5115e4a85cd3b
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
@@ -244,6 +249,7 @@ SPEC CHECKSUMS:
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   ReachabilitySwift: 32793e867593cfc1177f5d16491e3a197d2fccda
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  sign_in_with_apple: c5dcc141574c8c54d5ac99dd2163c0c72ad22418
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   tosspayments_webview_flutter: ed97f8f478a942ec3dbfcbd7f751fe2f735c7177
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
