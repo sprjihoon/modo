@@ -76,10 +76,19 @@ export async function GET(
       if (videoError) {
         console.error('📹 [API] 영상 조회 실패:', videoError);
       } else {
-        // JavaScript에서 type 필터링
-        videos = (videoData || []).filter(
-          (v: any) => v.type === 'inbound_video' || v.type === 'outbound_video'
-        );
+        const now = new Date();
+        // JavaScript에서 type 필터링 + 만료되지 않은 영상만
+        videos = (videoData || []).filter((v: any) => {
+          const isValidType = v.type === 'inbound_video' || v.type === 'outbound_video';
+          // expires_at이 없거나 만료되지 않은 경우만 포함
+          const isNotExpired = !v.expires_at || new Date(v.expires_at) > now;
+          return isValidType && isNotExpired;
+        });
+        
+        const expiredCount = (videoData || []).length - videos.length;
+        if (expiredCount > 0) {
+          console.log('📹 [API] 만료된 영상 제외:', expiredCount, '개');
+        }
         console.log('📹 [API] 찾은 영상:', videos.length, '개');
       }
     }

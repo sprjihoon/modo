@@ -15,7 +15,7 @@ import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
 import { ReturnShipmentButton } from "@/components/orders/return-shipment-button";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
-import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins } from "lucide-react";
+import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send } from "lucide-react";
 
 interface OrderDetailPageProps {
   params: {
@@ -173,7 +173,46 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const getVideoTypeLabel = (type: string) => {
     if (type === 'inbound_video') return '입고';
     if (type === 'outbound_video') return '출고';
+    if (type === 'box_open_video') return '박스오픈';
+    if (type === 'packing_video') return '포장';
+    if (type === 'work_video') return '작업';
     return type;
+  };
+
+  // 영상 시청 링크 생성
+  const getVideoWatchUrl = (videoId: string) => {
+    return `https://iframe.videodelivery.net/${videoId}`;
+  };
+
+  // 영상 링크 복사 (카카오톡 상담에서 전달용)
+  const handleCopyVideoLink = async (video: MediaVideo) => {
+    const watchUrl = getVideoWatchUrl(video.path);
+    const videoTypeLabel = getVideoTypeLabel(video.type);
+    
+    try {
+      await navigator.clipboard.writeText(watchUrl);
+      alert(`✅ ${videoTypeLabel} 영상 링크가 복사되었습니다!\n\n카카오톡 상담 채널에서 고객님께 전달해주세요.\n\n${watchUrl}`);
+    } catch (error) {
+      // 클립보드 API 실패 시 prompt로 대체
+      prompt(`${videoTypeLabel} 영상 링크를 복사하세요:`, watchUrl);
+    }
+  };
+
+  // 영상 링크 + 안내 메시지 함께 복사 (상담용)
+  const handleCopyVideoWithMessage = async (video: MediaVideo) => {
+    const watchUrl = getVideoWatchUrl(video.path);
+    const videoTypeLabel = getVideoTypeLabel(video.type);
+    const customerName = order?.customer_name || "고객";
+    
+    // 상담용 메시지 템플릿
+    const message = `안녕하세요 ${customerName}님, 모두의수선입니다.\n\n요청하신 ${videoTypeLabel} 영상 확인 링크를 보내드립니다.\n\n📹 영상 보기: ${watchUrl}\n\n영상 확인 후 추가 문의사항 있으시면 말씀해주세요.`;
+    
+    try {
+      await navigator.clipboard.writeText(message);
+      alert(`✅ 상담용 메시지가 복사되었습니다!\n\n카카오톡 상담 채널에 붙여넣기 해주세요.`);
+    } catch (error) {
+      prompt("상담용 메시지를 복사하세요:", message);
+    }
   };
 
   const handleCancelShipment = async () => {
@@ -262,8 +301,10 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   ];
 
   // Separate videos by type
+  const boxOpenVideos = videos.filter(v => v.type === 'box_open_video').sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
   const inboundVideos = videos.filter(v => v.type === 'inbound_video').sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
   const outboundVideos = videos.filter(v => v.type === 'outbound_video').sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  const packingVideos = videos.filter(v => v.type === 'packing_video').sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
   // if (!order) {
   //   router.push('/dashboard/orders');
@@ -696,13 +737,75 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         </CardContent>
       </Card>
 
+      {/* Box Open Videos (CS용) */}
+      {boxOpenVideos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5 text-orange-600" />
+              📦 박스오픈 영상
+              <Badge variant="outline" className="ml-2 text-orange-600 border-orange-300">CS용</Badge>
+            </CardTitle>
+            <CardDescription>입고 시 박스 개봉 영상입니다 (CS 분쟁 시 고객에게 공유 가능)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              {boxOpenVideos.map((video) => (
+                <Card key={video.id} className="overflow-hidden border-orange-200">
+                  <div className="relative aspect-video bg-gray-900 flex items-center justify-center">
+                    <Video className="h-12 w-12 text-gray-600" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setSelectedVideo(video)}
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        재생
+                      </Button>
+                    </div>
+                  </div>
+                  <CardContent className="p-3 space-y-2">
+                    <p className="font-medium text-sm">박스오픈 영상</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(video.created_at).toLocaleDateString('ko-KR')}
+                    </p>
+                    {/* 공유 버튼 (카카오톡 상담용) */}
+                    <div className="flex gap-2 pt-2 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={() => handleCopyVideoLink(video)}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        링크만 복사
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="flex-1 text-xs bg-yellow-500 hover:bg-yellow-600 text-black"
+                        onClick={() => handleCopyVideoWithMessage(video)}
+                      >
+                        <Send className="h-3 w-3 mr-1" />
+                        상담용 복사
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Inbound Videos */}
       {inboundVideos.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Video className="h-5 w-5 text-blue-600" />
-              입고 영상
+              📥 입고 영상
             </CardTitle>
             <CardDescription>입고 시 촬영된 영상입니다</CardDescription>
           </CardHeader>
@@ -746,15 +849,15 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Video className="h-5 w-5 text-green-600" />
-              출고 영상
+              <Video className="h-5 w-5 text-purple-600" />
+              📤 출고 영상
             </CardTitle>
             <CardDescription>출고 시 촬영된 영상입니다</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
               {outboundVideos.map((video) => (
-                <Card key={video.id} className="overflow-hidden border-green-200">
+                <Card key={video.id} className="overflow-hidden border-purple-200">
                   <div className="relative aspect-video bg-gray-900 flex items-center justify-center">
                     <Video className="h-12 w-12 text-gray-600" />
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -769,7 +872,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                     </div>
                     {video.sequence && (
                       <div className="absolute top-2 left-2">
-                        <Badge className="bg-green-600">#{video.sequence}</Badge>
+                        <Badge className="bg-purple-600">#{video.sequence}</Badge>
                       </div>
                     )}
                   </div>
@@ -778,6 +881,68 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                     <p className="text-xs text-muted-foreground">
                       {new Date(video.created_at).toLocaleDateString('ko-KR')}
                     </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Packing Videos */}
+      {packingVideos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5 text-green-600" />
+              🎁 포장 완료 영상
+              <Badge variant="outline" className="ml-2 text-green-600 border-green-300">CS용</Badge>
+            </CardTitle>
+            <CardDescription>출고 시 포장 완료 상태 영상입니다 (CS 분쟁 시 고객에게 공유 가능)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              {packingVideos.map((video) => (
+                <Card key={video.id} className="overflow-hidden border-green-200">
+                  <div className="relative aspect-video bg-gray-900 flex items-center justify-center">
+                    <Video className="h-12 w-12 text-gray-600" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setSelectedVideo(video)}
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        재생
+                      </Button>
+                    </div>
+                  </div>
+                  <CardContent className="p-3 space-y-2">
+                    <p className="font-medium text-sm">포장 완료 영상</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(video.created_at).toLocaleDateString('ko-KR')}
+                    </p>
+                    {/* 공유 버튼 (카카오톡 상담용) */}
+                    <div className="flex gap-2 pt-2 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={() => handleCopyVideoLink(video)}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        링크만 복사
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="flex-1 text-xs bg-yellow-500 hover:bg-yellow-600 text-black"
+                        onClick={() => handleCopyVideoWithMessage(video)}
+                      >
+                        <Send className="h-3 w-3 mr-1" />
+                        상담용 복사
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}

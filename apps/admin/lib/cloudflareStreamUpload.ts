@@ -6,6 +6,9 @@ const CF_STREAM_TOKEN = process.env.CLOUDFLARE_STREAM_TOKEN || process.env.CLOUD
 const DEFAULT_SIGN_TIMEOUT_MS = 15_000;
 const DEFAULT_UPLOAD_TIMEOUT_MS = 60_000;
 
+// 영상 자동 삭제 기간 (일)
+const VIDEO_RETENTION_DAYS = 60;
+
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(message), ms);
@@ -42,10 +45,15 @@ export async function uploadToCloudflareStream(
 		throw new Error("type is required.");
 	}
 
-	// 1) Create a direct upload URL
+	// 1) Create a direct upload URL with scheduled deletion
 	const signUrl = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(
 		CF_ACCOUNT_ID
 	)}/stream/direct_upload`;
+
+	// 만료일 계산 (현재 시각 + 60일)
+	const expiresAt = new Date();
+	expiresAt.setDate(expiresAt.getDate() + VIDEO_RETENTION_DAYS);
+	const scheduledDeletion = expiresAt.toISOString();
 
 	const signReq = fetch(signUrl, {
 		method: "POST",
@@ -55,7 +63,12 @@ export async function uploadToCloudflareStream(
 		},
 		body: JSON.stringify({
 			maxDurationSeconds: 10 * 60, // 10 minutes limit as a safeguard
-			// metadata can be added if needed
+			scheduledDeletion, // 60일 후 Cloudflare에서 자동 삭제
+			meta: {
+				waybillNo: finalWaybillNo,
+				type,
+				uploadedAt: new Date().toISOString(),
+			},
 		}),
 	});
 
@@ -97,12 +110,14 @@ export async function uploadToCloudflareStream(
 				path: videoIdFromSign,
 				sequence,
 				duration_seconds: durationSeconds,
+				expires_at: scheduledDeletion, // 만료일 저장
 			});
 		if (error) {
 			// Do not fail the whole flow; log via thrown error for visibility
 			// but caller can decide to ignore if needed.
 			throw new Error(error.message);
 		}
+		console.log(`✅ 영상 저장 완료 (만료: ${VIDEO_RETENTION_DAYS}일 후)`);
 	} catch (e) {
 		// Minimal error handling as requested
 		console.error("Supabase media insert failed:", e);

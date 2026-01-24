@@ -79,6 +79,10 @@ async function handleFileUpload(
       console.error("❌ shipment 조회 실패:", e);
     }
 
+    // 영상 타입 결정: sequence 0 = 포장 영상, 그 외 = 출고 영상
+    const videoType = sequence === 0 ? "packing_video" : "outbound_video";
+    console.log(`📦 영상 타입: ${videoType} (sequence: ${sequence})`);
+
     // 🔄 Feature Flag: TUS Protocol vs Direct Upload
     let videoId: string;
     
@@ -88,7 +92,7 @@ async function handleFileUpload(
       videoId = await uploadToCloudflareStreamTus({
         file: file as File,
         finalWaybillNo,
-        type: "outbound_video",
+        type: videoType,
         sequence,
         durationSeconds,
         onProgress: (progress) => {
@@ -102,7 +106,7 @@ async function handleFileUpload(
       videoId = await uploadToCloudflareStream(
         blob,
         finalWaybillNo,
-        "outbound_video",
+        videoType,
         sequence,
         durationSeconds
       );

@@ -108,6 +108,9 @@ export default function VideosPage() {
     if (type === 'inbound_video') return '입고';
     if (type === 'outbound_video') return '출고';
     if (type === 'merged_video') return '병합';
+    if (type === 'box_open_video') return '박스오픈';
+    if (type === 'packing_video') return '포장';
+    if (type === 'work_video') return '작업';
     return type;
   };
 
@@ -231,7 +234,7 @@ export default function VideosPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>전체 영상</CardDescription>
@@ -242,7 +245,17 @@ export default function VideosPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>입고 영상</CardDescription>
+            <CardDescription>📦 박스오픈</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {videos.filter((v) => v.type === "box_open_video").length}개
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>📥 입고 영상</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -252,7 +265,7 @@ export default function VideosPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>출고 영상</CardDescription>
+            <CardDescription>📤 출고 영상</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -262,7 +275,17 @@ export default function VideosPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>병합 영상</CardDescription>
+            <CardDescription>🎁 포장 영상</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {videos.filter((v) => v.type === "packing_video").length}개
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>🔗 병합 영상</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -308,8 +331,18 @@ export default function VideosPage() {
                   </div>
                   <div className="absolute top-2 right-2">
                     <Badge
-                      variant={video.type === "inbound_video" ? "default" : video.type === "outbound_video" ? "secondary" : "outline"}
-                      className="text-xs"
+                      variant={
+                        video.type === "inbound_video" ? "default" : 
+                        video.type === "outbound_video" ? "secondary" : 
+                        video.type === "box_open_video" ? "destructive" :
+                        video.type === "packing_video" ? "secondary" :
+                        "outline"
+                      }
+                      className={`text-xs ${
+                        video.type === "box_open_video" ? "bg-orange-500 hover:bg-orange-600" :
+                        video.type === "packing_video" ? "bg-green-500 hover:bg-green-600 text-white" :
+                        ""
+                      }`}
                     >
                       {typeLabel}
                     </Badge>

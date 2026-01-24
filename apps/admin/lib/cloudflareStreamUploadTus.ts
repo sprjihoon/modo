@@ -4,6 +4,9 @@ import * as tus from "tus-js-client";
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const CF_STREAM_TOKEN = process.env.CLOUDFLARE_STREAM_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
 
+// 영상 자동 삭제 기간 (일)
+const VIDEO_RETENTION_DAYS = 60;
+
 export interface UploadProgress {
 	bytesUploaded: number;
 	bytesTotal: number;
@@ -58,6 +61,11 @@ export async function uploadToCloudflareStreamTus(
 		CF_ACCOUNT_ID
 	)}/stream`;
 
+	// 만료일 계산 (현재 시각 + 60일)
+	const expiresAt = new Date();
+	expiresAt.setDate(expiresAt.getDate() + VIDEO_RETENTION_DAYS);
+	const scheduledDeletion = expiresAt.toISOString();
+
 	return new Promise((resolve, reject) => {
 		const upload = new tus.Upload(file, {
 			// TUS endpoint
@@ -66,7 +74,7 @@ export async function uploadToCloudflareStreamTus(
 			// Retry strategy: 0s, 3s, 5s, 10s, 20s delays
 			retryDelays: [0, 3000, 5000, 10000, 20000],
 
-			// Metadata
+			// Metadata (Cloudflare Stream TUS)
 			metadata: {
 				name: `${finalWaybillNo}.mp4`,
 				filetype: file.type || "video/mp4",
@@ -75,6 +83,11 @@ export async function uploadToCloudflareStreamTus(
 				allowedorigins: "*",
 				// Optional: Set thumbnail timestamp (50% into video)
 				defaulttimestamppct: "0.5",
+				// 60일 후 자동 삭제
+				scheduledDeletion: scheduledDeletion,
+				// 추가 메타데이터
+				waybillNo: finalWaybillNo,
+				videoType: type,
 			},
 
 			// Authorization
@@ -135,13 +148,14 @@ export async function uploadToCloudflareStreamTus(
 						path: videoId,
 						sequence,
 						duration_seconds: durationSeconds,
+						expires_at: scheduledDeletion, // 만료일 저장
 					});
 
 					if (error) {
 						console.error("⚠️ Supabase media insert failed:", error);
 						// Don't fail the upload, just log the error
 					} else {
-						console.log("✅ Media metadata saved to Supabase");
+						console.log(`✅ Media metadata saved to Supabase (만료: ${VIDEO_RETENTION_DAYS}일 후)`);
 					}
 				} catch (e) {
 					console.error("⚠️ Supabase media insert exception:", e);

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { Send, Video } from "lucide-react";
+import { Send, Video, Package, RotateCcw, CheckCircle } from "lucide-react";
 import WebcamRecorder from "@/components/ops/WebcamRecorder";
 import { isIslandArea, getIslandAreaInfo } from "@/lib/island-area";
 
@@ -24,10 +24,12 @@ export default function OutboundPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [showPackingVideo, setShowPackingVideo] = useState(false); // 포장 완료 영상
   const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
   const [currentItemName, setCurrentItemName] = useState<string>(""); // 촬영 중인 아이템 이름
   const [inboundDurations, setInboundDurations] = useState<Record<number, number>>({});
   const [outboundVideos, setOutboundVideos] = useState<Record<number, { videoId: string; id: string }>>({});
+  const [packingVideo, setPackingVideo] = useState<{ videoId: string; id: string } | null>(null); // 포장 영상
 
   const handleLookup = async () => {
     if (!trackingNo.trim()) return;
@@ -159,6 +161,7 @@ export default function OutboundPage() {
   // 출고 영상 조회
   const loadOutboundVideos = async (orderId: string) => {
     try {
+      // 출고 영상 조회
       const res = await fetch(`/api/ops/video/list?orderId=${encodeURIComponent(orderId)}&type=outbound_video`);
       const json = await res.json();
       if (res.ok && json.success && json.videos) {
@@ -177,11 +180,50 @@ export default function OutboundPage() {
         setOutboundVideos(videosMap);
         console.log("✅ 출고 영상 조회 완료:", videosMap);
       }
+
+      // 포장 영상 조회 (별도 타입)
+      const packingRes = await fetch(`/api/ops/video/list?orderId=${encodeURIComponent(orderId)}&type=packing_video`);
+      const packingJson = await packingRes.json();
+      if (packingRes.ok && packingJson.success && packingJson.videos) {
+        // sequence 0인 포장 영상 찾기
+        const packingVideos = packingJson.videos["0"] || [];
+        if (Array.isArray(packingVideos) && packingVideos.length > 0) {
+          const latestPacking = packingVideos[packingVideos.length - 1];
+          setPackingVideo({
+            videoId: latestPacking.videoId,
+            id: latestPacking.id,
+          });
+          console.log("✅ 포장 영상 조회 완료:", latestPacking.videoId);
+        }
+      }
     } catch (error) {
       console.error("출고 영상 조회 실패:", error);
     }
   };
 
+  // 출고완료 처리 (포장 완료, 송장 부착 완료)
+  const handleReadyToShip = async () => {
+    if (!result) return;
+    setIsProcessing(true);
+    try {
+      const res = await fetch("/api/ops/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: result.orderId, status: "READY_TO_SHIP" }),
+      });
+      if (res.ok) {
+        setResult({ ...result, status: "READY_TO_SHIP" });
+        alert("✅ 출고완료 처리되었습니다.\n포장 및 송장 부착이 완료되었습니다.");
+      } else {
+        const json = await res.json();
+        alert(`❌ 처리 실패: ${json.error || "알 수 없는 오류"}`);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // 발송 처리 (택배 인계 완료)
   const handleShipped = async () => {
     if (!result) return;
     setIsProcessing(true);
@@ -193,6 +235,50 @@ export default function OutboundPage() {
       });
       if (res.ok) {
         setResult({ ...result, status: "SHIPPED" });
+        alert("✅ 발송 처리되었습니다.\n택배사에 인계 완료되었습니다.");
+      } else {
+        const json = await res.json();
+        alert(`❌ 처리 실패: ${json.error || "알 수 없는 오류"}`);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // 출고 취소 (되돌리기)
+  const handleOutboundRevert = async () => {
+    if (!result) return;
+    
+    // 현재 상태에 따라 되돌릴 상태 결정
+    let revertStatus: string;
+    let confirmMessage: string;
+    
+    if (result.status === "SHIPPED") {
+      revertStatus = "READY_TO_SHIP";
+      confirmMessage = "발송 처리를 취소하고 출고완료(READY_TO_SHIP) 상태로 되돌리시겠습니까?";
+    } else if (result.status === "READY_TO_SHIP") {
+      revertStatus = "PROCESSING";
+      confirmMessage = "출고완료 처리를 취소하고 작업중(PROCESSING) 상태로 되돌리시겠습니까?";
+    } else {
+      alert("되돌릴 수 없는 상태입니다.");
+      return;
+    }
+    
+    if (!confirm(confirmMessage)) return;
+    
+    setIsProcessing(true);
+    try {
+      const res = await fetch("/api/ops/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: result.orderId, status: revertStatus }),
+      });
+      if (res.ok) {
+        setResult({ ...result, status: revertStatus });
+        alert(`✅ ${revertStatus} 상태로 되돌렸습니다.`);
+      } else {
+        const json = await res.json();
+        alert(`❌ 되돌리기 실패: ${json.error || "알 수 없는 오류"}`);
       }
     } finally {
       setIsProcessing(false);
@@ -306,7 +392,34 @@ export default function OutboundPage() {
 
       {/* 액션 */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">처리 옵션</h2>
+        
         <div className="space-y-3">
+          {/* 포장 완료 영상 촬영 */}
+          <button
+            disabled={!result}
+            onClick={() => setShowPackingVideo(true)}
+            className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
+              result
+                ? packingVideo
+                  ? "bg-green-600 text-white hover:bg-green-700"
+                  : "bg-orange-600 text-white hover:bg-orange-700"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            {packingVideo ? (
+              <>
+                <span className="text-lg">✅</span>
+                포장 완료 영상 재촬영
+              </>
+            ) : (
+              <>
+                <Package className="h-5 w-5" />
+                📦 포장 완료 영상 촬영
+              </>
+            )}
+          </button>
+
           {/* 출고 영상 촬영 - 아이템별 */}
           {result && (() => {
             // 렌더링 시점에 모든 값을 추출 (순환 참조 방지)
@@ -421,18 +534,58 @@ export default function OutboundPage() {
             );
           })()}
 
+          {/* 출고완료 처리 (포장 완료, 송장 부착) */}
+          <button
+            onClick={handleReadyToShip}
+            disabled={!result || result.status === "READY_TO_SHIP" || result.status === "SHIPPED" || isProcessing}
+            className={`w-full px-6 py-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
+              result && result.status !== "READY_TO_SHIP" && result.status !== "SHIPPED" && !isProcessing
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            <CheckCircle className="h-5 w-5" />
+            {isProcessing ? "처리 중..." : "출고완료 (포장 + 송장 부착)"}
+          </button>
+
+          {/* 발송 처리 (택배 인계) */}
           <button
             onClick={handleShipped}
-            disabled={!result || result.status === "SHIPPED" || isProcessing}
+            disabled={!result || result.status !== "READY_TO_SHIP" || isProcessing}
             className={`w-full px-6 py-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
-              result && result.status !== "SHIPPED" && !isProcessing
+              result && result.status === "READY_TO_SHIP" && !isProcessing
                 ? "bg-green-600 text-white hover:bg-green-700"
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
           >
             <Send className="h-5 w-5" />
-            {isProcessing ? "처리 중..." : "출고 처리 (SHIPPED)"}
+            {isProcessing ? "처리 중..." : "발송 처리 (택배 인계)"}
           </button>
+
+          {/* 출고 취소 (되돌리기) */}
+          <button
+            onClick={handleOutboundRevert}
+            disabled={!result || (result.status !== "READY_TO_SHIP" && result.status !== "SHIPPED") || isProcessing}
+            className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
+              result && (result.status === "READY_TO_SHIP" || result.status === "SHIPPED") && !isProcessing
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            <RotateCcw className="h-5 w-5" />
+            {isProcessing ? "처리 중..." : "출고 취소 (되돌리기)"}
+          </button>
+        </div>
+
+        {/* 상태 안내 */}
+        <div className="mt-4 text-xs text-gray-500 text-center">
+          {!result
+            ? "송장을 스캔하면 버튼이 활성화됩니다"
+            : result.status === "SHIPPED"
+              ? "발송 완료 상태입니다. 되돌리기로 이전 상태로 변경할 수 있습니다."
+              : result.status === "READY_TO_SHIP"
+                ? "출고완료 상태입니다. 택배 인계 후 발송 처리해주세요."
+                : "포장 완료 후 출고완료 버튼을 클릭하세요."}
         </div>
       </div>
 
@@ -496,6 +649,61 @@ export default function OutboundPage() {
                   onClose={() => {
                     console.log('🚪 WebcamRecorder 닫기');
                     setShowVideo(false);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 포장 완료 영상 촬영 다이얼로그 */}
+      {showPackingVideo && result && (() => {
+        const orderIdValue = result.orderId;
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+                <h2 className="text-lg font-semibold">📦 포장 완료 영상 촬영</h2>
+                <button 
+                  onClick={() => {
+                    console.log('🚪 포장 영상 다이얼로그 닫기');
+                    setShowPackingVideo(false);
+                  }} 
+                  className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
+              <div className="p-4">
+                <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-800">
+                    📦 <strong>포장 완료 영상</strong>은 고객에게 발송 전 포장 상태를 확인할 수 있도록 촬영하는 영상입니다.<br />
+                    포장된 박스 전체가 보이도록 촬영해주세요.
+                  </p>
+                </div>
+                <WebcamRecorder
+                  orderId={orderIdValue}
+                  sequence={0}
+                  existingVideoId={packingVideo?.videoId}
+                  onUploaded={(videoId, duration) => {
+                    console.log(`✅ 포장 완료 영상 업로드 완료: ${videoId}`);
+                    
+                    setShowPackingVideo(false);
+                    
+                    // 영상 목록 새로고침
+                    if (result) {
+                      loadOutboundVideos(result.orderId);
+                    }
+                    
+                    setTimeout(() => {
+                      alert(`✅ 포장 완료 영상이 저장되었습니다.\n\n영상 길이: ${duration}초\n영상 ID: ${videoId}`);
+                    }, 100);
+                  }}
+                  onClose={() => {
+                    console.log('🚪 포장 WebcamRecorder 닫기');
+                    setShowPackingVideo(false);
                   }}
                 />
               </div>
