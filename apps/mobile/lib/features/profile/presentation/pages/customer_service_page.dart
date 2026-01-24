@@ -17,7 +17,7 @@ class CustomerServicePage extends ConsumerStatefulWidget {
 class _CustomerServicePageState extends ConsumerState<CustomerServicePage> {
   final CompanyInfoService _companyInfoService = CompanyInfoService();
   
-  String _customerServicePhone = '0507-1394-7754'; // 모두의수선 고객센터 기본값
+  String _customerServicePhone = '070-8211-1500'; // 모두의수선 고객센터 기본값
 
   @override
   void initState() {

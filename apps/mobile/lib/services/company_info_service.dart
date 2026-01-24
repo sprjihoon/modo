@@ -52,7 +52,7 @@ class CompanyInfoService {
   /// 고객센터 전화번호 조회
   Future<String> getCustomerServicePhone() async {
     final info = await getCompanyInfo();
-    return info?['phone']?.toString() ?? '0507-1394-7754'; // 모두의수선 고객센터 기본값
+    return info?['phone']?.toString() ?? '070-8211-1500'; // 모두의수선 고객센터 기본값
   }
 
   /// 고객센터 이메일 조회
