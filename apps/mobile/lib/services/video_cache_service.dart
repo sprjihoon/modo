@@ -28,8 +28,23 @@ class VideoCache {
   /// 
   /// 캐시가 없으면 자동으로 다운로드
   /// 캐시가 있으면 로컬 파일 경로 반환
+  /// 
+  /// ⚠️ HLS 스트리밍(.m3u8)은 캐싱 불가:
+  /// - HLS는 매니페스트(텍스트) + 청크(ts) 구조
+  /// - 매니페스트만 캐싱하면 청크 URL이 상대경로라 재생 실패
+  /// - HLS는 ExoPlayer/AVPlayer가 자체 캐싱 지원
   static Future<String> getCachedVideoUrl(String url) async {
     try {
+      // HLS 스트리밍 URL은 캐싱하지 않음
+      // - .m3u8: HLS 매니페스트 파일
+      // - videodelivery.net: Cloudflare Stream (HLS)
+      // - cloudflarestream.com: Cloudflare Stream 대체 도메인
+      if (url.contains('.m3u8') || 
+          url.contains('videodelivery.net') || 
+          url.contains('cloudflarestream.com')) {
+        return url;  // 원본 URL 그대로 반환 (네트워크 스트리밍)
+      }
+      
       final file = await instance.getSingleFile(url);
       return file.path;
     } catch (e) {
@@ -43,8 +58,17 @@ class VideoCache {
   /// 사용 시나리오:
   /// - 주문 상세 페이지 진입 시 자동 프리로드
   /// - 사용자가 영상을 보기 전에 미리 다운로드
+  /// 
+  /// ⚠️ HLS 스트리밍은 프리로드 불가 (skip)
   static Future<void> preloadVideo(String url) async {
     try {
+      // HLS 스트리밍 URL은 프리로드 스킵
+      if (url.contains('.m3u8') || 
+          url.contains('videodelivery.net') || 
+          url.contains('cloudflarestream.com')) {
+        return;  // HLS는 프리로드 의미 없음
+      }
+      
       await instance.downloadFile(url);
     } catch (e) {
       // 프리로드 실패는 무시 (사용자 경험에 영향 없음)
