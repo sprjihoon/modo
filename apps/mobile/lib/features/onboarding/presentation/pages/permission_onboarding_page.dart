@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 /// 첫 실행 시 권한 요청 온보딩 페이지
 class PermissionOnboardingPage extends StatefulWidget {
@@ -55,8 +57,21 @@ class _PermissionOnboardingPageState extends State<PermissionOnboardingPage> {
 
   Future<void> _checkCurrentPermissions() async {
     final camera = await Permission.camera.status;
-    final photos = await Permission.photos.status;
     final notification = await Permission.notification.status;
+    
+    // Android 13+ (API 33+)에서는 READ_MEDIA_IMAGES 사용
+    PermissionStatus photos;
+    if (Platform.isAndroid) {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      if (androidInfo.version.sdkInt >= 33) {
+        // Android 13+: Photo Picker가 자동으로 처리하므로 항상 granted로 처리
+        photos = PermissionStatus.granted;
+      } else {
+        photos = await Permission.storage.status;
+      }
+    } else {
+      photos = await Permission.photos.status;
+    }
     
     setState(() {
       _cameraGranted = camera.isGranted;
@@ -74,8 +89,22 @@ class _PermissionOnboardingPageState extends State<PermissionOnboardingPage> {
         setState(() => _cameraGranted = status.isGranted);
         break;
       case 1: // 사진
-        status = await Permission.photos.request();
-        setState(() => _photosGranted = status.isGranted);
+        if (Platform.isAndroid) {
+          final androidInfo = await DeviceInfoPlugin().androidInfo;
+          if (androidInfo.version.sdkInt >= 33) {
+            // Android 13+: Photo Picker가 자동으로 권한 처리
+            // 별도 권한 요청 없이 granted로 처리
+            setState(() => _photosGranted = true);
+          } else {
+            // Android 12 이하: storage 권한 요청
+            status = await Permission.storage.request();
+            setState(() => _photosGranted = status.isGranted);
+          }
+        } else {
+          // iOS
+          status = await Permission.photos.request();
+          setState(() => _photosGranted = status.isGranted);
+        }
         break;
       case 2: // 알림
         status = await Permission.notification.request();
