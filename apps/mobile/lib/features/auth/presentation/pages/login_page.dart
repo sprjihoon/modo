@@ -26,16 +26,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   void initState() {
     super.initState();
-    // 로그인 페이지 진입 시 모든 auth provider 초기화 (로그아웃 후 클린업)
+    // 로그인 페이지 진입 시 모든 상태 초기화 (로그아웃 후 클린업)
+    _isSocialLoginInProgress = false;  // 🔧 로딩 상태 초기화
+    _isLoading = false;
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(userProfileProvider);
       ref.invalidate(currentUserProvider);
+      // 🔧 로그인 페이지 진입 시 현재 로그인 상태가 아니면 로딩 해제
+      if (Supabase.instance.client.auth.currentSession == null && mounted) {
+        setState(() => _isSocialLoginInProgress = false);
+      }
     });
     
     // 소셜 로그인 완료 감지
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.signedIn && mounted) {
+      if (!mounted) return;
+      
+      if (data.event == AuthChangeEvent.signedIn) {
         setState(() => _isSocialLoginInProgress = true);
+      } else if (data.event == AuthChangeEvent.signedOut) {
+        // 🔧 로그아웃 시 로딩 상태 해제
+        setState(() => _isSocialLoginInProgress = false);
       }
     });
   }
@@ -136,6 +148,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       // 네이버는 인앱에서 처리되므로 성공 시 홈으로 이동
       if (provider == 'naver' && success && mounted) {
         context.go('/home');
+      }
+      
+      // 🔧 OAuth 브라우저 실패 시 (false 반환) 로딩 해제
+      if (!success && mounted) {
+        setState(() => _isSocialLoginInProgress = false);
       }
     } catch (e) {
       if (mounted) {
