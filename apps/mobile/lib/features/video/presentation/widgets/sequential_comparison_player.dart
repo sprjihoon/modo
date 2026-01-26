@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show File, Platform;
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:http/http.dart' as http;
 import '../../utils/adaptive_duration_calculator.dart';
 import '../../../../services/video_cache_service.dart';
 import '../../../../core/config/feature_flags.dart';
@@ -158,6 +159,51 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
       debugPrint('🎬 아이템 $index 초기화 시작');
       debugPrint('📹 입고 URL: $inboundUrl');
       debugPrint('📹 출고 URL: $outboundUrl');
+
+      // 🔍 URL 접근성 사전 검증 (네트워크 URL인 경우에만)
+      if (inboundUrl.startsWith('http')) {
+        try {
+          debugPrint('🔍 입고 영상 URL 접근성 검증 중...');
+          final inboundResponse = await http.head(Uri.parse(inboundUrl))
+              .timeout(const Duration(seconds: 10));
+          debugPrint('📡 입고 영상 응답 코드: ${inboundResponse.statusCode}');
+          
+          if (inboundResponse.statusCode >= 400) {
+            debugPrint('❌ 입고 영상 URL 접근 불가: ${inboundResponse.statusCode}');
+            if (mounted && !_isDisposed) {
+              setState(() {
+                _errorMessage = '입고 영상에 접근할 수 없습니다.\n(HTTP ${inboundResponse.statusCode})';
+                _isLoading = false;
+              });
+            }
+            return;
+          }
+        } catch (e) {
+          debugPrint('⚠️ 입고 영상 URL 검증 실패 (계속 진행): $e');
+        }
+      }
+      
+      if (outboundUrl.startsWith('http')) {
+        try {
+          debugPrint('🔍 출고 영상 URL 접근성 검증 중...');
+          final outboundResponse = await http.head(Uri.parse(outboundUrl))
+              .timeout(const Duration(seconds: 10));
+          debugPrint('📡 출고 영상 응답 코드: ${outboundResponse.statusCode}');
+          
+          if (outboundResponse.statusCode >= 400) {
+            debugPrint('❌ 출고 영상 URL 접근 불가: ${outboundResponse.statusCode}');
+            if (mounted && !_isDisposed) {
+              setState(() {
+                _errorMessage = '출고 영상에 접근할 수 없습니다.\n(HTTP ${outboundResponse.statusCode})';
+                _isLoading = false;
+              });
+            }
+            return;
+          }
+        } catch (e) {
+          debugPrint('⚠️ 출고 영상 URL 검증 실패 (계속 진행): $e');
+        }
+      }
 
       // 📦 캐싱: URL을 캐시된 로컬 경로로 변환
       if (VideoFeatureFlags.shouldUseCache) {

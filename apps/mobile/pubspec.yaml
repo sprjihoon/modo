@@ -38,6 +38,9 @@ dependencies:
   flutter_cache_manager: ^3.3.1
   connectivity_plus: ^5.0.2
   
+  # HTTP Client
+  http: ^1.2.0
+  
   # Image Picker
   image_picker: ^1.0.5
   
