@@ -121,6 +121,40 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
         return;
       }
 
+      // URL 유효성 검사
+      if (inboundUrl.isEmpty || outboundUrl.isEmpty) {
+        debugPrint('❌ 아이템 $index의 영상 URL이 비어있습니다');
+        if (mounted) {
+          setState(() {
+            _errorMessage = '영상 URL이 비어있습니다';
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // URL 형식 검증 (HLS 또는 HTTP URL)
+      if (!inboundUrl.startsWith('http') && !inboundUrl.startsWith('/')) {
+        debugPrint('❌ 입고 영상 URL 형식 오류: $inboundUrl');
+        if (mounted) {
+          setState(() {
+            _errorMessage = '입고 영상 URL 형식이 올바르지 않습니다';
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+      if (!outboundUrl.startsWith('http') && !outboundUrl.startsWith('/')) {
+        debugPrint('❌ 출고 영상 URL 형식 오류: $outboundUrl');
+        if (mounted) {
+          setState(() {
+            _errorMessage = '출고 영상 URL 형식이 올바르지 않습니다';
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
       debugPrint('🎬 아이템 $index 초기화 시작');
       debugPrint('📹 입고 URL: $inboundUrl');
       debugPrint('📹 출고 URL: $outboundUrl');
@@ -209,6 +243,8 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
 
       // 병렬 초기화 (타임아웃 추가)
       debugPrint('⏳ 영상 초기화 중...');
+      debugPrint('📹 입고 URL: $inboundUrl');
+      debugPrint('📹 출고 URL: $outboundUrl');
       try {
         await Future.wait([
           inbound.initialize(),
@@ -218,9 +254,22 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
         });
       } catch (initError) {
         debugPrint('❌ 영상 초기화 실패: $initError');
+        
+        // 더 친화적인 에러 메시지 생성
+        String userMessage = '영상을 불러올 수 없습니다';
+        final errorStr = initError.toString().toLowerCase();
+        
+        if (errorStr.contains('source error') || errorStr.contains('exoplaybackexception')) {
+          userMessage = '영상 스트리밍 서버에 연결할 수 없습니다.\n네트워크 연결을 확인해주세요.';
+        } else if (errorStr.contains('timeout')) {
+          userMessage = '영상 로드 시간이 초과되었습니다.\n네트워크 상태를 확인해주세요.';
+        } else if (errorStr.contains('network') || errorStr.contains('connection')) {
+          userMessage = '네트워크 연결 오류입니다.\n인터넷 연결을 확인해주세요.';
+        }
+        
         if (mounted && !_isDisposed) {
           setState(() {
-            _errorMessage = '영상 로드 실패: $initError';
+            _errorMessage = userMessage;
             _isLoading = false;
           });
         }
@@ -637,50 +686,54 @@ class _SequentialComparisonPlayerState extends State<SequentialComparisonPlayer>
             Container(
               color: Colors.black87,
               child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(
                         Icons.error_outline,
-                        size: 64,
+                        size: 48,
                         color: Colors.redAccent,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       const Text(
                         '영상을 재생할 수 없습니다',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         _errorMessage!,
                         textAlign: TextAlign.center,
-                        maxLines: 3,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white70,
-                          fontSize: 12,
+                          fontSize: 11,
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _errorMessage = null;
-                            _isLoading = true;
-                          });
-                          _playItemAt(_currentIndex);
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('다시 시도'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black87,
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 36,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _errorMessage = null;
+                              _isLoading = true;
+                            });
+                            _playItemAt(_currentIndex);
+                          },
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: const Text('다시 시도', style: TextStyle(fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
                         ),
                       ),
                     ],
