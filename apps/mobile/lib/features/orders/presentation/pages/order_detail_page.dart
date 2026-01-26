@@ -11,7 +11,6 @@ import 'package:provider/provider.dart' as provider;
 
 import '../../../../services/image_service.dart';
 import '../../../../services/order_service.dart';
-import '../../../../services/company_info_service.dart';
 import '../../../../core/enums/extra_charge_status.dart';
 import '../../providers/extra_charge_provider.dart';
 import '../../domain/models/extra_charge_data.dart';
@@ -30,12 +29,10 @@ class OrderDetailPage extends ConsumerStatefulWidget {
 
 class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   final _orderService = OrderService();
-  final _companyInfoService = CompanyInfoService();
   bool _isLoading = true;
   bool _isCancelling = false; // 취소 중 상태 추가
   Map<String, dynamic>? _orderData;
   Map<String, dynamic>? _shipmentData;
-  String _customerServicePhone = '1833-3429'; // 기본값
   
   // 실제 사진 데이터 (State로 관리)
   List<Map<String, dynamic>> _images = [];
@@ -64,19 +61,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   void initState() {
     super.initState();
     _loadOrderData();
-    _loadCustomerServicePhone();
     // 주기적 새로고침 시작 (30초마다)
     _startPeriodicRefresh();
-  }
-
-  /// 고객센터 전화번호 로드
-  Future<void> _loadCustomerServicePhone() async {
-    final phone = await _companyInfoService.getCustomerServicePhone();
-    if (mounted) {
-      setState(() {
-        _customerServicePhone = phone;
-      });
-    }
   }
   
   @override
@@ -1229,93 +1215,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     return addr.isNotEmpty ? addr : '주소 없음';
   }
 
-  /// 고객센터 연결
+  /// 고객센터 연결 (카카오톡으로 바로 연결)
   Future<void> _openCustomerService(BuildContext context) async {
-    // 고객센터 연락 방법 선택 다이얼로그
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '고객센터',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.phone, color: Color(0xFF00C896)),
-                title: const Text('전화 문의'),
-                subtitle: Text(_customerServicePhone),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final phoneNumber = _customerServicePhone.replaceAll('-', '');
-                  final uri = Uri.parse('tel:$phoneNumber');
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri);
-                  } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('전화 앱을 열 수 없습니다')),
-                      );
-                    }
-                  }
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEE500),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
-                    child: Text('💬', style: TextStyle(fontSize: 18)),
-                  ),
-                ),
-                title: const Text('카카오톡 문의'),
-                subtitle: const Text('@모두수선 (주문정보 자동첨부)'),
-                onTap: () => _openKakaoChat(context),
-              ),
-              ListTile(
-                leading: const Icon(Icons.email, color: Colors.blue),
-                title: const Text('이메일 문의'),
-                subtitle: const Text('support@modorepair.com'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final uri = Uri.parse('mailto:support@modorepair.com?subject=주문문의&body=주문번호: ${widget.orderId}');
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri);
-                  } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('이메일 앱을 열 수 없습니다')),
-                      );
-                    }
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 카카오톡 채널 채팅 열기 (주문 정보 포함)
-  Future<void> _openKakaoChat(BuildContext context) async {
-    Navigator.pop(context); // 바텀시트 닫기
-    
     // 주문 정보 포맷팅 및 클립보드에 복사
     final orderInfo = _formatOrderInfoForChat();
     await Clipboard.setData(ClipboardData(text: orderInfo));
@@ -1325,11 +1226,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     final kakaoChannelChatUrl = Uri.parse('https://pf.kakao.com/$kakaoChannelId/chat');
     final kakaoAppUrl = Uri.parse('kakaoplus://plusfriend/chat/$kakaoChannelId');
     
-    // 바로 카카오톡 앱 열기 (다이얼로그 없이)
+    // 바로 카카오톡 앱 열기
     try {
       if (await canLaunchUrl(kakaoAppUrl)) {
         await launchUrl(kakaoAppUrl, mode: LaunchMode.externalApplication);
-        // 복사 완료 스낵바 표시
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
