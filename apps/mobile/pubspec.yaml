@@ -103,6 +103,18 @@ dev_dependencies:
   riverpod_generator: ^2.3.9
   build_runner: ^2.4.7
   json_serializable: ^6.7.1
+  
+  # App Icon Generator
+  flutter_launcher_icons: ^0.13.1
+
+# 앱 아이콘 설정
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#2AACAC"
+  adaptive_icon_foreground: "assets/icons/app_icon.png"
 
 flutter:
   uses-material-design: true
