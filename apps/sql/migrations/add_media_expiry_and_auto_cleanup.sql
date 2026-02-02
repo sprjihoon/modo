@@ -83,7 +83,11 @@ BEGIN
 END $$;
 
 -- 5. 만료 예정 영상 조회 뷰 (관리자용)
-CREATE OR REPLACE VIEW public.media_expiry_status AS
+-- SECURITY INVOKER: 쿼리하는 사용자의 권한으로 실행 (RLS 정책 적용됨)
+DROP VIEW IF EXISTS public.media_expiry_status;
+CREATE VIEW public.media_expiry_status 
+WITH (security_invoker = true)
+AS
 SELECT 
   m.id,
   m.final_waybill_no,
