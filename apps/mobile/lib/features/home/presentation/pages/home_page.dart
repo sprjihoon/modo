@@ -9,11 +9,13 @@ import '../../../orders/providers/cart_provider.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/banner_service.dart';
 import '../../../../services/order_limit_service.dart';
+import '../../../../app.dart';
 import '../widgets/extra_charge_alert_banner.dart';
 import '../../../orders/presentation/widgets/order_limit_dialog.dart';
 
 /// 배너 인덱스 관리를 위한 ValueNotifier
-final bannerIndexProvider = StateNotifierProvider<BannerIndexNotifier, int>((ref) {
+final bannerIndexProvider =
+    StateNotifierProvider<BannerIndexNotifier, int>((ref) {
   return BannerIndexNotifier();
 });
 
@@ -44,6 +46,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _ordersLoaded = false;
   bool _isCheckingOrderLimit = false;
 
+  /// 에러 상태 관리
+  String? _orderError;
+  bool _isRetrying = false;
+
   @override
   void dispose() {
     _bannerController.dispose();
@@ -52,18 +58,45 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   /// 주문 데이터 캐싱
   Future<List<Map<String, dynamic>>> _getCachedOrders() async {
-    if (_cachedOrders != null && _ordersLoaded) {
+    if (_cachedOrders != null && _ordersLoaded && _orderError == null) {
       return _cachedOrders!;
     }
 
     try {
       _cachedOrders = await _orderService.getMyOrders();
       _ordersLoaded = true;
+      _orderError = null;
       return _cachedOrders!;
+    } on UserFriendlyException catch (e) {
+      debugPrint('주문 데이터 로드 실패 (사용자 친화적): ${e.message}');
+      _ordersLoaded = true;
+      _orderError = e.message;
+      return [];
     } catch (e) {
       debugPrint('주문 데이터 로드 실패: $e');
       _ordersLoaded = true;
+      _orderError = '네트워크 연결을 확인해주세요';
       return [];
+    }
+  }
+
+  /// 데이터 새로고침 (네트워크 복구 후)
+  Future<void> _refreshData() async {
+    if (_isRetrying) return;
+
+    setState(() {
+      _isRetrying = true;
+      _orderError = null;
+      _ordersLoaded = false;
+      _cachedOrders = null;
+    });
+
+    try {
+      await _getCachedOrders();
+    } finally {
+      if (mounted) {
+        setState(() => _isRetrying = false);
+      }
     }
   }
 
@@ -91,7 +124,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               return Stack(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.notifications_outlined, color: Colors.black),
+                    icon: const Icon(Icons.notifications_outlined,
+                        color: Colors.black),
                     tooltip: '알림',
                     onPressed: () {
                       context.push('/notifications');
@@ -130,11 +164,12 @@ class _HomePageState extends ConsumerState<HomePage> {
           Consumer(
             builder: (context, ref, child) {
               final cartItemCount = ref.watch(cartItemCountProvider);
-              
+
               return Stack(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black),
+                    icon: const Icon(Icons.shopping_cart_outlined,
+                        color: Colors.black),
                     tooltip: '장바구니',
                     onPressed: () {
                       context.push('/cart');
@@ -208,7 +243,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       floatingActionButton: FutureBuilder<List<Map<String, dynamic>>>(
         future: _getCachedOrders(), // 캐싱된 주문 데이터 사용
         builder: (context, snapshot) {
-          final hasOrders = snapshot.hasData && (snapshot.data?.isNotEmpty ?? false);
+          final hasOrders =
+              snapshot.hasData && (snapshot.data?.isNotEmpty ?? false);
           final buttonText = hasOrders ? '수거신청 하기' : '첫 수거신청 하기';
 
           return FloatingActionButton.extended(
@@ -224,7 +260,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   /// 배너 클릭 처리 (action_type에 따라 다른 동작)
-  Future<void> _handleBannerTap(BuildContext context, Map<String, dynamic> banner) async {
+  Future<void> _handleBannerTap(
+      BuildContext context, Map<String, dynamic> banner) async {
     final actionType = banner['action_type'] as String? ?? 'order';
     final actionValue = banner['action_value'] as String?;
 
@@ -258,13 +295,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   Future<void> _showPreparationDialog(BuildContext context) async {
     // 주문 제한 체크 중이면 중복 호출 방지
     if (_isCheckingOrderLimit) return;
-    
+
     setState(() => _isCheckingOrderLimit = true);
 
     try {
       // 주문 제한 상태 확인
       final limitStatus = await _orderLimitService.checkOrderLimitStatus();
-      
+
       if (!mounted) return;
 
       // 제한 초과 시 알림 다이얼로그 표시
@@ -272,7 +309,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         await OrderLimitDialog.show(
           context,
           title: limitStatus.title,
-          message: limitStatus.message ?? 
+          message: limitStatus.message ??
               '오늘 하루 처리 가능한 주문량이 다 찼어요.\n알림 신청하시면 접수 가능할 때 알려드릴게요!',
         );
         return;
@@ -324,7 +361,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ],
               ),
               const SizedBox(height: 8),
-              
+
               // 타이틀
               const Text(
                 '다음 단계 진행을 위해',
@@ -368,7 +405,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
               ),
               const SizedBox(height: 32),
-              
+
               // 의류 이미지
               Container(
                 width: 200,
@@ -385,12 +422,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                   child: Icon(
                     Icons.checkroom_rounded,
                     size: 100,
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                    color:
+                        Theme.of(context).colorScheme.primary.withOpacity(0.3),
                   ),
                 ),
               ),
               const SizedBox(height: 32),
-              
+
               // 확인 버튼
               SizedBox(
                 width: double.infinity,
@@ -453,11 +491,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       final validNotifications = (response as List).where((notification) {
         // order_id가 없는 알림은 포함
         if (notification['order_id'] == null) return true;
-        
+
         // orders 조인 결과 확인
         final orders = notification['orders'];
         if (orders == null) return false; // 주문이 삭제된 경우 제외
-        
+
         // 취소된 주문의 알림 제외
         final orderStatus = orders['status'] as String?;
         return orderStatus != 'CANCELLED';
@@ -496,14 +534,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildGreeting(BuildContext context) {
     final userProfileAsync = ref.watch(userProfileProvider);
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: userProfileAsync.when(
         data: (profile) {
           // 사용자 이름 가져오기 (없으면 '고객'으로 표시)
           final userName = profile?.name ?? '고객';
-          
+
           return RichText(
             text: TextSpan(
               style: const TextStyle(
@@ -589,7 +627,8 @@ class _HomePageState extends ConsumerState<HomePage> {
         return FutureBuilder<List<Map<String, dynamic>>>(
           future: _getCachedOrders(),
           builder: (context, orderSnapshot) {
-            final hasOrders = orderSnapshot.hasData && (orderSnapshot.data?.isNotEmpty ?? false);
+            final hasOrders = orderSnapshot.hasData &&
+                (orderSnapshot.data?.isNotEmpty ?? false);
 
             // 배너 데이터 로드 중
             if (bannerSnapshot.connectionState == ConnectionState.waiting) {
@@ -607,10 +646,13 @@ class _HomePageState extends ConsumerState<HomePage> {
               if (banners.isNotEmpty) {
                 banners = List.from(banners);
                 final firstBanner = banners[0];
-                if (firstBanner['title']?.toString().contains('멀리 갈 필요 없이') == true ||
-                    firstBanner['title']?.toString().contains('문앞에 두고') == true) {
+                if (firstBanner['title']?.toString().contains('멀리 갈 필요 없이') ==
+                        true ||
+                    firstBanner['title']?.toString().contains('문앞에 두고') ==
+                        true) {
                   banners[0] = Map.from(firstBanner);
-                  banners[0]['button_text'] = hasOrders ? '수거신청 하기' : '첫 수거신청 하기';
+                  banners[0]['button_text'] =
+                      hasOrders ? '수거신청 하기' : '첫 수거신청 하기';
                 }
               }
             } else {
@@ -638,160 +680,167 @@ class _HomePageState extends ConsumerState<HomePage> {
             }
 
             return Column(
-      children: [
-        SizedBox(
-          height: 320,
-          child: PageView.builder(
-            controller: _bannerController,
-            physics: const PageScrollPhysics(), // 페이지 스크롤 활성화
-            onPageChanged: (index) {
-              // setState() 대신 ValueNotifier 사용으로 전체 리빌드 방지
-              ref.read(bannerIndexProvider.notifier).updateIndex(index);
-            },
-            itemCount: banners.length,
-            itemBuilder: (context, index) {
-              final banner = banners[index];
-              // 색상 파싱 (HEX 문자열을 Color로 변환)
-              Color backgroundColor;
-              try {
-                final colorString = banner['background_color'] as String? ?? '#2D3E50';
-                backgroundColor = Color(int.parse(colorString.replaceFirst('#', '0xFF')));
-              } catch (e) {
-                backgroundColor = const Color(0xFF2D3E50);
-              }
-              
-              final backgroundImageUrl = banner['background_image_url'] as String?;
-              
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  color: backgroundColor,
-                  image: backgroundImageUrl != null
-                      ? DecorationImage(
-                          image: NetworkImage(backgroundImageUrl),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Stack(
-                  children: [
-                    // 배경 패턴
-                    Positioned(
-                      right: -30,
-                      top: -30,
-                      child: Container(
-                        width: 150,
-                        height: 150,
+              children: [
+                SizedBox(
+                  height: 320,
+                  child: PageView.builder(
+                    controller: _bannerController,
+                    physics: const PageScrollPhysics(), // 페이지 스크롤 활성화
+                    onPageChanged: (index) {
+                      // setState() 대신 ValueNotifier 사용으로 전체 리빌드 방지
+                      ref.read(bannerIndexProvider.notifier).updateIndex(index);
+                    },
+                    itemCount: banners.length,
+                    itemBuilder: (context, index) {
+                      final banner = banners[index];
+                      // 색상 파싱 (HEX 문자열을 Color로 변환)
+                      Color backgroundColor;
+                      try {
+                        final colorString =
+                            banner['background_color'] as String? ?? '#2D3E50';
+                        backgroundColor = Color(
+                            int.parse(colorString.replaceFirst('#', '0xFF')));
+                      } catch (e) {
+                        backgroundColor = const Color(0xFF2D3E50);
+                      }
+
+                      final backgroundImageUrl =
+                          banner['background_image_url'] as String?;
+
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20),
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.1),
+                          color: backgroundColor,
+                          image: backgroundImageUrl != null
+                              ? DecorationImage(
+                                  image: NetworkImage(backgroundImageUrl),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                      ),
-                    ),
-                    Positioned(
-                      right: 40,
-                      bottom: -40,
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.1),
+                        child: Stack(
+                          children: [
+                            // 배경 패턴
+                            Positioned(
+                              right: -30,
+                              top: -30,
+                              child: Container(
+                                width: 150,
+                                height: 150,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withOpacity(0.1),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 40,
+                              bottom: -40,
+                              child: Container(
+                                width: 120,
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withOpacity(0.1),
+                                ),
+                              ),
+                            ),
+                            // 컨텐츠
+                            Padding(
+                              padding: const EdgeInsets.all(28),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Text(
+                                      '서비스 이용',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    banner['title'] as String? ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  ElevatedButton(
+                                    onPressed: _isCheckingOrderLimit
+                                        ? null
+                                        : () => _handleBannerTap(
+                                            this.context, banner),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF00C896),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 28,
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(25),
+                                      ),
+                                      elevation: 0,
+                                    ),
+                                    child: Text(
+                                      banner['button_text'] as String? ??
+                                          '수거신청 하기',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                    // 컨텐츠
-                    Padding(
-                      padding: const EdgeInsets.all(28),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Text(
-                              '서비스 이용',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            banner['title'] as String? ?? '',
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              height: 1.3,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          ElevatedButton(
-                            onPressed: _isCheckingOrderLimit ? null : () => _handleBannerTap(this.context, banner),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF00C896),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 28,
-                                vertical: 14,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: Text(
-                              banner['button_text'] as String? ?? '수거신청 하기',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-        // 인디케이터
-        Consumer(
-          builder: (context, ref, child) {
-            final currentIndex = ref.watch(bannerIndexProvider);
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                banners.length,
-                (index) => Container(
-                  width: currentIndex == index ? 24 : 8,
-                  height: 8,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: currentIndex == index
-                        ? Colors.black
-                        : Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(4),
+                      );
+                    },
                   ),
                 ),
-              ),
-            );
-          },
-        ),
-      ],
+                const SizedBox(height: 16),
+                // 인디케이터
+                Consumer(
+                  builder: (context, ref, child) {
+                    final currentIndex = ref.watch(bannerIndexProvider);
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        banners.length,
+                        (index) => Container(
+                          width: currentIndex == index ? 24 : 8,
+                          height: 8,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: currentIndex == index
+                                ? Colors.black
+                                : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             );
           },
         );
@@ -810,7 +859,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               Icons.receipt_long_outlined,
               const Color(0xFF00C896),
               () {
-                context.push('/content-view', extra: {'key': 'price_list', 'title': '가격표'});
+                context.push('/content-view',
+                    extra: {'key': 'price_list', 'title': '가격표'});
               },
             ),
           ),
@@ -821,7 +871,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               Icons.help_outline,
               const Color(0xFF00C896),
               () {
-                context.push('/content-view', extra: {'key': 'easy_guide', 'title': '쉬운가이드'});
+                context.push('/content-view',
+                    extra: {'key': 'easy_guide', 'title': '쉬운가이드'});
               },
             ),
           ),
@@ -872,20 +923,34 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-
   /// 내 주문 섹션 (주문이 없으면 섹션 전체 숨김)
   Widget _buildMyOrdersSection(BuildContext context) {
+    // 네트워크 재연결 이벤트 감지
+    ref.listen<int>(networkReconnectProvider, (previous, next) {
+      if (previous != next && _orderError != null) {
+        debugPrint('🔄 네트워크 재연결 감지 - 데이터 새로고침');
+        _refreshData();
+      }
+    });
+
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _getCachedOrders(),
       builder: (context, snapshot) {
-        // 로딩 중, 에러, 빈 목록일 경우 섹션 전체 숨김
+        // 로딩 중
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox.shrink();
         }
-        if (snapshot.hasError || (snapshot.data ?? []).isEmpty) {
+
+        // 에러 발생 시 사용자 친화적 UI 표시
+        if (_orderError != null) {
+          return _buildErrorSection(context);
+        }
+
+        // 빈 목록일 경우 섹션 전체 숨김
+        if ((snapshot.data ?? []).isEmpty) {
           return const SizedBox.shrink();
         }
-        
+
         final orders = snapshot.data!;
         final order = orders.first;
         final status = order['status'] as String? ?? 'BOOKED';
@@ -897,12 +962,14 @@ class _HomePageState extends ConsumerState<HomePage> {
         if (createdAt != null) {
           try {
             final dt = DateTime.parse(createdAt);
-            dateStr = '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
+            dateStr =
+                '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
           } catch (_) {}
         }
         final price = order['total_price'] as num? ?? 0;
-        final priceStr = '₩${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
-        
+        final priceStr =
+            '₩${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
+
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
@@ -933,7 +1000,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ],
               ),
               const SizedBox(height: 12),
-              
+
               // 최근 주문 1건
               InkWell(
                 onTap: () => context.push('/orders/${order['id']}'),
@@ -944,14 +1011,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isPendingCustomer 
-                          ? Colors.orange.shade300 
+                      color: isPendingCustomer
+                          ? Colors.orange.shade300
                           : Colors.grey.shade200,
                       width: isPendingCustomer ? 2 : 1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: isPendingCustomer 
+                        color: isPendingCustomer
                             ? Colors.orange.withOpacity(0.15)
                             : Colors.black.withOpacity(0.03),
                         blurRadius: 10,
@@ -969,16 +1036,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                             width: 56,
                             height: 56,
                             decoration: BoxDecoration(
-                              color: isPendingCustomer 
+                              color: isPendingCustomer
                                   ? Colors.orange.withOpacity(0.15)
                                   : const Color(0xFF00C896).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
-                              isPendingCustomer 
-                                  ? Icons.payment 
+                              isPendingCustomer
+                                  ? Icons.payment
                                   : Icons.checkroom_rounded,
-                              color: isPendingCustomer 
+                              color: isPendingCustomer
                                   ? Colors.orange.shade700
                                   : const Color(0xFF00C896),
                               size: 28,
@@ -994,7 +1061,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 decoration: BoxDecoration(
                                   color: Colors.red,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border:
+                                      Border.all(color: Colors.white, width: 2),
                                 ),
                                 child: const Text(
                                   '!',
@@ -1009,7 +1077,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         ],
                       ),
                       const SizedBox(width: 16),
-                      
+
                       // 주문 정보
                       Expanded(
                         child: Column(
@@ -1020,7 +1088,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 // 추가결제 배지 (우선 표시)
                                 if (isPendingCustomer) ...[
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: Colors.orange.shade100,
                                       borderRadius: BorderRadius.circular(6),
@@ -1048,9 +1117,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   const SizedBox(width: 8),
                                 ],
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: (statusStyle['color'] as Color).withOpacity(0.12),
+                                    color: (statusStyle['color'] as Color)
+                                        .withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
@@ -1066,7 +1137,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   const SizedBox(width: 8),
                                   Text(
                                     dateStr,
-                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade600),
                                   ),
                                 ],
                               ],
@@ -1074,27 +1147,34 @@ class _HomePageState extends ConsumerState<HomePage> {
                             const SizedBox(height: 8),
                             Text(
                               (order['item_name'] as String?) ?? '수선 항목',
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
                             Text(
                               priceStr,
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade700),
                             ),
                           ],
                         ),
                       ),
-                      
-                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+
+                      const Icon(Icons.arrow_forward_ios,
+                          size: 16, color: Colors.grey),
                     ],
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 12),
-              
+
               // 주문 목록으로 가는 버튼
               SizedBox(
                 width: double.infinity,
@@ -1139,5 +1219,79 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
+  /// 네트워크 에러 시 표시할 섹션
+  Widget _buildErrorSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '내 주문',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.wifi_off_rounded,
+                  size: 48,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _orderError ?? '네트워크 연결을 확인해주세요',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.grey.shade700,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isRetrying ? null : _refreshData,
+                    icon: _isRetrying
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.refresh, size: 18),
+                    label: Text(_isRetrying ? '연결 중...' : '다시 시도'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00C896),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
-

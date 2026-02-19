@@ -31,7 +31,7 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
 
   void _initWebView() {
     debugPrint('🔧 _initWebView 호출됨');
-    
+
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..enableZoom(false)
@@ -44,7 +44,7 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
           onPageFinished: (url) {
             setState(() => _isLoading = false);
             debugPrint('✅ 페이지 로드 완료: $url');
-            
+
             // 로드 완료 후 JavaScript 테스트 실행
             _controller?.runJavaScript('''
               console.log('✅ WebView 로드 완료 - JavaScript 실행 가능');
@@ -69,7 +69,7 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
           },
           onNavigationRequest: (NavigationRequest request) {
             debugPrint('네비게이션 요청: ${request.url}');
-            
+
             // Flutter 스키마로 데이터 전달 받기
             if (request.url.startsWith('flutter://address?')) {
               debugPrint('');
@@ -77,20 +77,20 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
               debugPrint('🔗 Flutter URL 스키마 감지!');
               debugPrint('====================================');
               debugPrint('📥 URL: ${request.url}');
-              
+
               try {
                 final uri = Uri.parse(request.url);
                 final zonecode = uri.queryParameters['zonecode'] ?? '';
                 final address = uri.queryParameters['address'] ?? '';
                 final addressType = uri.queryParameters['addressType'] ?? '';
-                
+
                 debugPrint('');
                 debugPrint('✅ 주소 데이터 수신 성공!');
                 debugPrint('  📮 우편번호: $zonecode');
                 debugPrint('  🏠 주소: $address');
                 debugPrint('  📝 타입: $addressType');
                 debugPrint('');
-                
+
                 if (zonecode.isNotEmpty && address.isNotEmpty) {
                   debugPrint('🎉 다이얼로그 닫기 - 주소 반환');
                   debugPrint('====================================');
@@ -121,20 +121,20 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
           debugPrint('📨 JavaScript Channel 메시지 수신!');
           debugPrint('====================================');
           debugPrint('📥 메시지 내용: ${message.message}');
-          
+
           try {
             final data = jsonDecode(message.message) as Map<String, dynamic>;
             final zonecode = data['zonecode'] as String? ?? '';
             final address = data['address'] as String? ?? '';
             final addressType = data['addressType'] as String? ?? '';
-            
+
             debugPrint('');
             debugPrint('✅ 주소 파싱 성공!');
             debugPrint('  📮 우편번호: $zonecode');
             debugPrint('  🏠 주소: $address');
             debugPrint('  📝 타입: $addressType');
             debugPrint('');
-            
+
             if (zonecode.isNotEmpty && address.isNotEmpty) {
               debugPrint('🎉 다이얼로그 닫기 - 주소 반환');
               debugPrint('====================================');
@@ -154,7 +154,7 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
         },
       )
       ..loadHtmlString(_getDaumPostcodeHtml());
-    
+
     debugPrint('🚀 WebView 초기화 완료');
   }
 
@@ -227,34 +227,29 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
                 window.location.href = url;
                 console.log('✅ URL 전송 완료');
             } catch (e) {
-                console.error('❌ 전송 오류:', e);
-                alert('주소 전송 실패: ' + e.message);
+                console.error('전송 오류:', e);
             }
         }
         
         // 페이지 로드 시 Daum Postcode 초기화
         // 즉시 실행 (DOMContentLoaded 대신)
         (function() {
-            alert('🚀 스크립트 로드됨 - 초기화 시작');
-            
             // Postcode 객체 생성 및 embed
             var element_layer = document.getElementById('layer');
             
             if (!element_layer) {
-                alert('❌ layer 엘리먼트를 찾을 수 없습니다!');
+                console.error('layer 엘리먼트를 찾을 수 없습니다');
                 return;
             }
             
             if (typeof daum === 'undefined') {
-                alert('❌ Daum 라이브러리가 로드되지 않았습니다!');
+                console.error('Daum 라이브러리가 로드되지 않았습니다');
                 return;
             }
             
             new daum.Postcode({
                 oncomplete: function(data) {
-                    alert('🎯 주소 선택! 우편번호: ' + data.zonecode);
-                    
-                    // 즉시 Flutter로 전송
+                    // Flutter로 전송
                     sendAddressToFlutter(data.zonecode, data.address, data.addressType);
                 },
                 onresize: function(size) {
@@ -266,8 +261,6 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
                 width: '100%',
                 height: '100%'
             }).embed(element_layer);
-            
-            alert('✅ Postcode embed 완료');
         })();
     </script>
 </body>
@@ -279,7 +272,7 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
   Widget build(BuildContext context) {
     // 카카오 API 방식 사용 (안정적)
     return _buildSimpleAddressInput(context);
-    
+
     /* WebView 방식은 iOS 시뮬레이터에서 JavaScript 실행 문제가 있어 비활성화
     debugPrint('🏗️ DaumPostcodeWidget build - kIsWeb: $kIsWeb, _controller: ${_controller != null}');
     
@@ -364,7 +357,7 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
     );
     */
   }
-  
+
   /// 간단한 주소 검색 UI (샘플 주소 제공)
   Widget _buildSimpleAddressInput(BuildContext context) {
     return _KakaoAddressSearchWeb(
@@ -389,8 +382,8 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
   final searchController = TextEditingController();
   List<Map<String, String>> searchResults = [];
   bool isSearching = false;
-  
-  // 카카오 REST API 키 
+
+  // 카카오 REST API 키
   // 발급 방법: https://developers.kakao.com/ → 내 애플리케이션 → 앱 추가 → REST API 키 복사
   // .env 파일에 KAKAO_REST_API_KEY 추가 권장
   static const String kakaoApiKey = '009546eb1aca545ba309aabc78010bf7';
@@ -422,11 +415,11 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
       final url = Uri.parse(
         'https://dapi.kakao.com/v2/local/search/address.json?query=${Uri.encodeComponent(query)}&size=15',
       );
-      
+
       debugPrint('🔍 주소 검색 API 호출: $query');
       debugPrint('📡 URL: $url');
       debugPrint('🔑 API Key: ${kakaoApiKey.substring(0, 10)}...');
-      
+
       final response = await http.get(
         url,
         headers: {
@@ -435,53 +428,58 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
       );
 
       debugPrint('📥 응답 상태: ${response.statusCode}');
-      debugPrint('📥 응답 본문: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}');
+      debugPrint(
+          '📥 응답 본문: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final documents = data['documents'] as List;
-        
+
         debugPrint('✅ 검색 결과: ${documents.length}건');
-        
+
         setState(() {
-          searchResults = documents.map<Map<String, String>>((doc) {
-            final roadAddress = doc['road_address'];
-            final address = doc['address'];
-            
-            // 우편번호 추출 (도로명 주소 우선, 지번 주소도 지원)
-            String zipcode = '';
-            String addressName = '';
-            String detail = '';
-            
-            if (roadAddress != null) {
-              zipcode = (roadAddress['zone_no'] ?? '') as String;
-              addressName = (roadAddress['address_name'] ?? '') as String;
-              detail = (roadAddress['building_name'] ?? '') as String;
-            } else if (address != null) {
-              // 지번 주소에서도 우편번호 가져오기 (zone_no 우선, 없으면 zip_no)
-              zipcode = (address['zone_no'] ?? address['zip_no'] ?? '') as String;
-              addressName = (address['address_name'] ?? '') as String;
-            }
-            
-            // 디버깅 로그
-            if (zipcode.isEmpty || zipcode.trim().isEmpty) {
-              debugPrint('⚠️ 우편번호를 찾을 수 없습니다:');
-              debugPrint('  roadAddress: $roadAddress');
-              debugPrint('  address: $address');
-            } else {
-              debugPrint('✅ 우편번호 추출 성공: $zipcode ($addressName)');
-            }
-            
-            return {
-              'zipcode': zipcode,
-              'address': addressName,
-              'detail': detail,
-            };
-          }).where((item) => 
-            item['address']!.isNotEmpty && 
-            item['zipcode']!.isNotEmpty && 
-            item['zipcode']!.trim().isNotEmpty  // 우편번호 있는 것만 표시
-          ).toList();
+          searchResults = documents
+              .map<Map<String, String>>((doc) {
+                final roadAddress = doc['road_address'];
+                final address = doc['address'];
+
+                // 우편번호 추출 (도로명 주소 우선, 지번 주소도 지원)
+                String zipcode = '';
+                String addressName = '';
+                String detail = '';
+
+                if (roadAddress != null) {
+                  zipcode = (roadAddress['zone_no'] ?? '') as String;
+                  addressName = (roadAddress['address_name'] ?? '') as String;
+                  detail = (roadAddress['building_name'] ?? '') as String;
+                } else if (address != null) {
+                  // 지번 주소에서도 우편번호 가져오기 (zone_no 우선, 없으면 zip_no)
+                  zipcode =
+                      (address['zone_no'] ?? address['zip_no'] ?? '') as String;
+                  addressName = (address['address_name'] ?? '') as String;
+                }
+
+                // 디버깅 로그
+                if (zipcode.isEmpty || zipcode.trim().isEmpty) {
+                  debugPrint('⚠️ 우편번호를 찾을 수 없습니다:');
+                  debugPrint('  roadAddress: $roadAddress');
+                  debugPrint('  address: $address');
+                } else {
+                  debugPrint('✅ 우편번호 추출 성공: $zipcode ($addressName)');
+                }
+
+                return {
+                  'zipcode': zipcode,
+                  'address': addressName,
+                  'detail': detail,
+                };
+              })
+              .where((item) =>
+                      item['address']!.isNotEmpty &&
+                      item['zipcode']!.isNotEmpty &&
+                      item['zipcode']!.trim().isNotEmpty // 우편번호 있는 것만 표시
+                  )
+              .toList();
           isSearching = false;
         });
       } else {
@@ -502,7 +500,6 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -518,7 +515,8 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.05),
@@ -569,9 +567,13 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            searchController.text.isEmpty ? Icons.search : Icons.warning_amber_rounded,
+                            searchController.text.isEmpty
+                                ? Icons.search
+                                : Icons.warning_amber_rounded,
                             size: 64,
-                            color: searchController.text.isEmpty ? Colors.grey.shade300 : Colors.orange.shade300,
+                            color: searchController.text.isEmpty
+                                ? Colors.grey.shade300
+                                : Colors.orange.shade300,
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -709,4 +711,3 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
     );
   }
 }
-

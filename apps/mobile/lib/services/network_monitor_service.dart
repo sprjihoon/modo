@@ -3,20 +3,21 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
 /// 네트워크 상태 모니터링 서비스
-/// 
+///
 /// 기능:
 /// - ✅ 실시간 네트워크 상태 감지
 /// - ✅ WiFi/Mobile/Offline 구분
 /// - ✅ 네트워크 변경 이벤트 스트림
 /// - ✅ 네트워크 품질 평가
 class NetworkMonitorService {
-  static final NetworkMonitorService _instance = NetworkMonitorService._internal();
+  static final NetworkMonitorService _instance =
+      NetworkMonitorService._internal();
   factory NetworkMonitorService() => _instance;
   NetworkMonitorService._internal();
 
   final Connectivity _connectivity = Connectivity();
   StreamSubscription<ConnectivityResult>? _subscription;
-  
+
   /// 현재 네트워크 상태
   NetworkStatus _currentStatus = NetworkStatus.unknown;
   NetworkStatus get currentStatus => _currentStatus;
@@ -30,19 +31,60 @@ class NetworkMonitorService {
     // 현재 상태 확인
     final result = await _connectivity.checkConnectivity();
     _currentStatus = _parseConnectivityResult([result]);
-    
+
     // 변경 감지 시작
     _subscription = _connectivity.onConnectivityChanged.listen((result) {
       final newStatus = _parseConnectivityResult([result]);
       if (newStatus != _currentStatus) {
         _currentStatus = newStatus;
         _statusController.add(newStatus);
-        
+
         if (kDebugMode) {
           print('📡 Network status changed: ${newStatus.label}');
         }
       }
     });
+  }
+
+  /// 네트워크 연결 상태 새로고침 (앱 포그라운드 복귀 시 호출)
+  Future<void> refreshConnectionStatus() async {
+    try {
+      final result = await _connectivity.checkConnectivity();
+      final newStatus = _parseConnectivityResult([result]);
+
+      if (newStatus != _currentStatus) {
+        _currentStatus = newStatus;
+        _statusController.add(newStatus);
+
+        if (kDebugMode) {
+          print('📡 Network status refreshed: ${newStatus.label}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Network status refresh failed: $e');
+      }
+    }
+  }
+
+  /// 실제 인터넷 연결 가능 여부 확인 (DNS 조회 테스트)
+  Future<bool> checkInternetConnection() async {
+    if (!isConnected) return false;
+
+    try {
+      // 간단한 DNS 조회로 실제 인터넷 연결 확인
+      final result = await Future.any([
+        _connectivity.checkConnectivity(),
+        Future.delayed(const Duration(seconds: 5),
+            () => throw TimeoutException('Connection check timeout')),
+      ]);
+      return _parseConnectivityResult([result]) != NetworkStatus.offline;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Internet connection check failed: $e');
+      }
+      return false;
+    }
   }
 
   /// 서비스 종료
@@ -54,9 +96,9 @@ class NetworkMonitorService {
   /// ConnectivityResult를 NetworkStatus로 변환
   NetworkStatus _parseConnectivityResult(List<ConnectivityResult> results) {
     if (results.isEmpty) return NetworkStatus.offline;
-    
+
     final result = results.first;
-    
+
     switch (result) {
       case ConnectivityResult.wifi:
         return NetworkStatus.wifi;
@@ -141,10 +183,10 @@ extension NetworkStatusExtension on NetworkStatus {
 
 /// 네트워크 품질 열거형
 enum NetworkQuality {
-  excellent,  // WiFi
-  good,       // Mobile with good signal
-  fair,       // Mobile with weak signal
-  poor,       // Offline or very weak
+  excellent, // WiFi
+  good, // Mobile with good signal
+  fair, // Mobile with weak signal
+  poor, // Offline or very weak
   unknown,
 }
 
@@ -180,4 +222,3 @@ extension NetworkQualityExtension on NetworkQuality {
     }
   }
 }
-
