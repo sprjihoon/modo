@@ -69,7 +69,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.example.modoRepair</string>
+			<string>com.modurepair.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>modorepair</string>

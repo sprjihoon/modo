@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,6 +46,11 @@ export function StatusChangeDialog({
   const [open, setOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState(currentStatus);
   const [loading, setLoading] = useState(false);
+
+  // currentStatus prop이 변경되면 selectedStatus도 동기화
+  useEffect(() => {
+    setSelectedStatus(currentStatus);
+  }, [currentStatus]);
 
   const handleSubmit = async () => {
     setLoading(true);

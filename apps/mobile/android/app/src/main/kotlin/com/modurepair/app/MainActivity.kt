@@ -1,4 +1,4 @@
-package com.example.modu_repair
+package com.modurepair.app
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

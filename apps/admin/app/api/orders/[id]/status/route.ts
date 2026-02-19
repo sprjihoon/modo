@@ -1,13 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
-
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
 
 /**
  * 주문 상태 변경 API
@@ -15,10 +9,22 @@ interface RouteParams {
  * PATCH /api/orders/[id]/status
  * Body: { status: string, trackingNo?: string }
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> | { id: string } }
+) {
   try {
-    const supabase = createClient();
-    const orderId = params.id;
+    const resolvedParams = await Promise.resolve(params);
+    const orderId = resolvedParams.id;
+
+    if (!orderId) {
+      return NextResponse.json(
+        { success: false, error: "주문 ID가 필요합니다." },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseAdmin();
     const body = await request.json();
     const { status, trackingNo } = body;
 
