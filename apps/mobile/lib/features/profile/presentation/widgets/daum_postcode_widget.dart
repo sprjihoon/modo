@@ -405,87 +405,70 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
       return;
     }
 
-    // 카카오 주소 검색 API 호출
+    debugPrint('🔍 주소 검색 시작: $query');
+
     try {
-      final url = Uri.parse(
-        'https://dapi.kakao.com/v2/local/search/address.json?query=${Uri.encodeComponent(query)}&size=15',
+      // 주소 검색 API와 키워드 검색 API를 병렬로 호출
+      final addressUrl = Uri.parse(
+        'https://dapi.kakao.com/v2/local/search/address.json?query=${Uri.encodeComponent(query)}&size=10',
+      );
+      final keywordUrl = Uri.parse(
+        'https://dapi.kakao.com/v2/local/search/keyword.json?query=${Uri.encodeComponent(query)}&size=10',
       );
 
-      debugPrint('🔍 주소 검색 API 호출: $query');
-      debugPrint('📡 URL: $url');
-      debugPrint('🔑 API Key: ${kakaoApiKey.substring(0, 10)}...');
+      final headers = {'Authorization': 'KakaoAK $kakaoApiKey'};
 
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'KakaoAK $kakaoApiKey',
-        },
-      );
+      // 병렬 호출
+      final responses = await Future.wait([
+        http.get(addressUrl, headers: headers),
+        http.get(keywordUrl, headers: headers),
+      ]);
 
-      debugPrint('📥 응답 상태: ${response.statusCode}');
-      debugPrint(
-          '📥 응답 본문: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}');
+      final addressResponse = responses[0];
+      final keywordResponse = responses[1];
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      debugPrint('📥 주소 검색 응답: ${addressResponse.statusCode}');
+      debugPrint('📥 키워드 검색 응답: ${keywordResponse.statusCode}');
+
+      final List<Map<String, String>> combinedResults = [];
+      final Set<String> addedAddresses = {}; // 중복 제거용
+
+      // 1. 주소 검색 API 결과 처리 (정확한 주소)
+      if (addressResponse.statusCode == 200) {
+        final data = jsonDecode(addressResponse.body);
         final documents = data['documents'] as List;
+        debugPrint('✅ 주소 검색 결과: ${documents.length}건');
 
-        debugPrint('✅ 검색 결과: ${documents.length}건');
-
-        setState(() {
-          searchResults = documents
-              .map<Map<String, String>>((doc) {
-                final roadAddress = doc['road_address'];
-                final address = doc['address'];
-
-                // 우편번호 추출 (도로명 주소 우선, 지번 주소도 지원)
-                String zipcode = '';
-                String addressName = '';
-                String detail = '';
-
-                if (roadAddress != null) {
-                  zipcode = (roadAddress['zone_no'] ?? '') as String;
-                  addressName = (roadAddress['address_name'] ?? '') as String;
-                  detail = (roadAddress['building_name'] ?? '') as String;
-                } else if (address != null) {
-                  // 지번 주소에서도 우편번호 가져오기 (zone_no 우선, 없으면 zip_no)
-                  zipcode =
-                      (address['zone_no'] ?? address['zip_no'] ?? '') as String;
-                  addressName = (address['address_name'] ?? '') as String;
-                }
-
-                // 디버깅 로그
-                if (zipcode.isEmpty || zipcode.trim().isEmpty) {
-                  debugPrint('⚠️ 우편번호를 찾을 수 없습니다:');
-                  debugPrint('  roadAddress: $roadAddress');
-                  debugPrint('  address: $address');
-                } else {
-                  debugPrint('✅ 우편번호 추출 성공: $zipcode ($addressName)');
-                }
-
-                return {
-                  'zipcode': zipcode,
-                  'address': addressName,
-                  'detail': detail,
-                };
-              })
-              .where((item) =>
-                      item['address']!.isNotEmpty &&
-                      item['zipcode']!.isNotEmpty &&
-                      item['zipcode']!.trim().isNotEmpty // 우편번호 있는 것만 표시
-                  )
-              .toList();
-          isSearching = false;
-        });
-      } else {
-        // API 응답 실패
-        debugPrint('❌ API 응답 실패: ${response.statusCode}');
-        debugPrint('❌ 에러 내용: ${response.body}');
-        setState(() {
-          searchResults = [];
-          isSearching = false;
-        });
+        for (final doc in documents) {
+          final result = _parseAddressDocument(doc);
+          if (result != null && !addedAddresses.contains(result['address'])) {
+            combinedResults.add(result);
+            addedAddresses.add(result['address']!);
+          }
+        }
       }
+
+      // 2. 키워드 검색 API 결과 처리 (장소/건물명 검색)
+      if (keywordResponse.statusCode == 200) {
+        final data = jsonDecode(keywordResponse.body);
+        final documents = data['documents'] as List;
+        debugPrint('✅ 키워드 검색 결과: ${documents.length}건');
+
+        for (final doc in documents) {
+          final result = _parseKeywordDocument(doc);
+          if (result != null && !addedAddresses.contains(result['address'])) {
+            combinedResults.add(result);
+            addedAddresses.add(result['address']!);
+          }
+        }
+      }
+
+      debugPrint('📊 총 검색 결과: ${combinedResults.length}건');
+
+      setState(() {
+        searchResults = combinedResults;
+        isSearching = false;
+      });
     } catch (e) {
       debugPrint('❌ 주소 검색 오류: $e');
       setState(() {
@@ -493,6 +476,199 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
         isSearching = false;
       });
     }
+  }
+
+  /// 주소 검색 API 결과 파싱
+  Map<String, String>? _parseAddressDocument(Map<String, dynamic> doc) {
+    final roadAddress = doc['road_address'];
+    final address = doc['address'];
+
+    String zipcode = '';
+    String addressName = '';
+    String detail = '';
+
+    if (roadAddress != null) {
+      zipcode = (roadAddress['zone_no'] ?? '') as String;
+      addressName = (roadAddress['address_name'] ?? '') as String;
+      detail = (roadAddress['building_name'] ?? '') as String;
+    } else if (address != null) {
+      zipcode = (address['zone_no'] ?? address['zip_no'] ?? '') as String;
+      addressName = (address['address_name'] ?? '') as String;
+    }
+
+    if (addressName.isEmpty || zipcode.isEmpty || zipcode.trim().isEmpty) {
+      return null;
+    }
+
+    return {
+      'zipcode': zipcode,
+      'address': addressName,
+      'detail': detail,
+      'type': 'address', // 주소 검색 결과 표시용
+    };
+  }
+
+  /// 키워드 검색 API 결과 파싱
+  Map<String, String>? _parseKeywordDocument(Map<String, dynamic> doc) {
+    final roadAddressName = doc['road_address_name'] as String? ?? '';
+    final addressName = doc['address_name'] as String? ?? '';
+    final placeName = doc['place_name'] as String? ?? '';
+    final categoryName = doc['category_name'] as String? ?? '';
+
+    // 도로명 주소 우선, 없으면 지번 주소 사용
+    final finalAddress =
+        roadAddressName.isNotEmpty ? roadAddressName : addressName;
+
+    if (finalAddress.isEmpty) {
+      return null;
+    }
+
+    // 키워드 검색은 우편번호가 없으므로, 주소로 다시 검색하여 우편번호 획득 필요
+    // 일단 빈 우편번호로 표시하고, 선택 시 우편번호 조회
+    return {
+      'zipcode': '', // 선택 시 조회
+      'address': finalAddress,
+      'detail': placeName,
+      'placeName': placeName,
+      'category': categoryName,
+      'type': 'keyword', // 키워드 검색 결과 표시용
+    };
+  }
+
+  /// 키워드 검색 결과 선택 시 우편번호 조회
+  Future<String> _fetchZipcodeForAddress(String address) async {
+    try {
+      final url = Uri.parse(
+        'https://dapi.kakao.com/v2/local/search/address.json?query=${Uri.encodeComponent(address)}&size=1',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'KakaoAK $kakaoApiKey'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final documents = data['documents'] as List;
+
+        if (documents.isNotEmpty) {
+          final doc = documents.first;
+          final roadAddress = doc['road_address'];
+          final addr = doc['address'];
+
+          if (roadAddress != null) {
+            return (roadAddress['zone_no'] ?? '') as String;
+          } else if (addr != null) {
+            return (addr['zone_no'] ?? addr['zip_no'] ?? '') as String;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ 우편번호 조회 실패: $e');
+    }
+    return '';
+  }
+
+  /// 주소 선택 처리
+  Future<void> _onAddressSelected(Map<String, String> addr) async {
+    String zipcode = addr['zipcode'] ?? '';
+    final address = addr['address'] ?? '';
+    final isKeywordResult = addr['type'] == 'keyword';
+
+    // 키워드 검색 결과이고 우편번호가 없으면 조회
+    if (isKeywordResult && zipcode.isEmpty) {
+      // 로딩 표시
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xFF00C896)),
+                  ),
+                  SizedBox(height: 16),
+                  Text('우편번호 조회 중...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      zipcode = await _fetchZipcodeForAddress(address);
+
+      if (mounted) {
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+      }
+
+      // 우편번호를 찾지 못한 경우
+      if (zipcode.isEmpty) {
+        if (mounted) {
+          final shouldProceed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text('우편번호 확인'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('이 주소의 우편번호를 자동으로 찾을 수 없습니다.'),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      address,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '주소를 선택하고 우편번호를 직접 입력하시겠습니까?',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('취소'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00C896),
+                  ),
+                  child: const Text('선택'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldProceed != true) {
+            return;
+          }
+        }
+      }
+    }
+
+    widget.onAddressSelected({
+      'zonecode': zipcode,
+      'address': address,
+      'addressType': 'R',
+    });
   }
 
   @override
@@ -554,152 +730,206 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
 
           // 검색 결과
           Expanded(
-            child: searchResults.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            searchController.text.isEmpty
-                                ? Icons.search
-                                : Icons.warning_amber_rounded,
-                            size: 64,
-                            color: searchController.text.isEmpty
-                                ? Colors.grey.shade300
-                                : Colors.orange.shade300,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            searchController.text.isEmpty
-                                ? '주소를 검색해주세요'
-                                : '검색 결과가 없습니다',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade800,
-                            ),
-                          ),
-                          if (searchController.text.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              '💡 건물 번호까지 입력해주세요',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '예) 판교역로 166, 테헤란로 152',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '📍 도로명만 입력하면 우편번호가 없을 수 있습니다',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.blue.shade700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+            child: isSearching
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Color(0xFF00C896)),
                     ),
                   )
-                : ListView.separated(
-                    itemCount: searchResults.length,
-                    separatorBuilder: (context, index) => Divider(
-                      height: 1,
-                      color: Colors.grey.shade200,
-                    ),
-                    itemBuilder: (context, index) {
-                      final addr = searchResults[index];
-                      return ListTile(
-                        title: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
+                : searchResults.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                searchController.text.isEmpty
+                                    ? Icons.search
+                                    : Icons.location_searching,
+                                size: 64,
+                                color: searchController.text.isEmpty
+                                    ? Colors.grey.shade300
+                                    : Colors.orange.shade300,
                               ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                addr['zipcode']!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.blue.shade700,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '도로명',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 4),
-                            Text(
-                              addr['address']!,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            if (addr['detail']!.isNotEmpty) ...[
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 16),
                               Text(
-                                addr['detail']!,
+                                searchController.text.isEmpty
+                                    ? '주소를 검색해주세요'
+                                    : '검색 결과가 없습니다',
                                 style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade800,
                                 ),
                               ),
+                              if (searchController.text.isEmpty) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        '💡 이렇게 검색해보세요',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '• 도로명 + 건물번호: 판교역로 166\n'
+                                        '• 건물/장소명: 카카오판교아지트\n'
+                                        '• 동/읍/면 + 번지: 백현동 532\n'
+                                        '• 아파트명: 분당 주공아파트',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey.shade600,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              if (searchController.text.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  '다른 검색어로 시도해보세요',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
-                        onTap: () {
-                          widget.onAddressSelected({
-                            'zonecode': addr['zipcode']!,
-                            'address': addr['address']!,
-                            'addressType': 'R',
-                          });
+                      )
+                    : ListView.separated(
+                        itemCount: searchResults.length,
+                        separatorBuilder: (context, index) => Divider(
+                          height: 1,
+                          color: Colors.grey.shade200,
+                        ),
+                        itemBuilder: (context, index) {
+                          final addr = searchResults[index];
+                          final isKeywordResult = addr['type'] == 'keyword';
+                          final hasZipcode =
+                              addr['zipcode']?.isNotEmpty == true;
+
+                          return ListTile(
+                            title: Row(
+                              children: [
+                                if (hasZipcode)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade50,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      addr['zipcode']!,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.blue.shade700,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade50,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      '장소',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.orange.shade700,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    isKeywordResult
+                                        ? (addr['category'] ?? '')
+                                        : '도로명',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                // 장소명이 있으면 먼저 표시
+                                if (isKeywordResult &&
+                                    addr['placeName']?.isNotEmpty == true) ...[
+                                  Text(
+                                    addr['placeName']!,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                ],
+                                Text(
+                                  addr['address']!,
+                                  style: TextStyle(
+                                    fontSize: isKeywordResult ? 13 : 14,
+                                    fontWeight: isKeywordResult
+                                        ? FontWeight.normal
+                                        : FontWeight.w500,
+                                    color: isKeywordResult
+                                        ? Colors.grey.shade700
+                                        : Colors.black87,
+                                  ),
+                                ),
+                                if (!isKeywordResult &&
+                                    addr['detail']?.isNotEmpty == true) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    addr['detail']!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            onTap: () => _onAddressSelected(addr),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          );
                         },
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      );
-                    },
-                  ),
+                      ),
           ),
         ],
       ),
