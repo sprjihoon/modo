@@ -32,6 +32,12 @@ export type {
   DeliveryCodeResponse,
 } from './types.ts';
 
+// 종추적조회 타입 export
+export type {
+  TrackingEvent,
+  TrackingResponse,
+} from './tracking.ts';
+
 // 설정
 export { getEPostConfig, getEPostBaseUrl } from './config.ts';
 
@@ -50,6 +56,13 @@ export {
 
 // 승인번호 조회
 export { getApprovalNumber } from './approval.ts';
+
+// 종추적조회 (배송추적)
+export {
+  getTrackingInfo,
+  mapDeliveryStatusToCode,
+  getStatusFromEvents,
+} from './tracking.ts';
 
 // Mock 함수들
 export { mockInsertOrder } from './mock.ts';

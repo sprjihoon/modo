@@ -8,7 +8,8 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { getResInfo } from '../_shared/epost/index.ts';
+import { getResInfo, getTrackingInfo, getStatusFromEvents } from '../_shared/epost/index.ts';
+import type { TrackingEvent, TrackingResponse } from '../_shared/epost/index.ts';
 
 Deno.serve(async (req) => {
   // CORS preflight
@@ -60,19 +61,69 @@ Deno.serve(async (req) => {
     // 우체국 API로 실시간 배송 상태 조회
     let epostStatus: any = null;
     let epostError: { message: string; code: string } | null = null;
+    let trackingInfo: TrackingResponse | null = null;
+    
+    // 1. 먼저 웹 스크래핑으로 실제 배송 상태 조회 시도
+    let scrapingError: string | null = null;
     try {
-      const reqYmd = shipment.pickup_requested_at 
-        ? new Date(shipment.pickup_requested_at).toISOString().split('T')[0].replace(/-/g, '')
-        : new Date().toISOString().split('T')[0].replace(/-/g, '');
-
-      epostStatus = await getResInfo({
-        custNo: Deno.env.get('EPOST_CUSTOMER_ID') || '',
-        reqType: '1',
-        orderNo: shipment.order_id,
-        reqYmd,
+      console.log('🔍 우체국 웹 스크래핑 시작:', trackingNo);
+      trackingInfo = await getTrackingInfo(trackingNo);
+      console.log('📦 스크래핑 결과:', {
+        success: trackingInfo.success,
+        eventCount: trackingInfo.events.length,
+        error: trackingInfo.error,
       });
+      
+      if (trackingInfo.success && trackingInfo.events.length > 0) {
+        // 스크래핑 성공 - 실제 물류 추적 정보 사용
+        console.log('✅ 웹 스크래핑 성공:', {
+          deliveryStatus: trackingInfo.deliveryStatus,
+          eventCount: trackingInfo.events.length,
+          latestEvent: trackingInfo.events[trackingInfo.events.length - 1],
+        });
+        
+        // 스크래핑 결과를 epostStatus 형식으로 변환
+        const statusCode = getStatusFromEvents(trackingInfo.events);
+        epostStatus = {
+          treatStusCd: statusCode,
+          trackingEvents: trackingInfo.events,
+          deliveryStatus: trackingInfo.deliveryStatus,
+          senderName: trackingInfo.senderName,
+          receiverName: trackingInfo.receiverName,
+        };
+      }
+    } catch (err: any) {
+      scrapingError = err?.message || 'Unknown scraping error';
+      console.error('⚠️ 웹 스크래핑 실패:', scrapingError);
+    }
+    
+    // 2. 스크래핑 실패 시 기존 GetResInfo API 사용
+    if (!epostStatus) {
+      try {
+        console.log('⚠️ 스크래핑 데이터 없음, GetResInfo API로 폴백');
+        
+        const reqYmd = shipment.pickup_requested_at 
+          ? new Date(shipment.pickup_requested_at).toISOString().split('T')[0].replace(/-/g, '')
+          : new Date().toISOString().split('T')[0].replace(/-/g, '');
 
-      console.log('✅ 우체국 배송 상태 조회 성공:', epostStatus?.treatStusCd);
+        epostStatus = await getResInfo({
+          custNo: Deno.env.get('EPOST_CUSTOMER_ID') || '',
+          reqType: '1',
+          orderNo: shipment.order_id,
+          reqYmd,
+        });
+        console.log('✅ GetResInfo API 성공:', epostStatus?.treatStusCd);
+      } catch (apiError: any) {
+        console.error('⚠️ GetResInfo API 실패:', apiError?.message);
+        epostError = {
+          message: apiError?.message || '배송 상태를 조회할 수 없습니다',
+          code: apiError?.code || 'UNKNOWN_ERROR',
+        };
+      }
+    }
+
+    try {
+      console.log('📋 최종 epostStatus:', epostStatus?.treatStusCd);
       
       // 어떤 송장번호로 조회했는지 확인 (수거 vs 배송)
       const isPickupTracking = trackingNo === shipment.pickup_tracking_no;
@@ -180,17 +231,15 @@ Deno.serve(async (req) => {
         }
       }
     } catch (e: any) {
-      console.error('⚠️ 우체국 배송 상태 조회 실패:', e?.message || e);
-      epostError = {
-        message: e?.message || '배송 상태를 조회할 수 없습니다',
-        code: e?.code || 'UNKNOWN_ERROR',
-      };
-      // 실패해도 DB의 정보는 반환
+      console.error('⚠️ 상태 업데이트 중 에러:', e?.message || e);
     }
 
     // 배송 추적 URL 생성
     const trackingUrl = `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${trackingNo}`;
 
+    // 종추적조회 이벤트가 있는지 확인
+    const hasTrackingEvents = trackingInfo?.success && trackingInfo.events.length > 0;
+    
     // 응답
     return successResponse({
       tracking_no: trackingNo,
@@ -210,14 +259,27 @@ Deno.serve(async (req) => {
       epost: epostStatus ? {
         reqNo: epostStatus.reqNo,
         resNo: epostStatus.resNo,
-        regiNo: epostStatus.regiNo,
+        regiNo: epostStatus.regiNo || trackingNo,
         regiPoNm: epostStatus.regiPoNm,
         resDate: epostStatus.resDate,
         treatStusCd: epostStatus.treatStusCd,
         treatStusNm: getTreatStatusName(epostStatus.treatStusCd),
+        // 종추적조회 추가 정보
+        deliveryStatus: epostStatus.deliveryStatus || null,
+        senderName: epostStatus.senderName || null,
+        receiverName: epostStatus.receiverName || null,
       } : null,
+      // 종추적조회 이벤트 (실제 물류 추적 이력)
+      trackingEvents: hasTrackingEvents ? trackingInfo!.events.map((event: TrackingEvent) => ({
+        date: event.date,
+        time: event.time,
+        location: event.location,
+        status: event.status,
+        description: event.description || null,
+      })) : [],
       epostError: epostError || null,
-      isNotYetPickedUp: epostStatus === null && epostError === null, // 아직 집하되지 않음
+      // 종추적조회 이벤트가 있으면 집하된 것으로 판단
+      isNotYetPickedUp: !hasTrackingEvents && epostStatus === null && epostError === null,
     });
 
   } catch (error) {

@@ -38,7 +38,7 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
       });
 
       final data = await _orderService.trackShipment(widget.trackingNo);
-      
+
       setState(() {
         _trackingData = data;
         _isLoading = false;
@@ -112,8 +112,11 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
     final shipment = _trackingData?['shipment'] as Map<String, dynamic>?;
     final epost = _trackingData?['epost'] as Map<String, dynamic>?;
     final epostError = _trackingData?['epostError'] as Map<String, dynamic>?;
-    final isNotYetPickedUp = _trackingData?['isNotYetPickedUp'] as bool? ?? false;
+    final isNotYetPickedUp =
+        _trackingData?['isNotYetPickedUp'] as bool? ?? false;
     final trackingUrl = _trackingData?['tracking_url'] as String?;
+    final trackingEvents =
+        _trackingData?['trackingEvents'] as List<dynamic>? ?? [];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -125,7 +128,10 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
           const SizedBox(height: 16),
 
           // 아직 집하되지 않은 경우 안내
-          if (isNotYetPickedUp || (epost == null && epostError == null)) ...[
+          if (isNotYetPickedUp ||
+              (epost == null &&
+                  epostError == null &&
+                  trackingEvents.isEmpty)) ...[
             _buildNotYetPickedUpCard(),
             const SizedBox(height: 16),
           ],
@@ -133,6 +139,12 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
           // 배송 상태
           if (epost != null) ...[
             _buildStatusCard(epost),
+            const SizedBox(height: 16),
+          ],
+
+          // 배송 추적 이력 (종추적조회 결과)
+          if (trackingEvents.isNotEmpty) ...[
+            _buildTrackingEventsCard(trackingEvents),
             const SizedBox(height: 16),
           ],
 
@@ -233,7 +245,7 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
 
     Color statusColor;
     IconData statusIcon;
-    
+
     switch (statusCode) {
       case '00':
       case '01':
@@ -356,15 +368,23 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
           ),
           const SizedBox(height: 16),
           _buildInfoRow('배송 상태', shipment['status']?.toString() ?? '-'),
-          _buildInfoRow('택배사', shipment['carrier'] == 'EPOST' ? '우체국 택배' : shipment['carrier']?.toString() ?? '-'),
+          _buildInfoRow(
+              '택배사',
+              shipment['carrier'] == 'EPOST'
+                  ? '우체국 택배'
+                  : shipment['carrier']?.toString() ?? '-'),
           if (shipment['pickup_requested_at'] != null)
-            _buildInfoRow('수거 요청일', _formatDate(shipment['pickup_requested_at'])),
+            _buildInfoRow(
+                '수거 요청일', _formatDate(shipment['pickup_requested_at'])),
           if (shipment['pickup_completed_at'] != null)
-            _buildInfoRow('수거 완료일', _formatDate(shipment['pickup_completed_at'])),
+            _buildInfoRow(
+                '수거 완료일', _formatDate(shipment['pickup_completed_at'])),
           if (shipment['delivery_started_at'] != null)
-            _buildInfoRow('배송 시작일', _formatDate(shipment['delivery_started_at'])),
+            _buildInfoRow(
+                '배송 시작일', _formatDate(shipment['delivery_started_at'])),
           if (shipment['delivery_completed_at'] != null)
-            _buildInfoRow('배송 완료일', _formatDate(shipment['delivery_completed_at'])),
+            _buildInfoRow(
+                '배송 완료일', _formatDate(shipment['delivery_completed_at'])),
         ],
       ),
     );
@@ -407,6 +427,161 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
     } catch (e) {
       return date.toString();
     }
+  }
+
+  /// 배송 추적 이력 카드 (종추적조회 결과)
+  Widget _buildTrackingEventsCard(List<dynamic> events) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.timeline, color: Colors.blue.shade700),
+              const SizedBox(width: 8),
+              Text(
+                '배송 추적 이력',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 이벤트 목록 (최신순으로 역순 표시)
+          ...events.reversed.toList().asMap().entries.map((entry) {
+            final index = entry.key;
+            final event = entry.value as Map<String, dynamic>;
+            final isFirst = index == 0;
+            final isLast = index == events.length - 1;
+
+            return _buildTrackingEventItem(
+              event: event,
+              isFirst: isFirst,
+              isLast: isLast,
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// 배송 추적 이벤트 아이템
+  Widget _buildTrackingEventItem({
+    required Map<String, dynamic> event,
+    required bool isFirst,
+    required bool isLast,
+  }) {
+    final date = event['date'] as String? ?? '';
+    final time = event['time'] as String? ?? '';
+    final location = event['location'] as String? ?? '';
+    final status = event['status'] as String? ?? '';
+    final description = event['description'] as String?;
+
+    // 상태에 따른 색상
+    Color statusColor = Colors.grey;
+    if (isFirst) {
+      statusColor = Colors.blue.shade700;
+    } else if (status.contains('배달완료') || status.contains('수령')) {
+      statusColor = Colors.green.shade700;
+    } else if (status.contains('배달중') || status.contains('배달준비')) {
+      statusColor = Colors.orange.shade700;
+    }
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 타임라인 (왼쪽)
+          SizedBox(
+            width: 24,
+            child: Column(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: isFirst ? statusColor : Colors.grey.shade300,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isFirst ? statusColor : Colors.grey.shade400,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color: Colors.grey.shade300,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // 이벤트 내용 (오른쪽)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 상태
+                  Text(
+                    status,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: isFirst ? FontWeight.bold : FontWeight.w500,
+                      color: isFirst ? statusColor : Colors.grey.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // 위치
+                  if (location.isNotEmpty)
+                    Text(
+                      location,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  // 상세설명
+                  if (description != null && description.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  // 날짜/시간
+                  Text(
+                    '$date $time',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 아직 집하되지 않은 경우 안내 카드
@@ -495,4 +670,3 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
     );
   }
 }
-
