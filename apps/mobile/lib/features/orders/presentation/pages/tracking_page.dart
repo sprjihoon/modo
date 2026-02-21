@@ -109,14 +109,18 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
   }
 
   Widget _buildTrackingView() {
-    final shipment = _trackingData?['shipment'] as Map<String, dynamic>?;
-    final epost = _trackingData?['epost'] as Map<String, dynamic>?;
-    final epostError = _trackingData?['epostError'] as Map<String, dynamic>?;
+    // API 응답 구조: { success: true, data: { ... } }
+    final responseData =
+        _trackingData?['data'] as Map<String, dynamic>? ?? _trackingData;
+
+    final shipment = responseData?['shipment'] as Map<String, dynamic>?;
+    final epost = responseData?['epost'] as Map<String, dynamic>?;
+    final epostError = responseData?['epostError'] as Map<String, dynamic>?;
     final isNotYetPickedUp =
-        _trackingData?['isNotYetPickedUp'] as bool? ?? false;
-    final trackingUrl = _trackingData?['tracking_url'] as String?;
+        responseData?['isNotYetPickedUp'] as bool? ?? false;
+    final trackingUrl = responseData?['tracking_url'] as String?;
     final trackingEvents =
-        _trackingData?['trackingEvents'] as List<dynamic>? ?? [];
+        responseData?['trackingEvents'] as List<dynamic>? ?? [];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
