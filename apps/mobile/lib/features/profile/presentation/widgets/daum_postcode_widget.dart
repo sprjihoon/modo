@@ -20,13 +20,8 @@ class _DaumPostcodeWidgetState extends State<DaumPostcodeWidget> {
   @override
   void initState() {
     super.initState();
-    debugPrint('🔍 DaumPostcodeWidget initState - kIsWeb: $kIsWeb');
-    if (!kIsWeb) {
-      debugPrint('🚀 WebView 초기화 시작');
-      _initWebView();
-    } else {
-      debugPrint('⚠️ 웹 환경 - 간단한 검색 UI 사용');
-    }
+    // WebView 방식은 비활성화 - 카카오 API 방식만 사용
+    // _initWebView()를 호출하지 않음
   }
 
   void _initWebView() {
