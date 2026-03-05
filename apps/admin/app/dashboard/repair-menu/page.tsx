@@ -345,6 +345,66 @@ export default function RepairMenuPage() {
   );
 }
 
+// SVG 미리보기 컴포넌트
+function SvgPreview({ url, size = 64 }: { url: string; size?: number }) {
+  const [svgContent, setSvgContent] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!url) return;
+    
+    setLoading(true);
+    fetch(url)
+      .then(res => res.text())
+      .then(text => {
+        if (text.includes('<svg')) {
+          // SVG에 width/height 속성을 100%로 설정하여 컨테이너에 맞게 조정
+          const modifiedSvg = text
+            .replace(/<svg([^>]*)width="[^"]*"/, '<svg$1width="100%"')
+            .replace(/<svg([^>]*)height="[^"]*"/, '<svg$1height="100%"')
+            .replace(/<svg(?![^>]*width)/, '<svg width="100%" height="100%"');
+          setSvgContent(modifiedSvg);
+          setError(false);
+        } else {
+          setError(true);
+        }
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [url]);
+
+  if (loading) {
+    return (
+      <div 
+        className="bg-gray-100 rounded-lg flex items-center justify-center animate-pulse"
+        style={{ width: size, height: size }}
+      >
+        <div className="w-6 h-6 bg-gray-300 rounded" />
+      </div>
+    );
+  }
+
+  if (error || !svgContent) {
+    return (
+      <div 
+        className="bg-gray-100 rounded-lg flex items-center justify-center"
+        style={{ width: size, height: size }}
+      >
+        <Image className="w-6 h-6 text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className="bg-white border rounded-lg flex items-center justify-center p-2 overflow-hidden [&>svg]:w-full [&>svg]:h-full"
+      style={{ width: size, height: size }}
+      dangerouslySetInnerHTML={{ __html: svgContent }}
+    />
+  );
+}
+
 // 카테고리 수정 Dialog
 function EditCategoryDialog({
   category,
@@ -461,13 +521,9 @@ function EditCategoryDialog({
             {iconName && (
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 {isIconUrl ? (
-                  <img 
-                    src={iconName} 
-                    alt="카테고리 아이콘" 
-                    className="w-12 h-12 object-contain"
-                  />
+                  <SvgPreview url={iconName} size={64} />
                 ) : (
-                  <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                  <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
                     <Image className="w-6 h-6 text-gray-400" />
                   </div>
                 )}
@@ -658,13 +714,9 @@ function AddCategoryDialog({ onAdded, children }: { onAdded: () => void; childre
             {iconName && (
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 {isIconUrl ? (
-                  <img 
-                    src={iconName} 
-                    alt="카테고리 아이콘" 
-                    className="w-12 h-12 object-contain"
-                  />
+                  <SvgPreview url={iconName} size={64} />
                 ) : (
-                  <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                  <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
                     <Image className="w-6 h-6 text-gray-400" />
                   </div>
                 )}
