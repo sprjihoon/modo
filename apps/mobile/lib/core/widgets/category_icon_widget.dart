@@ -1,10 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:http/http.dart' as http;
+
+/// 캐시를 비활성화한 SVG 네트워크 로더
+class NoCacheSvgLoader extends SvgLoader<String> {
+  final String url;
+  
+  NoCacheSvgLoader(this.url);
+  
+  @override
+  Future<String> prepareMessage(BuildContext? context) async {
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    );
+    if (response.statusCode == 200) {
+      return response.body;
+    }
+    throw Exception('Failed to load SVG: ${response.statusCode}');
+  }
+  
+  @override
+  String provideSvg(String? message) => message ?? '';
+}
 
 /// 카테고리 아이콘 위젯
 /// 
 /// DB에 저장된 icon_name을 기반으로 SVG 아이콘을 렌더링합니다.
-/// - URL인 경우: 네트워크에서 SVG 로드
+/// - URL인 경우: 네트워크에서 SVG 로드 (캐시 비활성화)
 /// - 파일명인 경우: 로컬 assets에서 SVG 로드
 /// - SVG가 없거나 로드에 실패하면 기본 Material 아이콘을 표시합니다.
 class CategoryIconWidget extends StatelessWidget {
@@ -38,10 +65,10 @@ class CategoryIconWidget extends StatelessWidget {
     // 카테고리명 → 기본 아이콘 매핑 (SVG 파일이 없을 때 fallback)
     final fallbackIcon = _getFallbackIcon(iconName!);
     
-    // URL인 경우 네트워크에서 로드
+    // URL인 경우 네트워크에서 로드 (캐시 비활성화)
     if (_isUrl) {
-      return SvgPicture.network(
-        iconName!,
+      return SvgPicture(
+        NoCacheSvgLoader(iconName!),
         width: size,
         height: size,
         colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
@@ -75,7 +102,6 @@ class CategoryIconWidget extends StatelessWidget {
         size: size,
         color: effectiveColor,
       ),
-      // SVG 로드 실패 시 기본 아이콘
     );
   }
   
@@ -111,6 +137,7 @@ class CategoryIconWidget extends StatelessWidget {
 }
 
 /// 네트워크에서 SVG 로드하는 버전 (Supabase Storage 등)
+/// 캐시를 비활성화하여 항상 최신 아이콘을 로드합니다.
 class NetworkCategoryIconWidget extends StatelessWidget {
   final String? iconUrl;
   final String? iconName;
@@ -138,8 +165,8 @@ class NetworkCategoryIconWidget extends StatelessWidget {
       );
     }
     
-    return SvgPicture.network(
-      iconUrl!,
+    return SvgPicture(
+      NoCacheSvgLoader(iconUrl!),
       width: size,
       height: size,
       colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
@@ -151,7 +178,6 @@ class NetworkCategoryIconWidget extends StatelessWidget {
           valueColor: AlwaysStoppedAnimation(effectiveColor.withOpacity(0.5)),
         ),
       ),
-      // 로드 실패 시 로컬 아이콘으로 fallback
     );
   }
 }
