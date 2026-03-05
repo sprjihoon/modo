@@ -24,6 +24,7 @@ interface RepairType {
   category_id: string;
   name: string;
   description?: string;
+  icon_name?: string;
   price: number;
   display_order: number;
   is_active: boolean;
@@ -804,6 +805,7 @@ function EditRepairTypeDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(repairType.name);
+  const [iconName, setIconName] = useState(repairType.icon_name || "");
   const [description, setDescription] = useState(repairType.description || "");
   const [price, setPrice] = useState(repairType.price.toString());
   const [requiresMeasurement, setRequiresMeasurement] = useState(repairType.requires_measurement ?? true);
@@ -819,6 +821,41 @@ function EditRepairTypeDialog({
   const [newSubPartPrice, setNewSubPartPrice] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingSubParts, setIsLoadingSubParts] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // icon_name이 URL인지 확인
+  const isIconUrl = iconName.startsWith('http');
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'repair-type-icons');
+
+      const response = await fetch('/api/admin/upload/svg', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '업로드 실패');
+      }
+
+      setIconName(result.data.url);
+    } catch (error: any) {
+      console.error('SVG 업로드 실패:', error);
+      alert(`SVG 업로드 실패: ${error.message}`);
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
 
   // 기존 세부 부위 로드
   useEffect(() => {
@@ -872,6 +909,7 @@ function EditRepairTypeDialog({
         body: JSON.stringify({
           id: repairType.id,
           name,
+          icon_name: iconName || null,
           description: description || null,
           price: parseInt(price),
           requires_measurement: requiresMeasurement,
@@ -925,6 +963,77 @@ function EditRepairTypeDialog({
               onChange={(e) => setName(e.target.value)}
             />
           </div>
+
+          {/* SVG 아이콘 업로드 */}
+          <div className="space-y-3">
+            <Label>아이콘 (SVG)</Label>
+            
+            {iconName && (
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                {isIconUrl ? (
+                  <SvgPreview url={iconName} size={64} />
+                ) : (
+                  <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <Image className="w-6 h-6 text-gray-400" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {isIconUrl ? 'SVG 업로드됨' : iconName}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {isIconUrl ? iconName : '로컬 아이콘'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIconName('')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            
+            <div className="flex gap-2">
+              <label className="flex-1">
+                <input
+                  type="file"
+                  accept=".svg,image/svg+xml"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={isUploading}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isUploading}
+                  asChild
+                >
+                  <span>
+                    <Upload className="h-4 w-4 mr-2" />
+                    {isUploading ? '업로드 중...' : 'SVG 파일 업로드'}
+                  </span>
+                </Button>
+              </label>
+            </div>
+            
+            <div>
+              <Label htmlFor="edit-icon-manual" className="text-xs text-muted-foreground">
+                또는 로컬 아이콘명 직접 입력
+              </Label>
+              <Input
+                id="edit-icon-manual"
+                placeholder="예: scissors (앱에 포함된 SVG)"
+                value={isIconUrl ? '' : iconName}
+                onChange={(e) => setIconName(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
           <div>
             <Label htmlFor="edit-description">설명 (선택)</Label>
             <Input
@@ -1205,6 +1314,41 @@ function AddRepairTypeDialog({
   const [newSubPartPrice, setNewSubPartPrice] = useState("");
   
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // icon_name이 URL인지 확인
+  const isIconUrl = iconName.startsWith('http');
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'repair-type-icons');
+
+      const response = await fetch('/api/admin/upload/svg', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '업로드 실패');
+      }
+
+      setIconName(result.data.url);
+    } catch (error: any) {
+      console.error('SVG 업로드 실패:', error);
+      alert(`SVG 업로드 실패: ${error.message}`);
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
 
   const handleSubmit = async () => {
     if (!name || !price) {
@@ -1303,18 +1447,77 @@ function AddRepairTypeDialog({
               그리드에 표시될 메인 메뉴명입니다
             </p>
           </div>
-          <div>
-            <Label htmlFor="icon-name">아이콘 (선택)</Label>
-            <Input
-              id="icon-name"
-              placeholder="예: sleeve_shorten.svg"
-              value={iconName}
-              onChange={(e) => setIconName(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              SVG 파일명 또는 아이콘 ID
-            </p>
+
+          {/* SVG 아이콘 업로드 */}
+          <div className="space-y-3">
+            <Label>아이콘 (SVG)</Label>
+            
+            {iconName && (
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                {isIconUrl ? (
+                  <SvgPreview url={iconName} size={64} />
+                ) : (
+                  <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <Image className="w-6 h-6 text-gray-400" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {isIconUrl ? 'SVG 업로드됨' : iconName}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {isIconUrl ? iconName : '로컬 아이콘'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIconName('')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            
+            <div className="flex gap-2">
+              <label className="flex-1">
+                <input
+                  type="file"
+                  accept=".svg,image/svg+xml"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={isUploading}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isUploading}
+                  asChild
+                >
+                  <span>
+                    <Upload className="h-4 w-4 mr-2" />
+                    {isUploading ? '업로드 중...' : 'SVG 파일 업로드'}
+                  </span>
+                </Button>
+              </label>
+            </div>
+            
+            <div>
+              <Label htmlFor="add-icon-manual" className="text-xs text-muted-foreground">
+                또는 로컬 아이콘명 직접 입력
+              </Label>
+              <Input
+                id="add-icon-manual"
+                placeholder="예: scissors (앱에 포함된 SVG)"
+                value={isIconUrl ? '' : iconName}
+                onChange={(e) => setIconName(e.target.value)}
+                className="mt-1"
+              />
+            </div>
           </div>
+
           <div>
             <Label htmlFor="description">설명 (선택)</Label>
             <Input
