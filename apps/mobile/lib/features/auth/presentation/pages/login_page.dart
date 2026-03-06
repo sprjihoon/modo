@@ -164,9 +164,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
       }
 
       // OAuth는 외부 브라우저로 이동 (로딩 유지)
-      // 네이버는 인앱에서 처리되므로 성공 시 로딩 상태 유지
-      // → app.dart의 auth 리스너가 프로필 체크 후 적절한 페이지로 이동함
-      // (직접 네비게이션하면 auth 리스너와 충돌하여 화면 깜빡임 발생)
+      // 네이버는 인앱에서 처리되므로 성공 시 홈으로 이동
+      if (provider == 'naver' && success && mounted) {
+        // 네이버 로그인 성공 시 프로필 체크 후 이동
+        // (app.dart의 auth 리스너가 처리하지만, 안전하게 직접 이동도 수행)
+        context.go('/home');
+      }
 
       // 🔧 OAuth 브라우저 실패 시 (false 반환) 로딩 해제
       if (!success && mounted) {

@@ -108,6 +108,9 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
       if (event == AuthChangeEvent.signedIn && session != null) {
         debugPrint('✅ [App] OAuth 로그인 성공 - 프로필 체크 중...');
 
+        // 잠시 대기 (세션 설정 완료 대기)
+        await Future.delayed(const Duration(milliseconds: 300));
+
         if (!mounted) return;
 
         // 프로필 완료 여부 확인
@@ -118,7 +121,8 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
         final router = ref.read(routerProvider);
         final currentPath = router.routerDelegate.currentConfiguration.uri.path;
 
-        // 현재 위치가 login이면 적절한 페이지로 이동
+        // 현재 위치가 login이거나 splash면 적절한 페이지로 이동
+        // (네이버 로그인은 LoginPage에서 직접 이동하므로 여기서는 백업 역할)
         if (currentPath == '/login' || currentPath == '/') {
           debugPrint('🔀 [App] 이동: $targetRoute');
           router.go(targetRoute);
