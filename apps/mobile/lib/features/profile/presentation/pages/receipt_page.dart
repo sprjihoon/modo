@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 영수증 상세 페이지
 class ReceiptPage extends ConsumerWidget {
   final Map<String, dynamic> payment;
-  
+
   const ReceiptPage({
-    required this.payment, super.key,
+    required this.payment,
+    super.key,
   });
 
   @override
@@ -98,7 +99,7 @@ class ReceiptPage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'MODU\'S REPAIR',
+                          'MODO\'S REPAIR',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade600,
@@ -109,7 +110,7 @@ class ReceiptPage extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  
+
                   // 영수증 타이틀
                   Center(
                     child: Container(
@@ -132,41 +133,44 @@ class ReceiptPage extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  
+
                   // 거래 정보
                   _buildDivider(),
                   const SizedBox(height: 20),
-                  
+
                   _buildInfoRow('거래일시', payment['date'] as String),
                   const SizedBox(height: 12),
-                  _buildInfoRow('거래번호', 'TXN-${payment['date']?.toString().replaceAll('.', '')}-001'),
+                  _buildInfoRow('거래번호',
+                      'TXN-${payment['date']?.toString().replaceAll('.', '')}-001'),
                   const SizedBox(height: 12),
                   _buildInfoRow('상품명', payment['item'] as String),
-                  
+
                   const SizedBox(height: 20),
                   _buildDivider(),
                   const SizedBox(height: 20),
-                  
+
                   // 결제 정보
                   _buildInfoRow('결제수단', payment['method'] as String),
                   const SizedBox(height: 12),
-                  _buildInfoRow('승인번호', '${(payment['date'] as String).replaceAll('.', '')}1234'),
-                  
+                  _buildInfoRow('승인번호',
+                      '${(payment['date'] as String).replaceAll('.', '')}1234'),
+
                   const SizedBox(height: 20),
                   _buildDivider(),
                   const SizedBox(height: 20),
-                  
+
                   // 금액 상세
-                  _buildInfoRow('상품금액', '₩${_formatAmount(payment['amount'] as int)}'),
+                  _buildInfoRow(
+                      '상품금액', '₩${_formatAmount(payment['amount'] as int)}'),
                   const SizedBox(height: 12),
                   _buildInfoRow('배송비', '₩0', valueColor: Colors.grey.shade600),
                   const SizedBox(height: 12),
                   _buildInfoRow('할인', '-₩0', valueColor: Colors.red),
-                  
+
                   const SizedBox(height: 20),
                   _buildDivider(thickness: 2),
                   const SizedBox(height: 20),
-                  
+
                   // 총 결제금액
                   _buildInfoRow(
                     '총 결제금액',
@@ -176,9 +180,9 @@ class ReceiptPage extends ConsumerWidget {
                     valueColor: const Color(0xFF00C896),
                     isBold: true,
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // 상태
                   Center(
                     child: Container(
@@ -215,9 +219,9 @@ class ReceiptPage extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // 하단 안내
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -262,7 +266,7 @@ class ReceiptPage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // 하단 버튼 - PDF 저장만
             SizedBox(
               width: double.infinity,
@@ -347,9 +351,8 @@ class ReceiptPage extends ConsumerWidget {
 
   String _formatAmount(int amount) {
     return amount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        );
   }
 }
-

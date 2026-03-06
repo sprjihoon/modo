@@ -23,13 +23,14 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   Future<void> _checkAuthAndNavigate() async {
     // 2초 대기 (스플래시 화면 표시)
     await Future.delayed(const Duration(seconds: 2));
-    
+
     if (!mounted) return;
-    
+
     // 첫 실행 여부 확인 (권한 온보딩)
     final prefs = await SharedPreferences.getInstance();
-    final permissionOnboardingCompleted = prefs.getBool('permission_onboarding_completed') ?? false;
-    
+    final permissionOnboardingCompleted =
+        prefs.getBool('permission_onboarding_completed') ?? false;
+
     if (!permissionOnboardingCompleted) {
       // 첫 실행: 권한 온보딩으로 이동
       if (mounted) {
@@ -37,11 +38,11 @@ class _SplashPageState extends ConsumerState<SplashPage> {
       }
       return;
     }
-    
+
     // Supabase 인증 상태 확인
     final authService = ref.read(authServiceProvider);
     final isLoggedIn = authService.isLoggedIn;
-    
+
     if (mounted) {
       if (isLoggedIn) {
         // 로그인된 경우 프로필 완료 여부 확인
@@ -111,7 +112,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
             ),
             SizedBox(height: 8),
             Text(
-              'MODU\'S REPAIR',
+              'MODO\'S REPAIR',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white70,
@@ -128,4 +129,3 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     );
   }
 }
-

@@ -29,43 +29,47 @@ class AuthService {
   }) async {
     try {
       print('🔐 로그인 시도: $email');
-      
+
       // Supabase 연결 확인
       if (_supabase.auth.currentSession == null) {
         print('⚠️ 현재 세션이 없습니다 (정상 - 로그인 전)');
       }
-      
+
       final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
-      
+
       print('✅ 로그인 성공: ${response.user?.email}');
-      print('📧 이메일 확인 상태: ${response.user?.emailConfirmedAt != null ? "확인됨" : "미확인"}');
-      
+      print(
+          '📧 이메일 확인 상태: ${response.user?.emailConfirmedAt != null ? "확인됨" : "미확인"}');
+
       // 📊 로그인 액션 로그 기록
       await _logService.log(
         actionType: ActionType.LOGIN,
-        metadata: {'email': email, 'loginTime': DateTime.now().toIso8601String()},
+        metadata: {
+          'email': email,
+          'loginTime': DateTime.now().toIso8601String()
+        },
       );
-      
+
       return response;
     } on AuthException catch (e) {
       print('❌ AuthException 발생: ${e.message}');
       print('   상태 코드: ${e.statusCode}');
-      
+
       // 이메일 확인 오류에 대한 더 명확한 메시지
-      if (e.message.contains('Email not confirmed') || 
+      if (e.message.contains('Email not confirmed') ||
           e.message.contains('email_not_confirmed')) {
         throw Exception('이메일 확인이 필요합니다. 이메일을 확인해주세요.');
       }
-      
+
       // 잘못된 자격증명
       if (e.message.contains('Invalid login credentials') ||
           e.message.contains('invalid_credentials')) {
         throw Exception('이메일 또는 비밀번호가 올바르지 않습니다.');
       }
-      
+
       throw Exception('로그인 실패: ${e.message}');
     } catch (e) {
       print('❌ 예상치 못한 오류: $e');
@@ -84,7 +88,7 @@ class AuthService {
   }) async {
     try {
       print('📝 회원가입 시작: $email');
-      
+
       // 1. Auth 계정 생성
       final response = await _supabase.auth.signUp(
         email: email,
@@ -109,26 +113,26 @@ class AuthService {
           'email': email,
           'name': name,
           'phone': phone,
-          'role': role ?? 'CUSTOMER',  // 🔒 기본값: CUSTOMER
+          'role': role ?? 'CUSTOMER', // 🔒 기본값: CUSTOMER
         };
-        
+
         await _supabase.from('users').insert(userData);
         print('✅ 프로필 생성 성공 (role: ${userData['role']})');
       } catch (e) {
         // users 테이블 INSERT 실패 시
         // 트리거(auto_create_user_profile)가 자동으로 생성하므로 무시 가능
         print('⚠️ 프로필 수동 생성 실패 (트리거가 자동 생성할 것임): $e');
-        
+
         // 잠시 대기 후 프로필 생성 확인
         await Future.delayed(const Duration(milliseconds: 500));
-        
+
         try {
           final profile = await _supabase
               .from('users')
               .select('id, role')
               .eq('auth_id', response.user!.id)
               .maybeSingle();
-          
+
           if (profile != null) {
             print('✅ 트리거로 프로필 자동 생성 확인됨 (role: ${profile['role']})');
           } else {
@@ -169,7 +173,7 @@ class AuthService {
           .select('email')
           .eq('email', email)
           .maybeSingle();
-      
+
       return response != null;
     } catch (e) {
       // 에러 발생 시 false 반환 (중복이 아닌 것으로 간주)
@@ -186,7 +190,7 @@ class AuthService {
           .select('phone')
           .eq('phone', phone)
           .maybeSingle();
-      
+
       return response != null;
     } catch (e) {
       print('전화번호 중복 체크 실패: $e');
@@ -199,21 +203,21 @@ class AuthService {
   Future<bool> signInWithGoogle() async {
     try {
       print('🔐 구글 로그인 시작');
-      
+
       // Supabase OAuth를 통한 구글 로그인
       final response = await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: 'modorepair://login-callback',
-        authScreenLaunchMode: LaunchMode.externalApplication,
+        authScreenLaunchMode: LaunchMode.inAppBrowserView,
       );
-      
+
       if (!response) {
         print('⚠️ 구글 로그인 시작 실패');
         return false;
       }
-      
+
       print('✅ 구글 OAuth 시작됨 - 브라우저로 이동');
-      
+
       // 📊 로그인 액션 로그 기록
       await _logService.log(
         actionType: ActionType.LOGIN,
@@ -222,7 +226,7 @@ class AuthService {
           'loginTime': DateTime.now().toIso8601String(),
         },
       );
-      
+
       return true;
     } catch (e) {
       print('❌ 구글 로그인 실패: $e');
@@ -236,14 +240,14 @@ class AuthService {
   Future<bool> signInWithNaver() async {
     try {
       print('🔐 네이버 로그인 시작');
-      
+
       // 0. 네이버 SDK 초기화 확인 (환경 변수 체크)
       final naverClientId = dotenv.env['NAVER_CLIENT_ID'];
       if (naverClientId == null || naverClientId.isEmpty) {
         print('❌ 네이버 로그인 설정이 없습니다 (NAVER_CLIENT_ID 미설정)');
         throw Exception('네이버 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
       }
-      
+
       // 0.5. 기존 토큰 삭제 (Refresh token is not valid 에러 방지)
       try {
         await FlutterNaverLogin.logOutAndDeleteToken();
@@ -251,38 +255,38 @@ class AuthService {
       } catch (e) {
         print('ℹ️ 기존 토큰 삭제 실패 (무시): $e');
       }
-      
+
       // 1. 네이버 SDK로 로그인 (2.x API)
       final result = await FlutterNaverLogin.logIn();
-      
+
       if (result.status == NaverLoginStatus.error) {
         print('⚠️ 네이버 로그인 취소 또는 실패: ${result.errorMessage}');
         return false;
       }
-      
+
       final account = result.account;
       if (account == null) {
         print('⚠️ 네이버 계정 정보를 가져올 수 없습니다');
         return false;
       }
-      
+
       final email = account.email ?? '';
       final name = account.name ?? '';
       final profileImage = account.profileImage ?? '';
       final userId = account.id ?? '';
-      
+
       print('✅ 네이버 로그인 성공: $email');
-      
+
       // 2. 네이버 액세스 토큰 가져오기 (2.x API)
       final tokenResult = await FlutterNaverLogin.getCurrentAccessToken();
       final accessToken = tokenResult.accessToken;
-      
+
       if (accessToken.isEmpty) {
         throw Exception('네이버 액세스 토큰을 가져올 수 없습니다');
       }
-      
+
       print('🔑 네이버 토큰 획득 완료');
-      
+
       // 3. Edge Function 호출하여 Supabase 세션 생성
       final response = await _supabase.functions.invoke(
         'naver-auth',
@@ -294,20 +298,20 @@ class AuthService {
           'id': userId,
         },
       );
-      
+
       print('📋 Edge Function 응답: status=${response.status}');
-      
+
       if (response.status != 200) {
         final errorData = response.data;
         final errorMessage = errorData?['error'] ?? '네이버 로그인 처리에 실패했습니다';
         throw Exception(errorMessage);
       }
-      
+
       // 4. Edge Function에서 반환한 세션으로 로그인
       final sessionData = response.data;
       final sessionAccessToken = sessionData?['access_token'] as String?;
       final sessionRefreshToken = sessionData?['refresh_token'] as String?;
-      
+
       if (sessionAccessToken != null && sessionRefreshToken != null) {
         // setSession은 refresh_token을 인자로 받음
         await _supabase.auth.setSession(sessionRefreshToken);
@@ -316,7 +320,7 @@ class AuthService {
         print('⚠️ 세션 토큰이 없습니다. 응답: $sessionData');
         throw Exception('로그인 세션을 생성할 수 없습니다. 다시 시도해주세요.');
       }
-      
+
       // 📊 로그인 액션 로그 기록
       await _logService.log(
         actionType: ActionType.LOGIN,
@@ -326,21 +330,21 @@ class AuthService {
           'loginTime': DateTime.now().toIso8601String(),
         },
       );
-      
+
       print('✅ 네이버 로그인 완료');
       return true;
     } on Exception catch (e) {
       print('❌ 네이버 로그인 실패: $e');
-      
+
       // 네이버 로그아웃 (실패 시 정리)
       try {
         await FlutterNaverLogin.logOut();
       } catch (_) {}
-      
+
       throw Exception('네이버 로그인 실패: $e');
     }
   }
-  
+
   /// 네이버 로그아웃
   Future<void> signOutNaver() async {
     try {
@@ -356,22 +360,22 @@ class AuthService {
   Future<bool> signInWithKakao() async {
     try {
       print('🔐 카카오 로그인 시작');
-      
+
       // Supabase OAuth를 통한 카카오 로그인
       // 비즈 앱 전환 완료 - account_email 포함 모든 동의항목 요청 가능
       final response = await _supabase.auth.signInWithOAuth(
         OAuthProvider.kakao,
         redirectTo: 'modorepair://login-callback',
-        authScreenLaunchMode: LaunchMode.externalApplication,
+        authScreenLaunchMode: LaunchMode.inAppBrowserView,
       );
-      
+
       if (!response) {
         print('⚠️ 카카오 로그인 시작 실패');
         return false;
       }
-      
+
       print('✅ 카카오 OAuth 시작됨 - 브라우저로 이동');
-      
+
       // 📊 로그인 액션 로그 기록
       await _logService.log(
         actionType: ActionType.LOGIN,
@@ -380,7 +384,7 @@ class AuthService {
           'loginTime': DateTime.now().toIso8601String(),
         },
       );
-      
+
       return true;
     } catch (e) {
       print('❌ 카카오 로그인 실패: $e');
@@ -397,21 +401,21 @@ class AuthService {
   Future<bool> signInWithApple() async {
     try {
       print('🔐 애플 로그인 시작');
-      
+
       // Supabase OAuth를 통한 애플 로그인
       final response = await _supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
         redirectTo: 'modorepair://login-callback',
-        authScreenLaunchMode: LaunchMode.externalApplication,
+        authScreenLaunchMode: LaunchMode.inAppBrowserView,
       );
-      
+
       if (!response) {
         print('⚠️ 애플 로그인 시작 실패');
         return false;
       }
-      
+
       print('✅ 애플 OAuth 시작됨 - 브라우저로 이동');
-      
+
       // 📊 로그인 액션 로그 기록
       await _logService.log(
         actionType: ActionType.LOGIN,
@@ -420,7 +424,7 @@ class AuthService {
           'loginTime': DateTime.now().toIso8601String(),
         },
       );
-      
+
       return true;
     } catch (e) {
       print('❌ 애플 로그인 실패: $e');
@@ -440,10 +444,10 @@ class AuthService {
       } catch (logError) {
         print('⚠️ 로그아웃 로그 기록 실패 (무시됨): $logError');
       }
-      
+
       // SignOutScope.local: 현재 디바이스에서만 로그아웃 (더 빠름)
       await _supabase.auth.signOut(scope: SignOutScope.local);
-      
+
       print('✅ 로그아웃 완료');
     } catch (e) {
       print('❌ 로그아웃 실패: $e');
@@ -489,7 +493,7 @@ class AuthService {
             .select('phone')
             .eq('auth_id', currentUser.id)
             .maybeSingle();
-        
+
         if (myProfile == null || myProfile['phone'] != phone) {
           throw Exception('이미 사용 중인 전화번호입니다');
         }
@@ -543,7 +547,7 @@ class AuthService {
       }
 
       print('✅ 회원 탈퇴 완료 - 로컬 세션 정리 중...');
-      
+
       // 로컬 세션만 정리 (auth listener 트리거하지 않도록 조용히 처리)
       try {
         await _supabase.auth.signOut(scope: SignOutScope.local);
@@ -600,4 +604,3 @@ class AuthService {
     }
   }
 }
-

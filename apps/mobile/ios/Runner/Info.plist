@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -20,49 +22,6 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	
-	<!-- 카메라 권한 (image_picker) -->
-	<key>NSCameraUsageDescription</key>
-	<string>의류 사진을 촬영하여 수선 부위를 표시하기 위해 카메라 접근이 필요합니다.</string>
-	
-	<!-- 사진 라이브러리 권한 (image_picker) -->
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>갤러리에서 의류 사진을 선택하여 수선 부위를 표시하기 위해 사진 접근이 필요합니다.</string>
-	
-	<!-- iOS 14+ 사진 라이브러리 제한적 접근 -->
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>수선 사진을 저장하기 위해 사진 라이브러리 접근이 필요합니다.</string>
-	
-	<!-- 푸시 알림 권한 -->
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>주문 상태 변경, 수선 완료 알림 등 중요한 정보를 받으시려면 알림을 허용해주세요.</string>
-	
-	<!-- 앱 URL 스킴 (토스페이먼츠 결제 후 앱으로 복귀) -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -75,7 +34,6 @@
 				<string>modorepair</string>
 			</array>
 		</dict>
-		<!-- Google Sign-In URL Scheme -->
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
@@ -86,7 +44,6 @@
 				<string>com.googleusercontent.apps.897539440647-043lh9p63dca7dnittq80kl2c4fp1fo3</string>
 			</array>
 		</dict>
-		<!-- Kakao Login OAuth Callback -->
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
@@ -97,7 +54,6 @@
 				<string>kakao1369868</string>
 			</array>
 		</dict>
-		<!-- Naver Login OAuth Callback -->
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
@@ -105,41 +61,16 @@
 			<string>naver-login-callback</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<!-- 네이버 개발자 센터에서 발급받은 URL Scheme -->
-				<!-- 형식: naver{clientId} 또는 커스텀 스킴 -->
 				<string>modorepairnaver</string>
 			</array>
 		</dict>
 	</array>
-	
-	<!-- HLS 비디오 스트리밍을 위한 App Transport Security 설정 -->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<false/>
-		<key>NSAllowsArbitraryLoadsForMedia</key>
-		<true/>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>videodelivery.net</key>
-			<dict>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<false/>
-				<key>NSExceptionRequiresForwardSecrecy</key>
-				<false/>
-			</dict>
-		</dict>
-	</dict>
-	
-	<!-- 토스페이먼츠 결제를 위한 외부 앱 스킴 -->
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
-		<!-- 네이버 앱 스킴 -->
 		<string>naversearchapp</string>
 		<string>naversearchthirdlogin</string>
-		<!-- 토스페이먼츠 결제 스킴 -->
 		<string>supertoss</string>
 		<string>kb-acp</string>
 		<string>liivbank</string>
@@ -187,6 +118,53 @@
 		<string>monimopay</string>
 		<string>monimopayauth</string>
 	</array>
-	
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsArbitraryLoadsForMedia</key>
+		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>videodelivery.net</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<false/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>의류 사진을 촬영하여 수선 부위를 표시하기 위해 카메라 접근이 필요합니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>수선 사진을 저장하기 위해 사진 라이브러리 접근이 필요합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>갤러리에서 의류 사진을 선택하여 수선 부위를 표시하기 위해 사진 접근이 필요합니다.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>주문 상태 변경, 수선 완료 알림 등 중요한 정보를 받으시려면 알림을 허용해주세요.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 </dict>
 </plist>

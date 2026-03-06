@@ -7,7 +7,7 @@ class InviteFriendsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const mockInviteCode = 'MODU2024ABC';
+    const mockInviteCode = 'MODO2024ABC';
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -67,7 +67,7 @@ class InviteFriendsPage extends ConsumerWidget {
                 ],
               ),
             ),
-            
+
             // 초대 코드
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -133,7 +133,7 @@ class InviteFriendsPage extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // 공유 버튼
                   SizedBox(
                     width: double.infinity,
@@ -162,7 +162,7 @@ class InviteFriendsPage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // 초대 현황
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -187,11 +187,13 @@ class InviteFriendsPage extends ConsumerWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildStatCard('초대한 친구', '0명', Icons.people_outline),
+                        child: _buildStatCard(
+                            '초대한 친구', '0명', Icons.people_outline),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _buildStatCard('받은 적립금', '₩0', Icons.payments_outlined),
+                        child: _buildStatCard(
+                            '받은 적립금', '₩0', Icons.payments_outlined),
                       ),
                     ],
                   ),
@@ -236,4 +238,3 @@ class InviteFriendsPage extends ConsumerWidget {
     );
   }
 }
-
