@@ -108,9 +108,6 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
       if (event == AuthChangeEvent.signedIn && session != null) {
         debugPrint('✅ [App] OAuth 로그인 성공 - 프로필 체크 중...');
 
-        // 잠시 대기 후 프로필 확인 (Supabase 처리 완료 대기)
-        await Future.delayed(const Duration(milliseconds: 300));
-
         if (!mounted) return;
 
         // 프로필 완료 여부 확인

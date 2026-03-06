@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 /// 캐시를 비활성화한 SVG 네트워크 로더
 class NoCacheSvgLoader extends SvgLoader<String> {
   final String url;
-  
+
   NoCacheSvgLoader(this.url);
-  
+
   @override
   Future<String> prepareMessage(BuildContext? context) async {
     final response = await http.get(
@@ -23,13 +23,13 @@ class NoCacheSvgLoader extends SvgLoader<String> {
     }
     throw Exception('Failed to load SVG: ${response.statusCode}');
   }
-  
+
   @override
   String provideSvg(String? message) => message ?? '';
 }
 
 /// 카테고리 아이콘 위젯
-/// 
+///
 /// DB에 저장된 icon_name을 기반으로 SVG 아이콘을 렌더링합니다.
 /// - URL인 경우: 네트워크에서 SVG 로드 (캐시 비활성화)
 /// - 파일명인 경우: 로컬 assets에서 SVG 로드
@@ -38,21 +38,21 @@ class CategoryIconWidget extends StatelessWidget {
   final String? iconName;
   final double size;
   final Color? color;
-  
+
   const CategoryIconWidget({
     super.key,
     this.iconName,
     this.size = 32,
     this.color,
   });
-  
+
   /// icon_name이 URL인지 확인
   bool get _isUrl => iconName != null && iconName!.startsWith('http');
-  
+
   @override
   Widget build(BuildContext context) {
     final effectiveColor = color ?? Colors.grey.shade600;
-    
+
     // icon_name이 없으면 기본 아이콘
     if (iconName == null || iconName!.isEmpty) {
       return Icon(
@@ -61,10 +61,10 @@ class CategoryIconWidget extends StatelessWidget {
         color: effectiveColor,
       );
     }
-    
+
     // 카테고리명 → 기본 아이콘 매핑 (SVG 파일이 없을 때 fallback)
     final fallbackIcon = _getFallbackIcon(iconName!);
-    
+
     // URL인 경우 네트워크에서 로드 (캐시 비활성화)
     if (_isUrl) {
       return SvgPicture(
@@ -81,17 +81,18 @@ class CategoryIconWidget extends StatelessWidget {
               height: size * 0.5,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(effectiveColor.withOpacity(0.5)),
+                valueColor:
+                    AlwaysStoppedAnimation(effectiveColor.withOpacity(0.5)),
               ),
             ),
           ),
         ),
       );
     }
-    
+
     // 로컬 파일인 경우 assets에서 로드
     final svgPath = 'assets/icons/${iconName!.toLowerCase()}.svg';
-    
+
     return SvgPicture.asset(
       svgPath,
       width: size,
@@ -104,11 +105,36 @@ class CategoryIconWidget extends StatelessWidget {
       ),
     );
   }
-  
+
   /// icon_name에 따른 fallback Material 아이콘 반환
   IconData _getFallbackIcon(String iconName) {
     final name = iconName.toLowerCase();
-    
+
+    // 수선 타입별 기본 아이콘 매핑
+    if (name.contains('sleeve') || name.contains('소매')) {
+      return Icons.straighten;
+    } else if (name.contains('arm') || name.contains('팔통')) {
+      return Icons.swap_horiz;
+    } else if (name.contains('shoulder') || name.contains('어깨')) {
+      return Icons.accessibility;
+    } else if (name.contains('body') || name.contains('품')) {
+      return Icons.crop_free;
+    } else if (name.contains('length') || name.contains('기장')) {
+      return Icons.height;
+    } else if (name.contains('waist') || name.contains('허리')) {
+      return Icons.radio_button_unchecked;
+    } else if (name.contains('zipper') || name.contains('지퍼')) {
+      return Icons.linear_scale;
+    } else if (name.contains('button') || name.contains('단추')) {
+      return Icons.radio_button_checked;
+    } else if (name.contains('pocket') || name.contains('주머니')) {
+      return Icons.inventory_2_outlined;
+    } else if (name.contains('hem') || name.contains('단')) {
+      return Icons.horizontal_rule;
+    } else if (name.contains('repair') || name.contains('수선')) {
+      return Icons.build_outlined;
+    }
+
     // 의류 카테고리별 기본 아이콘 매핑
     if (name.contains('tshirt') || name.contains('티셔츠')) {
       return Icons.checkroom;
@@ -120,18 +146,27 @@ class CategoryIconWidget extends StatelessWidget {
       return Icons.woman;
     } else if (name.contains('dress') || name.contains('원피스')) {
       return Icons.woman_2;
-    } else if (name.contains('outer') || name.contains('아우터') || name.contains('jacket') || name.contains('자켓') || name.contains('coat') || name.contains('코트')) {
+    } else if (name.contains('outer') ||
+        name.contains('아우터') ||
+        name.contains('jacket') ||
+        name.contains('자켓') ||
+        name.contains('coat') ||
+        name.contains('코트')) {
       return Icons.dry_cleaning;
     } else if (name.contains('suit') || name.contains('정장')) {
       return Icons.business;
-    } else if (name.contains('sweater') || name.contains('니트') || name.contains('스웨터')) {
+    } else if (name.contains('sweater') ||
+        name.contains('니트') ||
+        name.contains('스웨터')) {
       return Icons.fiber_manual_record_outlined;
-    } else if (name.contains('jeans') || name.contains('청바지') || name.contains('데님')) {
+    } else if (name.contains('jeans') ||
+        name.contains('청바지') ||
+        name.contains('데님')) {
       return Icons.accessibility_new;
     } else if (name.contains('leather') || name.contains('가죽')) {
       return Icons.inventory_2;
     } else {
-      return Icons.checkroom;
+      return Icons.content_cut;
     }
   }
 }
@@ -143,7 +178,7 @@ class NetworkCategoryIconWidget extends StatelessWidget {
   final String? iconName;
   final double size;
   final Color? color;
-  
+
   const NetworkCategoryIconWidget({
     super.key,
     this.iconUrl,
@@ -151,11 +186,11 @@ class NetworkCategoryIconWidget extends StatelessWidget {
     this.size = 32,
     this.color,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     final effectiveColor = color ?? Colors.grey.shade600;
-    
+
     // URL이 없으면 로컬 아이콘 사용
     if (iconUrl == null || iconUrl!.isEmpty) {
       return CategoryIconWidget(
@@ -164,7 +199,7 @@ class NetworkCategoryIconWidget extends StatelessWidget {
         color: effectiveColor,
       );
     }
-    
+
     return SvgPicture(
       NoCacheSvgLoader(iconUrl!),
       width: size,
@@ -181,4 +216,3 @@ class NetworkCategoryIconWidget extends StatelessWidget {
     );
   }
 }
-
