@@ -40,6 +40,7 @@ export default function SettingsPage() {
     address1: "대구광역시 동구 동촌로 1",
     address2: "동대구우체국 2층 소포실 모두의수선",
     phone: "010-2723-9490",
+    showTestButtons: false,
   });
 
   const [footerSettings, setFooterSettings] = useState({
@@ -88,6 +89,7 @@ export default function SettingsPage() {
           address1: json.data.address1 || "",
           address2: json.data.address2 || "",
           phone: json.data.phone ? String(json.data.phone) : "010-2723-9490",
+          showTestButtons: json.data.show_test_buttons ?? false,
         });
       }
     } catch (e) {
@@ -158,6 +160,7 @@ export default function SettingsPage() {
           address1: centerSettings.address1,
           address2: centerSettings.address2,
           phone: centerSettings.phone,
+          show_test_buttons: centerSettings.showTestButtons,
         }),
       });
       const json = await res.json();
@@ -613,6 +616,39 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* 개발자 설정 */}
+      <Card className="border-yellow-200 dark:border-yellow-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5 text-yellow-600" />
+            개발자 설정
+          </CardTitle>
+          <CardDescription>개발 및 테스트용 설정입니다</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+            <div>
+              <Label className="text-base font-medium">테스트 버튼 표시</Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                모바일 앱 결제 페이지에서 &apos;Mock 수거예약&apos;, &apos;실제 우체국 API&apos; 테스트 버튼을 표시합니다.
+                <br />
+                <span className="text-yellow-600 dark:text-yellow-400">⚠️ 프로덕션에서는 반드시 OFF로 설정하세요.</span>
+              </p>
+            </div>
+            <Button
+              variant={centerSettings.showTestButtons ? "default" : "outline"}
+              onClick={() => setCenterSettings({ ...centerSettings, showTestButtons: !centerSettings.showTestButtons })}
+              className={centerSettings.showTestButtons ? "bg-yellow-500 hover:bg-yellow-600" : ""}
+            >
+              {centerSettings.showTestButtons ? "ON" : "OFF"}
+            </Button>
+          </div>
+          <Button onClick={handleSave} disabled={isLoading}>
+            <Save className="h-4 w-4 mr-2" />
+            저장
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* 고객센터 운영시간 설정 */}
       <Card className="border-green-200 dark:border-green-800">

@@ -25,11 +25,31 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   
   bool _isLoading = false;
   Map<String, dynamic>? _orderData;
+  bool _showTestButtons = false;
 
   @override
   void initState() {
     super.initState();
     _loadOrder();
+    _loadTestButtonsSetting();
+  }
+
+  Future<void> _loadTestButtonsSetting() async {
+    try {
+      final result = await _supabase
+          .from('ops_center_settings')
+          .select('show_test_buttons')
+          .limit(1)
+          .maybeSingle();
+      
+      if (mounted && result != null) {
+        setState(() {
+          _showTestButtons = result['show_test_buttons'] ?? false;
+        });
+      }
+    } catch (e) {
+      debugPrint('테스트 버튼 설정 로드 실패: $e');
+    }
   }
 
   Future<void> _loadOrder() async {
@@ -392,36 +412,38 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 테스트 버튼
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton.icon(
-                    onPressed: _isLoading ? null : () => _testRealShipment(testMode: true),
-                    icon: const Icon(Icons.science_outlined, size: 18),
-                    label: const Text('🧪 Mock 수거예약'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.orange,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+            // 테스트 버튼 (관리자 설정에서 ON일 때만 표시)
+            if (_showTestButtons) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: _isLoading ? null : () => _testRealShipment(testMode: true),
+                      icon: const Icon(Icons.science_outlined, size: 18),
+                      label: const Text('🧪 Mock 수거예약'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextButton.icon(
-                    onPressed: _isLoading ? null : () => _testRealShipment(testMode: false),
-                    icon: const Icon(Icons.local_shipping_outlined, size: 18),
-                    label: const Text('🚚 실제 우체국 API'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      backgroundColor: Colors.green.withOpacity(0.1),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: _isLoading ? null : () => _testRealShipment(testMode: false),
+                      icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                      label: const Text('🚚 실제 우체국 API'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        backgroundColor: Colors.green.withOpacity(0.1),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             // 토스페이먼츠 결제 버튼 - 클릭 시 결제 페이지로 이동
             SizedBox(
               width: double.infinity,

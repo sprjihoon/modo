@@ -7,6 +7,7 @@ const DEFAULTS = {
   address1: "대구광역시 동구 동촌로 1",
   address2: "동대구우체국 2층 소포실 모두의수선",
   phone: "01027239490",
+  show_test_buttons: false,
 };
 
 // GET: 현재 센터(입고 도착지) 설정 조회
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
       address1: body.address1 || DEFAULTS.address1,
       address2: body.address2 || DEFAULTS.address2,
       phone: (body.phone || DEFAULTS.phone).replace(/-/g, ""),
+      show_test_buttons: body.show_test_buttons ?? DEFAULTS.show_test_buttons,
       updated_at: new Date().toISOString(),
     };
 
