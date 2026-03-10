@@ -20,7 +20,8 @@ class OrderDetailPage extends ConsumerStatefulWidget {
   final String orderId;
 
   const OrderDetailPage({
-    required this.orderId, super.key,
+    required this.orderId,
+    super.key,
   });
 
   @override
@@ -33,27 +34,31 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   bool _isCancelling = false; // 취소 중 상태 추가
   Map<String, dynamic>? _orderData;
   Map<String, dynamic>? _shipmentData;
-  
+
   // 실제 사진 데이터 (State로 관리)
   List<Map<String, dynamic>> _images = [];
-  
+
   // Mock 주문 상태 (테스트용 - 변경 가능)
   // BOOKED: 수거예약 - 수정 O, 취소 O
   // INBOUND: 입고완료 - 수정 O, 취소 X
   // PROCESSING: 수선중 - 수정 X, 취소 X
   // READY_TO_SHIP: 출고완료 - 수정 X, 취소 X
-  String _currentStatus = 'BOOKED'; 
-  
+  String _currentStatus = 'BOOKED';
+
   // 우체국 API 취소 응답 정보 저장
   Map<String, dynamic>? _cancelInfo;
-  
+
+  /// 배송추적 treatStusCd (00:신청준비, 01:소포신청, 02:운송장출력, 03:집하완료, 04:배송중, 05:배송완료)
+  /// 00~02: 수거준비(취소 가능), 03~05: 접수/발송/도착(취소 불가 → 문의하기)
+  String? _pickupTreatStusCd;
+
   // 입고/출고 영상 URL (단일)
   String? _inboundVideoUrl;
   String? _outboundVideoUrl;
-  
+
   // 여러 아이템의 영상 쌍 (순차 재생용)
   List<Map<String, String>> _videoItems = [];
-  
+
   // 주기적 새로고침을 위한 타이머
   Timer? _refreshTimer;
 
@@ -64,13 +69,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     // 주기적 새로고침 시작 (30초마다)
     _startPeriodicRefresh();
   }
-  
+
   @override
   void dispose() {
     _refreshTimer?.cancel();
     super.dispose();
   }
-  
+
   /// 주기적 새로고침 시작
   void _startPeriodicRefresh() {
     _refreshTimer?.cancel();
@@ -91,29 +96,28 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       if (showLoading) {
         setState(() => _isLoading = true);
       }
-      
+
       debugPrint('📦 주문 상세 조회 시작: ${widget.orderId}');
-      
+
       // 🔒 보안: 주문 상세 정보 조회 (소유자 검증 포함)
-      final order = await _orderService.getOrderDetail(widget.orderId)
-          .timeout(
-            const Duration(seconds: 30),
-            onTimeout: () {
-              throw Exception('주문 정보 조회 시간 초과 (30초)');
-            },
-          );
-      
+      final order = await _orderService.getOrderDetail(widget.orderId).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('주문 정보 조회 시간 초과 (30초)');
+        },
+      );
+
       debugPrint('✅ 주문 상세 조회 성공: ${order['id']}');
-      
+
       // shipments 정보 추출
       final shipments = order['shipments'] as List<dynamic>?;
-      final shipment = shipments != null && shipments.isNotEmpty 
+      final shipment = shipments != null && shipments.isNotEmpty
           ? shipments.first as Map<String, dynamic>
           : null;
-      
+
       // 실제 사진 데이터 로드
       List<Map<String, dynamic>> images = [];
-      
+
       // images_with_pins 또는 images 필드에서 사진 정보 가져오기
       final imagesWithPins = order['images_with_pins'] as List<dynamic>?;
       if (imagesWithPins != null && imagesWithPins.isNotEmpty) {
@@ -121,14 +125,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           final imgMap = Map<String, dynamic>.from(img as Map);
           final pinsData = imgMap['pins'] as List<dynamic>? ?? [];
           // pins를 Map<String, dynamic>으로 변환 (ImagePin.fromJson을 위해)
-          final pins = pinsData.map((p) {
-            if (p is Map<String, dynamic>) {
-              return p;
-            } else if (p is Map) {
-              return Map<String, dynamic>.from(p);
-            }
-            return null;
-          }).whereType<Map<String, dynamic>>().toList();
+          final pins = pinsData
+              .map((p) {
+                if (p is Map<String, dynamic>) {
+                  return p;
+                } else if (p is Map) {
+                  return Map<String, dynamic>.from(p);
+                }
+                return null;
+              })
+              .whereType<Map<String, dynamic>>()
+              .toList();
           return {
             'url': imgMap['imagePath'] ?? imgMap['url'] ?? '',
             'pinsCount': pins.length,
@@ -140,30 +147,39 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         final imageUrls = order['images'] as Map<String, dynamic>?;
         if (imageUrls != null) {
           final urls = imageUrls['urls'] as List<dynamic>? ?? [];
-          images = urls.map((url) => {
-            'url': url.toString(),
-            'pinsCount': 0,
-            'pins': <dynamic>[],
-          },).toList();
+          images = urls
+              .map(
+                (url) => {
+                  'url': url.toString(),
+                  'pinsCount': 0,
+                  'pins': <dynamic>[],
+                },
+              )
+              .toList();
         }
       }
-      
+
       final newStatus = order['status'] as String? ?? 'BOOKED';
       final statusChanged = _currentStatus != newStatus;
-      
+
       setState(() {
         _orderData = order;
         _shipmentData = shipment;
         _currentStatus = newStatus;
         _images = images;
         _isLoading = false;
+        // BOOKED가 아니면 수거 treatStusCd 초기화
+        if (newStatus != 'BOOKED') {
+          _pickupTreatStusCd = null;
+        }
       });
-      
+
       // 상태가 변경되었거나 배송완료 상태가 아니면 주기적 새로고침 재시작
-      if (statusChanged || (_currentStatus != 'DELIVERED' && _currentStatus != 'CANCELLED')) {
+      if (statusChanged ||
+          (_currentStatus != 'DELIVERED' && _currentStatus != 'CANCELLED')) {
         _startPeriodicRefresh();
       }
-      
+
       // 상태 변경 알림 (배송완료 등)
       if (statusChanged && mounted) {
         if (newStatus == 'DELIVERED') {
@@ -200,29 +216,34 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           );
         }
       }
-      
+
       // 입고/출고 영상 URL 조회 (비동기, 별도 처리)
       _loadVideoUrls();
-      
+
       // 🚚 배송/수거 완료 자동 체크
       // - BOOKED: 수거 완료 시 → INBOUND로 변경
       // - READY_TO_SHIP: 배송 완료 시 → DELIVERED로 변경
       if (newStatus == 'BOOKED' || newStatus == 'READY_TO_SHIP') {
         _checkDeliveryCompletion(newStatus);
       }
+
+      // 📦 BOOKED 상태: 배송추적 API로 treatStusCd 조회 (수거준비인지 접수/발송/도착인지 판단)
+      if (newStatus == 'BOOKED' && shipment != null && mounted) {
+        _fetchPickupTreatStusCd(shipment);
+      }
     } catch (e, stackTrace) {
       debugPrint('❌ 주문 상세 조회 실패: $e');
       debugPrint('스택 트레이스: $stackTrace');
-      
+
       // 🔒 보안: 접근 권한 없음 처리
       final errorMessage = e.toString();
-      final isAccessDenied = errorMessage.contains('접근 권한이 없습니다') || 
-                             errorMessage.contains('본인의 주문만');
-      
+      final isAccessDenied = errorMessage.contains('접근 권한이 없습니다') ||
+          errorMessage.contains('본인의 주문만');
+
       if (mounted) {
         // 로딩 상태 해제
         setState(() => _isLoading = false);
-        
+
         if (isAccessDenied) {
           // 🔒 접근 권한 없음: 즉시 뒤로가기
           ScaffoldMessenger.of(context).showSnackBar(
@@ -232,7 +253,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               duration: Duration(seconds: 3),
             ),
           );
-          
+
           // 0.5초 후 자동으로 뒤로가기 (사용자가 메시지를 읽을 시간 제공)
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
@@ -261,7 +282,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         _isLoading = false;
       }
     }
-  } 
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -296,10 +317,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         ),
       );
     }
-    
+
     // TODO: 실제 주문 상태는 Supabase에서 가져오기
-    final canEdit = _currentStatus == 'BOOKED' || _currentStatus == 'INBOUND'; // 수선 전에만 수정 가능
-    
+    final canEdit = _currentStatus == 'BOOKED' ||
+        _currentStatus == 'INBOUND'; // 수선 전에만 수정 가능
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -320,12 +342,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           children: [
             // 상태 배너
             _buildStatusBanner(context),
-            
+
             // 🆕 추가 결제 요청 카드 (PENDING_CUSTOMER 상태일 때만 표시)
             _buildExtraChargeCard(context),
-            
+
             const SizedBox(height: 16),
-            
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
@@ -334,21 +356,19 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                   // 타임라인
                   _buildTimeline(context),
                   const SizedBox(height: 16),
-                  
+
                   // 주문 정보
                   _buildOrderInfo(context),
                   const SizedBox(height: 16),
-                  
+
                   // 사진 및 수선 부위 (수정 가능)
-                  if (canEdit)
-                    _buildEditablePhotosSection(context),
-                  if (canEdit)
-                    const SizedBox(height: 16),
-                  
+                  if (canEdit) _buildEditablePhotosSection(context),
+                  if (canEdit) const SizedBox(height: 16),
+
                   // 영상 섹션
                   _buildVideoSection(context),
                   const SizedBox(height: 16),
-                  
+
                   // 배송 정보
                   _buildShippingInfo(context),
                   const SizedBox(height: 80),
@@ -366,14 +386,16 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   Widget _buildExtraChargeCard(BuildContext context) {
     // extra_charge_status 확인
     final extraChargeStatusStr = _orderData?['extra_charge_status'] as String?;
-    if (extraChargeStatusStr == null || extraChargeStatusStr != 'PENDING_CUSTOMER') {
+    if (extraChargeStatusStr == null ||
+        extraChargeStatusStr != 'PENDING_CUSTOMER') {
       return const SizedBox.shrink();
     }
 
     // extra_charge_data 파싱
     final extraChargeDataJson = _orderData?['extra_charge_data'];
     ExtraChargeData? extraChargeData;
-    if (extraChargeDataJson != null && extraChargeDataJson is Map<String, dynamic>) {
+    if (extraChargeDataJson != null &&
+        extraChargeDataJson is Map<String, dynamic>) {
       extraChargeData = ExtraChargeData.fromJson(extraChargeDataJson);
     }
 
@@ -482,7 +504,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () => _handleExtraChargePay(context, price, orderName),
+                    onPressed: () =>
+                        _handleExtraChargePay(context, price, orderName),
                     icon: const Icon(Icons.payment),
                     label: Text('${_formatNumberWithComma(price)}원 결제하기'),
                     style: ElevatedButton.styleFrom(
@@ -574,13 +597,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   /// 숫자에 콤마 추가
   String _formatNumberWithComma(int number) {
     return number.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        );
   }
 
   /// 추가 결제하기 (토스페이먼츠로 이동)
-  Future<void> _handleExtraChargePay(BuildContext context, int price, String orderName) async {
+  Future<void> _handleExtraChargePay(
+      BuildContext context, int price, String orderName) async {
     // 결제 확인 다이얼로그
     final confirmed = await showDialog<bool>(
       context: context,
@@ -611,7 +635,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     final result = await context.push<bool>(
       '/toss-payment',
       extra: {
-        'orderId': 'EXTRA_${widget.orderId}_${DateTime.now().millisecondsSinceEpoch}',
+        'orderId':
+            'EXTRA_${widget.orderId}_${DateTime.now().millisecondsSinceEpoch}',
         'amount': price,
         'orderName': '$orderName 추가 결제',
         'isExtraCharge': true,
@@ -666,7 +691,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     );
 
     try {
-      final extraChargeProvider = provider.Provider.of<ExtraChargeProvider>(context, listen: false);
+      final extraChargeProvider =
+          provider.Provider.of<ExtraChargeProvider>(context, listen: false);
       final success = await extraChargeProvider.processCustomerDecision(
         orderId: widget.orderId,
         action: CustomerDecisionAction.SKIP,
@@ -742,7 +768,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     );
 
     try {
-      final extraChargeProvider = provider.Provider.of<ExtraChargeProvider>(context, listen: false);
+      final extraChargeProvider =
+          provider.Provider.of<ExtraChargeProvider>(context, listen: false);
       final success = await extraChargeProvider.processCustomerDecision(
         orderId: widget.orderId,
         action: CustomerDecisionAction.RETURN,
@@ -782,7 +809,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   Widget _buildStatusBanner(BuildContext context) {
     final isCancelled = _currentStatus == 'CANCELLED';
     final itemName = _orderData?['item_name'] as String? ?? '수선 항목';
-    
+
     // 취소된 경우 다른 스타일
     if (isCancelled) {
       return Container(
@@ -858,7 +885,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         ),
       );
     }
-    
+
     // 정상 상태 배너
     final statusMap = {
       'BOOKED': {'label': '수거예약', 'icon': Icons.schedule_outlined},
@@ -867,11 +894,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       'READY_TO_SHIP': {'label': '출고완료', 'icon': Icons.done_all_outlined},
       'DELIVERED': {'label': '배송완료', 'icon': Icons.check_circle_outline},
     };
-    
+
     final statusInfo = statusMap[_currentStatus] ?? statusMap['BOOKED']!;
     final statusLabel = statusInfo['label'] as String;
     final statusIcon = statusInfo['icon'] as IconData;
-    
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
@@ -949,17 +976,35 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
 
   Widget _buildTimeline(BuildContext context) {
     // 실제 주문 상태에 따라 각 단계의 완료 여부 결정
-    final statusOrder = ['BOOKED', 'INBOUND', 'PROCESSING', 'READY_TO_SHIP', 'DELIVERED'];
+    final statusOrder = [
+      'BOOKED',
+      'INBOUND',
+      'PROCESSING',
+      'READY_TO_SHIP',
+      'DELIVERED'
+    ];
     final currentStatusIndex = statusOrder.indexOf(_currentStatus);
-    
+
     final steps = [
       {'status': 'BOOKED', 'label': '수거예약', 'icon': Icons.schedule_outlined},
       {'status': 'INBOUND', 'label': '입고완료', 'icon': Icons.inventory_outlined},
-      {'status': 'PROCESSING', 'label': '수선중', 'icon': Icons.content_cut_rounded},
-      {'status': 'READY_TO_SHIP', 'label': '출고완료', 'icon': Icons.done_all_outlined},
-      {'status': 'DELIVERED', 'label': '배송완료', 'icon': Icons.check_circle_outline},
+      {
+        'status': 'PROCESSING',
+        'label': '수선중',
+        'icon': Icons.content_cut_rounded
+      },
+      {
+        'status': 'READY_TO_SHIP',
+        'label': '출고완료',
+        'icon': Icons.done_all_outlined
+      },
+      {
+        'status': 'DELIVERED',
+        'label': '배송완료',
+        'icon': Icons.check_circle_outline
+      },
     ];
-    
+
     // 각 단계의 완료 여부 계산
     for (int i = 0; i < steps.length; i++) {
       steps[i]['completed'] = currentStatusIndex >= i;
@@ -1051,7 +1096,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     ],
                   );
                 } else {
-                  final prevCompleted = steps[(index - 1) ~/ 2]['completed'] as bool;
+                  final prevCompleted =
+                      steps[(index - 1) ~/ 2]['completed'] as bool;
                   return Container(
                     width: 40,
                     height: 3,
@@ -1102,12 +1148,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             ],
           ),
           const SizedBox(height: 16),
-          _buildInfoRow('주문번호', _formatOrderNumber(_orderData?['order_number'] ?? widget.orderId)),
+          _buildInfoRow(
+              '주문번호',
+              _formatOrderNumber(
+                  _orderData?['order_number'] ?? widget.orderId)),
           _buildInfoRow('수선 항목', _orderData?['item_name'] ?? '수선 항목'),
           _buildInfoRow('주문일시', _formatDateTime(_orderData?['created_at'])),
           Divider(height: 24, color: Colors.grey.shade200),
-          _buildInfoRow('결제금액', _formatPrice(_orderData?['total_price']), isHighlight: true),
-          _buildInfoRow('결제방법', _getPaymentMethodDisplay(_orderData?['payment_method'])),
+          _buildInfoRow('결제금액', _formatPrice(_orderData?['total_price']),
+              isHighlight: true),
+          _buildInfoRow(
+              '결제방법', _getPaymentMethodDisplay(_orderData?['payment_method'])),
         ],
       ),
     );
@@ -1129,14 +1180,15 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           ),
           Flexible(
             child: Text(
-            value,
+              value,
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
-            style: TextStyle(
-              fontSize: isHighlight ? 16 : 14,
-              fontWeight: isHighlight ? FontWeight.bold : FontWeight.w500,
-              color: isHighlight ? Colors.grey.shade900 : Colors.grey.shade800,
+              style: TextStyle(
+                fontSize: isHighlight ? 16 : 14,
+                fontWeight: isHighlight ? FontWeight.bold : FontWeight.w500,
+                color:
+                    isHighlight ? Colors.grey.shade900 : Colors.grey.shade800,
               ),
             ),
           ),
@@ -1173,15 +1225,15 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     if (price == null) return '₩0';
     final numPrice = price is num ? price : int.tryParse(price.toString()) ?? 0;
     return '₩${numPrice.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    )}';
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        )}';
   }
 
   /// 결제 방법 표시 텍스트
   String _getPaymentMethodDisplay(dynamic paymentMethod) {
     if (paymentMethod == null) return '미결제';
-    
+
     final method = paymentMethod.toString().toUpperCase();
     switch (method) {
       case 'CARD':
@@ -1220,12 +1272,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     // 주문 정보 포맷팅 및 클립보드에 복사
     final orderInfo = _formatOrderInfoForChat();
     await Clipboard.setData(ClipboardData(text: orderInfo));
-    
+
     // 카카오톡 채널 URL
     const kakaoChannelId = '_dLhAX';
-    final kakaoChannelChatUrl = Uri.parse('https://pf.kakao.com/$kakaoChannelId/chat');
-    final kakaoAppUrl = Uri.parse('kakaoplus://plusfriend/chat/$kakaoChannelId');
-    
+    final kakaoChannelChatUrl =
+        Uri.parse('https://pf.kakao.com/$kakaoChannelId/chat');
+    final kakaoAppUrl =
+        Uri.parse('kakaoplus://plusfriend/chat/$kakaoChannelId');
+
     // 바로 카카오톡 앱 열기
     try {
       if (await canLaunchUrl(kakaoAppUrl)) {
@@ -1239,7 +1293,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           );
         }
       } else if (await canLaunchUrl(kakaoChannelChatUrl)) {
-        await launchUrl(kakaoChannelChatUrl, mode: LaunchMode.externalApplication);
+        await launchUrl(kakaoChannelChatUrl,
+            mode: LaunchMode.externalApplication);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1269,17 +1324,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     buffer.writeln();
     buffer.writeln('📦 문의 주문 정보');
     buffer.writeln('─────────────');
-    
+
     // 주문번호
     final orderNumber = _orderData?['order_number'] ?? widget.orderId;
     buffer.writeln('주문번호: $orderNumber');
-    
+
     // 의류/수선 정보
     final clothingType = _orderData?['clothing_type'] ?? '-';
     final repairType = _orderData?['repair_type'] ?? '-';
     buffer.writeln('의류: $clothingType');
     buffer.writeln('수선: $repairType');
-    
+
     // 상태
     final statusTextMap = {
       'BOOKED': '수거예약',
@@ -1290,19 +1345,19 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       'CANCELLED': '취소됨',
     };
     buffer.writeln('상태: ${statusTextMap[_currentStatus] ?? _currentStatus}');
-    
+
     // 송장번호 (있으면)
-    final trackingNo = _shipmentData?['pickup_tracking_no'] ?? 
-                      _shipmentData?['delivery_tracking_no'] ?? 
-                      _shipmentData?['tracking_no'];
+    final trackingNo = _shipmentData?['pickup_tracking_no'] ??
+        _shipmentData?['delivery_tracking_no'] ??
+        _shipmentData?['tracking_no'];
     if (trackingNo != null) {
       buffer.writeln('송장번호: $trackingNo');
     }
-    
+
     buffer.writeln('─────────────');
     buffer.writeln();
     buffer.writeln('문의 내용:');
-    
+
     return buffer.toString();
   }
 
@@ -1429,7 +1484,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       ),
     );
   }
-  
+
   /// 배송추적 페이지 열기 (앱 내에서)
   void _openTracking(String trackingNo) async {
     try {
@@ -1493,7 +1548,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     color: const Color(0xFF00C896).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF00C896)),
+                  child: const Icon(Icons.camera_alt_rounded,
+                      color: Color(0xFF00C896)),
                 ),
                 title: const Text('카메라로 촬영'),
                 onTap: () => Navigator.pop(context, ImageSource.camera),
@@ -1506,7 +1562,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     color: Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.photo_library_rounded, color: Colors.blue),
+                  child: const Icon(Icons.photo_library_rounded,
+                      color: Colors.blue),
                 ),
                 title: const Text('갤러리에서 선택'),
                 onTap: () => Navigator.pop(context, ImageSource.gallery),
@@ -1521,7 +1578,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     if (source != null && mounted) {
       try {
         final imageService = ImageService();
-        
+
         // 로딩 표시
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1529,17 +1586,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             duration: Duration(seconds: 2),
           ),
         );
-        
+
         // 실제 이미지 선택 및 업로드
         final imageUrl = await imageService.pickAndUploadImage(
           source: source,
           bucket: 'order-images',
           folder: 'repairs',
         );
-        
+
         // 사용자가 취소한 경우
         if (imageUrl == null) return;
-        
+
         setState(() {
           _images.add({
             'url': imageUrl,
@@ -1547,7 +1604,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             'pins': [],
           });
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('사진이 추가되었습니다 (${_images.length}장)'),
@@ -1571,7 +1628,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('사진 삭제', style: TextStyle(fontWeight: FontWeight.bold)),
+        title:
+            const Text('사진 삭제', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text(
           '${index + 1}번 사진을 삭제하시겠습니까?\n핀 정보도 함께 삭제됩니다.',
           style: const TextStyle(height: 1.5),
@@ -1597,7 +1655,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       setState(() {
         _images.removeAt(index);
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('사진이 삭제되었습니다'),
@@ -1649,7 +1707,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     color: const Color(0xFF00C896).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF00C896)),
+                  child: const Icon(Icons.camera_alt_rounded,
+                      color: Color(0xFF00C896)),
                 ),
                 title: const Text('카메라로 촬영'),
                 onTap: () => Navigator.pop(context, ImageSource.camera),
@@ -1662,7 +1721,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     color: Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.photo_library_rounded, color: Colors.blue),
+                  child: const Icon(Icons.photo_library_rounded,
+                      color: Colors.blue),
                 ),
                 title: const Text('갤러리에서 선택'),
                 onTap: () => Navigator.pop(context, ImageSource.gallery),
@@ -1677,7 +1737,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     if (source != null && mounted) {
       try {
         final imageService = ImageService();
-        
+
         // 로딩 표시
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1685,17 +1745,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             duration: Duration(seconds: 2),
           ),
         );
-        
+
         // 실제 이미지 선택 및 업로드
         final imageUrl = await imageService.pickAndUploadImage(
           source: source,
           bucket: 'order-images',
           folder: 'repairs',
         );
-        
+
         // 사용자가 취소한 경우
         if (imageUrl == null) return;
-        
+
         setState(() {
           _images[index] = {
             'url': imageUrl,
@@ -1703,7 +1763,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             'pins': [],
           };
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${index + 1}번 사진이 변경되었습니다'),
@@ -1737,10 +1797,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         _images[index]['pins'] = result['pins'] ?? [];
         _images[index]['pinsCount'] = (result['pins'] as List?)?.length ?? 0;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${index + 1}번 사진의 핀이 수정되었습니다 (${_images[index]['pinsCount']}개)'),
+          content: Text(
+              '${index + 1}번 사진의 핀이 수정되었습니다 (${_images[index]['pinsCount']}개)'),
           backgroundColor: const Color(0xFF00C896),
         ),
       );
@@ -1782,7 +1843,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             ],
           ),
           const SizedBox(height: 16),
-          
 
           // 사진 목록 (읽기 전용)
           GridView.builder(
@@ -1794,11 +1854,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               mainAxisSpacing: 12,
               childAspectRatio: 1,
             ),
-              itemCount: _images.length,
-              itemBuilder: (context, index) {
-                final image = _images[index];
+            itemCount: _images.length,
+            itemBuilder: (context, index) {
+              final image = _images[index];
               final pins = image['pins'] as List<dynamic>? ?? [];
-              
+
               return Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
@@ -1818,24 +1878,26 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                           return Container(
                             color: Colors.grey.shade200,
                             child: const Center(
-                              child: Icon(Icons.image_outlined, size: 40, color: Colors.grey),
+                              child: Icon(Icons.image_outlined,
+                                  size: 40, color: Colors.grey),
                             ),
                           );
-              },
-            ),
-          ),
-                    
+                        },
+                      ),
+                    ),
+
                     // 핀 개수 배지
                     if (pins.isNotEmpty)
                       Positioned(
                         top: 8,
                         right: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.red.shade600,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -1857,13 +1919,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                           ),
                         ),
                       ),
-                    
+
                     // 사진 번호
                     Positioned(
                       bottom: 8,
                       left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.7),
                           borderRadius: BorderRadius.circular(6),
@@ -1875,17 +1938,18 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
-              ),
-            ),
-          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               );
             },
           ),
-          
+
           // 핀 메모 목록 (아래 위치, 상단 섹션 제거됨)
-          if (_images.any((img) => (img['pins'] as List?)?.isNotEmpty ?? false)) ...[
+          if (_images
+              .any((img) => (img['pins'] as List?)?.isNotEmpty ?? false)) ...[
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -1898,7 +1962,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.push_pin, size: 16, color: Colors.blue.shade700),
+                      Icon(Icons.push_pin,
+                          size: 16, color: Colors.blue.shade700),
                       const SizedBox(width: 6),
                       Text(
                         '수선 부위 메모',
@@ -1915,14 +1980,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     final imageIndex = entry.key;
                     final image = entry.value;
                     final pins = image['pins'] as List<dynamic>? ?? [];
-                    
+
                     return pins.asMap().entries.map((pinEntry) {
                       final pinIndex = pinEntry.key;
                       final pin = pinEntry.value as Map<String, dynamic>;
                       final memo = pin['memo'] as String? ?? '';
-                      
+
                       if (memo.isEmpty) return const SizedBox.shrink();
-                      
+
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 6),
                         child: Row(
@@ -1971,7 +2036,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   /// 사진 카드 (비활성화)
-  Widget _buildPhotoCard(BuildContext context, Map<String, dynamic> image, int index) {
+  Widget _buildPhotoCard(
+      BuildContext context, Map<String, dynamic> image, int index) {
     return GestureDetector(
       onTap: () => _editPins(index), // 탭하면 핀 수정
       onLongPress: () => _showPhotoOptions(context, index), // 길게 누르면 메뉴
@@ -1982,111 +2048,112 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           border: Border.all(color: Colors.grey.shade300),
         ),
         child: Stack(
-        children: [
-          // 사진
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              image['url'] as String,
-              width: 120,
-              height: 120,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey.shade200,
-                  child: const Center(
-                    child: Icon(Icons.image_outlined, size: 40, color: Colors.grey),
-                  ),
-                );
-              },
-            ),
-          ),
-          
-          // 핀 개수 배지
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(12),
+          children: [
+            // 사진
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                image['url'] as String,
+                width: 120,
+                height: 120,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Icon(Icons.image_outlined,
+                          size: 40, color: Colors.grey),
+                    ),
+                  );
+                },
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.push_pin,
-                    size: 12,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${image['pinsCount']}',
+            ),
+
+            // 핀 개수 배지
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.push_pin,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${image['pinsCount']}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 순서 번호
+            Positioned(
+              bottom: 8,
+              left: 8,
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF00C896),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '${index + 1}',
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-          
-          // 순서 번호
-          Positioned(
-            bottom: 8,
-            left: 8,
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: const BoxDecoration(
-                color: Color(0xFF00C896),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  '${index + 1}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+
+            // 삭제 버튼 (X)
+            Positioned(
+              top: 4,
+              left: 4,
+              child: InkWell(
+                onTap: () => _deletePhoto(index),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    size: 16,
                     color: Colors.white,
                   ),
                 ),
               ),
             ),
-          ),
-          
-          // 삭제 버튼 (X)
-          Positioned(
-            top: 4,
-            left: 4,
-            child: InkWell(
-              onTap: () => _deletePhoto(index),
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.close,
-                  size: 16,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -2149,7 +2216,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     color: Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.photo_library_rounded, color: Colors.blue),
+                  child: const Icon(Icons.photo_library_rounded,
+                      color: Colors.blue),
                 ),
                 title: const Text('사진 변경'),
                 subtitle: const Text('다른 사진으로 교체'),
@@ -2188,12 +2256,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     final hasInboundVideo = _inboundVideoUrl != null;
     final hasOutboundVideo = _outboundVideoUrl != null;
     final hasBothVideos = hasInboundVideo && hasOutboundVideo;
-    
+
     // 영상이 하나도 없으면 섹션 숨기기
     if (!hasInboundVideo && !hasOutboundVideo) {
       return const SizedBox.shrink();
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -2222,24 +2290,26 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ),
             ],
           ),
-          
+
           // 전후 비교 영상 (우선 표시)
           if (hasBothVideos) ...[
             const SizedBox(height: 16),
             _buildComparisonVideoCard(context),
           ],
-          
+
           // 개별 영상 (전후 비교 영상이 있을 때는 숨기기)
           if (!hasBothVideos) ...[
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
-                  child: _buildVideoCard(context, '입고 영상', true, hasInboundVideo),
+                  child:
+                      _buildVideoCard(context, '입고 영상', true, hasInboundVideo),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildVideoCard(context, '출고 영상', false, hasOutboundVideo),
+                  child: _buildVideoCard(
+                      context, '출고 영상', false, hasOutboundVideo),
                 ),
               ],
             ),
@@ -2249,7 +2319,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     );
   }
 
-  Widget _buildVideoCard(BuildContext context, String title, bool isInbound, bool hasVideo) {
+  Widget _buildVideoCard(
+      BuildContext context, String title, bool isInbound, bool hasVideo) {
     return InkWell(
       onTap: hasVideo
           ? () {
@@ -2327,23 +2398,29 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   Widget _buildComparisonVideoCard(BuildContext context) {
     final hasBoth = _inboundVideoUrl != null && _outboundVideoUrl != null;
     final hasMultipleItems = _videoItems.length > 1;
-    
+
     return InkWell(
       onTap: hasBoth
           ? () {
               if (hasMultipleItems) {
                 // 여러 아이템: 순차 재생
                 debugPrint('🎬 ${_videoItems.length}개 아이템 순차 재생');
-                context.push('/comparison-video', extra: {
-                  'videoItems': _videoItems,
-                },);
+                context.push(
+                  '/comparison-video',
+                  extra: {
+                    'videoItems': _videoItems,
+                  },
+                );
               } else {
                 // 단일 아이템: 기존 방식
                 debugPrint('🎬 단일 아이템 재생');
-                context.push('/comparison-video', extra: {
-                  'inboundUrl': _inboundVideoUrl,
-                  'outboundUrl': _outboundVideoUrl,
-                },);
+                context.push(
+                  '/comparison-video',
+                  extra: {
+                    'inboundUrl': _inboundVideoUrl,
+                    'outboundUrl': _outboundVideoUrl,
+                  },
+                );
               }
             }
           : null,
@@ -2397,7 +2474,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: hasBoth ? Colors.grey.shade900 : Colors.grey.shade600,
+                      color:
+                          hasBoth ? Colors.grey.shade900 : Colors.grey.shade600,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -2405,13 +2483,15 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                     hasBoth ? '좌우 나란히 재생됩니다' : '입고/출고 영상 준비 중',
                     style: TextStyle(
                       fontSize: 13,
-                      color: hasBoth ? Colors.grey.shade600 : Colors.grey.shade500,
+                      color:
+                          hasBoth ? Colors.grey.shade600 : Colors.grey.shade500,
                     ),
                   ),
                   if (hasBoth) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(12),
@@ -2432,7 +2512,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             Icon(
               Icons.arrow_forward_ios,
               size: 20,
-              color: hasBoth ? Theme.of(context).colorScheme.primary : Colors.grey.shade400,
+              color: hasBoth
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey.shade400,
             ),
           ],
         ),
@@ -2448,7 +2530,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       // 상태에 따라 적절한 송장번호 선택
       String? trackingNo;
       String trackingType;
-      
+
       if (currentStatus == 'BOOKED') {
         // 수거 중: 수거 송장번호 사용
         trackingNo = _shipmentData?['pickup_tracking_no']?.toString();
@@ -2458,33 +2540,35 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         trackingNo = _shipmentData?['delivery_tracking_no']?.toString();
         trackingType = '배송';
       }
-      
+
       if (trackingNo == null || trackingNo.isEmpty) {
         debugPrint('⚠️ $trackingType 추적 체크: 송장번호 없음');
         return;
       }
-      
+
       debugPrint('🚚 $trackingType 완료 자동 체크 시작: $trackingNo');
-      
+
       // 배송 추적 API 호출 (이 API에서 완료 감지 시 자동으로 DB 업데이트)
       final trackingData = await _orderService.trackShipment(trackingNo);
-      
-      // 완료 감지되었는지 확인
-      final epost = trackingData['epost'] as Map<String, dynamic>?;
+
+      // 완료 감지되었는지 확인 (successResponse 래핑 처리)
+      final inner =
+          trackingData['data'] as Map<String, dynamic>? ?? trackingData;
+      final epost = inner['epost'] as Map<String, dynamic>?;
       final treatStusCd = epost?['treatStusCd'] as String?;
-      
+
       if (treatStusCd == '05') {
         debugPrint('✅ $trackingType 완료 감지됨! 상태 업데이트 완료');
-        
+
         // 주문 데이터 새로고침 (상태 변경 반영)
         if (mounted) {
           await _loadOrderData(showLoading: false);
-          
+
           // 상태에 따른 알림 메시지
-          final message = currentStatus == 'BOOKED' 
+          final message = currentStatus == 'BOOKED'
               ? '📦 수거가 완료되어 입고되었습니다!'
               : '🎉 배송이 완료되었습니다!';
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(message),
@@ -2494,7 +2578,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           );
         }
       } else {
-        debugPrint('📦 $trackingType 상태: ${epost?['treatStusNm'] ?? '확인 중'} (코드: $treatStusCd)');
+        debugPrint(
+            '📦 $trackingType 상태: ${epost?['treatStusNm'] ?? '확인 중'} (코드: $treatStusCd)');
       }
     } catch (e) {
       debugPrint('⚠️ 추적 체크 실패 (무시): $e');
@@ -2502,21 +2587,62 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     }
   }
 
+  /// 수거 송장의 treatStusCd 조회 (취소 버튼 노출 여부 판단용)
+  /// 00/01/02: 수거준비 → 취소 가능, 03/04/05: 접수/발송/도착 → 문의하기만
+  Future<void> _fetchPickupTreatStusCd(Map<String, dynamic> shipment) async {
+    try {
+      final pickupNo =
+          shipment['pickup_tracking_no'] ?? shipment['tracking_no'];
+      if (pickupNo == null || pickupNo.toString().isEmpty) return;
+
+      final trackingData =
+          await _orderService.trackShipment(pickupNo.toString());
+      // successResponse 래핑: data.data 또는 data에 epost 있을 수 있음
+      final inner =
+          trackingData['data'] as Map<String, dynamic>? ?? trackingData;
+      final epost = inner['epost'] as Map<String, dynamic>?;
+      final code = epost?['treatStusCd'] as String?;
+
+      if (mounted) {
+        setState(() => _pickupTreatStusCd = code);
+        debugPrint('📦 수거 treatStusCd: $code (00~02=취소가능, 03~05=문의하기)');
+      }
+    } catch (e) {
+      debugPrint('⚠️ 수거 treatStusCd 조회 실패: $e');
+      if (mounted) {
+        setState(() => _pickupTreatStusCd = null);
+      }
+    }
+  }
+
+  /// 수거준비(00/01/02) 상태에서만 취소 버튼 표시
+  bool get _isPickupCancellable {
+    if (_pickupTreatStusCd == null) return false; // 조회 전/실패 시 취소 비활성화 (안전 우선)
+    return _pickupTreatStusCd == '00' ||
+        _pickupTreatStusCd == '01' ||
+        _pickupTreatStusCd == '02';
+  }
+
   Future<void> _loadVideoUrls() async {
     try {
       debugPrint('🔍 shipmentData: ${_shipmentData?.keys.toList()}');
-      debugPrint('🔍 pickup_tracking_no: ${_shipmentData?['pickup_tracking_no']}');
-      debugPrint('🔍 delivery_tracking_no: ${_shipmentData?['delivery_tracking_no']}');
-      
+      debugPrint(
+          '🔍 pickup_tracking_no: ${_shipmentData?['pickup_tracking_no']}');
+      debugPrint(
+          '🔍 delivery_tracking_no: ${_shipmentData?['delivery_tracking_no']}');
+
       // 모든 가능한 송장번호로 조회 (유연한 매칭)
       final candidates = [
-        _shipmentData?['pickup_tracking_no'],      // 수거 송장 (입고 영상용)
-        _shipmentData?['delivery_tracking_no'],    // 출고 송장 (출고 영상용)
-        _shipmentData?['tracking_no'],             // 기본 송장
-        _shipmentData?['outbound_tracking_no'],    // 호환성
-        _orderData?['id'],                         // orderId (폴백)
-      ].where((v) => v != null && (v is String) && v.isNotEmpty).toSet().toList(); // 중복 제거
-      
+        _shipmentData?['pickup_tracking_no'], // 수거 송장 (입고 영상용)
+        _shipmentData?['delivery_tracking_no'], // 출고 송장 (출고 영상용)
+        _shipmentData?['tracking_no'], // 기본 송장
+        _shipmentData?['outbound_tracking_no'], // 호환성
+        _orderData?['id'], // orderId (폴백)
+      ]
+          .where((v) => v != null && (v is String) && v.isNotEmpty)
+          .toSet()
+          .toList(); // 중복 제거
+
       if (candidates.isEmpty) {
         debugPrint('❌ final_waybill_no 후보가 없습니다');
         return;
@@ -2529,12 +2655,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           .from('media')
           .select('type, path, provider, final_waybill_no, sequence')
           .inFilter('final_waybill_no', candidates)
-          .inFilter('type', ['inbound_video', 'outbound_video'])
-          .order('sequence', ascending: true);  // sequence 순서대로
-      
+          .inFilter('type', ['inbound_video', 'outbound_video']).order(
+              'sequence',
+              ascending: true); // sequence 순서대로
+
       debugPrint('📹 조회된 영상: ${videos.length}개');
       if (videos.isNotEmpty) {
-        debugPrint('📹 영상 상세: ${videos.map((v) => '${v['type']}#${v['sequence']}(${v['final_waybill_no']})').join(', ')}');
+        debugPrint(
+            '📹 영상 상세: ${videos.map((v) => '${v['type']}#${v['sequence']}(${v['final_waybill_no']})').join(', ')}');
       }
 
       // sequence별로 영상 그룹화
@@ -2547,7 +2675,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         final path = video['path'] as String? ?? '';
         final provider = video['provider'] as String? ?? '';
         final sequence = video['sequence'] as int? ?? 1;
-        
+
         String? url;
         if (path.startsWith('http')) {
           url = path;
@@ -2559,13 +2687,13 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         if (url != null) {
           // sequence별로 저장
           videosBySequence[sequence] ??= {};
-          
+
           if (type == 'inbound_video') {
             videosBySequence[sequence]!['inbound'] = url;
-            firstInboundUrl ??= url;  // 첫 번째 입고 영상
+            firstInboundUrl ??= url; // 첫 번째 입고 영상
           } else if (type == 'outbound_video') {
             videosBySequence[sequence]!['outbound'] = url;
-            firstOutboundUrl ??= url;  // 첫 번째 출고 영상
+            firstOutboundUrl ??= url; // 첫 번째 출고 영상
           }
         }
       }
@@ -2573,11 +2701,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       // 모든 아이템의 영상 쌍을 리스트로 변환
       final videoItems = <Map<String, String>>[];
       final sortedSequences = videosBySequence.keys.toList()..sort();
-      
+
       for (final seq in sortedSequences) {
         final inbound = videosBySequence[seq]!['inbound'];
         final outbound = videosBySequence[seq]!['outbound'];
-        
+
         // 입고/출고 둘 다 있는 경우만 추가
         if (inbound != null && outbound != null) {
           videoItems.add({
@@ -2586,7 +2714,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           });
         }
       }
-      
+
       debugPrint('🎬 완성된 영상 쌍: ${videoItems.length}개');
 
       if (mounted) {
@@ -2631,36 +2759,36 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // 송장번호 카드 (2개)
           // 1. 회수 송장번호
           if (_shipmentData?['pickup_tracking_no'] != null)
-          _buildTrackingCard(
-            context,
-            '회수 송장번호',
+            _buildTrackingCard(
+              context,
+              '회수 송장번호',
               _shipmentData!['pickup_tracking_no'] as String,
-            Icons.local_shipping_outlined,
-            Colors.blue,
-            '수거 시 사용',
-          ),
+              Icons.local_shipping_outlined,
+              Colors.blue,
+              '수거 시 사용',
+            ),
           if (_shipmentData?['pickup_tracking_no'] != null)
-          const SizedBox(height: 12),
-          
+            const SizedBox(height: 12),
+
           // 2. 발송 송장번호
           if (_shipmentData?['delivery_tracking_no'] != null)
-          _buildTrackingCard(
-            context,
-            '발송 송장번호',
+            _buildTrackingCard(
+              context,
+              '발송 송장번호',
               _shipmentData!['delivery_tracking_no'] as String,
-            Icons.send_outlined,
-            const Color(0xFF00C896),
-            '배송 시 사용',
-          ),
+              Icons.send_outlined,
+              const Color(0xFF00C896),
+              '배송 시 사용',
+            ),
           if (_shipmentData?['delivery_tracking_no'] != null)
             const SizedBox(height: 12),
-          
+
           // 송장번호가 없을 때 안내
-          if ((_shipmentData?['pickup_tracking_no'] == null) && 
+          if ((_shipmentData?['pickup_tracking_no'] == null) &&
               (_shipmentData?['delivery_tracking_no'] == null))
             Container(
               padding: const EdgeInsets.all(16),
@@ -2671,7 +2799,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.grey.shade600, size: 20),
+                  Icon(Icons.info_outline,
+                      color: Colors.grey.shade600, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -2686,16 +2815,23 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ),
             ),
           const SizedBox(height: 16),
-          
-          _buildInfoRow('택배사', _shipmentData?['carrier'] == 'EPOST' ? '우체국 택배' : '우체국 택배'),
-          _buildInfoRow('수거지', _formatAddress(
-            _orderData?['pickup_address'],
-            _orderData?['pickup_address_detail'],
-          ),),
-          _buildInfoRow('배송지', _formatAddress(
-            _orderData?['delivery_address'],
-            _orderData?['delivery_address_detail'],
-          ),),
+
+          _buildInfoRow('택배사',
+              _shipmentData?['carrier'] == 'EPOST' ? '우체국 택배' : '우체국 택배'),
+          _buildInfoRow(
+            '수거지',
+            _formatAddress(
+              _orderData?['pickup_address'],
+              _orderData?['pickup_address_detail'],
+            ),
+          ),
+          _buildInfoRow(
+            '배송지',
+            _formatAddress(
+              _orderData?['delivery_address'],
+              _orderData?['delivery_address_detail'],
+            ),
+          ),
         ],
       ),
     );
@@ -2718,8 +2854,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         child: _currentStatus == 'CANCELLED'
             ? _buildCancelledButtons(context)
             : _currentStatus == 'BOOKED'
-            ? _buildBookedButtons(context)
-            : _buildDefaultButtons(context),
+                ? (_isPickupCancellable
+                    ? _buildBookedButtons(context)
+                    : _buildDefaultButtons(context))
+                : _buildDefaultButtons(context),
       ),
     );
   }
@@ -2730,11 +2868,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       children: [
         Expanded(
           child: OutlinedButton.icon(
-            icon: _isCancelling 
+            icon: _isCancelling
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.red),
                   )
                 : const Icon(Icons.cancel_outlined, size: 20),
             label: Text(_isCancelling ? '취소 중...' : '수거 취소'),
@@ -2771,7 +2910,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   /// 취소된 상태일 때 버튼
   Widget _buildCancelledButtons(BuildContext context) {
     final canceledYn = _cancelInfo?['canceledYn'] as String?;
-    
+
     // 우체국 API 응답에 따른 버튼 텍스트
     // canceledYn 값:
     // - 'Y': 우체국 전산에도 취소 반영됨 ✅ (실제 취소 성공)
@@ -2781,7 +2920,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     String buttonText = '수거 취소됨';
     Color buttonColor = Colors.grey.shade600;
     IconData buttonIcon = Icons.cancel_outlined;
-    
+
     if (canceledYn == 'Y') {
       // 우체국 전산에도 취소 반영됨 - 실제 취소 성공
       buttonText = '수거 취소됨';
@@ -2804,7 +2943,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       buttonColor = Colors.grey.shade600;
       buttonIcon = Icons.cancel_outlined;
     }
-    
+
     return Row(
       children: [
         Expanded(
@@ -2867,9 +3006,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             icon: const Icon(Icons.gps_fixed, size: 20),
             label: const Text('배송 추적'),
             onPressed: () {
-              final trackingNo = _shipmentData?['pickup_tracking_no'] ?? 
-                                _shipmentData?['delivery_tracking_no'] ?? 
-                                _shipmentData?['tracking_no'];
+              final trackingNo = _shipmentData?['pickup_tracking_no'] ??
+                  _shipmentData?['delivery_tracking_no'] ??
+                  _shipmentData?['tracking_no'];
               if (trackingNo != null) {
                 _openTracking(trackingNo.toString());
               } else {
@@ -2948,7 +3087,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
 
       // 실제 API 호출하여 수거 취소
       final result = await _orderService.cancelShipment(widget.orderId);
-      
+
       if (!mounted) return;
 
       // 성공 메시지
@@ -2956,10 +3095,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       final epostResult = result['epost_result'] as Map<String, dynamic>?;
       final canceledYn = epostResult?['canceledYn'] as String?;
       final cancelDate = epostResult?['cancelDate'] as String?;
-      
+
       String detailMessage = message;
       Color messageColor = Colors.orange;
-      
+
       if (canceledYn == 'Y') {
         detailMessage += '\n✅ 우체국 전산에도 취소되었습니다.';
         if (cancelDate != null && cancelDate.isNotEmpty) {
@@ -3003,24 +3142,24 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       // 성공 메시지 표시 (안전하게)
       if (mounted) {
         try {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
               content: Text(detailMessage),
               backgroundColor: messageColor,
-        behavior: SnackBarBehavior.floating,
+              behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 5),
-        action: SnackBarAction(
-          label: '확인',
-          textColor: Colors.white,
-          onPressed: () {},
-        ),
-      ),
-    );
+              action: SnackBarAction(
+                label: '확인',
+                textColor: Colors.white,
+                onPressed: () {},
+              ),
+            ),
+          );
         } catch (snackError) {
           debugPrint('⚠️ ScaffoldMessenger 접근 실패 (이미 dispose됨): $snackError');
         }
       }
-      
+
       // 우체국 API 취소 응답 정보 저장 및 상태 업데이트
       if (mounted) {
         setState(() {
@@ -3030,18 +3169,18 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
             'notCancelReason': epostResult?['notCancelReason'],
             'cancelRegiNo': epostResult?['cancelRegiNo'],
           };
-          
+
           // 우체국 API 응답이 있을 때만 취소 상태로 표시
           if (canceledYn != null && canceledYn != '') {
             _currentStatus = 'CANCELLED';
           } else {
             _currentStatus = 'CANCELLED';
           }
-          
+
           _isCancelling = false; // 취소 완료
         });
       }
-      
+
       // 주문 데이터 새로고침 (로딩 표시 없이)
       if (mounted) {
         try {
@@ -3057,13 +3196,16 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           _isCancelling = false;
         });
       }
-      
+
       if (!mounted) return;
-      
+
       // 에러 메시지 표시
       if (mounted) {
         try {
-          final errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('우체국 전산 취소 실패: ', '');
+          final errorMessage = e
+              .toString()
+              .replaceAll('Exception: ', '')
+              .replaceAll('우체국 전산 취소 실패: ', '');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('수거 취소 실패: $errorMessage'),
@@ -3234,4 +3376,3 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
     );
   }
 }
-
