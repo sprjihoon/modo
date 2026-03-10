@@ -65,7 +65,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     try {
       _cachedOrders = await _orderService.getMyOrders();
       _ordersLoaded = true;
+      final hadError = _orderError != null;
       _orderError = null;
+      // 에러 상태에서 복구 시 UI 반영을 위한 setState
+      if (hadError && mounted) {
+        setState(() {});
+      }
       return _cachedOrders!;
     } on UserFriendlyException catch (e) {
       debugPrint('주문 데이터 로드 실패 (사용자 친화적): ${e.message}');
@@ -95,7 +100,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       await _getCachedOrders();
     } finally {
       if (mounted) {
-        setState(() => _isRetrying = false);
+        // _orderError 상태 변경을 포함해 UI 반영
+        setState(() {
+          _isRetrying = false;
+        });
       }
     }
   }
