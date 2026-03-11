@@ -2615,12 +2615,23 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     }
   }
 
-  /// 수거준비(00/01/02) 상태에서만 취소 버튼 표시
+  /// 수거 취소 가능 여부 판단
+  /// - BOOKED 상태에서는 기본적으로 취소 가능
+  /// - 배송추적 결과가 03(집하완료) 이상이면 취소 불가능 → 문의하기만
+  /// - 조회 전/실패 시에도 취소 가능 (우체국 API에서 최종 검증)
   bool get _isPickupCancellable {
-    if (_pickupTreatStusCd == null) return false; // 조회 전/실패 시 취소 비활성화 (안전 우선)
-    return _pickupTreatStusCd == '00' ||
-        _pickupTreatStusCd == '01' ||
-        _pickupTreatStusCd == '02';
+    // 배송추적 조회 전이거나 실패한 경우 → 취소 가능 (우체국 API에서 최종 검증)
+    if (_pickupTreatStusCd == null) return true;
+    
+    // 03(집하완료), 04(배송중), 05(배송완료) → 취소 불가능
+    if (_pickupTreatStusCd == '03' ||
+        _pickupTreatStusCd == '04' ||
+        _pickupTreatStusCd == '05') {
+      return false;
+    }
+    
+    // 00(신청준비), 01(소포신청), 02(운송장출력) → 취소 가능
+    return true;
   }
 
   Future<void> _loadVideoUrls() async {

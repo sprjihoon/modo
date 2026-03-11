@@ -462,9 +462,10 @@ class AuthService {
   /// 비밀번호 재설정 이메일 전송
   Future<void> resetPassword(String email) async {
     try {
+      // 비밀번호 재설정은 웹에서 처리 (modo.mom)
       await _supabase.auth.resetPasswordForEmail(
         email,
-        redirectTo: 'io.flutter.app://reset-password',
+        redirectTo: 'https://modo.mom/auth/reset-password',
       );
     } on AuthException catch (e) {
       throw Exception('비밀번호 재설정 실패: ${e.message}');
