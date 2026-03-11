@@ -97,10 +97,20 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
 
     try {
-      await _getCachedOrders();
+      _cachedOrders = await _orderService.getMyOrders();
+      _ordersLoaded = true;
+      _orderError = null;
+      debugPrint('✅ 주문 데이터 새로고침 성공: ${_cachedOrders?.length ?? 0}개');
+    } on UserFriendlyException catch (e) {
+      debugPrint('❌ 주문 데이터 새로고침 실패: ${e.message}');
+      _ordersLoaded = true;
+      _orderError = e.message;
+    } catch (e) {
+      debugPrint('❌ 주문 데이터 새로고침 실패: $e');
+      _ordersLoaded = true;
+      _orderError = '네트워크 연결을 확인해주세요';
     } finally {
       if (mounted) {
-        // _orderError 상태 변경을 포함해 UI 반영
         setState(() {
           _isRetrying = false;
         });
@@ -941,26 +951,43 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
 
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _getCachedOrders(),
-      builder: (context, snapshot) {
-        // 로딩 중
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
-        }
+    // 에러 상태면 에러 섹션 표시
+    if (_orderError != null && !_isRetrying) {
+      return _buildErrorSection(context);
+    }
 
-        // 에러 발생 시 사용자 친화적 UI 표시
-        if (_orderError != null) {
-          return _buildErrorSection(context);
-        }
+    // 데이터가 아직 로드되지 않았으면 FutureBuilder로 초기 로드
+    if (!_ordersLoaded && _cachedOrders == null) {
+      return FutureBuilder<List<Map<String, dynamic>>>(
+        future: _getCachedOrders(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox.shrink();
+          }
+          // 에러 발생 시
+          if (_orderError != null) {
+            return _buildErrorSection(context);
+          }
+          // 빈 목록
+          if ((snapshot.data ?? []).isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return _buildOrdersContent(snapshot.data!);
+        },
+      );
+    }
 
-        // 빈 목록일 경우 섹션 전체 숨김
-        if ((snapshot.data ?? []).isEmpty) {
-          return const SizedBox.shrink();
-        }
+    // 캐시된 데이터 사용
+    if (_cachedOrders == null || _cachedOrders!.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-        final orders = snapshot.data!;
-        final order = orders.first;
+    return _buildOrdersContent(_cachedOrders!);
+  }
+
+  /// 주문 목록 컨텐츠 빌드
+  Widget _buildOrdersContent(List<Map<String, dynamic>> orders) {
+    final order = orders.first;
         final status = order['status'] as String? ?? 'BOOKED';
         final extraChargeStatus = order['extra_charge_status'] as String?;
         final isPendingCustomer = extraChargeStatus == 'PENDING_CUSTOMER';
@@ -1204,8 +1231,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             ],
           ),
         );
-      },
-    );
   }
 
   Map<String, dynamic> _statusStyle(String status) {
