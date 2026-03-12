@@ -20,6 +20,7 @@ export function middleware(request: NextRequest) {
     // 고객 도메인에서 허용되는 경로
     const allowedPaths = [
       "/auth/reset-password",
+      "/auth/customer-landing",
       "/_next",
       "/favicon.ico",
       "/api",
