@@ -2,36 +2,45 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const router = useRouter();
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [isValidToken, setIsValidToken] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
-    // URL에서 access_token 확인 (Supabase가 hash fragment로 전달)
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get("access_token");
-    const type = hashParams.get("type");
+    const checkToken = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get("access_token");
+      const type = hashParams.get("type");
 
-    if (type === "recovery" && accessToken) {
-      // 세션 설정
-      supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: hashParams.get("refresh_token") || "",
-      });
-    }
+      if (type === "recovery" && accessToken) {
+        try {
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: hashParams.get("refresh_token") || "",
+          });
+          setIsValidToken(true);
+        } catch {
+          setIsValidToken(false);
+        }
+      } else {
+        setIsValidToken(false);
+      }
+      setIsChecking(false);
+    };
+
+    checkToken();
   }, [supabase.auth]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setMessage("");
 
     if (password !== confirmPassword) {
       setError("비밀번호가 일치하지 않습니다.");
@@ -53,18 +62,76 @@ export default function ResetPasswordPage() {
       if (error) {
         setError(error.message);
       } else {
-        setMessage("비밀번호가 성공적으로 변경되었습니다. 앱에서 다시 로그인해주세요.");
-        // 3초 후 로그인 페이지로 이동
-        setTimeout(() => {
-          router.push("/login");
-        }, 3000);
+        setIsCompleted(true);
+        await supabase.auth.signOut();
       }
-    } catch (err) {
+    } catch {
       setError("비밀번호 변경 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
   };
+
+  if (isChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">확인 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isValidToken && !isCompleted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full text-center">
+          <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-6">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            유효하지 않은 링크
+          </h2>
+          <p className="text-gray-600 mb-6">
+            비밀번호 재설정 링크가 만료되었거나 유효하지 않습니다.<br />
+            앱에서 비밀번호 재설정을 다시 요청해주세요.
+          </p>
+          <p className="text-sm text-gray-500">
+            이 페이지를 닫아도 됩니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isCompleted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full text-center">
+          <div className="mx-auto w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-6">
+            <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            비밀번호 변경 완료
+          </h2>
+          <p className="text-gray-600 mb-6">
+            비밀번호가 성공적으로 변경되었습니다.<br />
+            모두의수선 앱에서 새 비밀번호로 로그인해주세요.
+          </p>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+            <p className="text-sm text-emerald-800">
+              이 페이지를 닫고 앱으로 돌아가세요.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -114,10 +181,6 @@ export default function ResetPasswordPage() {
 
           {error && (
             <div className="text-red-600 text-sm text-center">{error}</div>
-          )}
-
-          {message && (
-            <div className="text-emerald-600 text-sm text-center">{message}</div>
           )}
 
           <div>
