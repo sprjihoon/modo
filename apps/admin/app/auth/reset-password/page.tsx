@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 export default function ResetPasswordPage() {
@@ -11,7 +11,7 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
 
   useEffect(() => {
     // URL에서 access_token 확인 (Supabase가 hash fragment로 전달)
