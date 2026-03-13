@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/widgets/category_icon_widget.dart';
 import '../../providers/repair_items_provider.dart';
 
 final supabase = Supabase.instance.client;
@@ -251,24 +252,25 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                // 아이콘
+                                // 아이콘 (DB의 icon_name으로 SVG 로드)
                                 Container(
                                   width: 50,
                                   height: 50,
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? const Color(0xFF00C896)
-                                        : Colors.grey.shade300,
+                                        : const Color(0xFF00C896)
+                                            .withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Icon(
-                                    isSelected
-                                        ? Icons.check_circle
-                                        : Icons.checkroom,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : Colors.grey.shade600,
-                                    size: 28,
+                                  child: Center(
+                                    child: isSelected
+                                        ? const Icon(
+                                            Icons.check_circle,
+                                            color: Colors.white,
+                                            size: 28,
+                                          )
+                                        : _buildSubPartIcon(part),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -1034,6 +1036,16 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
           ],
         ),
       ),
+    );
+  }
+
+  /// 세부 부위 아이콘 빌드 (DB의 icon_name 사용)
+  Widget _buildSubPartIcon(Map<String, dynamic> part) {
+    final iconName = part['icon_name'] as String?;
+    return CategoryIconWidget(
+      iconName: iconName,
+      size: 28,
+      color: const Color(0xFF00C896),
     );
   }
 }

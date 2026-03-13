@@ -304,24 +304,30 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  // 아이콘
+                                  // 아이콘 (DB의 icon_name으로 SVG 로드)
                                   Container(
                                     width: 50,
                                     height: 50,
                                     decoration: BoxDecoration(
                                       color: isSelected
                                           ? const Color(0xFF00C896)
-                                          : Colors.grey.shade300,
+                                          : const Color(0xFF00C896)
+                                              .withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Icon(
-                                      isSelected
-                                          ? Icons.check_circle
-                                          : Icons.build_outlined,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : Colors.grey.shade600,
-                                      size: 28,
+                                    child: Center(
+                                      child: isSelected
+                                          ? const Icon(
+                                              Icons.check_circle,
+                                              color: Colors.white,
+                                              size: 28,
+                                            )
+                                          : CategoryIconWidget(
+                                              iconName: subItem['icon_name']
+                                                  as String?,
+                                              size: 28,
+                                              color: const Color(0xFF00C896),
+                                            ),
                                     ),
                                   ),
                                   const SizedBox(height: 8),
