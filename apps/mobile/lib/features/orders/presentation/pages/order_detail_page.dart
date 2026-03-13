@@ -62,6 +62,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   // 주기적 새로고침을 위한 타이머
   Timer? _refreshTimer;
 
+  // 네트워크 에러 메시지 (UI에 배너로 표시)
+  String? _networkErrorMessage;
+
   @override
   void initState() {
     super.initState();
@@ -95,6 +98,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     try {
       if (showLoading) {
         setState(() => _isLoading = true);
+      }
+
+      // 기존 에러 메시지 초기화 및 SnackBar 제거
+      if (_networkErrorMessage != null && mounted) {
+        setState(() => _networkErrorMessage = null);
+        ScaffoldMessenger.of(context).clearSnackBars();
       }
 
       debugPrint('📦 주문 상세 조회 시작: ${widget.orderId}');
@@ -161,6 +170,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
 
       final newStatus = order['status'] as String? ?? 'BOOKED';
       final statusChanged = _currentStatus != newStatus;
+      
+      debugPrint('📊 주문 상태: $newStatus (이전: $_currentStatus)');
 
       setState(() {
         _orderData = order;
@@ -173,6 +184,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           _pickupTreatStusCd = null;
         }
       });
+      
+      debugPrint('🔘 취소 가능 여부: $_isPickupCancellable (treatStusCd: $_pickupTreatStusCd)');
 
       // 상태가 변경되었거나 배송완료 상태가 아니면 주기적 새로고침 재시작
       if (statusChanged ||
@@ -260,8 +273,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               context.pop(); // 즉시 뒤로가기 (보안 위협 차단)
             }
           });
+        } else if (_orderData != null) {
+          // 이미 데이터가 있는 경우 (자동 새로고침 실패): 상태 변수에만 저장
+          // 네트워크 재연결 시 자동으로 성공하면 에러 메시지가 사라짐
+          setState(() {
+            _networkErrorMessage = '네트워크 연결을 확인해주세요';
+          });
         } else {
-          // 기타 에러: 재시도 가능
+          // 최초 로드 실패: SnackBar로 재시도 안내
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('주문 정보 조회 실패: ${e.toString()}'),
@@ -378,7 +397,44 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(context),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 네트워크 에러 배너 (재연결 시 자동으로 사라짐)
+          if (_networkErrorMessage != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              color: Colors.red.shade50,
+              child: Row(
+                children: [
+                  Icon(Icons.wifi_off, color: Colors.red.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _networkErrorMessage!,
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _loadOrderData(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red.shade700,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('다시 시도'),
+                  ),
+                ],
+              ),
+            ),
+          _buildBottomBar(context),
+        ],
+      ),
     );
   }
 
@@ -2622,14 +2678,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   bool get _isPickupCancellable {
     // 배송추적 조회 전이거나 실패한 경우 → 취소 가능 (우체국 API에서 최종 검증)
     if (_pickupTreatStusCd == null) return true;
-    
+
     // 03(집하완료), 04(배송중), 05(배송완료) → 취소 불가능
     if (_pickupTreatStusCd == '03' ||
         _pickupTreatStusCd == '04' ||
         _pickupTreatStusCd == '05') {
       return false;
     }
-    
+
     // 00(신청준비), 01(소포신청), 02(운송장출력) → 취소 가능
     return true;
   }
