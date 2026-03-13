@@ -1,0 +1,15 @@
+// This is a generated file for Xcode Cloud builds.
+// Local paths are replaced with environment variables.
+FLUTTER_ROOT=$(HOME)/flutter
+FLUTTER_APPLICATION_PATH=$(SRCROOT)/..
+COCOAPODS_PARALLEL_CODE_SIGN=true
+FLUTTER_TARGET=$(SRCROOT)/../lib/main.dart
+FLUTTER_BUILD_DIR=build
+FLUTTER_BUILD_NAME=1.0.0
+FLUTTER_BUILD_NUMBER=1
+EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386
+EXCLUDED_ARCHS[sdk=iphoneos*]=armv7
+DART_OBFUSCATION=false
+TRACK_WIDGET_CREATION=true
+TREE_SHAKE_ICONS=false
+PACKAGE_CONFIG=$(SRCROOT)/../.dart_tool/package_config.json
