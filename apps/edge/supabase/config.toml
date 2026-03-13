@@ -23,6 +23,7 @@ enabled = true
 site_url = "https://modo.mom"
 additional_redirect_urls = [
   "https://modo.mom",
+  "https://admin.modo.mom",
   "http://localhost:3000"
 ]
 
