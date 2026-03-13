@@ -305,7 +305,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+			shellScript = "# Flutter SDK 경로 설정\nif [ -z \"$FLUTTER_ROOT\" ] || [ ! -d \"$FLUTTER_ROOT\" ]; then\n  export FLUTTER_ROOT=\"$HOME/flutter\"\nfi\nexport PATH=\"$FLUTTER_ROOT/bin:$PATH\"\n\n/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
 		};
 		9740EEB61CF901F6004384FC /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -320,7 +320,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+			shellScript = "# Flutter SDK 자동 설치 (Xcode Cloud용)\nif [ -z \"$FLUTTER_ROOT\" ] || [ ! -d \"$FLUTTER_ROOT\" ]; then\n  export FLUTTER_ROOT=\"$HOME/flutter\"\nfi\n\nif [ ! -d \"$FLUTTER_ROOT\" ]; then\n  echo \"Flutter SDK 설치 중...\"\n  git clone https://github.com/flutter/flutter.git -b stable --depth 1 \"$FLUTTER_ROOT\"\nfi\n\nexport PATH=\"$FLUTTER_ROOT/bin:$PATH\"\n\n/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
 		};
 		A6E68C0B8BE94BC68481595D /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
