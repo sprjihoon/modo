@@ -988,249 +988,247 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 주문 목록 컨텐츠 빌드
   Widget _buildOrdersContent(List<Map<String, dynamic>> orders) {
     final order = orders.first;
-        final status = order['status'] as String? ?? 'BOOKED';
-        final extraChargeStatus = order['extra_charge_status'] as String?;
-        final isPendingCustomer = extraChargeStatus == 'PENDING_CUSTOMER';
-        final statusStyle = _statusStyle(status);
-        final createdAt = order['created_at'] as String?;
-        String dateStr = '';
-        if (createdAt != null) {
-          try {
-            final dt = DateTime.parse(createdAt);
-            dateStr =
-                '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
-          } catch (_) {}
-        }
-        final price = order['total_price'] as num? ?? 0;
-        final priceStr =
-            '₩${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
+    final status = order['status'] as String? ?? 'BOOKED';
+    final extraChargeStatus = order['extra_charge_status'] as String?;
+    final isPendingCustomer = extraChargeStatus == 'PENDING_CUSTOMER';
+    final statusStyle = _statusStyle(status);
+    final createdAt = order['created_at'] as String?;
+    String dateStr = '';
+    if (createdAt != null) {
+      try {
+        final dt = DateTime.parse(createdAt);
+        dateStr =
+            '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
+      } catch (_) {}
+    }
+    final price = order['total_price'] as num? ?? 0;
+    final priceStr =
+        '₩${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 섹션 헤더
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // 섹션 헤더
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    '내 주문',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: () {
-                      context.push('/orders');
-                    },
-                    icon: const Icon(Icons.arrow_forward, size: 16),
-                    label: const Text('전체보기'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.grey.shade700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // 최근 주문 1건
-              InkWell(
-                onTap: () => context.push('/orders/${order['id']}'),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isPendingCustomer
-                          ? Colors.orange.shade300
-                          : Colors.grey.shade200,
-                      width: isPendingCustomer ? 2 : 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isPendingCustomer
-                            ? Colors.orange.withOpacity(0.15)
-                            : Colors.black.withOpacity(0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      // 아이콘
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: isPendingCustomer
-                                  ? Colors.orange.withOpacity(0.15)
-                                  : const Color(0xFF00C896).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              isPendingCustomer
-                                  ? Icons.payment
-                                  : Icons.checkroom_rounded,
-                              color: isPendingCustomer
-                                  ? Colors.orange.shade700
-                                  : const Color(0xFF00C896),
-                              size: 28,
-                            ),
-                          ),
-                          // 추가결제 배지
-                          if (isPendingCustomer)
-                            Positioned(
-                              right: -6,
-                              top: -6,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: Colors.white, width: 2),
-                                ),
-                                child: const Text(
-                                  '!',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(width: 16),
-
-                      // 주문 정보
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                // 추가결제 배지 (우선 표시)
-                                if (isPendingCustomer) ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.shade100,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.payment,
-                                          size: 12,
-                                          color: Colors.orange.shade900,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '추가결제',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.orange.shade900,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: (statusStyle['color'] as Color)
-                                        .withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    statusStyle['label'] as String,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: statusStyle['color'] as Color,
-                                    ),
-                                  ),
-                                ),
-                                if (dateStr.isNotEmpty) ...[
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    dateStr,
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade600),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              (order['item_name'] as String?) ?? '수선 항목',
-                              style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              priceStr,
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade700),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const Icon(Icons.arrow_forward_ios,
-                          size: 16, color: Colors.grey),
-                    ],
-                  ),
+              const Text(
+                '내 주문',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
-
-              const SizedBox(height: 12),
-
-              // 주문 목록으로 가는 버튼
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    context.push('/orders');
-                  },
-                  icon: const Icon(Icons.list_alt_rounded, size: 20),
-                  label: const Text('전체 주문 보기'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    side: BorderSide(color: Colors.grey.shade300),
-                  ),
+              TextButton.icon(
+                onPressed: () {
+                  context.push('/orders');
+                },
+                icon: const Icon(Icons.arrow_forward, size: 16),
+                label: const Text('전체보기'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey.shade700,
                 ),
               ),
             ],
           ),
-        );
+          const SizedBox(height: 12),
+
+          // 최근 주문 1건
+          InkWell(
+            onTap: () => context.push('/orders/${order['id']}'),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isPendingCustomer
+                      ? Colors.orange.shade300
+                      : Colors.grey.shade200,
+                  width: isPendingCustomer ? 2 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isPendingCustomer
+                        ? Colors.orange.withOpacity(0.15)
+                        : Colors.black.withOpacity(0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // 아이콘
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: isPendingCustomer
+                              ? Colors.orange.withOpacity(0.15)
+                              : const Color(0xFF00C896).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          isPendingCustomer
+                              ? Icons.payment
+                              : Icons.checkroom_rounded,
+                          color: isPendingCustomer
+                              ? Colors.orange.shade700
+                              : const Color(0xFF00C896),
+                          size: 28,
+                        ),
+                      ),
+                      // 추가결제 배지
+                      if (isPendingCustomer)
+                        Positioned(
+                          right: -6,
+                          top: -6,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Text(
+                              '!',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+
+                  // 주문 정보
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            // 추가결제 배지 (우선 표시)
+                            if (isPendingCustomer) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.payment,
+                                      size: 12,
+                                      color: Colors.orange.shade900,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '추가결제',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange.shade900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: (statusStyle['color'] as Color)
+                                    .withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                statusStyle['label'] as String,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: statusStyle['color'] as Color,
+                                ),
+                              ),
+                            ),
+                            if (dateStr.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                dateStr,
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey.shade600),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          (order['item_name'] as String?) ?? '수선 항목',
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          priceStr,
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Icon(Icons.arrow_forward_ios,
+                      size: 16, color: Colors.grey),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // 주문 목록으로 가는 버튼
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                context.push('/orders');
+              },
+              icon: const Icon(Icons.list_alt_rounded, size: 20),
+              label: const Text('전체 주문 보기'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                side: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Map<String, dynamic> _statusStyle(String status) {

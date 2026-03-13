@@ -20,9 +20,11 @@ class RepairDetailInputPage extends ConsumerStatefulWidget {
   final List<String>? inputLabels; // 입력 필드 라벨 배열
   final String? repairTypeId; // 수선 종류 ID (세부 부위 조회용)
   final bool? allowMultipleSubParts; // 세부 부위 다중 선택 허용 여부
-  
+
   const RepairDetailInputPage({
-    required this.repairPart, required this.imageUrls, super.key,
+    required this.repairPart,
+    required this.imageUrls,
+    super.key,
     this.priceRange,
     this.price,
     this.imagesWithPins,
@@ -34,7 +36,8 @@ class RepairDetailInputPage extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<RepairDetailInputPage> createState() => _RepairDetailInputPageState();
+  ConsumerState<RepairDetailInputPage> createState() =>
+      _RepairDetailInputPageState();
 }
 
 class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
@@ -42,20 +45,20 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
   String _selectedScope = '전체'; // '전체' 또는 '특정 부위 선택'
   List<Map<String, dynamic>> _selectedSubParts = []; // 선택한 세부 부위들
   List<Map<String, dynamic>> _availableSubParts = []; // 사용 가능한 세부 부위들
-  
+
   @override
   void initState() {
     super.initState();
-    
+
     // 세부 부위 로드
     if (widget.hasAdvancedOptions == true && widget.repairTypeId != null) {
       _loadSubParts();
     }
-    
+
     // 초기 입력 필드 생성 (전체 선택인 경우)
     _initializeControllers();
   }
-  
+
   // 입력 필드 컨트롤러 초기화
   void _initializeControllers() {
     // 기존 컨트롤러 정리
@@ -63,7 +66,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
       controller.dispose();
     }
     _measurementControllers.clear();
-    
+
     // 새 컨트롤러 생성
     int fieldCount;
     if (_selectedScope == '특정 부위 선택' && _selectedSubParts.isNotEmpty) {
@@ -74,7 +77,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
       // 전체 선택인 경우
       fieldCount = widget.inputLabels?.length ?? 1;
     }
-    
+
     for (int i = 0; i < fieldCount; i++) {
       final controller = TextEditingController();
       controller.addListener(() {
@@ -83,7 +86,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
       _measurementControllers.add(controller);
     }
   }
-  
+
   @override
   void dispose() {
     for (var controller in _measurementControllers) {
@@ -91,19 +94,20 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
     }
     super.dispose();
   }
-  
+
   // 모든 입력 필드가 채워졌는지 확인
   bool get _allFieldsFilled {
     if (_selectedScope == '특정 부위 선택' && _selectedSubParts.isEmpty) {
       return false;
     }
-    return _measurementControllers.every((controller) => controller.text.isNotEmpty);
+    return _measurementControllers
+        .every((controller) => controller.text.isNotEmpty);
   }
-  
+
   // 세부 부위 로드
   Future<void> _loadSubParts() async {
     if (widget.repairTypeId == null) return;
-    
+
     try {
       final response = await supabase
           .from('repair_sub_parts')
@@ -111,7 +115,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
           .eq('repair_type_id', widget.repairTypeId!)
           .eq('part_type', 'sub_part')
           .order('display_order');
-      
+
       setState(() {
         _availableSubParts = List<Map<String, dynamic>>.from(response);
       });
@@ -119,7 +123,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
       debugPrint('세부 부위 로드 실패: $e');
     }
   }
-  
+
   // 세부 부위 선택 바텀시트
   Future<void> _showSubPartsSelectionSheet() async {
     if (_availableSubParts.isEmpty) {
@@ -128,10 +132,10 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
       );
       return;
     }
-    
+
     final allowMultiple = widget.allowMultipleSubParts ?? false;
     final tempSelected = List<Map<String, dynamic>>.from(_selectedSubParts);
-    
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -156,7 +160,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                
+
                 // 제목
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -197,7 +201,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                
+
                 // 세부 부위 그리드
                 Expanded(
                   child: SingleChildScrollView(
@@ -205,7 +209,8 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                     child: GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
@@ -216,15 +221,17 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                         final part = _availableSubParts[index];
                         final partId = part['id'] as String;
                         final partName = part['name'] as String;
-                        final isSelected = tempSelected.any((p) => p['id'] == partId);
-                        
+                        final isSelected =
+                            tempSelected.any((p) => p['id'] == partId);
+
                         return InkWell(
                           onTap: () {
                             setModalState(() {
                               if (allowMultiple) {
                                 // 다중 선택
                                 if (isSelected) {
-                                  tempSelected.removeWhere((p) => p['id'] == partId);
+                                  tempSelected
+                                      .removeWhere((p) => p['id'] == partId);
                                 } else {
                                   tempSelected.add(part);
                                 }
@@ -298,7 +305,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                     ),
                   ),
                 ),
-                
+
                 // 확인 버튼
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -415,7 +422,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // 선택한 수선 부위 표시
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -453,12 +460,13 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  widget.price != null 
-                                    ? '${widget.price.toString().replaceAllMapped(
-                                        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                                        (Match m) => '${m[1]},',
-                                      )}원'
-                                    : widget.priceRange ?? '가격 미정',
+                                  widget.price != null
+                                      ? '${widget.price.toString().replaceAllMapped(
+                                            RegExp(
+                                                r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                            (Match m) => '${m[1]},',
+                                          )}원'
+                                      : widget.priceRange ?? '가격 미정',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade600,
@@ -471,7 +479,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // 세부 부위 선택 (고급 옵션이 있을 때만 표시)
                     if (widget.hasAdvancedOptions == true) ...[
                       const Text(
@@ -483,7 +491,6 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      
                       Row(
                         children: [
                           Expanded(
@@ -497,7 +504,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                       ),
                       const SizedBox(height: 32),
                     ],
-                    
+
                     // 치수 입력
                     const Text(
                       '줄이고자 하는 단면 치수를 입력해주세요.',
@@ -508,12 +515,13 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     // 동적으로 입력 필드 생성
-                    ...(_selectedScope == '특정 부위 선택' && _selectedSubParts.isNotEmpty
+                    ...(_selectedScope == '특정 부위 선택' &&
+                            _selectedSubParts.isNotEmpty
                         ? _buildSubPartInputFields()
                         : _buildDefaultInputFields()),
-                    
+
                     // 안내 메시지
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -542,7 +550,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // 도움말 링크
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -582,7 +590,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                       ],
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // 하단 안내
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -604,7 +612,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
               ),
             ),
           ),
-          
+
           // 확인 버튼 (하단 고정)
           SafeArea(
             child: Container(
@@ -622,186 +630,222 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                onPressed: !_allFieldsFilled 
-                    ? null 
-                    : () {
-                        // 최종 확인 페이지로 이동
-                        String measurements;
-                        final List<Map<String, dynamic>> detailedMeasurements = [];
-                        
-                        if (_selectedScope == '특정 부위 선택' && _selectedSubParts.isNotEmpty) {
-                          // 세부 부위별 측정값 생성
-                          final inputCountPerPart = widget.inputLabels?.length ?? 1;
-                          final parts = <String>[];
-                          
-                          for (int partIndex = 0; partIndex < _selectedSubParts.length; partIndex++) {
-                            final part = _selectedSubParts[partIndex];
-                            final partName = part['name'] as String;
-                            
-                            if (inputCountPerPart > 1) {
-                              // 입력값이 여러 개인 경우
+                  onPressed: !_allFieldsFilled
+                      ? null
+                      : () {
+                          // 최종 확인 페이지로 이동
+                          String measurements;
+                          final List<Map<String, dynamic>>
+                              detailedMeasurements = [];
+
+                          if (_selectedScope == '특정 부위 선택' &&
+                              _selectedSubParts.isNotEmpty) {
+                            // 세부 부위별 측정값 생성
+                            final inputCountPerPart =
+                                widget.inputLabels?.length ?? 1;
+                            final parts = <String>[];
+
+                            for (int partIndex = 0;
+                                partIndex < _selectedSubParts.length;
+                                partIndex++) {
+                              final part = _selectedSubParts[partIndex];
+                              final partName = part['name'] as String;
+
+                              if (inputCountPerPart > 1) {
+                                // 입력값이 여러 개인 경우
+                                final values = <String>[];
+                                for (int inputIndex = 0;
+                                    inputIndex < inputCountPerPart;
+                                    inputIndex++) {
+                                  final controllerIndex =
+                                      partIndex * inputCountPerPart +
+                                          inputIndex;
+                                  final label = widget.inputLabels![inputIndex];
+                                  final value =
+                                      _measurementControllers[controllerIndex]
+                                          .text;
+                                  values.add('$label: ${value}cm');
+                                }
+                                parts.add('$partName (${values.join(', ')})');
+
+                                detailedMeasurements.add({
+                                  'part': partName,
+                                  'values':
+                                      List.generate(inputCountPerPart, (i) {
+                                    final idx =
+                                        partIndex * inputCountPerPart + i;
+                                    return {
+                                      'label': widget.inputLabels![i],
+                                      'value':
+                                          _measurementControllers[idx].text,
+                                    };
+                                  }),
+                                });
+                              } else {
+                                // 입력값이 하나인 경우
+                                final value =
+                                    _measurementControllers[partIndex].text;
+                                parts.add('$partName: ${value}cm');
+
+                                detailedMeasurements.add({
+                                  'part': partName,
+                                  'value': value,
+                                });
+                              }
+                            }
+                            measurements = parts.join(', ');
+                          } else {
+                            // 전체 선택인 경우
+                            final inputCount = widget.inputLabels?.length ?? 1;
+                            if (inputCount > 1) {
                               final values = <String>[];
-                              for (int inputIndex = 0; inputIndex < inputCountPerPart; inputIndex++) {
-                                final controllerIndex = partIndex * inputCountPerPart + inputIndex;
-                                final label = widget.inputLabels![inputIndex];
-                                final value = _measurementControllers[controllerIndex].text;
+                              for (int i = 0; i < inputCount; i++) {
+                                final label = widget.inputLabels![i];
+                                final value = _measurementControllers[i].text;
                                 values.add('$label: ${value}cm');
                               }
-                              parts.add('$partName (${values.join(', ')})');
-                              
-                              detailedMeasurements.add({
-                                'part': partName,
-                                'values': List.generate(inputCountPerPart, (i) {
-                                  final idx = partIndex * inputCountPerPart + i;
-                                  return {
-                                    'label': widget.inputLabels![i],
-                                    'value': _measurementControllers[idx].text,
-                                  };
-                                }),
-                              });
+                              measurements = values.join(', ');
                             } else {
-                              // 입력값이 하나인 경우
-                              final value = _measurementControllers[partIndex].text;
-                              parts.add('$partName: ${value}cm');
-                              
-                              detailedMeasurements.add({
-                                'part': partName,
-                                'value': value,
-                              });
+                              measurements =
+                                  '${_measurementControllers[0].text}cm';
                             }
                           }
-                          measurements = parts.join(', ');
-                        } else {
-                          // 전체 선택인 경우
-                          final inputCount = widget.inputLabels?.length ?? 1;
-                          if (inputCount > 1) {
-                            final values = <String>[];
-                            for (int i = 0; i < inputCount; i++) {
-                              final label = widget.inputLabels![i];
-                              final value = _measurementControllers[i].text;
-                              values.add('$label: ${value}cm');
-                            }
-                            measurements = values.join(', ');
-                          } else {
-                            measurements = '${_measurementControllers[0].text}cm';
-                          }
-                        }
-                        
-                        // 고유 ID 생성
-                        final itemId = '${widget.repairPart}_${DateTime.now().millisecondsSinceEpoch}';
-                        
-                        // 이미지 데이터를 명시적 필드 추출로 저장 (순환 참조 완전 차단)
-                        final List<Map<String, dynamic>> imageDataCopy = [];
-                        if (widget.imagesWithPins != null) {
-                          for (var img in widget.imagesWithPins!) {
-                            final imagePath = img['imagePath'] as String;
-                            final pinsData = img['pins'] as List?;
-                            
-                            // pins를 완전히 새로운 List로 생성
-                            final pins = <Map<String, dynamic>>[];
-                            if (pinsData != null) {
-                              for (var pin in pinsData) {
-                                if (pin is Map) {
-                                  // 각 필드를 primitive 값으로 추출
-                                  pins.add({
-                                    'id': pin['id']?.toString() ?? '',
-                                    'relative_x': (pin['relative_x'] as num?)?.toDouble() ?? 0.5,
-                                    'relative_y': (pin['relative_y'] as num?)?.toDouble() ?? 0.5,
-                                    'memo': pin['memo']?.toString() ?? '',
-                                    'created_at': pin['created_at']?.toString() ?? DateTime.now().toIso8601String(),
-                                    'updated_at': pin['updated_at']?.toString() ?? DateTime.now().toIso8601String(),
-                                  });
+
+                          // 고유 ID 생성
+                          final itemId =
+                              '${widget.repairPart}_${DateTime.now().millisecondsSinceEpoch}';
+
+                          // 이미지 데이터를 명시적 필드 추출로 저장 (순환 참조 완전 차단)
+                          final List<Map<String, dynamic>> imageDataCopy = [];
+                          if (widget.imagesWithPins != null) {
+                            for (var img in widget.imagesWithPins!) {
+                              final imagePath = img['imagePath'] as String;
+                              final pinsData = img['pins'] as List?;
+
+                              // pins를 완전히 새로운 List로 생성
+                              final pins = <Map<String, dynamic>>[];
+                              if (pinsData != null) {
+                                for (var pin in pinsData) {
+                                  if (pin is Map) {
+                                    // 각 필드를 primitive 값으로 추출
+                                    pins.add({
+                                      'id': pin['id']?.toString() ?? '',
+                                      'relative_x': (pin['relative_x'] as num?)
+                                              ?.toDouble() ??
+                                          0.5,
+                                      'relative_y': (pin['relative_y'] as num?)
+                                              ?.toDouble() ??
+                                          0.5,
+                                      'memo': pin['memo']?.toString() ?? '',
+                                      'created_at':
+                                          pin['created_at']?.toString() ??
+                                              DateTime.now().toIso8601String(),
+                                      'updated_at':
+                                          pin['updated_at']?.toString() ??
+                                              DateTime.now().toIso8601String(),
+                                    });
+                                  }
                                 }
                               }
+
+                              imageDataCopy.add({
+                                'imagePath': imagePath,
+                                'pins': pins,
+                              });
                             }
-                            
-                            imageDataCopy.add({
-                              'imagePath': imagePath,
-                              'pins': pins,
-                            });
                           }
-                        }
-                        
-                        debugPrint('📸 이미지 데이터 복사 완료: ${imageDataCopy.length}장');
-                        
-                        final repairItem = {
-                          'id': itemId,
-                          'repairPart': widget.repairPart,
-                          'priceRange': widget.price != null 
-                            ? '${widget.price.toString().replaceAllMapped(
-                                RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                                (Match m) => '${m[1]},',
-                              )}원'
-                            : widget.priceRange ?? '가격 미정',
-                          'price': widget.price,
-                          'scope': _selectedScope,
-                          'measurement': measurements,
-                          'selectedParts': _selectedSubParts.map((p) => p['name']).toList(),
-                          'detailedMeasurements': detailedMeasurements,
-                          // 이미지 데이터 복사본 저장 (순환 참조 없음)
-                          'itemImages': imageDataCopy,
-                        };
-                        
-                        // 현재 Provider의 항목을 가져와서 새 항목 추가 (중복 방지)
-                        final currentItems = ref.read(repairItemsProvider);
-                        
-                        debugPrint('🔍 현재 항목 수: ${currentItems.length}');
-                        
-                        // 이미 같은 항목이 있는지 확인 (repairPart로 체크)
-                        final existingIndex = currentItems.indexWhere(
-                          (item) => item['repairPart'] == repairItem['repairPart'] &&
-                                    item['measurement'] == repairItem['measurement'],
-                        );
-                        
-                        List<Map<String, dynamic>> allItems;
-                        if (existingIndex >= 0) {
-                          // 이미 존재하면 교체
-                          allItems = List.from(currentItems);
-                          allItems[existingIndex] = repairItem;
-                          debugPrint('🔄 기존 항목 교체: index $existingIndex');
-                        } else {
-                          // 새 항목 추가
-                          allItems = [...currentItems, repairItem];
-                          debugPrint('➕ 새 항목 추가');
-                        }
-                        
-                        debugPrint('📝 수치 입력 완료! 항목 수: ${allItems.length}');
-                        
-                        try {
-                          // Provider에 저장 (JSON 깊은 복사 적용)
-                          ref.read(repairItemsProvider.notifier).setItems(allItems);
-                          debugPrint('✅ Provider 저장 성공');
-                        } catch (e, stackTrace) {
-                          debugPrint('❌ Provider 저장 실패: $e');
-                          debugPrint('❌ Stack: $stackTrace');
-                          
+
+                          debugPrint(
+                              '📸 이미지 데이터 복사 완료: ${imageDataCopy.length}장');
+
+                          final repairItem = {
+                            'id': itemId,
+                            'repairPart': widget.repairPart,
+                            'priceRange': widget.price != null
+                                ? '${widget.price.toString().replaceAllMapped(
+                                      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                      (Match m) => '${m[1]},',
+                                    )}원'
+                                : widget.priceRange ?? '가격 미정',
+                            'price': widget.price,
+                            'scope': _selectedScope,
+                            'measurement': measurements,
+                            'selectedParts': _selectedSubParts
+                                .map((p) => p['name'])
+                                .toList(),
+                            'detailedMeasurements': detailedMeasurements,
+                            // 이미지 데이터 복사본 저장 (순환 참조 없음)
+                            'itemImages': imageDataCopy,
+                          };
+
+                          // 현재 Provider의 항목을 가져와서 새 항목 추가 (중복 방지)
+                          final currentItems = ref.read(repairItemsProvider);
+
+                          debugPrint('🔍 현재 항목 수: ${currentItems.length}');
+
+                          // 이미 같은 항목이 있는지 확인 (repairPart로 체크)
+                          final existingIndex = currentItems.indexWhere(
+                            (item) =>
+                                item['repairPart'] ==
+                                    repairItem['repairPart'] &&
+                                item['measurement'] ==
+                                    repairItem['measurement'],
+                          );
+
+                          List<Map<String, dynamic>> allItems;
+                          if (existingIndex >= 0) {
+                            // 이미 존재하면 교체
+                            allItems = List.from(currentItems);
+                            allItems[existingIndex] = repairItem;
+                            debugPrint('🔄 기존 항목 교체: index $existingIndex');
+                          } else {
+                            // 새 항목 추가
+                            allItems = [...currentItems, repairItem];
+                            debugPrint('➕ 새 항목 추가');
+                          }
+
+                          debugPrint('📝 수치 입력 완료! 항목 수: ${allItems.length}');
+
+                          try {
+                            // Provider에 저장 (JSON 깊은 복사 적용)
+                            ref
+                                .read(repairItemsProvider.notifier)
+                                .setItems(allItems);
+                            debugPrint('✅ Provider 저장 성공');
+                          } catch (e, stackTrace) {
+                            debugPrint('❌ Provider 저장 실패: $e');
+                            debugPrint('❌ Stack: $stackTrace');
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('데이터 저장 실패: $e'),
+                                  backgroundColor: Colors.red,
+                                  duration: const Duration(seconds: 5),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+
+                          debugPrint('🔄 등록 확인 페이지로 이동 중...');
+
+                          // RepairConfirmationPage로 직접 이동
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('데이터 저장 실패: $e'),
-                                backgroundColor: Colors.red,
-                                duration: const Duration(seconds: 5),
-                              ),
+                            context.push(
+                              '/repair-confirmation',
+                              extra: {
+                                'repairItems': allItems,
+                                'imageUrls': widget.imageUrls,
+                              },
                             );
+                          } else {
+                            debugPrint('⚠️ mounted가 false입니다!');
                           }
-                          return;
-                        }
-                        
-                        debugPrint('🔄 등록 확인 페이지로 이동 중...');
-                        
-                        // RepairConfirmationPage로 직접 이동
-                        if (mounted) {
-                          context.push('/repair-confirmation', extra: {
-                            'repairItems': allItems,
-                            'imageUrls': widget.imageUrls,
-                          },);
-                        } else {
-                          debugPrint('⚠️ mounted가 false입니다!');
-                        }
-                      },
+                        },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: !_allFieldsFilled 
-                        ? Colors.grey.shade300 
+                    backgroundColor: !_allFieldsFilled
+                        ? Colors.grey.shade300
                         : const Color(0xFF00C896),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -831,11 +875,11 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
   List<Widget> _buildSubPartInputFields() {
     final widgets = <Widget>[];
     final inputCountPerPart = widget.inputLabels?.length ?? 1;
-    
+
     for (int partIndex = 0; partIndex < _selectedSubParts.length; partIndex++) {
       final part = _selectedSubParts[partIndex];
       final partName = part['name'] as String;
-      
+
       // 부위명 헤더
       widgets.add(
         Container(
@@ -865,56 +909,63 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
         ),
       );
       widgets.add(const SizedBox(height: 12));
-      
+
       // 해당 부위의 입력 필드들
       for (int inputIndex = 0; inputIndex < inputCountPerPart; inputIndex++) {
         final controllerIndex = partIndex * inputCountPerPart + inputIndex;
-        final label = widget.inputLabels != null && inputIndex < widget.inputLabels!.length
+        final label = widget.inputLabels != null &&
+                inputIndex < widget.inputLabels!.length
             ? widget.inputLabels![inputIndex]
             : '치수';
-        
-        widgets.add(_buildInputField(
-          controller: _measurementControllers[controllerIndex],
-          label: inputCountPerPart > 1 ? label : null,
-          hint: '(예) -3',
-        ),);
+
+        widgets.add(
+          _buildInputField(
+            controller: _measurementControllers[controllerIndex],
+            label: inputCountPerPart > 1 ? label : null,
+            hint: '(예) -3',
+          ),
+        );
         widgets.add(const SizedBox(height: 12));
       }
-      
+
       // 부위 간 구분선
       if (partIndex < _selectedSubParts.length - 1) {
         widgets.add(Divider(color: Colors.grey.shade200, height: 24));
       }
     }
-    
+
     return widgets;
   }
-  
+
   // 기본 입력 필드 생성 (전체 선택)
   List<Widget> _buildDefaultInputFields() {
     final widgets = <Widget>[];
     final inputCount = widget.inputLabels?.length ?? 1;
-    
+
     for (int index = 0; index < inputCount; index++) {
-      final label = widget.inputLabels != null && index < widget.inputLabels!.length
-          ? widget.inputLabels![index]
-          : null;
-      
-      widgets.add(_buildInputField(
-        controller: _measurementControllers[index],
-        label: inputCount > 1 ? label : null,
-        hint: '(예) -3',
-      ),);
+      final label =
+          widget.inputLabels != null && index < widget.inputLabels!.length
+              ? widget.inputLabels![index]
+              : null;
+
+      widgets.add(
+        _buildInputField(
+          controller: _measurementControllers[index],
+          label: inputCount > 1 ? label : null,
+          hint: '(예) -3',
+        ),
+      );
       widgets.add(const SizedBox(height: 12));
     }
-    
+
     return widgets;
   }
-  
+
   // 입력 필드 위젯 생성
   Widget _buildInputField({
     required TextEditingController controller,
-    required String hint, String? label,
+    required String hint,
+    String? label,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -983,13 +1034,13 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
 
   Widget _buildScopeOption(String option) {
     final isSelected = _selectedScope == option;
-    
+
     return InkWell(
       onTap: () async {
         setState(() {
           _selectedScope = option;
         });
-        
+
         // "특정 부위 선택" 선택 시 바텀시트 표시
         if (option == '특정 부위 선택' && widget.hasAdvancedOptions == true) {
           await _showSubPartsSelectionSheet();
@@ -999,13 +1050,11 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isSelected 
+          color: isSelected
               ? const Color(0xFF00C896).withOpacity(0.05)
               : Colors.white,
           border: Border.all(
-            color: isSelected 
-                ? const Color(0xFF00C896)
-                : Colors.grey.shade300,
+            color: isSelected ? const Color(0xFF00C896) : Colors.grey.shade300,
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -1014,12 +1063,11 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isSelected 
-                  ? Icons.radio_button_checked 
+              isSelected
+                  ? Icons.radio_button_checked
                   : Icons.radio_button_unchecked,
-              color: isSelected 
-                  ? const Color(0xFF00C896)
-                  : Colors.grey.shade400,
+              color:
+                  isSelected ? const Color(0xFF00C896) : Colors.grey.shade400,
               size: 20,
             ),
             const SizedBox(width: 8),
@@ -1028,9 +1076,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected 
-                    ? const Color(0xFF00C896)
-                    : Colors.black87,
+                color: isSelected ? const Color(0xFF00C896) : Colors.black87,
               ),
             ),
           ],
@@ -1049,4 +1095,3 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
     );
   }
 }
-
