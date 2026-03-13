@@ -1,0 +1,6 @@
+framework module os_info_plugin {
+  umbrella header "os_info_plugin-umbrella.h"
+
+  export *
+  module * { export * }
+}

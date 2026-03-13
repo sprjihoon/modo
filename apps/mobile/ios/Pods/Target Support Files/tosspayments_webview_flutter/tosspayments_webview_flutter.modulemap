@@ -1,0 +1,6 @@
+framework module tosspayments_webview_flutter {
+  umbrella header "tosspayments_webview_flutter-umbrella.h"
+
+  export *
+  module * { export * }
+}

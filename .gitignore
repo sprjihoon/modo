@@ -109,7 +109,7 @@ unlinked_spec.ds
 **/ios/**/.vagrant/
 **/ios/**/DerivedData/
 **/ios/**/Icon?
-**/ios/**/Pods/
+# **/ios/**/Pods/  # Xcode Cloud 빌드를 위해 Pods 포함
 **/ios/**/.symlinks/
 **/ios/**/profile
 **/ios/**/xcuserdata
