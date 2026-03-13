@@ -1418,14 +1418,16 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   /// 송장번호 카드 빌더
+  /// [showTrackingButton] - 배송추적 버튼 표시 여부 (기본값: true)
   Widget _buildTrackingCard(
     BuildContext context,
     String label,
     String trackingNo,
     IconData icon,
     Color color,
-    String description,
-  ) {
+    String description, {
+    bool showTrackingButton = true,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1518,24 +1520,27 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          // 배송추적 버튼
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              icon: Icon(Icons.track_changes_outlined, size: 18, color: color),
-              label: const Text('배송추적'),
-              onPressed: () => _openTracking(trackingNo),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: color,
-                side: BorderSide(color: color),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          // 배송추적 버튼 (조건부 표시)
+          if (showTrackingButton) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon:
+                    Icon(Icons.track_changes_outlined, size: 18, color: color),
+                label: const Text('배송추적'),
+                onPressed: () => _openTracking(trackingNo),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: color,
+                  side: BorderSide(color: color),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -2828,7 +2833,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           const SizedBox(height: 16),
 
           // 송장번호 카드 (2개)
-          // 1. 회수 송장번호
+          // 입고 완료(INBOUND), 수선중(PROCESSING) 상태에서는 배송추적 버튼 숨김
+          // 1. 회수 송장번호 - 입고 완료 후에는 배송추적 불필요
           if (_shipmentData?['pickup_tracking_no'] != null)
             _buildTrackingCard(
               context,
@@ -2837,11 +2843,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               Icons.local_shipping_outlined,
               Colors.blue,
               '수거 시 사용',
+              showTrackingButton: _currentStatus == 'BOOKED',
             ),
           if (_shipmentData?['pickup_tracking_no'] != null)
             const SizedBox(height: 12),
 
-          // 2. 발송 송장번호
+          // 2. 발송 송장번호 - 출고 완료(READY_TO_SHIP) 이후에만 배송추적 표시
           if (_shipmentData?['delivery_tracking_no'] != null)
             _buildTrackingCard(
               context,
@@ -2850,6 +2857,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
               Icons.send_outlined,
               const Color(0xFF00C896),
               '배송 시 사용',
+              showTrackingButton:
+                  _currentStatus == 'READY_TO_SHIP' ||
+                  _currentStatus == 'DELIVERED',
             ),
           if (_shipmentData?['delivery_tracking_no'] != null)
             const SizedBox(height: 12),
@@ -3051,7 +3061,31 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   /// 기본 버튼 (문의하기 + 배송 추적)
+  /// 입고 완료(INBOUND), 수선중(PROCESSING) 상태에서는 배송추적 버튼 숨김
   Widget _buildDefaultButtons(BuildContext context) {
+    // 입고 완료 ~ 출고 전 상태에서는 배송추적이 필요 없음
+    final hideTrackingButton =
+        _currentStatus == 'INBOUND' || _currentStatus == 'PROCESSING';
+
+    if (hideTrackingButton) {
+      // 문의하기 버튼만 표시 (전체 너비)
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.headset_mic_outlined, size: 20),
+          label: const Text('문의하기'),
+          onPressed: () => _openCustomerService(context),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 0,
+          ),
+        ),
+      );
+    }
+
     return Row(
       children: [
         Expanded(
