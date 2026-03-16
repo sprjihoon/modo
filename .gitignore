@@ -9,6 +9,9 @@
 .env.production
 .env.development
 
+# 모바일 앱 .env는 Xcode Cloud 빌드를 위해 포함
+!apps/mobile/.env
+
 # ============================================
 # OS Files
 # ============================================
