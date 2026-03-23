@@ -1,20 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
 
 /**
  * 수선 카테고리 및 항목 조회 API (관리자용)
  */
 export async function GET() {
   try {
-    // Service Role Key로 직접 클라이언트 생성 (RLS 완전 우회)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    
-    console.log('🔑 Service Role Key 존재:', !!serviceRoleKey);
-    
-    // Service Role Key 대신 anon key 사용 (RLS 정책으로 모든 카테고리 조회 가능)
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const supabaseAdmin = createClient(supabaseUrl, anonKey);
 
     // 카테고리 조회 (오름차순)
     const { data: categoriesData, error: catError } = await supabaseAdmin
