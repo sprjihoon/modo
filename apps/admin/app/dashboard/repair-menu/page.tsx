@@ -822,9 +822,42 @@ function EditRepairTypeDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingSubParts, setIsLoadingSubParts] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingSubPartIcon, setIsUploadingSubPartIcon] = useState(false);
 
   // icon_name이 URL인지 확인
   const isIconUrl = iconName.startsWith('http');
+
+  // 세부 부위 아이콘 업로드
+  const handleSubPartIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingSubPartIcon(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'sub-part-icons');
+
+      const response = await fetch('/api/admin/upload/svg', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '업로드 실패');
+      }
+
+      setNewSubPartIcon(result.data.url);
+    } catch (error: any) {
+      console.error('세부 부위 아이콘 업로드 실패:', error);
+      alert(`아이콘 업로드 실패: ${error.message}`);
+    } finally {
+      setIsUploadingSubPartIcon(false);
+      e.target.value = '';
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -847,6 +880,9 @@ function EditRepairTypeDialog({
         throw new Error(result.error || '업로드 실패');
       }
 
+      // #region agent log
+      console.log('[DEBUG:UPLOAD] SVG uploaded successfully, URL:', result.data.url);
+      // #endregion
       setIconName(result.data.url);
     } catch (error: any) {
       console.error('SVG 업로드 실패:', error);
@@ -900,6 +936,11 @@ function EditRepairTypeDialog({
       const inputLabels = requiresMultipleInputs 
         ? [inputLabel1 || '첫 번째 입력', inputLabel2 || '두 번째 입력']
         : ['치수 (cm)'];
+
+      // #region agent log
+      console.log('[DEBUG:SUBMIT] EditRepairType - iconName:', iconName);
+      console.log('[DEBUG:SUBMIT] EditRepairType - sending icon_name:', iconName || null);
+      // #endregion
 
       const response = await fetch('/api/admin/repair-menu/types', {
         method: 'PUT',
@@ -1170,32 +1211,55 @@ function EditRepairTypeDialog({
                   
                   {/* 세부 부위 추가 입력 */}
                   <div className="space-y-2">
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <Input
-                          placeholder="부위명 (예: 앞섶)"
-                          value={newSubPartName}
-                          onChange={(e) => setNewSubPartName(e.target.value)}
-                          className="h-9 text-sm"
-                        />
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="부위명 (예: 앞섶)"
+                        value={newSubPartName}
+                        onChange={(e) => setNewSubPartName(e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                      <div className="flex gap-2 items-center">
+                        <div className="flex-1">
+                          <Input
+                            placeholder="아이콘 URL 또는 파일명"
+                            value={newSubPartIcon}
+                            onChange={(e) => setNewSubPartIcon(e.target.value)}
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <label>
+                          <input
+                            type="file"
+                            accept=".svg,image/svg+xml"
+                            onChange={handleSubPartIconUpload}
+                            className="hidden"
+                            disabled={isUploadingSubPartIcon}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isUploadingSubPartIcon}
+                            asChild
+                          >
+                            <span className="cursor-pointer">
+                              <Upload className="h-4 w-4" />
+                            </span>
+                          </Button>
+                        </label>
+                        {newSubPartIcon && newSubPartIcon.startsWith('http') && (
+                          <div className="w-8 h-8 border rounded flex items-center justify-center bg-gray-50">
+                            <SvgPreview url={newSubPartIcon} size={24} />
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <Input
-                          placeholder="아이콘 (front.svg)"
-                          value={newSubPartIcon}
-                          onChange={(e) => setNewSubPartIcon(e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Input
-                          placeholder="가격 (10000)"
-                          type="number"
-                          value={newSubPartPrice}
-                          onChange={(e) => setNewSubPartPrice(e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                      </div>
+                      <Input
+                        placeholder="가격 (10000)"
+                        type="number"
+                        value={newSubPartPrice}
+                        onChange={(e) => setNewSubPartPrice(e.target.value)}
+                        className="h-9 text-sm"
+                      />
                     </div>
                     <Button
                       type="button"
@@ -1233,20 +1297,25 @@ function EditRepairTypeDialog({
                           key={index}
                           className="flex items-center justify-between p-2 bg-white rounded border"
                         >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-1">
+                            {part.icon && part.icon.startsWith('http') && (
+                              <div className="w-8 h-8 border rounded flex items-center justify-center bg-gray-50 flex-shrink-0">
+                                <SvgPreview url={part.icon} size={24} />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium">{part.name}</p>
-                              {part.icon && (
-                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                              {part.icon && !part.icon.startsWith('http') && (
+                                <span className="text-xs text-gray-500">
                                   {part.icon}
                                 </span>
                               )}
+                              {part.price && part.price > 0 && (
+                                <p className="text-xs font-medium text-green-600">
+                                  {part.price.toLocaleString()}원
+                                </p>
+                              )}
                             </div>
-                            {part.price && part.price > 0 && (
-                              <p className="text-xs font-medium text-green-600">
-                                {part.price.toLocaleString()}원
-                              </p>
-                            )}
                           </div>
                           <Button
                             type="button"
@@ -1315,9 +1384,42 @@ function AddRepairTypeDialog({
   
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingSubPartIcon, setIsUploadingSubPartIcon] = useState(false);
 
   // icon_name이 URL인지 확인
   const isIconUrl = iconName.startsWith('http');
+
+  // 세부 부위 아이콘 업로드
+  const handleSubPartIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingSubPartIcon(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'sub-part-icons');
+
+      const response = await fetch('/api/admin/upload/svg', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '업로드 실패');
+      }
+
+      setNewSubPartIcon(result.data.url);
+    } catch (error: any) {
+      console.error('세부 부위 아이콘 업로드 실패:', error);
+      alert(`아이콘 업로드 실패: ${error.message}`);
+    } finally {
+      setIsUploadingSubPartIcon(false);
+      e.target.value = '';
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1678,33 +1780,54 @@ function AddRepairTypeDialog({
                   
                   {/* 세부 부위 추가 입력 */}
                   <div className="space-y-2">
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
+                    <Input
+                      placeholder="부위명 (예: 앞섶)"
+                      value={newSubPartName}
+                      onChange={(e) => setNewSubPartName(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1">
                         <Input
-                          placeholder="부위명 (예: 앞섶)"
-                          value={newSubPartName}
-                          onChange={(e) => setNewSubPartName(e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Input
-                          placeholder="아이콘 (front.svg)"
+                          placeholder="아이콘 URL 또는 파일명"
                           value={newSubPartIcon}
                           onChange={(e) => setNewSubPartIcon(e.target.value)}
                           className="h-9 text-sm"
                         />
                       </div>
-                      <div>
-                        <Input
-                          placeholder="가격 (10000)"
-                          type="number"
-                          value={newSubPartPrice}
-                          onChange={(e) => setNewSubPartPrice(e.target.value)}
-                          className="h-9 text-sm"
+                      <label>
+                        <input
+                          type="file"
+                          accept=".svg,image/svg+xml"
+                          onChange={handleSubPartIconUpload}
+                          className="hidden"
+                          disabled={isUploadingSubPartIcon}
                         />
-                      </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isUploadingSubPartIcon}
+                          asChild
+                        >
+                          <span className="cursor-pointer">
+                            <Upload className="h-4 w-4" />
+                          </span>
+                        </Button>
+                      </label>
+                      {newSubPartIcon && newSubPartIcon.startsWith('http') && (
+                        <div className="w-8 h-8 border rounded flex items-center justify-center bg-gray-50">
+                          <SvgPreview url={newSubPartIcon} size={24} />
+                        </div>
+                      )}
                     </div>
+                    <Input
+                      placeholder="가격 (10000)"
+                      type="number"
+                      value={newSubPartPrice}
+                      onChange={(e) => setNewSubPartPrice(e.target.value)}
+                      className="h-9 text-sm"
+                    />
                     <Button
                       type="button"
                       size="sm"
@@ -1741,13 +1864,18 @@ function AddRepairTypeDialog({
                           key={index}
                           className="flex items-center justify-between p-2 bg-white rounded border"
                         >
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{part.name}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              {part.icon && (
-                                <p className="text-xs text-muted-foreground">
-                                  📎 {part.icon}
-                                </p>
+                          <div className="flex items-center gap-2 flex-1">
+                            {part.icon && part.icon.startsWith('http') && (
+                              <div className="w-8 h-8 border rounded flex items-center justify-center bg-gray-50 flex-shrink-0">
+                                <SvgPreview url={part.icon} size={24} />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium">{part.name}</p>
+                              {part.icon && !part.icon.startsWith('http') && (
+                                <span className="text-xs text-gray-500">
+                                  {part.icon}
+                                </span>
                               )}
                               {part.price && part.price > 0 && (
                                 <p className="text-xs font-medium text-green-600">

@@ -41,6 +41,14 @@ export async function GET() {
           .eq('category_id', cat.id)
           .order('display_order', { ascending: true });
 
+        // #region agent log
+        // DB에 저장된 icon_name 값 확인
+        typesData?.forEach((type: any) => {
+          console.log(`[DEBUG:GET] repair_type: name=${type.name}, icon_name=${type.icon_name}`);
+        });
+        fetch('http://127.0.0.1:7242/ingest/b2375dfe-4ef7-4e43-8b9d-f2b7ae038a52',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'repair-menu/route.ts:GET',message:'DB repair_types data',data:{category:cat.name,types:typesData?.map((t:any)=>({name:t.name,icon_name:t.icon_name}))},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
+
         return {
           ...cat,
           repair_types: typesData || [],
