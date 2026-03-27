@@ -102,9 +102,21 @@ Deno.serve(async (req) => {
       try {
         console.log('⚠️ 스크래핑 데이터 없음, GetResInfo API로 폴백');
         
-        const reqYmd = shipment.pickup_requested_at 
-          ? new Date(shipment.pickup_requested_at).toISOString().split('T')[0].replace(/-/g, '')
-          : new Date().toISOString().split('T')[0].replace(/-/g, '');
+        // delivery_info에서 원래 신청일자 가져오기 (더 정확함)
+        const deliveryInfo = shipment.delivery_info as Record<string, any> | null;
+        let reqYmd: string;
+        
+        if (deliveryInfo?.resDate) {
+          // 원래 신청 시 받은 resDate 사용 (YYYYMMDDHHMMSS 형식)
+          reqYmd = deliveryInfo.resDate.substring(0, 8);
+          console.log('📅 delivery_info.resDate에서 reqYmd 추출:', reqYmd);
+        } else if (shipment.pickup_requested_at) {
+          reqYmd = new Date(shipment.pickup_requested_at).toISOString().split('T')[0].replace(/-/g, '');
+          console.log('📅 pickup_requested_at에서 reqYmd 추출:', reqYmd);
+        } else {
+          reqYmd = new Date().toISOString().split('T')[0].replace(/-/g, '');
+          console.log('📅 현재 날짜로 reqYmd 설정:', reqYmd);
+        }
 
         epostStatus = await getResInfo({
           custNo: Deno.env.get('EPOST_CUSTOMER_ID') || '',
@@ -115,10 +127,20 @@ Deno.serve(async (req) => {
         console.log('✅ GetResInfo API 성공:', epostStatus?.treatStusCd);
       } catch (apiError: any) {
         console.error('⚠️ GetResInfo API 실패:', apiError?.message);
-        epostError = {
-          message: apiError?.message || '배송 상태를 조회할 수 없습니다',
-          code: apiError?.code || 'UNKNOWN_ERROR',
-        };
+        
+        // ERR-225 오류는 신청정보 불일치 - 사용자에게 친절한 메시지로 변환
+        const errorMessage = apiError?.message || '';
+        if (errorMessage.includes('ERR-225') || errorMessage.includes('신청정보가 존재하지 않습니다')) {
+          // 웹 스크래핑도 실패하고 API도 실패한 경우
+          // → 아직 집하되지 않았거나, 우체국 시스템에 등록되지 않은 상태
+          console.log('📋 ERR-225: 아직 우체국 시스템에 등록되지 않은 상태로 판단');
+          epostError = null; // 에러 표시하지 않음 (isNotYetPickedUp으로 처리됨)
+        } else {
+          epostError = {
+            message: apiError?.message || '배송 상태를 조회할 수 없습니다',
+            code: apiError?.code || 'UNKNOWN_ERROR',
+          };
+        }
       }
     }
 

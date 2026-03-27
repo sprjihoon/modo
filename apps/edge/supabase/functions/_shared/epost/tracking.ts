@@ -45,8 +45,9 @@ export async function getTrackingInfo(trackingNo: string): Promise<TrackingRespo
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Accept': 'text/html,application/xhtml+xml',
-        'User-Agent': 'Mozilla/5.0 (compatible; ModoApp/1.0)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
     });
     
@@ -62,39 +63,54 @@ export async function getTrackingInfo(trackingNo: string): Promise<TrackingRespo
     const html = await response.text();
     console.log('📥 HTML 길이:', html.length);
     
-    // 조회 결과 없음 체크 (정확한 문구로 체크)
-    if (html.includes('조회된 결과가 없습니다') || html.includes('조회하신 우편물 정보가 없습니다')) {
-      console.log('⚠️ 조회 결과 없음');
-      return {
-        success: true,
-        trackingNo,
-        events: [],
-      };
+    // HTML 일부 로깅 (디버깅용)
+    if (html.length < 1000) {
+      console.log('📄 HTML 전체:', html);
+    } else {
+      console.log('📄 HTML 앞부분:', html.substring(0, 500));
     }
     
-    // 정규식으로 이벤트 추출 - while exec 방식 (테스트 함수와 동일)
-    const trRegex = /<tr[^>]*>[\s\S]*?<td[^>]*>(\d{4}\.\d{2}\.\d{2})<\/td>[\s\S]*?<td[^>]*>(\d{2}:\d{2})<\/td>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>/gi;
+    // 조회 결과 없음 체크 (여러 패턴)
+    const noResultPatterns = [
+      '조회된 결과가 없습니다',
+      '조회하신 우편물 정보가 없습니다',
+      '등기번호를 다시 확인',
+      '조회결과가 없습니다',
+      '데이터가 없습니다',
+    ];
+    
+    for (const pattern of noResultPatterns) {
+      if (html.includes(pattern)) {
+        console.log('⚠️ 조회 결과 없음 (패턴:', pattern, ')');
+        return {
+          success: true,
+          trackingNo,
+          events: [],
+        };
+      }
+    }
     
     const events: TrackingEvent[] = [];
+    
+    // 방법 1: 기존 정규식 (4열 테이블)
+    const trRegex1 = /<tr[^>]*>[\s\S]*?<td[^>]*>(\d{4}\.\d{2}\.\d{2})<\/td>[\s\S]*?<td[^>]*>(\d{2}:\d{2})<\/td>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>/gi;
+    
     let match;
-    while ((match = trRegex.exec(html)) !== null) {
+    while ((match = trRegex1.exec(html)) !== null) {
       const date = match[1]?.trim() || '';
       const time = match[2]?.trim() || '';
       
-      // 위치에서 우체국명 추출 (HTML 태그 제거)
       let location = (match[3] || '')
         .replace(/<[^>]*>/g, '')
         .replace(/&nbsp;/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
       
-      // goPostDetail 함수에서 상태 추출
       let status = '';
       const statusMatch = (match[3] || '').match(/goPostDetail\([^,]+,\s*'([^']+)'/);
       if (statusMatch) {
         status = statusMatch[1];
       } else {
-        // 상태 td에서 추출
         status = (match[4] || '')
           .replace(/<[^>]*>/g, '')
           .replace(/&nbsp;/g, ' ')
@@ -103,29 +119,96 @@ export async function getTrackingInfo(trackingNo: string): Promise<TrackingRespo
       }
       
       if (date && time) {
-        events.push({
-          date,
-          time,
-          location,
-          status,
-          description: undefined,
-        });
+        events.push({ date, time, location, status, description: undefined });
       }
     }
-    console.log('📋 정규식 매칭 수:', events.length);
+    console.log('📋 방법1 정규식 매칭 수:', events.length);
     
-    console.log('📋 추출된 이벤트 수:', events.length);
+    // 방법 2: 다른 테이블 구조 (날짜-시간이 합쳐진 경우)
+    if (events.length === 0) {
+      const trRegex2 = /<tr[^>]*>[\s\S]*?<td[^>]*>(\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2})<\/td>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>[\s\S]*?<td[^>]*>([\s\S]*?)<\/td>/gi;
+      
+      while ((match = trRegex2.exec(html)) !== null) {
+        const dateTime = match[1]?.trim() || '';
+        const [date, time] = dateTime.split(/\s+/);
+        
+        const location = (match[2] || '')
+          .replace(/<[^>]*>/g, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        const status = (match[3] || '')
+          .replace(/<[^>]*>/g, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        if (date && time) {
+          events.push({ date, time, location, status, description: undefined });
+        }
+      }
+      console.log('📋 방법2 정규식 매칭 수:', events.length);
+    }
     
-    // 배달 상태 추출
+    // 방법 3: class="detail_off" 또는 "detail_on" 행 찾기
+    if (events.length === 0) {
+      const trRegex3 = /<tr\s+class="(?:detail_off|detail_on)"[^>]*>([\s\S]*?)<\/tr>/gi;
+      
+      while ((match = trRegex3.exec(html)) !== null) {
+        const rowHtml = match[1];
+        const tdMatches = rowHtml.match(/<td[^>]*>([\s\S]*?)<\/td>/gi) || [];
+        
+        if (tdMatches.length >= 4) {
+          const extractText = (td: string) => td
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          const dateMatch = extractText(tdMatches[0]).match(/(\d{4}\.\d{2}\.\d{2})/);
+          const timeMatch = extractText(tdMatches[1]).match(/(\d{2}:\d{2})/);
+          
+          if (dateMatch && timeMatch) {
+            events.push({
+              date: dateMatch[1],
+              time: timeMatch[1],
+              location: extractText(tdMatches[2]),
+              status: extractText(tdMatches[3]),
+              description: undefined,
+            });
+          }
+        }
+      }
+      console.log('📋 방법3 정규식 매칭 수:', events.length);
+    }
+    
+    console.log('📋 최종 추출된 이벤트 수:', events.length);
+    
+    // 배달 상태 추출 (여러 패턴 시도)
     let deliveryStatus: string | undefined;
-    const deliveryValMatch = html.match(/<input[^>]*id="deliveryVal"[^>]*value="([^"]*)"[^>]*>/i);
-    if (deliveryValMatch) {
-      deliveryStatus = deliveryValMatch[1];
+    const deliveryPatterns = [
+      /<input[^>]*id="deliveryVal"[^>]*value="([^"]*)"[^>]*>/i,
+      /<input[^>]*name="deliveryVal"[^>]*value="([^"]*)"[^>]*>/i,
+      /배달\s*상태[^<]*<[^>]*>([^<]+)</i,
+    ];
+    
+    for (const pattern of deliveryPatterns) {
+      const deliveryMatch = html.match(pattern);
+      if (deliveryMatch && deliveryMatch[1]) {
+        deliveryStatus = deliveryMatch[1].trim();
+        break;
+      }
     }
     
     // 데이터가 없는 경우
     if (events.length === 0) {
       console.log('⚠️ 배송 이벤트를 파싱할 수 없음');
+      // HTML에 테이블이 있는지 확인
+      const hasTable = html.includes('<table') || html.includes('<TABLE');
+      const hasTbody = html.includes('<tbody') || html.includes('<TBODY');
+      console.log('📋 HTML 구조 확인:', { hasTable, hasTbody });
+      
       return {
         success: true,
         trackingNo,

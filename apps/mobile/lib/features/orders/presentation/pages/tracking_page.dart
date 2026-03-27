@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../services/order_service.dart';
 
 /// 배송추적 페이지
@@ -169,8 +170,31 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
             OutlinedButton.icon(
               icon: const Icon(Icons.open_in_browser),
               label: const Text('우체국 사이트에서 자세히 보기'),
-              onPressed: () {
-                // 외부 브라우저로 열기 (선택사항)
+              onPressed: () async {
+                final uri = Uri.parse(trackingUrl);
+                try {
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('브라우저를 열 수 없습니다'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('오류: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
               },
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -631,6 +655,51 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
   /// 에러 카드
   Widget _buildErrorCard(Map<String, dynamic> error) {
     final message = error['message'] as String? ?? '알 수 없는 오류';
+
+    // ERR-225 오류는 신청정보 불일치 - 더 친절한 메시지로 변환
+    final isErr225 =
+        message.contains('ERR-225') || message.contains('신청정보가 존재하지 않습니다');
+
+    if (isErr225) {
+      // ERR-225는 아직 집하되지 않은 것으로 처리 (에러 대신 안내 메시지)
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.orange.shade200),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.info_outline,
+              size: 48,
+              color: Colors.orange.shade700,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '배송 정보 확인 중',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.orange.shade900,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '우체국 시스템에서 배송 정보를 확인하는 중입니다.\n\n아래 버튼을 눌러 우체국 사이트에서 직접 확인해보세요.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.orange.shade800,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
