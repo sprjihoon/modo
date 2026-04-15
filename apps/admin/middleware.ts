@@ -5,33 +5,15 @@ export function middleware(request: NextRequest) {
   const hostname = request.headers.get("host") || "";
   const pathname = request.nextUrl.pathname;
 
-  // modo.mom (고객용 도메인) - 인증 페이지만 허용
-  const isCustomerDomain =
-    hostname === "modo.mom" ||
-    hostname === "www.modo.mom" ||
-    hostname.includes("modo-virid.vercel.app");
-
-  // admin.modo.mom (관리자 도메인) - 모든 페이지 허용
+  // admin.modo.mom 또는 localhost만 관리자 페이지 접근 허용
   const isAdminDomain =
     hostname === "admin.modo.mom" ||
-    hostname.includes("localhost");
+    hostname.includes("localhost") ||
+    hostname.includes("vercel.app");
 
-  if (isCustomerDomain) {
-    // 고객 도메인에서 허용되는 경로
-    const allowedPaths = [
-      "/auth/reset-password",
-      "/auth/customer-landing",
-      "/_next",
-      "/favicon.ico",
-      "/api",
-    ];
-
-    const isAllowed = allowedPaths.some((path) => pathname.startsWith(path));
-
-    if (!isAllowed) {
-      // 허용되지 않은 경로 접근 시 안내 페이지로 리다이렉트
-      return NextResponse.redirect(new URL("/auth/customer-landing", request.url));
-    }
+  // 관리자 도메인이 아닌 경우 차단 (modo.mom은 apps/web이 처리)
+  if (!isAdminDomain) {
+    return NextResponse.redirect("https://modo.mom");
   }
 
   return NextResponse.next();

@@ -1,200 +1,253 @@
 # 🧵 모두의수선 (MODU'S REPAIR)
 
-> 비대면 의류 수선 플랫폼 v1.0
+> 비대면 의류 수선 플랫폼 — 고객 웹 · 관리자 콘솔 · Flutter 앱 · Edge Functions
+
+---
 
 ## 📖 프로젝트 소개
 
-**모두의수선**은 고객이 모바일 앱에서 의류 수선을 접수하고, 결제 및 수거예약을 진행한 후, 수선센터에서 입고/출고 과정을 영상으로 관리하며, 송장번호를 중심으로 모든 데이터를 일원화하는 비대면 수선 플랫폼입니다.
+**모두의수선**은 고객이 집에서 의류 수선을 신청하고, 택배 수거 → 전문 수선 → 배송 완료까지 비대면으로 처리하는 서비스입니다.
 
-## 🎯 핵심 특징
+- 고객은 **웹(modo.mom)** 또는 **Flutter 앱**으로 수선을 접수합니다.
+- 관리자·운영자는 **admin.modo.mom**에서 주문·배송·정산·콘텐츠를 관리합니다.
+- 결제는 **토스페이먼츠(Toss Payments)** 위젯으로 처리하며, 물류는 **우체국 택배 API**와 연동됩니다.
+- 입고·출고 영상은 **Cloudflare Stream**에 업로드되어 고객에게 투명하게 공유됩니다.
 
-- **송장번호 중심 아키텍처**: `tracking_no`가 모든 데이터의 FK 및 통합 식별자
-- **영상 기반 투명성**: 입고/출고 영상을 Cloudflare Stream으로 관리
-- **완전 비대면 프로세스**: 수거예약부터 배송까지 자동화
-- **실시간 진행상황**: 5단계 타임라인으로 수선 진행 추적
-- **안전한 결제**: PortOne(아임포트) 연동
-- **우체국 연동**: 수거예약 + 송장발급 + 배송추적
+---
+
+## 🗂 프로젝트 구조
+
+```
+modo/
+├── apps/
+│   ├── web/             # Next.js 14 고객 웹앱 (modo.mom)
+│   ├── admin/           # Next.js 14 관리자·운영 콘솔 (admin.modo.mom)
+│   ├── mobile/          # Flutter 고객용 앱 (iOS / Android)
+│   ├── edge/            # Supabase Edge Functions (Deno)
+│   └── sql/             # Postgres DDL 및 마이그레이션
+├── supabase/migrations/ # 루트 Supabase 마이그레이션
+├── docs/                # 아키텍처, API, DB 문서
+└── README.md
+```
+
+---
 
 ## 🔗 서비스 URL
 
 | 서비스 | URL | 설명 |
 |--------|-----|------|
-| **관리자 페이지** | [modo.mom](https://modo.mom) | 관리자 웹 콘솔 |
+| **고객 웹** | [modo.mom](https://modo.mom) | Next.js 고객 포털 |
+| **관리자** | [admin.modo.mom](https://admin.modo.mom) | 관리자·운영 콘솔 |
 
-## 📦 시스템 구조
-
-```
-modo/
-├── apps/
-│   ├── mobile/          # Flutter 고객용 앱
-│   ├── admin/           # Next.js 관리자 웹 콘솔
-│   ├── edge/            # Supabase Edge Functions (백엔드 API)
-│   └── sql/             # Postgres DDL 및 마이그레이션
-├── docs/                # 기획, 설계, API 문서
-├── .env.example         # 환경변수 템플릿
-└── README.md            # 이 파일
-```
+---
 
 ## 🧩 기술 스택
 
-### Frontend
-- **Mobile**: Flutter, Dart, Riverpod, go_router
-- **Admin**: Next.js 14, TypeScript, Shadcn/UI, React Query
+### 고객 웹 (`apps/web`)
+- **Framework**: Next.js 14 (App Router)
+- **UI**: Tailwind CSS, Lucide Icons
+- **상태관리**: TanStack Query (React Query)
+- **인증**: Supabase SSR (`@supabase/ssr`)
+- **결제**: Toss Payments SDK (`@tosspayments/tosspayments-sdk`)
+- **배포**: Vercel (포트 3001)
 
-### Backend & Infrastructure
-- **Database & Auth**: Supabase (Postgres + Auth + Storage + Realtime)
-- **Serverless API**: Supabase Edge Functions (Deno)
-- **Video Storage**: Cloudflare Stream
-- **Payment**: PortOne (아임포트)
-- **Logistics**: 우체국 API (수거예약 + 송장 + 배송추적)
-- **Push Notification**: Firebase Cloud Messaging
+### 관리자 (`apps/admin`)
+- **Framework**: Next.js 14 (App Router)
+- **UI**: Tailwind CSS, Radix/shadcn-ui, Recharts
+- **업로드**: tus-js-client (Cloudflare Stream 청크 업로드)
+- **비디오**: hls.js (HLS 재생)
+- **배포**: Vercel
 
-### DevOps
-- **Version Control**: GitHub
-- **CI/CD**: Vercel (admin), Firebase App Distribution (mobile)
-- **Monitoring**: Supabase Dashboard, Cloudflare Analytics
+### 공통 백엔드
+- **Database & Auth**: Supabase (Postgres + RLS + Auth)
+- **Edge Functions**: Deno (결제 확인, 알림, 물류 등)
+- **Video CDN**: Cloudflare Stream
+- **Logistics**: 우체국 API
+- **Push Notification**: Firebase Cloud Messaging (FCM)
 
-## ⚙️ 핵심 아키�ecture
+---
 
-### 송장번호 기반 데이터 플로우
+## ✅ 구현 현황
+
+### `apps/web` (고객 웹)
+
+| 기능 | 상태 | 설명 |
+|------|------|------|
+| 이메일 회원가입 / 로그인 | ✅ 완료 | Supabase Auth, 콜백 라우트 |
+| 비밀번호 찾기 / 재설정 | ✅ 완료 | 이메일 링크 기반 |
+| 홈 화면 | ✅ 완료 | 배너 슬라이더, 최근 주문, 추가결제 알림 |
+| 수선 접수 (4단계 마법사) | ✅ 완료 | 의류선택 → 수선항목 → 사진+핀 → 수거정보 |
+| 결제 (토스페이먼츠) | ✅ 완료 | 위젯 결제, 승인(Edge Function) |
+| 추가 결제 | ✅ 완료 | `/orders/[id]/extra-charge` |
+| 주문 목록 | ✅ 완료 | 상태 탭 필터 (전체/진행중/완료/취소) |
+| 주문 상세 | ✅ 완료 | 6단계 타임라인, 입출고 영상, 배송 추적 |
+| 배송 추적 | ✅ 완료 | 우체국 송장번호 연동 |
+| 알림 | ✅ 완료 | 읽음 처리 포함 |
+| 공지사항 | ✅ 완료 | 아코디언 펼치기 |
+| 마이페이지 | ✅ 완료 | 프로필, 포인트 표시 |
+| 회원정보 수정 | ✅ 완료 | `/profile/account` |
+| 배송지 관리 | ✅ 완료 | `/profile/addresses` |
+| 결제 내역 | ✅ 완료 | `/profile/payment-history` |
+| 포인트 내역 | ✅ 완료 | `/profile/points` |
+| 친구 초대 | ✅ 완료 | 초대 코드, 공유 기능 |
+| 고객센터 | ✅ 완료 | 카카오 채널, 이메일, FAQ |
+| 설정 | ✅ 완료 | 알림 토글, 약관, 탈퇴 |
+| 가격표 | ✅ 완료 | `/guide/price` (수선 종류별 가격) |
+| 쉬운 가이드 | ✅ 완료 | `/guide/easy` (4단계 이용 안내) |
+| 앱 다운로드 유도 | ✅ 완료 | iOS / Android 스토어 링크 |
+| 미들웨어 (세션 보호) | ✅ 완료 | 비로그인 시 `/login` 리다이렉트 |
+
+### 주문 상태 타임라인 (6단계)
+
+| 상태 | 레이블 | 설명 |
+|------|--------|------|
+| `PENDING_PAYMENT` | 결제대기 | 결제 전 상태 |
+| `BOOKED` | 수거예약 | 결제 완료, 수거 예약됨 |
+| `PICKED_UP` | 수거완료 | 택배 기사 수거 완료 |
+| `INBOUND` | 입고완료 | 수선센터 입고 |
+| `PROCESSING` | 수선중 | 수선 진행 |
+| `READY_TO_SHIP` | 출고완료 | 수선 완료, 출고됨 |
+| `DELIVERED` | 배송완료 | 고객 수령 |
+| `CANCELLED` | 수거취소 | 취소 처리 |
+
+### `apps/admin` (관리자·운영 콘솔)
+
+| 영역 | 상태 | 주요 기능 |
+|------|------|-----------|
+| 주문 관리 | ✅ 완료 | 목록/상세/상태변경/취소/추가결제/반품 |
+| 배송·물류 | ✅ 완료 | 수거예약, 송장발급, 배송 추적 |
+| 결제 관리 | ✅ 완료 | Toss 결제 확인/취소/웹훅 |
+| 고객 관리 | ✅ 완료 | 고객 목록/상세, 포인트 조정 |
+| 포인트 시스템 | ✅ 완료 | 설정/통계/트랜잭션/만료 |
+| 영상 관리 | ✅ 완료 | Cloudflare Stream, HLS 재생 |
+| 분석/통계 | ✅ 완료 | KPI, 고객 행동, 감사 로그 |
+| 콘텐츠 관리 | ✅ 완료 | 배너, 공지사항, 앱 컨텐츠 |
+| 수선 메뉴 | ✅ 완료 | 수선 종류/카테고리/가격 |
+| 프로모션 | ✅ 완료 | 프로모션 CRUD |
+| 직원 관리 | ✅ 완료 | 역할 기반 계정 (ADMIN/MANAGER/WORKER) |
+| OPS 콘솔 | ✅ 완료 | 입고/작업/출고, 디바이스, 라벨에디터 |
+
+---
+
+## ⚙️ 핵심 아키텍처
+
+### 데이터 흐름
 
 ```
-고객 수선 접수
-    ↓
-결제 완료
-    ↓
-수거예약 + 송장 선발행 (tracking_no 생성)
-    ↓
-입고 → 영상 업로드 → 고객 확인
-    ↓
-수선 진행
-    ↓
-출고 → 영상 업로드 → 고객 확인
-    ↓
-배송 추적 (tracking_no로 실시간 조회)
+[고객 웹/앱] → 수선 접수 → Supabase DB (orders)
+                   ↓
+           토스페이먼츠 결제 위젯
+                   ↓
+        Edge Function: payments-confirm-toss
+                   ↓
+          status = BOOKED (수거 예약됨)
+                   ↓
+      [관리자] 수거예약 + 우체국 송장 발행
+                   ↓
+         택배 기사 수거 → PICKED_UP
+                   ↓
+       수선센터 입고 영상 촬영 → INBOUND
+                   ↓
+         수선 진행 → PROCESSING
+                   ↓
+       출고 영상 촬영 → READY_TO_SHIP
+                   ↓
+         고객 배송 완료 → DELIVERED
 ```
 
-### 5단계 타임라인
+### 인증·권한
 
-1. **BOOKED** - 수거예약 완료
-2. **INBOUND** - 입고 완료 (입고 영상)
-3. **PROCESSING** - 수선 중
-4. **READY_TO_SHIP** - 출고 완료 (출고 영상)
-5. **DELIVERED** - 배송 완료
+- **고객**: Supabase Auth (email/OAuth), RLS로 본인 데이터만 접근
+- **관리자 DASHBOARD**: `users.role = ADMIN` 필수
+- **운영 OPS**: `SUPER_ADMIN / ADMIN / MANAGER / WORKER` 허용
+- **도메인 분리**: admin 미들웨어에서 `admin.modo.mom` 이외 요청은 `modo.mom`으로 리다이렉트
 
-## 🚀 시작하기
+---
+
+## 🚀 로컬 실행
 
 ### 사전 요구사항
 
-- Node.js 18+ (admin, edge)
-- Flutter 3.16+ (mobile)
-- Deno 1.40+ (edge functions)
+- Node.js 18+
+- Flutter 3.16+ (모바일 앱)
+- Deno 1.40+ (Edge Functions)
 - Supabase CLI
-- Git
 
-### 환경 설정
+### 고객 웹 (`apps/web`)
 
-1. 저장소 클론
 ```bash
-git clone <repository-url>
-cd modo
+cd apps/web
+cp .env.local.example .env.local
+# .env.local에 Supabase URL/KEY, Toss 클라이언트 키 입력
+npm install
+npm run dev   # http://localhost:3001
 ```
 
-2. 환경변수 설정
+### 관리자 (`apps/admin`)
+
 ```bash
-cp .env.example .env
-# .env 파일을 편집하여 실제 값 입력
+cd apps/admin
+# ADMIN_ENV_SETUP.md 참조하여 .env.local 설정
+npm install
+npm run dev   # http://localhost:3000
 ```
 
-3. 각 앱별 설치 및 실행
+### Edge Functions
 
-#### Mobile (Flutter)
+```bash
+cd apps/edge
+supabase functions serve
+```
+
+### Flutter 앱
+
 ```bash
 cd apps/mobile
 flutter pub get
 flutter run
 ```
 
-#### Admin (Next.js)
-```bash
-cd apps/admin
-npm install
-npm run dev
-```
+---
 
-#### Edge Functions (Supabase)
-```bash
-cd apps/edge
-supabase functions serve
-```
+## 🔑 환경변수 (웹)
 
-#### SQL (Database)
-```bash
-cd apps/sql
-# Supabase Dashboard에서 마이그레이션 실행
-# 또는 Supabase CLI 사용
-supabase db push
-```
+`.env.local.example` 참조:
 
-## 📱 1차(MVP) 목표 기능
+| 변수 | 설명 |
+|------|------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 익명 키 |
+| `NEXT_PUBLIC_TOSS_CLIENT_KEY` | 토스페이먼츠 클라이언트 키 |
+| `NEXT_PUBLIC_APP_URL` | 서비스 URL (e.g. https://modo.mom) |
+| `NEXT_PUBLIC_IOS_APP_URL` | App Store 링크 |
+| `NEXT_PUBLIC_ANDROID_APP_URL` | Play Store 링크 |
+| `NEXT_PUBLIC_APP_DEEP_LINK` | 앱 딥링크 스킴 |
 
-- [x] 프로젝트 구조 및 boilerplate 설정
-- [ ] 로그인 (Supabase Auth)
-- [ ] 수선 접수 (사진·옵션·가격·결제)
-- [ ] 수거예약 + 송장발급 (우체국 API)
-- [ ] 입고·출고 영상 업로드 및 HLS 재생
-- [ ] 5단계 타임라인 UI
-- [ ] 푸시 알림 (FCM)
-- [ ] 관리자 웹: 주문리스트/상세, 상태변경, 영상업로드, 송장출력
-- [ ] 결제/추가비용 결제
-- [ ] 로그/보안 정책 적용
-
-## 🧭 개발 규칙
-
-### 코드 컨벤션
-- **커밋 메시지**: Conventional Commits (feat:, fix:, chore:, docs:)
-- **타입 정의**: 명시적으로 정의 (TypeScript/Flutter 모델)
-- **주석**: 기능 의도 중심 (WHY > HOW)
-
-### 보안
-- 모든 비밀키는 `.env`에 저장
-- Git에 절대 커밋하지 않음
-- Supabase RLS로 데이터 접근 제어
-
-### 테스트
-- Mock API 우선 개발
-- 실제 API 연동은 Edge Function 단계에서 적용
-
-### 배포
-- Admin: Vercel 자동 배포
-- Mobile: Firebase App Distribution
-- Edge Functions: Supabase CLI
+---
 
 ## 📚 문서
-
-상세한 문서는 `docs/` 폴더를 참조하세요:
 
 - [아키텍처 설계](docs/architecture.md)
 - [API 명세](docs/api-spec.md)
 - [데이터베이스 스키마](docs/database-schema.md)
 - [배포 가이드](docs/deployment.md)
+- [관리자 환경 설정](apps/admin/ADMIN_ENV_SETUP.md)
 
-## 🤝 기여하기
+---
 
-1. Feature 브랜치 생성 (`git checkout -b feat/amazing-feature`)
-2. 변경사항 커밋 (`git commit -m 'feat: Add amazing feature'`)
-3. 브랜치에 Push (`git push origin feat/amazing-feature`)
-4. Pull Request 생성
+## 🧭 개발 규칙
+
+- **커밋 메시지**: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`)
+- **보안**: 모든 시크릿은 `.env.local`에만 보관, Git에 커밋 금지
+- **DB 접근**: 관리자 서버 라우트는 `SUPABASE_SERVICE_ROLE_KEY` 사용, 고객 웹은 RLS 의존
+- **모바일 우선**: 고객 웹은 최대 430px 컨테이너로 모바일 앱 UX를 재현
+
+---
 
 ## 📄 라이선스
 
-이 프로젝트는 private 프로젝트입니다.
-
-## 📞 연락처
-
-프로젝트 관련 문의: [이메일 주소]
+Private — 무단 복제 및 배포 금지
 
 ---
 
 **Built with ❤️ for better repair service**
-
