@@ -13,7 +13,7 @@ class OrderListPage extends ConsumerStatefulWidget {
 }
 
 class _OrderListPageState extends ConsumerState<OrderListPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   final _searchController = TextEditingController();
   final _orderService = OrderService();
@@ -27,6 +27,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 6, vsync: this);
     
     // 탭 변경 시 페이지 리셋
@@ -41,29 +42,42 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     _loadOrders();
   }
 
-  Future<void> _loadOrders() async {
+  /// 앱이 포그라운드로 돌아올 때 호출
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadOrders(background: true);
+    }
+  }
+
+  Future<void> _loadOrders({bool background = false}) async {
     try {
-      setState(() => _isLoading = true);
+      if (!background) setState(() => _isLoading = true);
       final orders = await _orderService.getMyOrders();
-      setState(() {
-        _allOrders = orders;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _allOrders = orders;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('주문 목록 조회 실패: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (!background) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('주문 목록 조회 실패: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
       }
-      setState(() => _isLoading = false);
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -466,6 +480,85 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     return pageButtons;
   }
 
+  /// 수거예약 → 수거완료 → 입고완료 → 수선중 → 출고완료 → 배송완료 미니 스텝 바
+  /// 목록에서는 우체국 API 없이 DB 상태만으로 표시: INBOUND 이상이면 수거완료도 완료 처리
+  Widget _buildMiniProgressBar(String status) {
+    const steps = [
+      {'label': '수거예약'},
+      {'label': '수거완료'},
+      {'label': '입고완료'},
+      {'label': '수선중'},
+      {'label': '출고완료'},
+      {'label': '배송완료'},
+    ];
+
+    // DB 상태 → 가상 6단계 인덱스 매핑
+    // INBOUND가 되면 수거완료(1)도 포함해서 완료로 간주
+    const statusVirtualIndex = {
+      'BOOKED': 0,
+      'INBOUND': 2,
+      'PROCESSING': 3,
+      'READY_TO_SHIP': 4,
+      'DELIVERED': 5,
+    };
+
+    final currentIndex = statusVirtualIndex[status] ?? 0;
+    const activeColor = Color(0xFF00C896);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 20),
+        Row(
+          children: List.generate(steps.length * 2 - 1, (i) {
+            if (i.isOdd) {
+              // 연결선
+              final leftStepIndex = i ~/ 2;
+              final lineCompleted = currentIndex > leftStepIndex;
+              return Expanded(
+                child: Container(
+                  height: 2,
+                  color: lineCompleted ? activeColor : Colors.grey.shade300,
+                ),
+              );
+            }
+            final stepIndex = i ~/ 2;
+            final completed = currentIndex >= stepIndex;
+            final isCurrent = currentIndex == stepIndex;
+            return Column(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: completed ? activeColor : Colors.grey.shade300,
+                    border: isCurrent
+                        ? Border.all(color: activeColor, width: 2.5)
+                        : null,
+                  ),
+                  child: completed
+                      ? const Icon(Icons.check, size: 12, color: Colors.white)
+                      : null,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  steps[stepIndex]['label']!,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: completed ? activeColor : Colors.grey.shade400,
+                    fontWeight:
+                        isCurrent ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
   Widget _buildOrderCard(BuildContext context, Map<String, dynamic> order) {
     final statusMap = {
       'PENDING': {'label': '결제대기', 'color': Colors.amber, 'icon': Icons.hourglass_empty_outlined},
@@ -708,6 +801,9 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                   ],
                 ),
               ),
+              // 취소 상태가 아닌 경우 진행 단계 미니 바 표시
+              if (status != 'CANCELLED' && status != 'PENDING')
+                _buildMiniProgressBar(status),
             ],
           ),
         ),

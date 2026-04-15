@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,7 +27,8 @@ class OrderDetailPage extends ConsumerStatefulWidget {
   ConsumerState<OrderDetailPage> createState() => _OrderDetailPageState();
 }
 
-class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
+class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
+    with WidgetsBindingObserver {
   final _orderService = OrderService();
   bool _isLoading = true;
   bool _isCancelling = false; // 취소 중 상태 추가
@@ -60,37 +60,27 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   List<Map<String, String>> _videoItems = [];
 
   // 주기적 새로고침을 위한 타이머
-  Timer? _refreshTimer;
-
   // 네트워크 에러 메시지 (UI에 배너로 표시)
   String? _networkErrorMessage;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadOrderData();
-    // 주기적 새로고침 시작 (30초마다)
-    _startPeriodicRefresh();
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  /// 주기적 새로고침 시작
-  void _startPeriodicRefresh() {
-    _refreshTimer?.cancel();
-    // 배송완료 상태가 아니면 30초마다 새로고침
-    if (_currentStatus != 'DELIVERED' && _currentStatus != 'CANCELLED') {
-      _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-        if (mounted) {
-          _loadOrderData(showLoading: false);
-        } else {
-          timer.cancel();
-        }
-      });
+  /// 앱이 포그라운드로 돌아올 때 데이터 갱신
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadOrderData(showLoading: false);
     }
   }
 
@@ -186,12 +176,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       });
       
       debugPrint('🔘 취소 가능 여부: $_isPickupCancellable (treatStusCd: $_pickupTreatStusCd)');
-
-      // 상태가 변경되었거나 배송완료 상태가 아니면 주기적 새로고침 재시작
-      if (statusChanged ||
-          (_currentStatus != 'DELIVERED' && _currentStatus != 'CANCELLED')) {
-        _startPeriodicRefresh();
-      }
 
       // 상태 변경 알림 (배송완료 등)
       if (statusChanged && mounted) {
@@ -1031,39 +1015,38 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
   }
 
   Widget _buildTimeline(BuildContext context) {
-    // 실제 주문 상태에 따라 각 단계의 완료 여부 결정
-    final statusOrder = [
-      'BOOKED',
-      'INBOUND',
-      'PROCESSING',
-      'READY_TO_SHIP',
-      'DELIVERED'
-    ];
-    final currentStatusIndex = statusOrder.indexOf(_currentStatus);
+    // 가상 6단계 인덱스: 수거예약(0) → 수거완료(1) → 입고완료(2) → 수선중(3) → 출고완료(4) → 배송완료(5)
+    // 수거완료는 DB 상태값이 아닌 우체국 treatStusCd(03 집하완료 이상)로 판단
+    final dbStatusVirtualIndex = {
+      'BOOKED': 0,
+      'INBOUND': 2,
+      'PROCESSING': 3,
+      'READY_TO_SHIP': 4,
+      'DELIVERED': 5,
+    };
+
+    int currentVirtualIndex = dbStatusVirtualIndex[_currentStatus] ?? 0;
+
+    // BOOKED 상태일 때 우체국 집하완료(03 이상)면 수거완료(1) 단계로 진입
+    if (_currentStatus == 'BOOKED') {
+      final code = _pickupTreatStusCd;
+      if (code == '03' || code == '04' || code == '05') {
+        currentVirtualIndex = 1;
+      }
+    }
 
     final steps = [
-      {'status': 'BOOKED', 'label': '수거예약', 'icon': Icons.schedule_outlined},
-      {'status': 'INBOUND', 'label': '입고완료', 'icon': Icons.inventory_outlined},
-      {
-        'status': 'PROCESSING',
-        'label': '수선중',
-        'icon': Icons.content_cut_rounded
-      },
-      {
-        'status': 'READY_TO_SHIP',
-        'label': '출고완료',
-        'icon': Icons.done_all_outlined
-      },
-      {
-        'status': 'DELIVERED',
-        'label': '배송완료',
-        'icon': Icons.check_circle_outline
-      },
+      {'label': '수거예약', 'icon': Icons.schedule_outlined},
+      {'label': '수거완료', 'icon': Icons.local_shipping_outlined},
+      {'label': '입고완료', 'icon': Icons.inventory_outlined},
+      {'label': '수선중', 'icon': Icons.content_cut_rounded},
+      {'label': '출고완료', 'icon': Icons.done_all_outlined},
+      {'label': '배송완료', 'icon': Icons.check_circle_outline},
     ];
 
     // 각 단계의 완료 여부 계산
     for (int i = 0; i < steps.length; i++) {
-      steps[i]['completed'] = currentStatusIndex >= i;
+      steps[i]['completed'] = currentVirtualIndex >= i;
     }
 
     return Container(
@@ -1103,6 +1086,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                   final stepIndex = index ~/ 2;
                   final step = steps[stepIndex];
                   final isCompleted = step['completed'] as bool;
+                  final isCurrent = stepIndex == currentVirtualIndex;
                   return Column(
                     children: [
                       Container(
@@ -1113,6 +1097,15 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
                               ? Theme.of(context).colorScheme.primary
                               : Colors.grey.shade300,
                           shape: BoxShape.circle,
+                          border: isCurrent
+                              ? Border.all(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withOpacity(0.5),
+                                  width: 3,
+                                )
+                              : null,
                           boxShadow: isCompleted
                               ? [
                                   BoxShadow(

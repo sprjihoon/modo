@@ -35,7 +35,8 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _HomePageState extends ConsumerState<HomePage>
+    with WidgetsBindingObserver {
   final PageController _bannerController = PageController();
   final OrderService _orderService = OrderService();
   final BannerService _bannerService = BannerService();
@@ -51,9 +52,27 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _isRetrying = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _bannerController.dispose();
     super.dispose();
+  }
+
+  /// 앱이 포그라운드로 돌아올 때 캐시를 비우고 조용히 재로드
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _cachedOrders = null;
+      _ordersLoaded = false;
+      _orderError = null;
+      setState(() {});
+    }
   }
 
   /// 주문 데이터 캐싱
@@ -1061,7 +1080,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                 ],
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                 children: [
                   // 아이콘
                   Stack(
@@ -1203,6 +1225,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                       size: 16, color: Colors.grey),
                 ],
               ),
+                  // 취소/결제대기가 아닌 경우 진행 단계 미니 바 표시
+                  if (status != 'CANCELLED' && status != 'PENDING')
+                    _buildMiniProgressBar(status),
+                ],
+              ),
             ),
           ),
 
@@ -1228,6 +1255,82 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 수거예약 → 수거완료 → 입고완료 → 수선중 → 출고완료 → 배송완료 미니 스텝 바
+  /// 목록에서는 DB 상태만으로 표시: INBOUND 이상이면 수거완료도 완료 처리
+  Widget _buildMiniProgressBar(String status) {
+    const steps = [
+      {'label': '수거예약'},
+      {'label': '수거완료'},
+      {'label': '입고완료'},
+      {'label': '수선중'},
+      {'label': '출고완료'},
+      {'label': '배송완료'},
+    ];
+
+    const statusVirtualIndex = {
+      'BOOKED': 0,
+      'INBOUND': 2,
+      'PROCESSING': 3,
+      'READY_TO_SHIP': 4,
+      'DELIVERED': 5,
+    };
+
+    final currentIndex = statusVirtualIndex[status] ?? 0;
+    const activeColor = Color(0xFF00C896);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 20),
+        Row(
+          children: List.generate(steps.length * 2 - 1, (i) {
+            if (i.isOdd) {
+              final leftStepIndex = i ~/ 2;
+              final lineCompleted = currentIndex > leftStepIndex;
+              return Expanded(
+                child: Container(
+                  height: 2,
+                  color: lineCompleted ? activeColor : Colors.grey.shade300,
+                ),
+              );
+            }
+            final stepIndex = i ~/ 2;
+            final completed = currentIndex >= stepIndex;
+            final isCurrent = currentIndex == stepIndex;
+            return Column(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: completed ? activeColor : Colors.grey.shade300,
+                    border: isCurrent
+                        ? Border.all(color: activeColor, width: 2.5)
+                        : null,
+                  ),
+                  child: completed
+                      ? const Icon(Icons.check, size: 12, color: Colors.white)
+                      : null,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  steps[stepIndex]['label']!,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: completed ? activeColor : Colors.grey.shade400,
+                    fontWeight:
+                        isCurrent ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            );
+          }),
+        ),
+      ],
     );
   }
 
