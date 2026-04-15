@@ -50,6 +50,9 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   bool _isLoadingAddress = true;
   bool _isValidatingPromoCode = false;
   
+  // 수거 희망일 (내일부터 선택 가능)
+  DateTime? _selectedPickupDate;
+  
   // 프로모션 코드 관련
   Map<String, dynamic>? _appliedPromotion;
   String? _promotionErrorMessage;
@@ -77,6 +80,47 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     _requestController.dispose();
     _promotionCodeController.dispose();
     super.dispose();
+  }
+
+  /// 수거 희망일 선택
+  Future<void> _selectPickupDate() async {
+    final now = DateTime.now();
+    final tomorrow = now.add(const Duration(days: 1));
+    final maxDate = now.add(const Duration(days: 7));
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedPickupDate ?? tomorrow,
+      firstDate: tomorrow,
+      lastDate: maxDate,
+      locale: const Locale('ko', 'KR'),
+      helpText: '수거 희망일 선택',
+      cancelText: '취소',
+      confirmText: '확인',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF00C896),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() => _selectedPickupDate = picked);
+    }
+  }
+
+  /// 날짜 포맷 (예: 2026년 4월 17일 (금))
+  String _formatPickupDate(DateTime date) {
+    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    final weekday = weekdays[date.weekday - 1];
+    return '${date.year}년 ${date.month}월 ${date.day}일 ($weekday)';
   }
   
   /// 기본 배송지 불러오기
@@ -395,6 +439,9 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         // 수취인 정보 (배송지 기준)
         recipientName: _isDeliveryAddressSame ? _recipientNameController.text : _deliveryRecipientNameController.text,
         recipientPhone: _isDeliveryAddressSame ? _recipientPhoneController.text : _deliveryRecipientPhoneController.text,
+        
+        // 수거 희망일 (DB 저장, 우체국 API는 자동 배정)
+        pickupDate: _selectedPickupDate,
       );
       
       debugPrint('✅ 주문 생성 완료: ${order['id']}');
@@ -520,6 +567,80 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                     ),
                     const SizedBox(height: 32),
                     
+                    // 수거 희망일
+                    const Text(
+                      '수거 희망일',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '희망일은 참고용이며, 실제 수거일은 우체국 일정에 따라 결정됩니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: _selectPickupDate,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _selectedPickupDate != null
+                                ? const Color(0xFF00C896)
+                                : Colors.grey.shade200,
+                            width: _selectedPickupDate != null ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_outlined,
+                              size: 20,
+                              color: _selectedPickupDate != null
+                                  ? const Color(0xFF00C896)
+                                  : Colors.grey.shade500,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _selectedPickupDate != null
+                                    ? _formatPickupDate(_selectedPickupDate!)
+                                    : '수거 희망일을 선택해주세요 (선택)',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: _selectedPickupDate != null
+                                      ? Colors.black87
+                                      : Colors.grey.shade500,
+                                ),
+                              ),
+                            ),
+                            if (_selectedPickupDate != null)
+                              GestureDetector(
+                                onTap: () => setState(() => _selectedPickupDate = null),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
                     // 배송 정보
                     const Text(
                       '배송 정보',
@@ -928,13 +1049,21 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                         color: Colors.black87,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '공용현관 비번, 수거 방법 등을 입력하면 우체국 집배원에게 전달됩니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     
                     TextField(
                       controller: _requestController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: '수거/배송 알림: 수거/배송 즉시\n배송 기사님께 전달할 내용을 적어주세요',
+                        hintText: '예) 공용현관 비번: #1234*\n부재 시 경비실에 맡겨주세요',
                         filled: true,
                         fillColor: Colors.grey.shade50,
                         border: OutlineInputBorder(

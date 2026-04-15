@@ -142,6 +142,7 @@ class OrderService {
     int? originalTotalPrice, // 할인 전 원래 금액
     String? recipientName, // 수취인 이름
     String? recipientPhone, // 수취인 전화번호
+    DateTime? pickupDate, // 수거 희망일 (DB 저장용, 우체국 API는 날짜 지정 불가)
   }) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -216,6 +217,11 @@ class OrderService {
         'delivery_phone': recipientPhone ?? '010-0000-0000',
         'notes': notes,
       };
+
+      // 수거 희망일 추가 (우체국 API는 날짜 직접 지정 불가, DB 저장 후 알림 용도)
+      if (pickupDate != null) {
+        orderData['pickup_date'] = pickupDate.toIso8601String().split('T')[0];
+      }
 
       // 프로모션 코드 정보 추가
       if (promotionCodeId != null) {
