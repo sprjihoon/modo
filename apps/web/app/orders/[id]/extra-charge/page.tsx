@@ -11,18 +11,23 @@ import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
 import { PageLayout } from "@/components/layout/PageLayout";
 
-interface TossPaymentsV1Instance {
-  requestPayment: (
-    method: string,
-    params: {
-      amount: number;
-      orderId: string;
-      orderName: string;
-      successUrl: string;
-      failUrl: string;
-      customerName?: string;
-    }
-  ) => Promise<void>;
+interface TossPaymentInstance {
+  requestPayment: (params: {
+    method: string;
+    amount: { currency: string; value: number };
+    orderId: string;
+    orderName: string;
+    successUrl: string;
+    failUrl: string;
+    customerName?: string;
+  }) => Promise<void>;
+}
+
+interface TossPaymentsConstructor {
+  (clientKey: string): {
+    payment: (options: { customerKey: string }) => TossPaymentInstance;
+  };
+  ANONYMOUS: string;
 }
 
 interface ExtraChargeData {
@@ -97,23 +102,25 @@ export default function ExtraChargePage() {
     setIsRequesting(true);
     setError(null);
     try {
-      const TossPaymentsV1 = (
-        window as unknown as { TossPayments?: (key: string) => TossPaymentsV1Instance }
+      const TossPayments = (
+        window as unknown as { TossPayments?: TossPaymentsConstructor }
       ).TossPayments;
 
-      if (!TossPaymentsV1) {
+      if (!TossPayments) {
         throw new Error("결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.");
       }
 
-      const tossPayments = TossPaymentsV1(CLIENT_KEY);
+      const tossPayments = TossPayments(CLIENT_KEY);
+      const payment = tossPayments.payment({ customerKey: TossPayments.ANONYMOUS });
       const extraData = order.extra_charge_data as ExtraChargeData | undefined;
       const amount = Math.max(1, Math.round(extraData?.managerPrice ?? 0));
       const tossOrderId = `EXTRA_${order.id}_${Date.now()}`;
       const successUrl = `${window.location.origin}/payment/success?originalOrderId=${order.id}&isExtraCharge=true`;
       const failUrl = `${window.location.origin}/payment/fail?orderId=${order.id}`;
 
-      await tossPayments.requestPayment("카드", {
-        amount,
+      await payment.requestPayment({
+        method: "CARD",
+        amount: { currency: "KRW", value: amount },
         orderId: tossOrderId,
         orderName: `${order.item_name ?? "수선 서비스"} 추가 결제`,
         successUrl,
@@ -261,7 +268,7 @@ export default function ExtraChargePage() {
 
   return (
     <PageLayout showAppBanner={false}>
-      <Script src="https://js.tosspayments.com/v1/payment" strategy="afterInteractive" />
+      <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
       <Header onBack={() => router.back()} />
 
       <div className="pb-56">

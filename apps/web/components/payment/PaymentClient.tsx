@@ -7,20 +7,25 @@ import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
 import { Scissors, MapPin, CreditCard, AlertCircle, FlaskConical, Truck, CheckCircle2 } from "lucide-react";
 
-interface TossPaymentsV1Instance {
-  requestPayment: (
-    method: string,
-    params: {
-      amount: number;
-      orderId: string;
-      orderName: string;
-      successUrl: string;
-      failUrl: string;
-      customerName?: string;
-      customerEmail?: string;
-      customerMobilePhone?: string;
-    }
-  ) => Promise<void>;
+interface TossPaymentInstance {
+  requestPayment: (params: {
+    method: string;
+    amount: { currency: string; value: number };
+    orderId: string;
+    orderName: string;
+    successUrl: string;
+    failUrl: string;
+    customerName?: string;
+    customerEmail?: string;
+    customerMobilePhone?: string;
+  }) => Promise<void>;
+}
+
+interface TossPaymentsConstructor {
+  (clientKey: string): {
+    payment: (options: { customerKey: string }) => TossPaymentInstance;
+  };
+  ANONYMOUS: string;
 }
 
 interface OrderInfo {
@@ -129,25 +134,21 @@ export function PaymentClient() {
     setIsRequesting(true);
     setError(null);
     try {
-      const TossPaymentsV1 = (
-        window as unknown as { TossPayments?: (key: string) => TossPaymentsV1Instance }
+      const TossPayments = (
+        window as unknown as { TossPayments?: TossPaymentsConstructor }
       ).TossPayments;
 
-      if (!TossPaymentsV1) {
+      if (!TossPayments) {
         throw new Error("결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.");
       }
 
-      const tossPayments = TossPaymentsV1(CLIENT_KEY);
+      const tossPayments = TossPayments(CLIENT_KEY);
+      const payment = tossPayments.payment({ customerKey: TossPayments.ANONYMOUS });
       const intAmount = Math.max(1, Math.round(order.total_price));
 
-      const methodMap: Record<PaymentMethod, string> = {
-        CARD: "카드",
-        TRANSFER: "계좌이체",
-        VIRTUAL_ACCOUNT: "가상계좌",
-      };
-
-      await tossPayments.requestPayment(methodMap[selectedMethod], {
-        amount: intAmount,
+      await payment.requestPayment({
+        method: selectedMethod,
+        amount: { currency: "KRW", value: intAmount },
         orderId: order.id,
         orderName: order.item_name ?? "모두의수선 수선 서비스",
         successUrl: `${window.location.origin}/payment/success`,
@@ -245,7 +246,7 @@ export function PaymentClient() {
 
   return (
     <>
-    <Script src="https://js.tosspayments.com/v1/payment" strategy="afterInteractive" />
+    <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
     <div className="pb-36">
       {/* 주문 요약 */}
       <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
