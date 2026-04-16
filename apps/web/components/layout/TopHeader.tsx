@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, User, ChevronLeft, ShoppingCart } from "lucide-react";
+import { Bell, User, ChevronLeft, ShoppingCart, Home } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getCartCount } from "@/lib/cart";
@@ -72,6 +72,10 @@ export function TopHeader({
         }
       })();
     }
+
+    const onNotificationsRead = () => setUnreadCount(0);
+    window.addEventListener("modu_notifications_read", onNotificationsRead);
+    return () => window.removeEventListener("modu_notifications_read", onNotificationsRead);
   }, []);
 
   async function fetchPendingOrderCount(
@@ -147,6 +151,17 @@ export function TopHeader({
 
         {showIcons && (
           <div className="flex items-center gap-1">
+            {/* 홈 버튼 - 타이틀이 있는 내부 페이지에서만 표시 */}
+            {title && (
+              <Link
+                href="/"
+                className="p-2 active:opacity-60"
+                aria-label="홈으로"
+              >
+                <Home className="w-5 h-5 text-gray-700" />
+              </Link>
+            )}
+
             {/* 알림 */}
             <Link
               href={isLoggedIn ? "/notifications" : "/login"}
