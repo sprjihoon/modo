@@ -1,0 +1,14 @@
+feat(web): implement extra charge flow matching mobile app
+
+- Add extra charge card inline in order detail (pay/skip/return buttons)
+- Remove PENDING_PAYMENT payment banner from order detail page
+- Wire skip/return actions to process_customer_decision Supabase RPC
+- Fix ExtraChargePage: separate useEffect for Toss widget DOM timing
+- Add skip/return success screens in ExtraChargePage
+- Fix PaymentSuccessClient to handle isExtraCharge + originalOrderId params
+- Fix RecentOrderCard: PENDING_PAYMENT orders now link to order detail, not payment
+- Fix profile page title encoding corruption
+- Fix pickup date: block Sat/holidays, default to next available weekday
+- Fix order API: include repair_type, PGRST204 dynamic retry
+- Fix Toss payment widget DOM timing with separate useEffect
+- Add Kakao address search inline modal (no popup)

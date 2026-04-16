@@ -33,7 +33,7 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
 
   return (
     <Link
-      href={isPendingPayment ? `/payment?orderId=${order.id}` : `/orders/${order.id}`}
+      href={`/orders/${order.id}`}
       className={cn(
         "block rounded-2xl border transition-all active:opacity-80",
         isPendingPayment
@@ -155,7 +155,7 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
         {isPendingPayment && (
           <div className="mt-2.5 pt-2.5 border-t border-[#00C896]/15 flex items-center justify-between">
             <span className="text-xs text-[#00C896]">결제 완료 후 수거 예약이 진행됩니다</span>
-            <span className="text-xs font-bold text-[#00C896]">결제하기 →</span>
+            <span className="text-xs font-bold text-[#00C896]">상세 보기 →</span>
           </div>
         )}
 

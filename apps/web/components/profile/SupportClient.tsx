@@ -30,16 +30,16 @@ export function SupportClient() {
       const supabase = createClient();
       const { data } = await supabase
         .from("company_info")
-        .select("key, value")
-        .in("key", ["customer_service_phone", "operating_hours_weekday", "operating_hours_lunch", "operating_hours_weekend"]);
+        .select("phone, operating_hours_weekday, operating_hours_lunch, operating_hours_weekend")
+        .limit(1)
+        .maybeSingle();
 
       if (data) {
-        const map = Object.fromEntries(data.map((r: { key: string; value: string }) => [r.key, r.value]));
-        if (map.customer_service_phone) setPhone(map.customer_service_phone);
+        if (data.phone) setPhone(data.phone);
         setHours({
-          weekday: map.operating_hours_weekday ?? "09:00 - 18:00",
-          lunch: map.operating_hours_lunch ?? "12:00 - 13:00",
-          weekend: map.operating_hours_weekend ?? "휴무",
+          weekday: data.operating_hours_weekday ?? "09:00 - 18:00",
+          lunch: data.operating_hours_lunch ?? "12:00 - 13:00",
+          weekend: data.operating_hours_weekend ?? "휴무",
         });
       }
     } catch {

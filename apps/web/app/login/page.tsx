@@ -7,7 +7,6 @@ export default function LoginPage() {
     <PageLayout
       title="로그인"
       showBack
-      showTabBar={false}
       showAppBanner={false}
       showIcons={false}
     >

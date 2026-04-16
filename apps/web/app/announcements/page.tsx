@@ -6,7 +6,6 @@ export default function AnnouncementsPage() {
     <PageLayout
       title="공지사항"
       showBack
-      showTabBar={false}
       showAppBanner={false}
     >
       <AnnouncementsClient />

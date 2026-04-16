@@ -35,7 +35,10 @@ export interface OrderDraft {
   pickupAddress?: string;
   pickupAddressDetail?: string;
   pickupDate?: string;
-  memo?: string;
+  notes?: string;
+  deliveryAddress?: string;
+  deliveryAddressDetail?: string;
+  agreedToExtraCharge?: boolean;
 }
 
 const STEPS: { key: OrderStep; label: string }[] = [

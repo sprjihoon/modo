@@ -6,7 +6,8 @@ import Link from "next/link";
 import {
   Truck, Package, CheckCircle, Clock, XCircle, CreditCard,
   MapPin, ChevronRight, RefreshCw, Scissors, MessageCircle,
-  ReceiptText, Copy, Check, Video, Play, X,
+  ReceiptText, Copy, Check, Video, Play, X, AlertTriangle,
+  ArrowRight, RotateCcw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice, ORDER_STATUS_MAP } from "@/lib/utils";
@@ -113,6 +114,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [outboundVideoUrl, setOutboundVideoUrl] = useState<string | null>(null);
   const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
   const [activeVideo, setActiveVideo] = useState<{ url: string; title: string } | null>(null);
+  const [isExtraActionLoading, setIsExtraActionLoading] = useState(false);
 
   useEffect(() => { loadOrder(); }, [orderId]);
 
@@ -215,6 +217,42 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     }
   }
 
+  async function handleExtraChargeDecision(action: "SKIP" | "RETURN") {
+    const msg =
+      action === "SKIP"
+        ? "추가 작업 없이 원안대로 진행하시겠습니까?"
+        : "반송 처리하시겠습니까?\n왕복 배송비 6,000원이 차감됩니다.";
+    if (!confirm(msg)) return;
+    setIsExtraActionLoading(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { alert("로그인이 필요합니다."); return; }
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("id")
+        .eq("auth_id", user.id)
+        .maybeSingle();
+      if (!userRow) { alert("사용자 정보를 찾을 수 없습니다."); return; }
+      const { error } = await supabase.rpc("process_customer_decision", {
+        p_order_id: orderId,
+        p_action: action,
+        p_customer_id: userRow.id,
+      });
+      if (error) throw error;
+      await loadOrder(true);
+    } catch (e) {
+      alert("처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      console.error(e);
+    } finally {
+      setIsExtraActionLoading(false);
+    }
+  }
+
+  function handleExtraChargePay() {
+    router.push(`/orders/${orderId}/extra-charge`);
+  }
+
   function openKakaoChat() {
     const orderInfo = [
       "안녕하세요, 모두의수선 고객입니다.",
@@ -291,49 +329,76 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         </button>
       </div>
 
-      {/* ── 결제 대기 배너 ── */}
-      {isPendingPayment && (
-        <Link
-          href={`/payment?orderId=${orderId}`}
-          className="flex items-center gap-3 mx-4 mt-2 p-4 bg-[#00C896]/10 border border-[#00C896]/30 rounded-2xl active:opacity-80"
-        >
-          <CreditCard className="w-5 h-5 text-[#00C896] shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-bold text-[#00C896]">결제가 필요합니다</p>
-            {order.total_price != null && (
-              <p className="text-xs text-gray-600 mt-0.5">
-                결제 금액: <span className="font-bold text-gray-800">{formatPrice(order.total_price)}</span>
-              </p>
-            )}
-            <p className="text-xs text-gray-500 mt-0.5">탭하여 결제를 완료해 주세요</p>
-          </div>
-          <ChevronRight className="w-4 h-4 text-[#00C896]" />
-        </Link>
-      )}
+      {/* ── 추가결제 카드 (앱과 동일한 인라인 카드) ── */}
+      {isPendingCharge && (() => {
+        const extraData = order.extra_charge_data;
+        const price = extraData?.managerPrice ?? 0;
+        const note = extraData?.managerNote ?? "추가 작업이 필요합니다";
+        const memo = extraData?.workerMemo ?? "";
+        return (
+          <div className="mx-4 mt-3 p-5 bg-orange-50 border-2 border-orange-300 rounded-2xl shadow-sm">
+            {/* 헤더 */}
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-6 h-6 text-orange-600 shrink-0" />
+              <p className="text-base font-bold text-orange-900">💳 추가 결제 요청</p>
+            </div>
 
-      {/* 추가결제 알림 */}
-      {isPendingCharge && (
-        <Link
-          href={`/orders/${orderId}/extra-charge`}
-          className="flex items-center gap-3 mx-4 mt-2 p-4 bg-orange-50 border border-orange-200 rounded-2xl active:opacity-80"
-        >
-          <CreditCard className="w-5 h-5 text-orange-500 shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-bold text-orange-800">추가결제가 필요합니다</p>
-            {order.extra_charge_data?.managerNote && (
-              <p className="text-xs text-orange-600 mt-0.5 line-clamp-1">
-                {order.extra_charge_data.managerNote}
-              </p>
+            {/* 안내 문구 */}
+            <div className="bg-white rounded-xl p-3 mb-3">
+              <p className="text-sm text-gray-700 leading-relaxed">{note}</p>
+            </div>
+
+            {/* 추가 금액 */}
+            <div className="bg-orange-100 rounded-xl p-3 flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-orange-800">추가 청구 금액</span>
+              <span className="text-xl font-extrabold text-orange-900">{formatPrice(price)}</span>
+            </div>
+
+            {/* 현장 메모 */}
+            {memo.length > 0 && (
+              <p className="text-xs text-gray-500 mb-3">현장 메모: {memo}</p>
             )}
-            {order.extra_charge_data?.managerPrice != null && (
-              <p className="text-sm font-bold text-orange-700 mt-1">
-                추가금액: {formatPrice(order.extra_charge_data.managerPrice)}
+
+            {/* 액션 버튼 */}
+            <div className="space-y-2">
+              <button
+                onClick={handleExtraChargePay}
+                disabled={isExtraActionLoading}
+                className="w-full py-3.5 bg-blue-600 text-white text-sm font-bold rounded-xl active:brightness-95 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <CreditCard className="w-4 h-4" />
+                {formatPrice(price)} 결제하기
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleExtraChargeDecision("SKIP")}
+                  disabled={isExtraActionLoading}
+                  className="py-3 border border-[#00C896] text-[#00C896] text-sm font-semibold rounded-xl active:bg-[#00C896]/10 disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                  그냥 진행
+                </button>
+                <button
+                  onClick={() => handleExtraChargeDecision("RETURN")}
+                  disabled={isExtraActionLoading}
+                  className="py-3 border border-red-400 text-red-500 text-sm font-semibold rounded-xl active:bg-red-50 disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  반송하기
+                </button>
+              </div>
+            </div>
+
+            {/* 안내 */}
+            <div className="mt-3 p-2.5 bg-gray-100 rounded-lg">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                • 그냥 진행: 추가 작업 없이 원안대로 진행합니다{"\n"}
+                • 반송: 왕복 배송비 6,000원이 차감됩니다
               </p>
-            )}
+            </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-orange-400" />
-        </Link>
-      )}
+        );
+      })()}
 
       {/* ── 현재 상태 헤더 ── */}
       <div className="mx-4 mt-3 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">

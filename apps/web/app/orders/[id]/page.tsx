@@ -10,7 +10,7 @@ export default function OrderDetailPage({
     <PageLayout
       title="주문 상세"
       showBack
-      showTabBar={false}
+
       showAppBanner={false}
     >
       <OrderDetailClient orderId={params.id} />

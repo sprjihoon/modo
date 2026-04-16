@@ -1,9 +1,9 @@
-import { NotificationsClient } from "@/components/notifications/NotificationsClient";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { NotificationsClient } from "@/components/notifications/NotificationsClient";
 
 export default function NotificationsPage() {
   return (
-    <PageLayout title="알림" showBack showTabBar showAppBanner={false}>
+    <PageLayout title="??" showBack showAppBanner={false}>
       <NotificationsClient />
     </PageLayout>
   );

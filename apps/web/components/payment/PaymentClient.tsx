@@ -13,7 +13,7 @@ interface OrderInfo {
   clothing_type?: string;
   total_price: number;
   pickup_address?: string;
-  repair_items?: Array<{ name: string; price: number; quantity: number }>;
+  repair_parts?: Array<{ name: string; price: number; quantity: number }>;
   customer_name?: string;
 }
 
@@ -33,24 +33,49 @@ export function PaymentClient() {
   const [error, setError] = useState<string | null>(null);
 
   const widgetsRef = useRef<Awaited<ReturnType<Awaited<ReturnType<typeof loadTossPayments>>["widgets"]>> | null>(null);
+  const widgetInitialized = useRef(false);
 
+  // 1단계: 주문 정보 로드
   useEffect(() => {
-    if (!orderId) { setError("주문 정보를 찾을 수 없습니다."); setIsLoading(false); return; }
+    if (!orderId) {
+      setError("주문 정보를 찾을 수 없습니다.");
+      setIsLoading(false);
+      return;
+    }
     loadOrder();
   }, [orderId]);
+
+  // 2단계: order가 세팅된 뒤 DOM이 렌더된 다음 위젯 초기화
+  useEffect(() => {
+    if (!order || widgetInitialized.current) return;
+    widgetInitialized.current = true;
+    initPaymentWidget(order.total_price);
+  }, [order]);
 
   async function loadOrder() {
     try {
       const supabase = createClient();
-      const { data } = await supabase
+
+      let data: OrderInfo | null = null;
+      const { data: d1, error: e1 } = await supabase
         .from("orders")
-        .select("id, item_name, clothing_type, total_price, pickup_address, repair_items, customer_name")
+        .select("id, item_name, clothing_type, total_price, pickup_address, repair_parts, customer_name")
         .eq("id", orderId)
         .single();
 
+      if (e1) {
+        const { data: d2 } = await supabase
+          .from("orders")
+          .select("id, item_name, clothing_type, total_price, pickup_address, customer_name")
+          .eq("id", orderId)
+          .single();
+        data = d2 as OrderInfo | null;
+      } else {
+        data = d1 as OrderInfo | null;
+      }
+
       if (!data) throw new Error("주문 정보를 찾을 수 없습니다.");
       setOrder(data);
-      await initPaymentWidget(data.total_price);
     } catch (e) {
       setError(e instanceof Error ? e.message : "주문 정보를 불러올 수 없습니다.");
     } finally {
@@ -127,7 +152,7 @@ export function PaymentClient() {
     );
   }
 
-  const repairItems = Array.isArray(order?.repair_items) ? order!.repair_items : [];
+  const repairItems = Array.isArray(order?.repair_parts) ? order!.repair_parts! : [];
 
   return (
     <div className="pb-32">
@@ -180,8 +205,14 @@ export function PaymentClient() {
         </p>
       </div>
 
-      {/* TossPayments 위젯 영역 */}
+      {/* TossPayments 위젯 영역 - 항상 렌더 (위젯이 붙을 DOM 필요) */}
       <div className="mx-4 mt-3">
+        {!isWidgetReady && (
+          <div className="space-y-3">
+            <div className="h-40 bg-gray-100 rounded-2xl animate-pulse" />
+            <div className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
+          </div>
+        )}
         <div id="payment-method-widget" />
         <div id="agreement-widget" className="mt-2" />
       </div>

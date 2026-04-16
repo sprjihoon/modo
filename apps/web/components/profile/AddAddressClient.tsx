@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, User, Phone, Home } from "lucide-react";
+import { MapPin, User, Home } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { AddressSearchButton } from "@/components/ui/AddressSearchButton";
 
 export function AddAddressClient() {
   const router = useRouter();
@@ -119,22 +120,27 @@ export function AddAddressClient() {
             <MapPin className="w-3.5 h-3.5" />
             주소
           </p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <input
               type="text"
               placeholder="우편번호"
               value={form.zipcode}
-              onChange={(e) => set("zipcode", e.target.value)}
-              className="w-28 px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+              readOnly
+              className="w-28 px-4 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 text-gray-600"
+            />
+            <AddressSearchButton
+              onSelect={(zipcode, addr) => {
+                setForm((prev) => ({ ...prev, zipcode, address: addr, addressDetail: "" }));
+              }}
             />
           </div>
           <input
             type="text"
             placeholder="기본 주소 *"
             value={form.address}
-            onChange={(e) => set("address", e.target.value)}
+            readOnly
             required
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 text-gray-600"
           />
           <input
             type="text"

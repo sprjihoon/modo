@@ -227,6 +227,42 @@ serve(async (req) => {
           order_id: order_id,
         })
       }
+
+      // 우체국 수거 예약 자동 호출
+      try {
+        const { data: fullOrder } = await supabaseClient
+          .from('orders')
+          .select('customer_name, pickup_address')
+          .eq('id', order_id)
+          .single()
+
+        if (fullOrder?.customer_name && fullOrder?.pickup_address) {
+          const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+          const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          const bookRes = await fetch(`${supabaseUrl}/functions/v1/shipments-book`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${serviceRoleKey}`,
+              'apikey': serviceRoleKey,
+            },
+            body: JSON.stringify({
+              order_id: order_id,
+              customer_name: fullOrder.customer_name,
+            }),
+          })
+          const bookData = await bookRes.json()
+          if (!bookRes.ok) {
+            console.error('❌ 수거 예약 실패:', bookData)
+          } else {
+            console.log('✅ 수거 예약 완료:', bookData?.data?.tracking_no)
+          }
+        } else {
+          console.warn('⚠️ 수거 예약 스킵: customer_name 또는 pickup_address 없음')
+        }
+      } catch (bookError) {
+        console.error('❌ 수거 예약 호출 오류 (무시):', bookError)
+      }
     }
 
     // 결제 로그 저장

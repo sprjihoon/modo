@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Scissors } from "lucide-react";
+import { Scissors } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { formatPrice } from "@/lib/utils";
 
@@ -40,16 +40,16 @@ export default function PriceGuidePage() {
 
   function priceLabel(r: RepairType): string {
     if (r.price != null && r.price > 0) return formatPrice(r.price);
-    return "문의";
+    return "??";
   }
 
   return (
-    <PageLayout title="가격표" showBack showTabBar={false} showAppBanner={false}>
-      {/* 상단 안내 */}
+    <PageLayout title="???" showBack showAppBanner={false}>
+      {/* ?? ?? */}
       <div className="mx-4 mt-4 p-4 bg-[#00C896]/5 border border-[#00C896]/20 rounded-2xl">
-        <p className="text-xs text-[#00C896] font-semibold">💡 안내</p>
+        <p className="text-xs text-[#00C896] font-semibold">?? ??</p>
         <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-          가격은 의류 상태에 따라 달라질 수 있습니다. 수거 후 정확한 가격을 안내드립니다.
+          ??? ?? ??? ?? ??? ? ????. ??? ??? ?????.
         </p>
       </div>
 
@@ -63,8 +63,8 @@ export default function PriceGuidePage() {
         ) : repairTypes.length === 0 ? (
           <div className="py-20 text-center">
             <Scissors className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-400">가격 정보가 없습니다</p>
-            <p className="text-xs text-gray-300 mt-1">고객센터로 문의해 주세요</p>
+            <p className="text-sm text-gray-400">?? ??? ????</p>
+            <p className="text-xs text-gray-300 mt-1">????? ??????</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -91,13 +91,13 @@ export default function PriceGuidePage() {
         )}
       </div>
 
-      {/* 하단 주문 CTA */}
+      {/* ?? ?? CTA */}
       <div className="px-4 pb-8">
         <button
           onClick={() => router.push("/order/new")}
           className="w-full py-4 bg-[#00C896] text-white text-sm font-bold rounded-xl active:brightness-95 transition-all"
         >
-          지금 수거신청 하기
+          ?? ?? ????
         </button>
       </div>
     </PageLayout>

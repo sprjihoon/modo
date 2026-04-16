@@ -11,7 +11,7 @@ export default function TrackingPage({ params, searchParams }: Props) {
 
   if (!trackingNo) {
     return (
-      <PageLayout title="배송추적" showTabBar={false}>
+      <PageLayout title="배송추적" showBack>
         <div className="p-8 text-center text-sm text-gray-400">
           송장번호 정보가 없습니다.
         </div>
@@ -20,7 +20,7 @@ export default function TrackingPage({ params, searchParams }: Props) {
   }
 
   return (
-    <PageLayout title="배송추적" showTabBar={false}>
+    <PageLayout title="배송추적" showBack>
       <TrackingClient orderId={params.id} trackingNo={trackingNo} />
     </PageLayout>
   );

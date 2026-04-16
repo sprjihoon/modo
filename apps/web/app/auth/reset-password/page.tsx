@@ -6,7 +6,6 @@ export default function ResetPasswordPage() {
     <PageLayout
       title="비밀번호 재설정"
       showBack={false}
-      showTabBar={false}
       showAppBanner={false}
       showIcons={false}
     >

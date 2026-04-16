@@ -3,7 +3,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 
 export default function HomePage() {
   return (
-    <PageLayout showAppBanner showTabBar showIcons>
+    <PageLayout showAppBanner showIcons>
       <HomePageClient />
     </PageLayout>
   );
