@@ -159,7 +159,7 @@ export function PaymentClient() {
   }
 
   async function initPaymentWidget(amount: number) {
-    // DOM이 완전히 페인트된 뒤 실행 보장 (Toss 문서 권고)
+    // DOM이 완전히 페인트된 뒤 실행 보장
     await new Promise<void>((r) => requestAnimationFrame(() => r()));
 
     const el = document.getElementById("payment-method-widget");
@@ -168,13 +168,31 @@ export function PaymentClient() {
       return;
     }
 
+    const intAmount = Math.max(1, Math.round(amount)); // Toss는 정수 원화 필요
+
+    const extractMsg = (e: unknown) => {
+      if (!e) return "알 수 없는 오류";
+      if (typeof e === "object") {
+        const err = e as Record<string, unknown>;
+        const code = err.code ? `[${err.code}] ` : "";
+        return code + String(err.message ?? JSON.stringify(err));
+      }
+      return String(e);
+    };
+
+    let step = "loadTossPayments";
     try {
       const tossPayments = await loadTossPayments(CLIENT_KEY);
+      console.log("[결제] SDK 로드 성공");
+
+      step = "widgets 생성";
       const widgets = tossPayments.widgets({ customerKey: ANONYMOUS });
 
-      await widgets.setAmount({ currency: "KRW", value: amount });
+      step = "setAmount";
+      await widgets.setAmount({ currency: "KRW", value: intAmount });
+      console.log("[결제] setAmount 성공:", intAmount);
 
-      // 공식 문서 권고: 두 위젯을 Promise.all로 동시에 렌더
+      step = "renderPaymentMethods + renderAgreement";
       await Promise.all([
         widgets.renderPaymentMethods({
           selector: "#payment-method-widget",
@@ -185,21 +203,13 @@ export function PaymentClient() {
           variantKey: "AGREEMENT",
         }),
       ]);
+      console.log("[결제] 위젯 렌더 성공");
 
       widgetsRef.current = widgets;
       setIsWidgetReady(true);
     } catch (e) {
-      console.error("TossPayments init error:", e);
-      // Toss 오류는 {code, message} 객체 또는 Error 인스턴스
-      let msg = "";
-      if (e && typeof e === "object") {
-        const err = e as Record<string, unknown>;
-        const code = err.code ? `[${err.code}] ` : "";
-        msg = code + (String(err.message ?? err.toString?.() ?? ""));
-      } else {
-        msg = String(e);
-      }
-      setError(`결제 위젯 초기화에 실패했습니다.\n${msg || "알 수 없는 오류"}`);
+      console.error(`[결제] 오류 발생 (단계: ${step})`, e);
+      setError(`결제 위젯 초기화에 실패했습니다.\n단계: ${step}\n${extractMsg(e)}`);
     }
   }
 
