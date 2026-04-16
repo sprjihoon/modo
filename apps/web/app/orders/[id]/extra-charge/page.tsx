@@ -43,9 +43,10 @@ interface OrderData {
   extra_charge_data?: ExtraChargeData;
 }
 
-const CLIENT_KEY =
+const CLIENT_KEY = (
   process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ||
-  "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq";
+  "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq"
+).trim();
 
 export default function ExtraChargePage() {
   const router = useRouter();

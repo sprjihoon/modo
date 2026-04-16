@@ -45,10 +45,10 @@ interface OrderInfo {
   customer_phone?: string;
 }
 
-// 결제위젯 연동 키가 없으면 API 개별 연동 키 사용 (결제창 방식)
-const CLIENT_KEY =
+const CLIENT_KEY = (
   process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ||
-  "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq";
+  "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq"
+).trim();
 
 type PaymentMethod = "CARD" | "TRANSFER" | "VIRTUAL_ACCOUNT";
 
