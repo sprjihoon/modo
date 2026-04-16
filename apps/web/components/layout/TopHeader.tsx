@@ -24,6 +24,7 @@ export function TopHeader({
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
+  const [pendingOrderCount, setPendingOrderCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [brandName, setBrandName] = useState<string>(cachedBrandName ?? "모두의수선");
 
@@ -45,6 +46,7 @@ export function TopHeader({
       setIsLoggedIn(!!user);
       if (user) {
         fetchUnreadCount(user.id);
+        fetchPendingOrderCount(supabase, user.id);
       }
     });
 
@@ -71,6 +73,28 @@ export function TopHeader({
       })();
     }
   }, []);
+
+  async function fetchPendingOrderCount(
+    supabase: ReturnType<typeof createClient>,
+    authId: string
+  ) {
+    try {
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("id")
+        .eq("auth_id", authId)
+        .maybeSingle();
+      if (!userRow) return;
+      const { count } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userRow.id)
+        .eq("status", "PENDING_PAYMENT");
+      setPendingOrderCount(count ?? 0);
+    } catch {
+      // 조회 실패 시 무시
+    }
+  }
 
   async function fetchUnreadCount(authId: string) {
     try {
@@ -144,9 +168,9 @@ export function TopHeader({
               aria-label="장바구니"
             >
               <ShoppingCart className="w-5 h-5 text-gray-700" />
-              {cartCount > 0 && (
+              {(cartCount + pendingOrderCount) > 0 && (
                 <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
-                  {cartCount > 99 ? "99+" : cartCount}
+                  {(cartCount + pendingOrderCount) > 99 ? "99+" : (cartCount + pendingOrderCount)}
                 </span>
               )}
             </Link>
