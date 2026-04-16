@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Truck, Package, CheckCircle, Clock, XCircle, CreditCard,
   MapPin, ChevronRight, RefreshCw, Scissors, MessageCircle,
   ReceiptText, Copy, Check, Video, Play, X, AlertTriangle,
-  ArrowRight, RotateCcw,
+  ArrowRight, RotateCcw, Pencil,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice, ORDER_STATUS_MAP } from "@/lib/utils";
@@ -39,6 +39,8 @@ interface OrderData {
   pickup_address_detail?: string;
   delivery_address?: string;
   delivery_address_detail?: string;
+  delivery_zipcode?: string;
+  notes?: string;
   memo?: string;
   pickup_date?: string;
   tracking_no?: string;
@@ -102,6 +104,25 @@ function buildVideoUrl(path: string, provider: string): string | null {
   return null;
 }
 
+// Daum 우편번호 전역 타입
+declare global {
+  interface Window {
+    daum: {
+      Postcode: new (options: {
+        oncomplete: (data: {
+          zonecode: string;
+          address: string;
+          addressType: string;
+          jibunAddress: string;
+          roadAddress: string;
+        }) => void;
+        width?: string;
+        height?: string;
+      }) => { embed: (el: HTMLElement) => void };
+    };
+  }
+}
+
 export function OrderDetailClient({ orderId }: { orderId: string }) {
   const router = useRouter();
   const [order, setOrder] = useState<OrderData | null>(null);
@@ -116,7 +137,57 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [activeVideo, setActiveVideo] = useState<{ url: string; title: string } | null>(null);
   const [isExtraActionLoading, setIsExtraActionLoading] = useState(false);
 
+  // 배송지/메모 수정 상태
+  const [isDeliveryEditOpen, setIsDeliveryEditOpen] = useState(false);
+  const [editZipcode, setEditZipcode] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editAddressDetail, setEditAddressDetail] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [isSavingDelivery, setIsSavingDelivery] = useState(false);
+  const [isAddressSearchOpen, setIsAddressSearchOpen] = useState(false);
+  const addressContainerRef = useRef<HTMLDivElement>(null);
+  const scriptLoadedRef = useRef(false);
+
   useEffect(() => { loadOrder(); }, [orderId]);
+
+  // Daum 우편번호 스크립트 로드
+  useEffect(() => {
+    if (scriptLoadedRef.current) return;
+    if (document.getElementById("kakao-postcode-script-detail")) {
+      scriptLoadedRef.current = true;
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "kakao-postcode-script-detail";
+    script.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+    script.async = true;
+    script.onload = () => { scriptLoadedRef.current = true; };
+    document.head.appendChild(script);
+  }, []);
+
+  // 주소 검색 패널 임베드
+  useEffect(() => {
+    if (!isAddressSearchOpen || !addressContainerRef.current) return;
+    function tryEmbed(attempts = 0) {
+      if (typeof window === "undefined" || !window.daum?.Postcode) {
+        if (attempts < 20) setTimeout(() => tryEmbed(attempts + 1), 150);
+        return;
+      }
+      if (!addressContainerRef.current) return;
+      addressContainerRef.current.innerHTML = "";
+      new window.daum.Postcode({
+        oncomplete: (data) => {
+          const addr = data.addressType === "R" ? data.roadAddress : data.jibunAddress;
+          setEditZipcode(data.zonecode);
+          setEditAddress(addr);
+          setIsAddressSearchOpen(false);
+        },
+        width: "100%",
+        height: "100%",
+      }).embed(addressContainerRef.current);
+    }
+    tryEmbed();
+  }, [isAddressSearchOpen]);
 
   async function loadOrder(silent = false) {
     if (!silent) setIsLoading(true);
@@ -205,13 +276,87 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     } catch { /* ignore */ }
   }
 
+  function openDeliveryEdit() {
+    setEditZipcode(order?.delivery_zipcode ?? "");
+    setEditAddress(order?.delivery_address ?? "");
+    setEditAddressDetail(order?.delivery_address_detail ?? "");
+    setEditNotes(order?.notes ?? order?.memo ?? "");
+    setIsAddressSearchOpen(false);
+    setIsDeliveryEditOpen(true);
+  }
+
+  async function handleSaveDelivery() {
+    if (!editAddress.trim()) {
+      alert("배송 주소를 입력해주세요.");
+      return;
+    }
+    setIsSavingDelivery(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("orders").update({
+        delivery_address: editAddress.trim(),
+        delivery_address_detail: editAddressDetail.trim() || null,
+        delivery_zipcode: editZipcode.trim() || null,
+        notes: editNotes.trim() || null,
+        delivery_address_updated_at: new Date().toISOString(),
+      }).eq("id", orderId);
+      if (error) throw error;
+      setOrder((prev) => prev ? {
+        ...prev,
+        delivery_address: editAddress.trim(),
+        delivery_address_detail: editAddressDetail.trim() || undefined,
+        delivery_zipcode: editZipcode.trim() || undefined,
+        notes: editNotes.trim() || undefined,
+      } : prev);
+      setIsDeliveryEditOpen(false);
+    } catch {
+      alert("저장 중 오류가 발생했습니다. 다시 시도해주세요.");
+    } finally {
+      setIsSavingDelivery(false);
+    }
+  }
+
   async function handleCancel() {
-    if (!confirm("수거 예약을 취소하시겠습니까?\n취소 후에는 되돌릴 수 없습니다.")) return;
+    if (!confirm("수거 예약을 취소하시겠습니까?\n취소 후에는 다시 예약하셔야 합니다.")) return;
     setIsCancelling(true);
     try {
       const supabase = createClient();
-      await supabase.from("orders").update({ status: "CANCELLED" }).eq("id", orderId);
+
+      // 우체국 API + DB 취소: shipments-cancel Edge Function 호출
+      const { data, error: fnError } = await supabase.functions.invoke("shipments-cancel", {
+        body: { order_id: orderId, delete_after_cancel: true },
+      });
+
+      if (fnError) throw new Error(fnError.message);
+
+      // 응답 파싱 (모바일과 동일한 로직)
+      const epostResult = data?.epost_result as Record<string, string> | undefined;
+      const canceledYn = epostResult?.canceledYn;
+      const cancelDate = epostResult?.cancelDate;
+      const notCancelReason = epostResult?.notCancelReason;
+
+      let msg = data?.message ?? "수거 예약이 취소되었습니다.";
+
+      if (canceledYn === "Y") {
+        msg += "\n✅ 우체국 전산에도 취소되었습니다.";
+        if (cancelDate && cancelDate.length >= 12) {
+          const y = cancelDate.slice(0, 4), mo = cancelDate.slice(4, 6);
+          const d = cancelDate.slice(6, 8), h = cancelDate.slice(8, 10), mi = cancelDate.slice(10, 12);
+          msg += `\n취소 일시: ${y}.${mo}.${d} ${h}:${mi}`;
+        }
+      } else if (canceledYn === "N") {
+        msg += "\n⚠️ 우체국 전산 취소는 실패했습니다.";
+        if (notCancelReason) msg += `\n사유: ${notCancelReason}`;
+      } else if (canceledYn === "D") {
+        msg += "\n🗑️ 우체국 전산에서 삭제되었습니다.";
+      }
+
+      alert(msg);
       setOrder((prev) => prev ? { ...prev, status: "CANCELLED" } : prev);
+      await loadOrder(true);
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      alert(`수거 취소 실패: ${errMsg.replace("수거 취소 실패: ", "")}`);
     } finally {
       setIsCancelling(false);
     }
@@ -307,6 +452,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const isPendingPayment = order.status === "PENDING_PAYMENT";
   const isPendingCharge = order.extra_charge_status === "PENDING_CUSTOMER";
   const canCancel = order.status === "BOOKED" || order.status === "PENDING_PAYMENT";
+  const canEditDelivery = !["READY_TO_SHIP", "DELIVERED", "CANCELLED"].includes(order.status);
   // 카카오 문의용: 발송 송장 우선 → 회수 송장 → legacy
   const trackingNo =
     shipment?.delivery_tracking_no ??
@@ -568,9 +714,20 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
       {/* ── 주소 정보 ── */}
       {(order.pickup_address || order.delivery_address) && (
         <div className="mx-4 mt-3 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <MapPin className="w-4 h-4 text-[#00C896]" />
-            <p className="text-sm font-bold text-gray-800">주소 정보</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-[#00C896]" />
+              <p className="text-sm font-bold text-gray-800">주소 정보</p>
+            </div>
+            {canEditDelivery && order.delivery_address && (
+              <button
+                onClick={openDeliveryEdit}
+                className="flex items-center gap-1 text-xs text-[#00C896] font-semibold active:opacity-70"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                배송지 수정
+              </button>
+            )}
           </div>
           {order.pickup_address && (
             <div className={order.delivery_address ? "mb-3" : ""}>
@@ -584,6 +741,9 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           {order.delivery_address && (
             <div className={order.pickup_address ? "pt-3 border-t border-gray-50" : ""}>
               <p className="text-xs font-semibold text-gray-400 mb-1">배송 주소</p>
+              {order.delivery_zipcode && (
+                <p className="text-xs text-gray-400 mb-0.5">[{order.delivery_zipcode}]</p>
+              )}
               <p className="text-sm text-gray-700">{order.delivery_address}</p>
               {order.delivery_address_detail && (
                 <p className="text-sm text-gray-500 mt-0.5">{order.delivery_address_detail}</p>
@@ -595,12 +755,108 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
               수거 예정일: {formatDate(order.pickup_date)}
             </p>
           )}
-          {order.memo && (
+          {(order.notes || order.memo) && (
             <div className="mt-3 pt-3 border-t border-gray-100">
-              <p className="text-xs text-gray-400">메모</p>
-              <p className="text-sm text-gray-600 mt-0.5">{order.memo}</p>
+              <p className="text-xs text-gray-400">배송 메모</p>
+              <p className="text-sm text-gray-600 mt-0.5">{order.notes ?? order.memo}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── 배송지/메모 수정 모달 ── */}
+      {isDeliveryEditOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/50">
+          <div className="flex-1 flex items-end justify-center sm:items-center">
+            <div className="w-full max-w-[430px] bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              {/* 헤더 */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+                <p className="text-sm font-bold text-gray-800">배송지 수정</p>
+                <button
+                  type="button"
+                  onClick={() => { setIsDeliveryEditOpen(false); setIsAddressSearchOpen(false); }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* 주소 검색 패널 (조건부) */}
+              {isAddressSearchOpen ? (
+                <div className="flex flex-col flex-1 overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
+                    <p className="text-xs text-gray-500">도로명 또는 지번 주소를 검색하세요</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddressSearchOpen(false)}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                  <div ref={addressContainerRef} className="flex-1 overflow-hidden" style={{ minHeight: 380 }} />
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                  {/* 주소 검색 */}
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 mb-2">배송 주소</p>
+                    <div className="flex gap-2 mb-2">
+                      {editZipcode && (
+                        <span className="text-sm text-gray-500 self-center">[{editZipcode}]</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsAddressSearchOpen(true)}
+                        className="flex items-center gap-1.5 px-4 py-2.5 bg-[#00C896] text-white text-sm font-semibold rounded-xl active:opacity-80 whitespace-nowrap"
+                      >
+                        <MapPin className="w-4 h-4" />
+                        주소 검색
+                      </button>
+                    </div>
+                    {editAddress ? (
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-xl px-4 py-3">{editAddress}</p>
+                    ) : (
+                      <p className="text-sm text-gray-400 bg-gray-50 rounded-xl px-4 py-3">주소를 검색해주세요</p>
+                    )}
+                  </div>
+
+                  {/* 상세 주소 */}
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 mb-2">상세 주소</p>
+                    <input
+                      type="text"
+                      value={editAddressDetail}
+                      onChange={(e) => setEditAddressDetail(e.target.value)}
+                      placeholder="동, 호수 등 상세주소 입력"
+                      className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#00C896] transition-colors"
+                    />
+                  </div>
+
+                  {/* 배송 메모 */}
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 mb-2">배송 메모</p>
+                    <textarea
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      placeholder="배송 시 요청사항 (예: 문 앞에 놓아주세요)"
+                      rows={3}
+                      className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#00C896] transition-colors resize-none"
+                    />
+                  </div>
+
+                  {/* 저장 버튼 */}
+                  <button
+                    onClick={handleSaveDelivery}
+                    disabled={isSavingDelivery || !editAddress.trim()}
+                    className="w-full py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-90 disabled:opacity-50"
+                  >
+                    {isSavingDelivery ? "저장 중..." : "저장하기"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
