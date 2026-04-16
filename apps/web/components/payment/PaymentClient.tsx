@@ -2,10 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
+import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
 import { Scissors, MapPin, CreditCard, AlertCircle, FlaskConical, Truck, CheckCircle2 } from "lucide-react";
+
+interface TossPaymentsV1Instance {
+  requestPayment: (
+    method: string,
+    params: {
+      amount: number;
+      orderId: string;
+      orderName: string;
+      successUrl: string;
+      failUrl: string;
+      customerName?: string;
+      customerEmail?: string;
+      customerMobilePhone?: string;
+    }
+  ) => Promise<void>;
+}
 
 interface OrderInfo {
   id: string;
@@ -112,19 +128,29 @@ export function PaymentClient() {
     setIsRequesting(true);
     setError(null);
     try {
-      const tossPayments = await loadTossPayments(CLIENT_KEY);
-      // Toss가 orderId를 자동으로 쿼리파라미터에 추가하므로 base URL만 전달
-      const successUrl = `${window.location.origin}/payment/success`;
-      const failUrl = `${window.location.origin}/payment/fail`;
+      const TossPaymentsV1 = (
+        window as unknown as { TossPayments?: (key: string) => TossPaymentsV1Instance }
+      ).TossPayments;
+
+      if (!TossPaymentsV1) {
+        throw new Error("결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.");
+      }
+
+      const tossPayments = TossPaymentsV1(CLIENT_KEY);
       const intAmount = Math.max(1, Math.round(order.total_price));
 
-      await tossPayments.requestPayment({
-        method: selectedMethod,
-        amount: { currency: "KRW", value: intAmount },
+      const methodMap: Record<PaymentMethod, string> = {
+        CARD: "카드",
+        TRANSFER: "계좌이체",
+        VIRTUAL_ACCOUNT: "가상계좌",
+      };
+
+      await tossPayments.requestPayment(methodMap[selectedMethod], {
+        amount: intAmount,
         orderId: order.id,
         orderName: order.item_name ?? "모두의수선 수선 서비스",
-        successUrl,
-        failUrl,
+        successUrl: `${window.location.origin}/payment/success`,
+        failUrl: `${window.location.origin}/payment/fail`,
         ...(order.customer_name && { customerName: order.customer_name }),
         ...(order.customer_email && { customerEmail: order.customer_email }),
         ...(order.customer_phone && { customerMobilePhone: order.customer_phone.replace(/-/g, "") }),
@@ -217,6 +243,8 @@ export function PaymentClient() {
   const repairItems = Array.isArray(order?.repair_parts) ? order!.repair_parts! : [];
 
   return (
+    <>
+    <Script src="https://js.tosspayments.com/v1/payment" strategy="afterInteractive" />
     <div className="pb-36">
       {/* 주문 요약 */}
       <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
@@ -340,5 +368,6 @@ export function PaymentClient() {
         </button>
       </div>
     </div>
+    </>
   );
 }
