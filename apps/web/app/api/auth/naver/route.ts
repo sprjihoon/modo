@@ -9,8 +9,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "code is required" }, { status: 400 });
     }
 
-    const clientId = process.env.NAVER_CLIENT_ID || "b7QJILomSlfsFL7RuAQs";
-    const clientSecret = process.env.NAVER_CLIENT_SECRET || "M_cxR3WuTs";
+    const clientId = (process.env.NAVER_CLIENT_ID || "b7QJILomSlfsFL7RuAQs").trim();
+    const clientSecret = (process.env.NAVER_CLIENT_SECRET || "M_cxR3WuTs").trim();
 
     // 1. Naver 토큰 교환
     const tokenRes = await fetch("https://nid.naver.com/oauth2.0/token", {
