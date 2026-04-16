@@ -27,7 +27,6 @@ interface TossPaymentsConstructor {
   (clientKey: string): {
     payment: (options: { customerKey: string }) => TossPaymentInstance;
   };
-  ANONYMOUS: string;
 }
 
 interface ExtraChargeData {
@@ -110,8 +109,12 @@ export default function ExtraChargePage() {
         throw new Error("결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.");
       }
 
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const customerKey = user?.id ?? `anon_${Date.now()}`;
+
       const tossPayments = TossPayments(CLIENT_KEY);
-      const payment = tossPayments.payment({ customerKey: TossPayments.ANONYMOUS });
+      const payment = tossPayments.payment({ customerKey });
       const extraData = order.extra_charge_data as ExtraChargeData | undefined;
       const amount = Math.max(1, Math.round(extraData?.managerPrice ?? 0));
       const tossOrderId = `EXTRA_${order.id}_${Date.now()}`;

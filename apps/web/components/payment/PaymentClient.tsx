@@ -25,7 +25,6 @@ interface TossPaymentsConstructor {
   (clientKey: string): {
     payment: (options: { customerKey: string }) => TossPaymentInstance;
   };
-  ANONYMOUS: string;
 }
 
 interface OrderInfo {
@@ -142,8 +141,12 @@ export function PaymentClient() {
         throw new Error("결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.");
       }
 
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const customerKey = user?.id ?? `anon_${Date.now()}`;
+
       const tossPayments = TossPayments(CLIENT_KEY);
-      const payment = tossPayments.payment({ customerKey: TossPayments.ANONYMOUS });
+      const payment = tossPayments.payment({ customerKey });
       const intAmount = Math.max(1, Math.round(order.total_price));
 
       await payment.requestPayment({
