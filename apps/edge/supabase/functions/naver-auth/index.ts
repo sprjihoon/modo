@@ -241,70 +241,94 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5. 세션 생성 (Admin API로 직접 토큰 생성)
+    // 5. 세션 생성 (Magic Link → OTP 검증 방식)
     console.log("🔑 세션 생성 중...");
-    
-    // Admin API로 사용자의 세션 직접 생성
-    const { data: sessionData, error: sessionError } = 
+
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // Magic link 생성 후 token_hash 추출하여 OTP 검증
+    const { data: linkData, error: linkError } =
       await supabaseAdmin.auth.admin.generateLink({
         type: "magiclink",
         email: userEmail,
-        options: {
-          redirectTo: "modorepair://login-callback",
-        }
       });
 
-    // 세션 생성을 위해 signInWithPassword 시도 (임시 비밀번호 사용)
-    // 네이버 사용자는 임시 비밀번호가 설정되어 있음
-    const tempPassword = `naver_${naverId}_secure_login`;
-    
-    // 비밀번호 업데이트 (매번 동일한 비밀번호로)
-    await supabaseAdmin.auth.admin.updateUserById(userId, {
-      password: tempPassword,
-    });
-
-    // 일반 클라이언트로 로그인하여 실제 세션 획득
-    const supabaseClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-
-    const { data: signInData, error: signInError } = 
-      await supabaseClient.auth.signInWithPassword({
-        email: userEmail,
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error("❌ Magic link 생성 실패:", linkError);
+      // 폴백: signInWithPassword 방식
+      const tempPassword = `Naver_${naverId}_2024!secure`;
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
         password: tempPassword,
       });
-
-    if (signInError || !signInData.session) {
-      console.error("❌ 세션 생성 실패:", signInError);
-      
+      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data: signInData, error: signInError } =
+        await supabaseClient.auth.signInWithPassword({
+          email: userEmail,
+          password: tempPassword,
+        });
+      if (signInError || !signInData.session) {
+        console.error("❌ 폴백 세션 생성도 실패:", signInError);
+        return new Response(
+          JSON.stringify({ error: "세션 생성에 실패했습니다. 다시 시도해주세요." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       return new Response(
         JSON.stringify({
           success: true,
+          access_token: signInData.session.access_token,
+          refresh_token: signInData.session.refresh_token,
+          expires_in: signInData.session.expires_in,
           user_id: userId,
           email: userEmail,
           name: userName,
           provider: "naver",
-          message: "사용자 확인 완료. 이메일로 로그인해주세요.",
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("✅ 세션 생성 완료");
+    // action_link에서 token_hash 추출
+    const actionUrl = new URL(linkData.properties.action_link);
+    const tokenHash = actionUrl.searchParams.get("token_hash");
 
-    // 실제 access_token과 refresh_token 반환
+    if (!tokenHash) {
+      console.error("❌ token_hash 추출 실패:", linkData.properties.action_link);
+      return new Response(
+        JSON.stringify({ error: "인증 토큰을 생성할 수 없습니다." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // OTP 검증으로 실제 세션 획득
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data: otpData, error: otpError } =
+      await supabaseClient.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: "magiclink",
+      });
+
+    if (otpError || !otpData.session) {
+      console.error("❌ OTP 검증 실패:", otpError);
+      return new Response(
+        JSON.stringify({ error: "세션 검증에 실패했습니다. 다시 시도해주세요." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("✅ 세션 생성 완료 (magic link 방식)");
+
     return new Response(
       JSON.stringify({
         success: true,
-        access_token: signInData.session.access_token,
-        refresh_token: signInData.session.refresh_token,
-        expires_in: signInData.session.expires_in,
+        access_token: otpData.session.access_token,
+        refresh_token: otpData.session.refresh_token,
+        expires_in: otpData.session.expires_in,
         user_id: userId,
         email: userEmail,
         name: userName,

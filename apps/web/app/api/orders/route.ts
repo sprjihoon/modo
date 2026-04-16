@@ -82,10 +82,12 @@ export async function POST(request: NextRequest) {
       imagesWithPins,
       pickupAddress,
       pickupAddressDetail,
+      pickupZipcode,
       pickupDate,
       notes,
       deliveryAddress,
       deliveryAddressDetail,
+      deliveryZipcode,
       agreedToExtraCharge,
     } = body;
 
@@ -139,6 +141,8 @@ export async function POST(request: NextRequest) {
       pickup_phone: phone,
     };
 
+    const finalDeliveryZipcode = deliveryZipcode || pickupZipcode || null;
+
     // 선택적 컬럼 목록 (DB에 없을 수 있음 → PGRST204 오류 시 자동 제거)
     const optionalFields: Record<string, unknown> = {
       order_number: orderNumber,
@@ -149,6 +153,8 @@ export async function POST(request: NextRequest) {
       delivery_address_detail: finalDeliveryAddressDetail,
       delivery_phone: phone,
       pickup_address_detail: pickupAddressDetail || null,
+      pickup_zipcode: pickupZipcode || null,
+      delivery_zipcode: finalDeliveryZipcode,
       pickup_date: pickupDate || null,
       notes: notes || null,
       repair_parts: repairArr.length > 0 ? repairArr : null,

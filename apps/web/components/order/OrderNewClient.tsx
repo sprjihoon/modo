@@ -35,10 +35,12 @@ export interface OrderDraft {
   imagesWithPins: ImageWithPins[];
   pickupAddress?: string;
   pickupAddressDetail?: string;
+  pickupZipcode?: string;
   pickupDate?: string;
   notes?: string;
   deliveryAddress?: string;
   deliveryAddressDetail?: string;
+  deliveryZipcode?: string;
   agreedToExtraCharge?: boolean;
 }
 

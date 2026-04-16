@@ -9,8 +9,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "code is required" }, { status: 400 });
     }
 
-    const clientId = (process.env.NAVER_CLIENT_ID || "b7QJILomSlfsFL7RuAQs").trim();
-    const clientSecret = (process.env.NAVER_CLIENT_SECRET || "M_cxR3WuTs").trim();
+    // 환경변수 값의 줄바꿈/공백 문자 및 리터럴 \r\n 제거
+    const sanitize = (v: string) => v.replace(/\\r|\\n|\r|\n|"/g, "").trim();
+    const clientId = sanitize(process.env.NAVER_CLIENT_ID || "b7QJILomSlfsFL7RuAQs");
+    const clientSecret = sanitize(process.env.NAVER_CLIENT_SECRET || "M_cxR3WuTs");
 
     // 1. Naver 토큰 교환
     const tokenRes = await fetch("https://nid.naver.com/oauth2.0/token", {
@@ -27,8 +29,21 @@ export async function POST(req: NextRequest) {
     const tokenData = await tokenRes.json();
 
     if (!tokenData.access_token) {
+      // 디버깅: Naver API 전체 응답 로깅
+      console.error("[Naver Auth] Token exchange failed:", JSON.stringify({
+        error: tokenData.error,
+        error_description: tokenData.error_description,
+        clientId,
+        redirectUri,
+      }));
       return NextResponse.json(
-        { error: tokenData.error_description || "Naver token exchange failed" },
+        {
+          error: tokenData.error_description || tokenData.error || "Naver token exchange failed",
+          naver_error: tokenData.error,
+          hint: tokenData.error === "invalid_client"
+            ? "네이버 개발자 콘솔에서 Client ID/Secret을 확인하고, 콜백 URL에 현재 주소를 등록하세요."
+            : undefined,
+        },
         { status: 400 }
       );
     }

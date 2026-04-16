@@ -40,16 +40,16 @@ export default function PriceGuidePage() {
 
   function priceLabel(r: RepairType): string {
     if (r.price != null && r.price > 0) return formatPrice(r.price);
-    return "??";
+    return "가격 문의";
   }
 
   return (
-    <PageLayout title="???" showBack showAppBanner={false}>
-      {/* ?? ?? */}
+    <PageLayout title="가격 안내" showBack showAppBanner={false}>
+      {/* 안내 문구 */}
       <div className="mx-4 mt-4 p-4 bg-[#00C896]/5 border border-[#00C896]/20 rounded-2xl">
-        <p className="text-xs text-[#00C896] font-semibold">?? ??</p>
+        <p className="text-xs text-[#00C896] font-semibold">참고 안내</p>
         <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-          ??? ?? ??? ?? ??? ? ????. ??? ??? ?????.
+          실제 수선 가격은 상태에 따라 달라질 수 있습니다. 정확한 금액은 문의해 주세요.
         </p>
       </div>
 
@@ -63,8 +63,8 @@ export default function PriceGuidePage() {
         ) : repairTypes.length === 0 ? (
           <div className="py-20 text-center">
             <Scissors className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-400">?? ??? ????</p>
-            <p className="text-xs text-gray-300 mt-1">????? ??????</p>
+            <p className="text-sm text-gray-400">등록된 수선 항목이 없어요</p>
+            <p className="text-xs text-gray-300 mt-1">잠시 후 다시 확인해 주세요</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -91,13 +91,13 @@ export default function PriceGuidePage() {
         )}
       </div>
 
-      {/* ?? ?? CTA */}
+      {/* 수선 신청 CTA */}
       <div className="px-4 pb-8">
         <button
           onClick={() => router.push("/order/new")}
           className="w-full py-4 bg-[#00C896] text-white text-sm font-bold rounded-xl active:brightness-95 transition-all"
         >
-          ?? ?? ????
+          수선 신청 바로가기
         </button>
       </div>
     </PageLayout>

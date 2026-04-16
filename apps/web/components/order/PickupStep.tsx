@@ -16,6 +16,7 @@ interface Address {
   recipient_name: string;
   address: string;
   address_detail?: string;
+  zipcode?: string;
   is_default: boolean;
 }
 
@@ -66,6 +67,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
 
   const [address, setAddress] = useState("");
   const [addressDetail, setAddressDetail] = useState("");
+  const [pickupZipcode, setPickupZipcode] = useState("");
   const [pickupDate, setPickupDate] = useState(minDate);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,6 +76,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
   const [sameAsPickup, setSameAsPickup] = useState(true);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryAddressDetail, setDeliveryAddressDetail] = useState("");
+  const [deliveryZipcode, setDeliveryZipcode] = useState("");
 
   // 필수 동의
   const [agreedToExtraCharge, setAgreedToExtraCharge] = useState(false);
@@ -104,7 +107,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
       if (!userRow) return;
       const { data } = await supabase
         .from("addresses")
-        .select("id, label, recipient_name, address, address_detail, is_default")
+        .select("id, label, recipient_name, address, address_detail, zipcode, is_default")
         .eq("user_id", userRow.id)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
@@ -120,6 +123,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
     setSelectedAddressId(addr.id);
     setAddress(addr.address);
     setAddressDetail(addr.address_detail ?? "");
+    setPickupZipcode(addr.zipcode ?? "");
     setShowAddressList(false);
   }
 
@@ -127,6 +131,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
     setSelectedAddressId(null);
     setAddress("");
     setAddressDetail("");
+    setPickupZipcode("");
   }
 
   async function handleSubmit() {
@@ -146,10 +151,12 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
       await onNext({
         pickupAddress: address.trim(),
         pickupAddressDetail: addressDetail.trim(),
+        pickupZipcode: pickupZipcode.trim(),
         pickupDate,
         notes,
         deliveryAddress: sameAsPickup ? address.trim() : deliveryAddress.trim(),
         deliveryAddressDetail: sameAsPickup ? addressDetail.trim() : deliveryAddressDetail.trim(),
+        deliveryZipcode: sameAsPickup ? pickupZipcode.trim() : deliveryZipcode.trim(),
         agreedToExtraCharge: true,
       });
     } finally {
@@ -260,9 +267,10 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
                 className="flex-1 px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors bg-gray-50 text-gray-700"
               />
               <AddressSearchButton
-                onSelect={(_zip, addr) => {
+                onSelect={(zip, addr) => {
                   setAddress(addr);
                   setAddressDetail("");
+                  setPickupZipcode(zip);
                   if (selectedAddressId) clearSelectedAddress();
                 }}
                 label="검색"
@@ -313,9 +321,10 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
                   className="flex-1 px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] bg-gray-50 text-gray-700"
                 />
                 <AddressSearchButton
-                  onSelect={(_zip, addr) => {
+                  onSelect={(zip, addr) => {
                     setDeliveryAddress(addr);
                     setDeliveryAddressDetail("");
+                    setDeliveryZipcode(zip);
                   }}
                   label="검색"
                   className="px-4 py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 whitespace-nowrap"
@@ -470,7 +479,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
               : "bg-gray-200 text-gray-400 cursor-not-allowed"
           )}
         >
-          {isSubmitting ? "신청 중..." : "수거신청 완료"}
+          {isSubmitting ? "처리 중..." : "결제하기"}
         </button>
       </div>
     </div>

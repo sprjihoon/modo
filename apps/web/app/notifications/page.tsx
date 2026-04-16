@@ -3,7 +3,7 @@ import { NotificationsClient } from "@/components/notifications/NotificationsCli
 
 export default function NotificationsPage() {
   return (
-    <PageLayout title="??" showBack showAppBanner={false}>
+    <PageLayout title="알림" showBack showAppBanner={false}>
       <NotificationsClient />
     </PageLayout>
   );

@@ -113,8 +113,8 @@ Deno.serve(async (req) => {
       phone: centerSettings?.phone || '01027239490',
     };
 
-    // 4. 고객번호 설정 (하드코딩)
-    const custNo = '0005085217';
+    // 4. 고객번호 설정 (환경변수 우선, 없으면 기본값)
+    const custNo = (Deno.env.get('EPOST_CUSTOMER_ID') || '0005085217').trim();
     console.log('🔑 고객번호 설정:', custNo);
 
     // 5. 계약 승인번호 조회

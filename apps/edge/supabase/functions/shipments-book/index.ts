@@ -748,7 +748,7 @@ Deno.serve(async (req) => {
               const reqYmd = epostResponse.resDate.substring(0, 8); // YYYYMMDD
               console.log('🔍 수거예약 상태 확인 API 호출:', {
                 custNo: epostParams.custNo,
-                reqType: '1',
+                reqType: epostParams.reqType,
                 orderNo: epostParams.orderNo,
                 reqYmd,
                 resNo: epostResponse.resNo,
@@ -758,7 +758,7 @@ Deno.serve(async (req) => {
               console.log('⏳ getResInfo API 호출 시작...');
               console.log('⏳ getResInfo API 호출 파라미터:', JSON.stringify({
                 custNo: epostParams.custNo,
-                reqType: '1',
+                reqType: epostParams.reqType,
                 orderNo: epostParams.orderNo,
                 reqYmd,
               }, null, 2));
@@ -766,7 +766,7 @@ Deno.serve(async (req) => {
               console.log('🚀 getResInfo 함수 호출 직전...');
               const resInfo = await getResInfo({
                 custNo: epostParams.custNo,
-                reqType: '1', // 1:일반소포
+                reqType: epostParams.reqType, // pickup: '2'(반품소포), delivery: '1'(일반소포)
                 orderNo: epostParams.orderNo,
                 reqYmd,
               });
