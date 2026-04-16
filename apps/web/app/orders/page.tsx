@@ -3,7 +3,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 
 export default function OrdersPage() {
   return (
-    <PageLayout title="?? ??" showBack showAppBanner={false}>
+    <PageLayout title="주문 내역" showBack showAppBanner={false}>
       <OrderListClient />
     </PageLayout>
   );

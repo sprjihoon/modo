@@ -3,7 +3,7 @@ import { ProfilePageClient } from "@/components/profile/ProfilePageClient";
 
 export default function ProfilePage() {
   return (
-    <PageLayout title="?????" showAppBanner={false}>
+    <PageLayout title="마이페이지" showAppBanner={false}>
       <ProfilePageClient />
     </PageLayout>
   );
