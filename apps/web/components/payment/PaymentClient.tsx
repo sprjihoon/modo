@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
+import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
-import { Scissors, MapPin, CreditCard, AlertCircle, FlaskConical, Truck } from "lucide-react";
+import { Scissors, MapPin, CreditCard, AlertCircle, FlaskConical, Truck, CheckCircle2 } from "lucide-react";
 
 interface OrderInfo {
   id: string;
@@ -21,11 +21,22 @@ interface OrderInfo {
   notes?: string;
   repair_parts?: Array<{ name: string; price: number; quantity: number }>;
   customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
 }
 
+// 결제위젯 연동 키가 없으면 API 개별 연동 키 사용 (결제창 방식)
 const CLIENT_KEY =
   process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ||
-  "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
+  "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq";
+
+type PaymentMethod = "CARD" | "TRANSFER" | "VIRTUAL_ACCOUNT";
+
+const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: string }[] = [
+  { id: "CARD", label: "신용·체크카드", icon: "💳" },
+  { id: "TRANSFER", label: "계좌이체", icon: "🏦" },
+  { id: "VIRTUAL_ACCOUNT", label: "가상계좌", icon: "📄" },
+];
 
 export function PaymentClient() {
   const searchParams = useSearchParams();
@@ -34,17 +45,13 @@ export function PaymentClient() {
 
   const [order, setOrder] = useState<OrderInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isWidgetReady, setIsWidgetReady] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("CARD");
   const [showTestButtons, setShowTestButtons] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [isTestLoading, setIsTestLoading] = useState(false);
 
-  const widgetsRef = useRef<Awaited<ReturnType<Awaited<ReturnType<typeof loadTossPayments>>["widgets"]>> | null>(null);
-  const widgetInitialized = useRef(false);
-
-  // 1단계: 주문 정보 + 테스트 버튼 설정 로드
   useEffect(() => {
     if (!orderId) {
       setError("주문 정보를 찾을 수 없습니다.");
@@ -54,13 +61,6 @@ export function PaymentClient() {
     loadOrder();
     loadTestButtonsSetting();
   }, [orderId]);
-
-  // 2단계: order가 세팅된 뒤 DOM이 렌더된 다음 위젯 초기화
-  useEffect(() => {
-    if (!order || widgetInitialized.current) return;
-    widgetInitialized.current = true;
-    initPaymentWidget(order.total_price);
-  }, [order]);
 
   async function loadTestButtonsSetting() {
     try {
@@ -79,33 +79,63 @@ export function PaymentClient() {
   async function loadOrder() {
     try {
       const supabase = createClient();
-
-      let data: OrderInfo | null = null;
       const { data: d1, error: e1 } = await supabase
         .from("orders")
         .select(
-          "id, item_name, clothing_type, total_price, pickup_address, pickup_phone, pickup_zipcode, delivery_address, delivery_phone, delivery_zipcode, notes, repair_parts, customer_name"
+          "id, item_name, clothing_type, total_price, pickup_address, pickup_phone, pickup_zipcode, delivery_address, delivery_phone, delivery_zipcode, notes, repair_parts, customer_name, customer_email, customer_phone"
         )
         .eq("id", orderId)
         .single();
 
       if (e1) {
+        // 컬럼 없는 구버전 fallback
         const { data: d2 } = await supabase
           .from("orders")
           .select("id, item_name, clothing_type, total_price, pickup_address, customer_name")
           .eq("id", orderId)
           .single();
-        data = d2 as OrderInfo | null;
+        if (!d2) throw new Error("주문 정보를 찾을 수 없습니다.");
+        setOrder(d2 as OrderInfo);
       } else {
-        data = d1 as OrderInfo | null;
+        if (!d1) throw new Error("주문 정보를 찾을 수 없습니다.");
+        setOrder(d1 as OrderInfo);
       }
-
-      if (!data) throw new Error("주문 정보를 찾을 수 없습니다.");
-      setOrder(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "주문 정보를 불러올 수 없습니다.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handlePayment() {
+    if (!order) return;
+    setIsRequesting(true);
+    setError(null);
+    try {
+      const tossPayments = await loadTossPayments(CLIENT_KEY);
+      // Toss가 orderId를 자동으로 쿼리파라미터에 추가하므로 base URL만 전달
+      const successUrl = `${window.location.origin}/payment/success`;
+      const failUrl = `${window.location.origin}/payment/fail`;
+      const intAmount = Math.max(1, Math.round(order.total_price));
+
+      await tossPayments.requestPayment({
+        method: selectedMethod,
+        amount: { currency: "KRW", value: intAmount },
+        orderId: order.id,
+        orderName: order.item_name ?? "모두의수선 수선 서비스",
+        successUrl,
+        failUrl,
+        ...(order.customer_name && { customerName: order.customer_name }),
+        ...(order.customer_email && { customerEmail: order.customer_email }),
+        ...(order.customer_phone && { customerMobilePhone: order.customer_phone.replace(/-/g, "") }),
+      });
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      if (err?.code !== "USER_CANCEL") {
+        console.error("[결제] 오류:", e);
+        setError(err?.message ?? "결제 요청 중 오류가 발생했습니다.");
+      }
+      setIsRequesting(false);
     }
   }
 
@@ -115,8 +145,6 @@ export function PaymentClient() {
     setTestResult(null);
     try {
       const supabase = createClient();
-
-      // payment_status를 PAID로 업데이트
       await supabase
         .from("orders")
         .update({ payment_status: "PAID" })
@@ -124,7 +152,6 @@ export function PaymentClient() {
 
       setTestResult(testMode ? "🧪 Mock 모드로 수거예약 시작..." : "🚚 실제 우체국 API로 수거예약 시작...");
 
-      // shipments-book Edge Function 호출
       const body: Record<string, unknown> = {
         order_id: order.id,
         pickup_address: order.pickup_address ?? "테스트 주소",
@@ -139,7 +166,6 @@ export function PaymentClient() {
       if (order.notes) body.delivery_message = order.notes;
 
       const { data, error: fnError } = await supabase.functions.invoke("shipments-book", { body });
-
       if (fnError) throw new Error(fnError.message);
       if (!data?.success) throw new Error(data?.error ?? "수거예약 실패");
 
@@ -149,90 +175,11 @@ export function PaymentClient() {
           ? `✅ Mock 수거예약 완료!\n송장번호: ${trackingNo}`
           : `🎉 실제 우체국 수거예약 완료!\n송장번호: ${trackingNo}`
       );
-
       setTimeout(() => router.push("/orders"), 3000);
     } catch (e) {
       setTestResult(`❌ 오류: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setIsTestLoading(false);
-    }
-  }
-
-  async function initPaymentWidget(amount: number) {
-    // DOM이 완전히 페인트된 뒤 실행 보장
-    await new Promise<void>((r) => requestAnimationFrame(() => r()));
-
-    const el = document.getElementById("payment-method-widget");
-    if (!el) {
-      setError("결제 위젯 영역을 찾을 수 없습니다. 새로고침 후 다시 시도해주세요.");
-      return;
-    }
-
-    const intAmount = Math.max(1, Math.round(amount)); // Toss는 정수 원화 필요
-
-    const extractMsg = (e: unknown) => {
-      if (!e) return "알 수 없는 오류";
-      if (typeof e === "object") {
-        const err = e as Record<string, unknown>;
-        const code = err.code ? `[${err.code}] ` : "";
-        return code + String(err.message ?? JSON.stringify(err));
-      }
-      return String(e);
-    };
-
-    let step = "loadTossPayments";
-    try {
-      const tossPayments = await loadTossPayments(CLIENT_KEY);
-      console.log("[결제] SDK 로드 성공");
-
-      step = "widgets 생성";
-      const widgets = tossPayments.widgets({ customerKey: ANONYMOUS });
-
-      step = "setAmount";
-      await widgets.setAmount({ currency: "KRW", value: intAmount });
-      console.log("[결제] setAmount 성공:", intAmount);
-
-      step = "renderPaymentMethods + renderAgreement";
-      await Promise.all([
-        widgets.renderPaymentMethods({
-          selector: "#payment-method-widget",
-          variantKey: "DEFAULT",
-        }),
-        widgets.renderAgreement({
-          selector: "#agreement-widget",
-          variantKey: "AGREEMENT",
-        }),
-      ]);
-      console.log("[결제] 위젯 렌더 성공");
-
-      widgetsRef.current = widgets;
-      setIsWidgetReady(true);
-    } catch (e) {
-      console.error(`[결제] 오류 발생 (단계: ${step})`, e);
-      setError(`결제 위젯 초기화에 실패했습니다.\n단계: ${step}\n${extractMsg(e)}`);
-    }
-  }
-
-  async function handlePayment() {
-    if (!widgetsRef.current || !order) return;
-    setIsRequesting(true);
-    try {
-      const successUrl = `${window.location.origin}/payment/success?orderId=${order.id}`;
-      const failUrl = `${window.location.origin}/payment/fail?orderId=${order.id}`;
-
-      await widgetsRef.current.requestPayment({
-        orderId: order.id,
-        orderName: order.item_name ?? "모두의수선 수선 서비스",
-        successUrl,
-        failUrl,
-        customerName: order.customer_name ?? undefined,
-      });
-    } catch (e: unknown) {
-      const err = e as { code?: string; message?: string };
-      if (err?.code !== "USER_CANCEL") {
-        setError(err?.message ?? "결제 요청 중 오류가 발생했습니다.");
-      }
-      setIsRequesting(false);
     }
   }
 
@@ -254,7 +201,7 @@ export function PaymentClient() {
         <p className="text-xs text-gray-500 mb-4 whitespace-pre-line">{error}</p>
         <div className="flex gap-3 justify-center">
           <button
-            onClick={() => { widgetInitialized.current = false; setError(null); if (order) initPaymentWidget(order.total_price); }}
+            onClick={() => { setError(null); }}
             className="text-sm text-white bg-[#00C896] font-semibold px-4 py-2 rounded-lg"
           >
             다시 시도
@@ -270,7 +217,7 @@ export function PaymentClient() {
   const repairItems = Array.isArray(order?.repair_parts) ? order!.repair_parts! : [];
 
   return (
-    <div className="pb-32">
+    <div className="pb-36">
       {/* 주문 요약 */}
       <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
         <div className="flex items-center gap-2 mb-3">
@@ -320,28 +267,45 @@ export function PaymentClient() {
         </p>
       </div>
 
-      {/* TossPayments 위젯 영역 - 항상 렌더 (위젯이 붙을 DOM 필요) */}
+      {/* 결제 수단 선택 */}
       <div className="mx-4 mt-3">
-        {!isWidgetReady && (
-          <div className="space-y-3">
-            <div className="h-40 bg-gray-100 rounded-2xl animate-pulse" />
-            <div className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
-          </div>
-        )}
-        <div id="payment-method-widget" />
-        <div id="agreement-widget" className="mt-2" />
+        <p className="text-sm font-bold text-gray-800 mb-2">결제 수단</p>
+        <div className="grid grid-cols-3 gap-2">
+          {PAYMENT_METHODS.map((m) => {
+            const selected = selectedMethod === m.id;
+            return (
+              <button
+                key={m.id}
+                onClick={() => setSelectedMethod(m.id)}
+                className={`relative flex flex-col items-center gap-1.5 py-3.5 rounded-xl border-2 transition-all ${
+                  selected
+                    ? "border-[#00C896] bg-[#00C896]/5"
+                    : "border-gray-100 bg-white"
+                }`}
+              >
+                {selected && (
+                  <CheckCircle2 className="absolute top-2 right-2 w-4 h-4 text-[#00C896]" />
+                )}
+                <span className="text-xl">{m.icon}</span>
+                <span className={`text-xs font-medium ${selected ? "text-[#00C896]" : "text-gray-600"}`}>
+                  {m.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* 결제하기 버튼 */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 pb-6 pt-3 bg-white border-t border-gray-100 space-y-2">
-        {/* 우체국 테스트 버튼 - ops_center_settings.show_test_buttons가 true일 때만 표시 */}
+        {/* 우체국 테스트 버튼 */}
         {showTestButtons && (
           <div className="space-y-2">
             <div className="flex gap-2">
               <button
                 onClick={() => handleTestShipment(true)}
                 disabled={isTestLoading || isRequesting}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-orange-500 bg-orange-50 border border-orange-200 rounded-xl disabled:opacity-50 active:brightness-95 transition-all"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-orange-500 bg-orange-50 border border-orange-200 rounded-xl disabled:opacity-50"
               >
                 <FlaskConical className="w-4 h-4" />
                 🧪 Mock 수거예약
@@ -349,7 +313,7 @@ export function PaymentClient() {
               <button
                 onClick={() => handleTestShipment(false)}
                 disabled={isTestLoading || isRequesting}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-green-600 bg-green-50 border border-green-200 rounded-xl disabled:opacity-50 active:brightness-95 transition-all"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-green-600 bg-green-50 border border-green-200 rounded-xl disabled:opacity-50"
               >
                 <Truck className="w-4 h-4" />
                 🚚 실제 우체국 API
@@ -367,13 +331,11 @@ export function PaymentClient() {
         )}
         <button
           onClick={handlePayment}
-          disabled={!isWidgetReady || isRequesting}
+          disabled={isRequesting}
           className="w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-xl disabled:opacity-50 active:brightness-95 transition-all"
         >
           {isRequesting
             ? "결제 진행 중..."
-            : !isWidgetReady
-            ? "결제 위젯 로딩 중..."
             : `${formatPrice(order?.total_price ?? 0)} 결제하기`}
         </button>
       </div>
