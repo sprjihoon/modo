@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, User, ChevronLeft } from "lucide-react";
+import { Bell, User, ChevronLeft, ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getCartCount } from "@/lib/cart";
 
 interface TopHeaderProps {
   title?: string;
@@ -22,8 +23,19 @@ export function TopHeader({
 }: TopHeaderProps) {
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [cartCount, setCartCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [brandName, setBrandName] = useState<string>(cachedBrandName ?? "모두의수선");
+
+  useEffect(() => {
+    setCartCount(getCartCount());
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "modu_cart_drafts") setCartCount(getCartCount());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -120,6 +132,20 @@ export function TopHeader({
               {unreadCount > 0 && (
                 <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
                   {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Link>
+
+            {/* 장바구니 */}
+            <Link
+              href="/cart"
+              className="relative p-2 active:opacity-60"
+              aria-label="장바구니"
+            >
+              <ShoppingCart className="w-5 h-5 text-gray-700" />
+              {cartCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                  {cartCount > 99 ? "99+" : cartCount}
                 </span>
               )}
             </Link>
