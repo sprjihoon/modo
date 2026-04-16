@@ -145,7 +145,12 @@ export function PaymentClient() {
       const { data: { user } } = await supabase.auth.getUser();
       const customerKey = user?.id ?? `anon_${Date.now()}`;
 
+      console.log("[결제] CLIENT_KEY:", CLIENT_KEY);
+      console.log("[결제] TossPayments 함수:", typeof TossPayments);
+
       const tossPayments = TossPayments(CLIENT_KEY);
+      console.log("[결제] tossPayments 메서드:", Object.keys(tossPayments as object));
+
       const payment = tossPayments.payment({ customerKey });
       const intAmount = Math.max(1, Math.round(order.total_price));
 
@@ -163,7 +168,9 @@ export function PaymentClient() {
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };
       if (err?.code !== "USER_CANCEL") {
-        console.error("[결제] 오류:", e);
+        console.error("[결제] 오류 코드:", err?.code);
+        console.error("[결제] 오류 메시지:", err?.message);
+        console.error("[결제] 전체 오류:", JSON.stringify(e, Object.getOwnPropertyNames(e as object)));
         setError(err?.message ?? "결제 요청 중 오류가 발생했습니다.");
       }
       setIsRequesting(false);
