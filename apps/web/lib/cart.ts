@@ -21,6 +21,7 @@ function load(): CartDraftItem[] {
 function save(items: CartDraftItem[]) {
   try {
     localStorage.setItem(CART_KEY, JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent("modu_cart_update"));
   } catch { /* ignore */ }
 }
 

@@ -30,11 +30,12 @@ export function TopHeader({
   useEffect(() => {
     setCartCount(getCartCount());
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "modu_cart_drafts") setCartCount(getCartCount());
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    const onCartUpdate = () => setCartCount(getCartCount());
+    window.addEventListener("modu_cart_update", onCartUpdate);
+    window.addEventListener("storage", (e: StorageEvent) => {
+      if (e.key === "modu_cart_drafts") onCartUpdate();
+    });
+    return () => window.removeEventListener("modu_cart_update", onCartUpdate);
   }, []);
 
   useEffect(() => {

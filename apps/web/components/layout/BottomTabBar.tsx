@@ -45,6 +45,9 @@ export function BottomTabBar() {
       setCartBadge(count);
     }
     updateBadge();
+
+    window.addEventListener("modu_cart_update", updateBadge);
+    return () => window.removeEventListener("modu_cart_update", updateBadge);
   }, [pathname]);
 
   function isActive(href: string) {
