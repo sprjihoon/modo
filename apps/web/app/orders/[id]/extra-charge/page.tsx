@@ -1,15 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ChevronLeft, CreditCard, AlertCircle, CheckCircle,
   AlertTriangle, ArrowRight, RotateCcw,
 } from "lucide-react";
-import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
+import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
 import { PageLayout } from "@/components/layout/PageLayout";
+
+interface TossPaymentsV1Instance {
+  requestPayment: (
+    method: string,
+    params: {
+      amount: number;
+      orderId: string;
+      orderName: string;
+      successUrl: string;
+      failUrl: string;
+      customerName?: string;
+    }
+  ) => Promise<void>;
+}
 
 interface ExtraChargeData {
   managerPrice?: number;
@@ -27,7 +41,7 @@ interface OrderData {
 
 const CLIENT_KEY =
   process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ||
-  "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
+  "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq";
 
 export default function ExtraChargePage() {
   const router = useRouter();
@@ -36,35 +50,15 @@ export default function ExtraChargePage() {
 
   const [order, setOrder] = useState<OrderData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isWidgetReady, setIsWidgetReady] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "success" | "skip" | "return">("idle");
 
-  const widgetsRef = useRef<Awaited<
-    ReturnType<Awaited<ReturnType<typeof loadTossPayments>>["widgets"]>
-  > | null>(null);
-
   useEffect(() => {
     loadOrder();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
-
-  // 위젯 초기화 - order 데이터가 준비되고 DOM이 렌더된 후 실행
-  useEffect(() => {
-    if (!order) return;
-    const extraData = order.extra_charge_data as ExtraChargeData | undefined;
-    const amount = extraData?.managerPrice ?? 0;
-    if (
-      order.extra_charge_status === "PENDING_CUSTOMER" &&
-      amount > 0 &&
-      status === "idle"
-    ) {
-      initWidget(amount);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order]);
 
   async function loadOrder() {
     try {
@@ -98,36 +92,28 @@ export default function ExtraChargePage() {
     }
   }
 
-  async function initWidget(amount: number) {
-    try {
-      const tossPayments = await loadTossPayments(CLIENT_KEY);
-      const widgets = tossPayments.widgets({ customerKey: ANONYMOUS });
-      await widgets.setAmount({ currency: "KRW", value: amount });
-      await widgets.renderPaymentMethods({
-        selector: "#extra-payment-method-widget",
-        variantKey: "DEFAULT",
-      });
-      await widgets.renderAgreement({
-        selector: "#extra-agreement-widget",
-        variantKey: "AGREEMENT",
-      });
-      widgetsRef.current = widgets;
-      setIsWidgetReady(true);
-    } catch (e) {
-      console.error("Toss widget error:", e);
-      setError("결제 위젯 초기화에 실패했습니다.");
-    }
-  }
-
   async function handlePayment() {
-    if (!widgetsRef.current || !order) return;
+    if (!order) return;
     setIsRequesting(true);
+    setError(null);
     try {
+      const TossPaymentsV1 = (
+        window as unknown as { TossPayments?: (key: string) => TossPaymentsV1Instance }
+      ).TossPayments;
+
+      if (!TossPaymentsV1) {
+        throw new Error("결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.");
+      }
+
+      const tossPayments = TossPaymentsV1(CLIENT_KEY);
+      const extraData = order.extra_charge_data as ExtraChargeData | undefined;
+      const amount = Math.max(1, Math.round(extraData?.managerPrice ?? 0));
       const tossOrderId = `EXTRA_${order.id}_${Date.now()}`;
       const successUrl = `${window.location.origin}/payment/success?originalOrderId=${order.id}&isExtraCharge=true`;
       const failUrl = `${window.location.origin}/payment/fail?orderId=${order.id}`;
 
-      await widgetsRef.current.requestPayment({
+      await tossPayments.requestPayment("카드", {
+        amount,
         orderId: tossOrderId,
         orderName: `${order.item_name ?? "수선 서비스"} 추가 결제`,
         successUrl,
@@ -136,6 +122,7 @@ export default function ExtraChargePage() {
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };
       if (err?.code !== "USER_CANCEL") {
+        console.error("[추가결제] 오류:", e);
         setError(err?.message ?? "결제 요청 중 오류가 발생했습니다.");
       }
       setIsRequesting(false);
@@ -274,6 +261,7 @@ export default function ExtraChargePage() {
 
   return (
     <PageLayout showAppBanner={false}>
+      <Script src="https://js.tosspayments.com/v1/payment" strategy="afterInteractive" />
       <Header onBack={() => router.back()} />
 
       <div className="pb-56">
@@ -308,12 +296,6 @@ export default function ExtraChargePage() {
           </div>
         </div>
 
-        {/* Toss 위젯 - 항상 DOM에 존재 (loading 중에도) */}
-        <div className="mx-4 mt-3">
-          <div id="extra-payment-method-widget" />
-          <div id="extra-agreement-widget" className="mt-2" />
-        </div>
-
         {/* 안내 */}
         <div className="mx-4 mt-3 p-3 bg-gray-50 rounded-xl">
           <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-line">
@@ -327,15 +309,11 @@ export default function ExtraChargePage() {
         {/* 결제하기 */}
         <button
           onClick={handlePayment}
-          disabled={!isWidgetReady || isRequesting || isActionLoading || amount === 0}
+          disabled={isRequesting || isActionLoading || amount === 0}
           className="w-full py-4 bg-blue-600 text-white text-base font-bold rounded-xl disabled:opacity-50 active:brightness-95 transition-all flex items-center justify-center gap-2"
         >
           <CreditCard className="w-5 h-5" />
-          {isRequesting
-            ? "결제 진행 중..."
-            : !isWidgetReady && amount > 0
-            ? "결제 위젯 로딩 중..."
-            : `${formatPrice(amount)} 결제하기`}
+          {isRequesting ? "결제 진행 중..." : `${formatPrice(amount)} 결제하기`}
         </button>
 
         {/* 그냥 진행 / 반송하기 */}
