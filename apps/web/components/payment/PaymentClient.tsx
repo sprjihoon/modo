@@ -190,8 +190,16 @@ export function PaymentClient() {
       setIsWidgetReady(true);
     } catch (e) {
       console.error("TossPayments init error:", e);
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(`결제 위젯 초기화에 실패했습니다.\n${msg}`);
+      // Toss 오류는 {code, message} 객체 또는 Error 인스턴스
+      let msg = "";
+      if (e && typeof e === "object") {
+        const err = e as Record<string, unknown>;
+        const code = err.code ? `[${err.code}] ` : "";
+        msg = code + (String(err.message ?? err.toString?.() ?? ""));
+      } else {
+        msg = String(e);
+      }
+      setError(`결제 위젯 초기화에 실패했습니다.\n${msg || "알 수 없는 오류"}`);
     }
   }
 
