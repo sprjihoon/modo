@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Package } from "lucide-react";
+import { Package, ShoppingCart } from "lucide-react";
 import { RecentOrderCard } from "@/components/home/RecentOrderCard";
 
 interface Order {
@@ -34,16 +34,16 @@ export function OrderListClient() {
   }, []);
 
   useEffect(() => {
+    // PENDING_PAYMENT 주문은 장바구니에서 처리 → 주문목록에서 제외
+    const nonPending = orders.filter((o) => o.status !== "PENDING_PAYMENT");
     if (activeTab === "") {
-      setFiltered(orders);
+      setFiltered(nonPending);
     } else if (activeTab === "active") {
       setFiltered(
-        orders.filter(
-          (o) => !["DELIVERED", "CANCELLED"].includes(o.status)
-        )
+        nonPending.filter((o) => !["DELIVERED", "CANCELLED"].includes(o.status))
       );
     } else {
-      setFiltered(orders.filter((o) => o.status === activeTab));
+      setFiltered(nonPending.filter((o) => o.status === activeTab));
     }
   }, [activeTab, orders]);
 
@@ -54,14 +54,33 @@ export function OrderListClient() {
       const json = await res.json();
       setOrders(json.orders ?? []);
     } catch {
-      // 에러 무시
+      // ignore
     } finally {
       setIsLoading(false);
     }
   }
 
+  const pendingCount = orders.filter((o) => o.status === "PENDING_PAYMENT").length;
+
   return (
     <div>
+      {/* 결제 대기 안내 배너 */}
+      {pendingCount > 0 && (
+        <Link
+          href="/cart"
+          className="flex items-center gap-3 mx-4 mt-3 p-3.5 bg-orange-50 border border-orange-200 rounded-2xl active:brightness-95"
+        >
+          <ShoppingCart className="w-5 h-5 text-orange-500 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-orange-800">
+              결제 대기 {pendingCount}건이 있습니다
+            </p>
+            <p className="text-xs text-orange-600 mt-0.5">장바구니에서 결제를 완료해주세요</p>
+          </div>
+          <span className="text-xs font-bold text-orange-500">보기 →</span>
+        </Link>
+      )}
+
       {/* 상태 탭 */}
       <div className="flex border-b border-gray-100 sticky top-14 bg-white z-10">
         {STATUS_TABS.map((tab) => (

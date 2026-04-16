@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../services/permission_service.dart';
+import '../../providers/cart_provider.dart';
 
 /// 주문 생성 페이지
 class CreateOrderPage extends ConsumerStatefulWidget {
@@ -124,6 +125,55 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
     }
   }
   
+  /// 장바구니에 담기 (현재까지 선택한 수선 항목 저장)
+  Future<void> _saveToCart() async {
+    if (_repairItems.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    await ref.read(cartProvider.notifier).addToCart(
+      repairItems: List<Map<String, dynamic>>.from(_repairItems),
+      imageUrls: List<String>.from(_imageUrls),
+    );
+    if (!mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('장바구니에 저장되었습니다'),
+        backgroundColor: Color(0xFF00C896),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    router.go('/cart');
+  }
+
+  /// 뒤로가기 시 장바구니 저장 여부 확인
+  Future<bool> _onWillPop() async {
+    if (_repairItems.isEmpty) return true;
+    if (!mounted) return true;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('수거신청 중단'),
+        content: const Text('작성 중인 수선 항목을 장바구니에 저장하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('discard'),
+            child: Text('그냥 나가기', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('cart'),
+            child: const Text('장바구니 저장', style: TextStyle(color: Color(0xFF00C896), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (result == 'cart') {
+      await _saveToCart();
+      return false;
+    }
+    return result == 'discard';
+  }
+
   /// 다음 단계로 이동 (최종 확인)
   Future<void> _goToConfirmation() async {
     if (_repairItems.isEmpty) {
@@ -147,15 +197,35 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final navigator = Navigator.of(context);
+        final canLeave = await _onWillPop();
+        if (canLeave && mounted) navigator.pop();
+      },
+      child: Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => context.pop(),
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            final canLeave = await _onWillPop();
+            if (canLeave && mounted) navigator.pop();
+          },
         ),
+        actions: [
+          if (_repairItems.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF00C896)),
+              tooltip: '장바구니에 담기',
+              onPressed: _saveToCart,
+            ),
+        ],
       ),
       body: Column(
           children: [
@@ -443,7 +513,8 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
             ),
           ],
       ),
-    );
+      ), // Scaffold
+    ); // PopScope
   }
 
   /// 이미지 소스 선택 다이얼로그

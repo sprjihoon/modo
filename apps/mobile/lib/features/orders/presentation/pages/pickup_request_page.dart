@@ -8,6 +8,7 @@ import '../../../../services/order_service.dart';
 import '../../../../services/payment_service.dart';
 import '../../../../services/promotion_service.dart';
 import '../../providers/repair_items_provider.dart';
+import '../../providers/cart_provider.dart';
 
 /// 수거신청 페이지
 class PickupRequestPage extends ConsumerStatefulWidget {
@@ -123,6 +124,53 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     return '${date.year}년 ${date.month}월 ${date.day}일 ($weekday)';
   }
   
+  /// 장바구니에 담기 (수거신청 중단 시)
+  Future<void> _saveToCart() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    await ref.read(cartProvider.notifier).addToCart(
+      repairItems: List<Map<String, dynamic>>.from(widget.repairItems),
+      imageUrls: List<String>.from(widget.imageUrls),
+    );
+    if (!mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('장바구니에 저장되었습니다'),
+        backgroundColor: Color(0xFF00C896),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    router.go('/cart');
+  }
+
+  /// 뒤로가기 시 장바구니 저장 여부 확인
+  Future<bool> _onWillPop() async {
+    if (!mounted) return true;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('수거신청 중단'),
+        content: const Text('작성 중인 수거신청을 장바구니에 저장하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('discard'),
+            child: Text('그냥 나가기', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('cart'),
+            child: const Text('장바구니 저장', style: TextStyle(color: Color(0xFF00C896), fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (result == 'cart') {
+      await _saveToCart();
+      return false;
+    }
+    return result == 'discard';
+  }
+
   /// 기본 배송지 불러오기
   Future<void> _loadDefaultAddress() async {
     try {
@@ -521,14 +569,26 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   Widget build(BuildContext context) {
     final totalPrice = _calculateTotalPrice();
     
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final navigator = Navigator.of(context);
+        final canLeave = await _onWillPop();
+        if (canLeave && mounted) navigator.pop();
+      },
+      child: Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => context.pop(),
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            final canLeave = await _onWillPop();
+            if (canLeave && mounted) navigator.pop();
+          },
         ),
         title: const Text(
           '수거신청',
@@ -538,6 +598,13 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF00C896)),
+            tooltip: '장바구니에 담기',
+            onPressed: _saveToCart,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -1474,7 +1541,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
           ),
         ],
       ),
-    );
+      ), // Scaffold
+    ); // PopScope
   }
   
   // 고지사항 항목 위젯
