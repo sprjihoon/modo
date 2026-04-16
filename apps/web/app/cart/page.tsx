@@ -3,7 +3,7 @@ import { CartClient } from "@/components/cart/CartClient";
 
 export default function CartPage() {
   return (
-    <PageLayout title="장바구니" showAppBanner={false}>
+    <PageLayout title="장바구니" showBack showIcons={false} showAppBanner={false}>
       <CartClient />
     </PageLayout>
   );

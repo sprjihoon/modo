@@ -21,8 +21,8 @@ export function PageLayout({
     <div className="flex flex-col min-h-screen bg-white">
       {showAppBanner && <AppBanner />}
       <TopHeader title={title} showBack={showBack} showIcons={showIcons} />
-      <main className="flex-1">
-        {children}
+      <main className="flex-1 flex flex-col">
+        <div className="flex-1">{children}</div>
         <CompanyFooter />
       </main>
     </div>

@@ -24,16 +24,19 @@ const METHOD_LABEL: Record<string, string> = {
 export function PaymentHistoryClient() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPayments();
   }, []);
 
   async function loadPayments() {
+    setIsLoading(true);
+    setError(null);
     try {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setIsLoading(false); return; }
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) { setIsLoading(false); return; }
 
       const cols = "id, item_name, clothing_type, total_price, payment_method, payment_status, created_at";
 
@@ -47,40 +50,44 @@ export function PaymentHistoryClient() {
 
       // 1차: 내부 user_id (결제완료 주문)
       if (userRow?.id) {
-        const { data } = await supabase
+        const { data, error: e } = await supabase
           .from("orders")
           .select(cols)
           .eq("user_id", userRow.id)
-          .in("payment_status", ["PAID", "paid"])
+          .eq("payment_status", "PAID")
           .order("created_at", { ascending: false });
+        if (e) console.error("[결제내역] 1차 조회 오류:", e.message);
         rows = data ?? [];
       }
 
-      // 2차: auth.uid() 직접
+      // 2차: auth.uid() 직접 (구버전 데이터)
       if (rows.length === 0) {
-        const { data: data2 } = await supabase
+        const { data: data2, error: e2 } = await supabase
           .from("orders")
           .select(cols)
           .eq("user_id", user.id)
-          .in("payment_status", ["PAID", "paid"])
+          .eq("payment_status", "PAID")
           .order("created_at", { ascending: false });
+        if (e2) console.error("[결제내역] 2차 조회 오류:", e2.message);
         rows = data2 ?? [];
       }
 
-      // 3차: RLS 의존 (payment_status=PAID만)
+      // 3차: RLS 의존 전체 조회 (userRow가 있을 때만)
       if (rows.length === 0 && userRow?.id) {
-        const { data: data3 } = await supabase
+        const { data: data3, error: e3 } = await supabase
           .from("orders")
           .select(cols)
-          .in("payment_status", ["PAID", "paid"])
+          .eq("payment_status", "PAID")
           .order("created_at", { ascending: false })
           .limit(100);
+        if (e3) console.error("[결제내역] 3차 조회 오류:", e3.message);
         rows = data3 ?? [];
       }
 
       setPayments(rows);
-    } catch {
-      // 에러 무시
+    } catch (e) {
+      console.error("[결제내역] 예상치 못한 오류:", e);
+      setError("결제 내역을 불러오는 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +99,21 @@ export function PaymentHistoryClient() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="h-20 bg-gray-100 rounded-2xl animate-pulse" />
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="py-20 text-center">
+        <Receipt className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+        <p className="text-sm text-gray-400 mb-3">{error}</p>
+        <button
+          onClick={loadPayments}
+          className="text-sm font-semibold text-[#00C896] underline"
+        >
+          다시 시도
+        </button>
       </div>
     );
   }

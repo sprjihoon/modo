@@ -1,0 +1,11 @@
+fix(web): 페이지 타이틀 물음표 수정 및 결제 후 수거예약 개선
+
+- orders 페이지: 주문 내역으로 타이틀 수정
+- profile 페이지: 마이페이지로 타이틀 수정
+- notifications 페이지: 알림으로 타이틀 수정
+- guide/price 페이지: 가격 안내로 타이틀 수정 및 내부 텍스트 한글화
+- PickupStep: zipcode 필드 수집 및 전달 추가
+- PaymentSuccessClient: 결제 완료 후 수거 예약 클라이언트에서 직접 호출
+- payments-confirm-toss: 서버 측 자동 수거예약 제거 (이중 호출 방지)
+- shipments-book: reqType 하드코딩 제거, 파라미터 값 사용
+- naver-auth: magic link OTP 방식으로 세션 생성 개선

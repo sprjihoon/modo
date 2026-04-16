@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
-import { Scissors, MapPin, CreditCard, AlertCircle } from "lucide-react";
+import { Scissors, MapPin, CreditCard, AlertCircle, FlaskConical, Truck } from "lucide-react";
 
 interface OrderInfo {
   id: string;
@@ -13,6 +13,12 @@ interface OrderInfo {
   clothing_type?: string;
   total_price: number;
   pickup_address?: string;
+  pickup_phone?: string;
+  pickup_zipcode?: string;
+  delivery_address?: string;
+  delivery_phone?: string;
+  delivery_zipcode?: string;
+  notes?: string;
   repair_parts?: Array<{ name: string; price: number; quantity: number }>;
   customer_name?: string;
 }
@@ -31,11 +37,14 @@ export function PaymentClient() {
   const [isWidgetReady, setIsWidgetReady] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTestButtons, setShowTestButtons] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const [isTestLoading, setIsTestLoading] = useState(false);
 
   const widgetsRef = useRef<Awaited<ReturnType<Awaited<ReturnType<typeof loadTossPayments>>["widgets"]>> | null>(null);
   const widgetInitialized = useRef(false);
 
-  // 1단계: 주문 정보 로드
+  // 1단계: 주문 정보 + 테스트 버튼 설정 로드
   useEffect(() => {
     if (!orderId) {
       setError("주문 정보를 찾을 수 없습니다.");
@@ -43,6 +52,7 @@ export function PaymentClient() {
       return;
     }
     loadOrder();
+    loadTestButtonsSetting();
   }, [orderId]);
 
   // 2단계: order가 세팅된 뒤 DOM이 렌더된 다음 위젯 초기화
@@ -52,6 +62,20 @@ export function PaymentClient() {
     initPaymentWidget(order.total_price);
   }, [order]);
 
+  async function loadTestButtonsSetting() {
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("ops_center_settings")
+        .select("show_test_buttons")
+        .limit(1)
+        .maybeSingle();
+      if (data) setShowTestButtons(data.show_test_buttons ?? false);
+    } catch {
+      // 설정 로드 실패 시 테스트 버튼 미표시
+    }
+  }
+
   async function loadOrder() {
     try {
       const supabase = createClient();
@@ -59,7 +83,9 @@ export function PaymentClient() {
       let data: OrderInfo | null = null;
       const { data: d1, error: e1 } = await supabase
         .from("orders")
-        .select("id, item_name, clothing_type, total_price, pickup_address, repair_parts, customer_name")
+        .select(
+          "id, item_name, clothing_type, total_price, pickup_address, pickup_phone, pickup_zipcode, delivery_address, delivery_phone, delivery_zipcode, notes, repair_parts, customer_name"
+        )
         .eq("id", orderId)
         .single();
 
@@ -80,6 +106,55 @@ export function PaymentClient() {
       setError(e instanceof Error ? e.message : "주문 정보를 불러올 수 없습니다.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleTestShipment(testMode: boolean) {
+    if (!order) return;
+    setIsTestLoading(true);
+    setTestResult(null);
+    try {
+      const supabase = createClient();
+
+      // payment_status를 PAID로 업데이트
+      await supabase
+        .from("orders")
+        .update({ payment_status: "PAID" })
+        .eq("id", order.id);
+
+      setTestResult(testMode ? "🧪 Mock 모드로 수거예약 시작..." : "🚚 실제 우체국 API로 수거예약 시작...");
+
+      // shipments-book Edge Function 호출
+      const body: Record<string, unknown> = {
+        order_id: order.id,
+        pickup_address: order.pickup_address ?? "테스트 주소",
+        pickup_phone: order.pickup_phone ?? "010-1234-5678",
+        delivery_address: order.delivery_address ?? order.pickup_address ?? "테스트 주소",
+        delivery_phone: order.delivery_phone ?? order.pickup_phone ?? "010-1234-5678",
+        customer_name: order.customer_name ?? "테스트 고객",
+        test_mode: testMode,
+      };
+      if (order.pickup_zipcode) body.pickup_zipcode = order.pickup_zipcode;
+      if (order.delivery_zipcode) body.delivery_zipcode = order.delivery_zipcode;
+      if (order.notes) body.delivery_message = order.notes;
+
+      const { data, error: fnError } = await supabase.functions.invoke("shipments-book", { body });
+
+      if (fnError) throw new Error(fnError.message);
+      if (!data?.success) throw new Error(data?.error ?? "수거예약 실패");
+
+      const trackingNo = data.data?.tracking_no ?? data.data?.pickup_tracking_no;
+      setTestResult(
+        testMode
+          ? `✅ Mock 수거예약 완료!\n송장번호: ${trackingNo}`
+          : `🎉 실제 우체국 수거예약 완료!\n송장번호: ${trackingNo}`
+      );
+
+      setTimeout(() => router.push("/orders"), 3000);
+    } catch (e) {
+      setTestResult(`❌ 오류: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setIsTestLoading(false);
     }
   }
 
@@ -218,7 +293,38 @@ export function PaymentClient() {
       </div>
 
       {/* 결제하기 버튼 */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 pb-6 pt-3 bg-white border-t border-gray-100">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 pb-6 pt-3 bg-white border-t border-gray-100 space-y-2">
+        {/* 우체국 테스트 버튼 - ops_center_settings.show_test_buttons가 true일 때만 표시 */}
+        {showTestButtons && (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleTestShipment(true)}
+                disabled={isTestLoading || isRequesting}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-orange-500 bg-orange-50 border border-orange-200 rounded-xl disabled:opacity-50 active:brightness-95 transition-all"
+              >
+                <FlaskConical className="w-4 h-4" />
+                🧪 Mock 수거예약
+              </button>
+              <button
+                onClick={() => handleTestShipment(false)}
+                disabled={isTestLoading || isRequesting}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-green-600 bg-green-50 border border-green-200 rounded-xl disabled:opacity-50 active:brightness-95 transition-all"
+              >
+                <Truck className="w-4 h-4" />
+                🚚 실제 우체국 API
+              </button>
+            </div>
+            {isTestLoading && (
+              <p className="text-xs text-center text-gray-400 animate-pulse">처리 중...</p>
+            )}
+            {testResult && (
+              <p className="text-xs text-center whitespace-pre-line font-medium text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                {testResult}
+              </p>
+            )}
+          </div>
+        )}
         <button
           onClick={handlePayment}
           disabled={!isWidgetReady || isRequesting}

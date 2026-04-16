@@ -194,24 +194,47 @@ class PaymentService {
   /// 결제 내역 조회 (orders 기반으로 조회)
   Future<List<Map<String, dynamic>>> getPaymentHistory() async {
     try {
-      // 🔒 보안: 현재 로그인 사용자의 userId 자동 조회
-      final userId = await _getCurrentUserId();
-      if (userId == null) {
+      final authId = _supabase.auth.currentUser?.id;
+      if (authId == null) {
         throw Exception('로그인이 필요합니다');
       }
 
-      // 🔒 보안: userId 필터링 강제 (본인 결제 내역만)
-      final data = await _supabase
-          .from('orders')
-          .select('*')
-          .eq('user_id', userId)  // 🔒 핵심: 본인 주문만!
-          .eq('payment_status', 'PAID')
-          .order('created_at', ascending: false);
+      final userRow = await _supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', authId)
+          .maybeSingle();
 
-      // Supabase 응답을 올바르게 캐스팅
-      return (data as List<dynamic>)
-          .map((e) => e as Map<String, dynamic>)
-          .toList();
+      List<Map<String, dynamic>> rows = [];
+
+      // 1차: 내부 user_id로 조회 (PAID / paid 둘 다 허용)
+      if (userRow != null) {
+        final userId = userRow['id'] as String;
+        final data = await _supabase
+            .from('orders')
+            .select('*')
+            .eq('user_id', userId)
+            .or('payment_status.eq.PAID,payment_status.eq.paid')
+            .order('created_at', ascending: false);
+        rows = (data as List<dynamic>)
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
+      }
+
+      // 2차: 구버전 데이터 — user_id 컬럼에 auth.uid()가 직접 저장된 경우
+      if (rows.isEmpty) {
+        final data2 = await _supabase
+            .from('orders')
+            .select('*')
+            .eq('user_id', authId)
+            .or('payment_status.eq.PAID,payment_status.eq.paid')
+            .order('created_at', ascending: false);
+        rows = (data2 as List<dynamic>)
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
+      }
+
+      return rows;
     } catch (e) {
       throw Exception('결제 내역 조회 실패: $e');
     }

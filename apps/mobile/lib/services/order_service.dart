@@ -262,6 +262,26 @@ class OrderService {
     }
   }
 
+  /// 주문 목록을 raw rows → shipments 포함 형태로 변환
+  List<Map<String, dynamic>> _mapOrdersWithShipments(List<dynamic> response) {
+    return response.map((order) {
+      final orderMap = Map<String, dynamic>.from(order as Map);
+      final trackingNo = orderMap['tracking_no'] as String?;
+      return <String, dynamic>{
+        ...orderMap,
+        'shipments': trackingNo != null
+            ? <Map<String, dynamic>>[
+                {
+                  'tracking_no': trackingNo,
+                  'pickup_tracking_no': trackingNo,
+                  'order_id': orderMap['id'],
+                }
+              ]
+            : <Map<String, dynamic>>[],
+      };
+    }).toList();
+  }
+
   /// 내 주문 목록 조회
   Future<List<Map<String, dynamic>>> getMyOrders() async {
     try {
@@ -272,52 +292,39 @@ class OrderService {
 
       debugPrint('📋 Auth User ID: ${user.id}');
 
-      // 재시도 로직 적용
       return await _retryableCall(() async {
-        // public.users 테이블에서 실제 user_id 조회 (auth_id로 검색)
         final userResponse = await _supabase
             .from('users')
             .select('id')
             .eq('auth_id', user.id)
             .maybeSingle();
 
-        if (userResponse == null) {
-          debugPrint('⚠️ public.users에 사용자 정보가 없습니다.');
-          throw Exception('사용자 정보를 찾을 수 없습니다. 관리자에게 문의해주세요.');
+        List<dynamic> response = [];
+
+        // 1차: 내부 user_id로 조회
+        if (userResponse != null) {
+          final userId = userResponse['id'] as String;
+          debugPrint('✅ Public User ID: $userId');
+
+          response = await _supabase
+              .from('orders')
+              .select('*')
+              .eq('user_id', userId)
+              .order('created_at', ascending: false) as List<dynamic>;
         }
 
-        final userId = userResponse['id'] as String;
-        debugPrint('✅ Public User ID: $userId');
+        // 2차: 구버전 데이터 — user_id 컬럼에 auth.uid()가 직접 저장된 경우
+        if (response.isEmpty) {
+          debugPrint('⚠️ 내부 userId 주문 없음 — auth.uid() fallback 시도');
+          response = await _supabase
+              .from('orders')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', ascending: false) as List<dynamic>;
+        }
 
-        // 🔒 보안: 본인의 주문만 조회 (user_id 필터링 강제)
-        final response = await _supabase
-            .from('orders')
-            .select('*')
-            .eq('user_id', userId) // 🔒 핵심: 본인 주문만!
-            .order('created_at', ascending: false);
-
-        debugPrint('✅ 조회된 주문 개수: ${(response as List).length}개');
-
-        // 타입 안전하게 변환
-        final orders = (response as List).map((order) {
-          final orderMap = Map<String, dynamic>.from(order as Map);
-          final trackingNo = orderMap['tracking_no'] as String?;
-
-          return <String, dynamic>{
-            ...orderMap,
-            'shipments': trackingNo != null
-                ? <Map<String, dynamic>>[
-                    {
-                      'tracking_no': trackingNo,
-                      'pickup_tracking_no': trackingNo,
-                      'order_id': orderMap['id'],
-                    }
-                  ]
-                : <Map<String, dynamic>>[],
-          };
-        }).toList();
-
-        return orders;
+        debugPrint('✅ 조회된 주문 개수: ${response.length}개');
+        return _mapOrdersWithShipments(response);
       });
     } catch (e) {
       debugPrint('❌ 주문 목록 조회 오류: $e');
