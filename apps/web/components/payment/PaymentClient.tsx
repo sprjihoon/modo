@@ -64,7 +64,8 @@ export function PaymentClient() {
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("CARD");
-  const [showTestButtons, setShowTestButtons] = useState(false);
+  // TODO: 출시 전 false로 변경하거나 ops_center_settings DB 설정으로 제어
+  const [showTestButtons, setShowTestButtons] = useState(true);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [isTestLoading, setIsTestLoading] = useState(false);
 
@@ -326,32 +327,33 @@ export function PaymentClient() {
 
       {/* 결제하기 버튼 */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 pb-6 pt-3 bg-white border-t border-gray-100 space-y-2">
-        {/* 우체국 테스트 버튼 */}
+        {/* 우체국 테스트 버튼 - 결제하기 버튼 바로 위 */}
         {showTestButtons && (
-          <div className="space-y-2">
+          <div className="rounded-xl border border-dashed border-orange-300 bg-orange-50 p-3 space-y-2">
+            <p className="text-[11px] font-bold text-orange-400 text-center tracking-wide">🔧 우체국 API 테스트 (출시 전 제거)</p>
             <div className="flex gap-2">
               <button
                 onClick={() => handleTestShipment(true)}
                 disabled={isTestLoading || isRequesting}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-orange-500 bg-orange-50 border border-orange-200 rounded-xl disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-orange-600 bg-white border border-orange-200 rounded-lg disabled:opacity-50 active:brightness-95 transition-all"
               >
                 <FlaskConical className="w-4 h-4" />
-                🧪 Mock 수거예약
+                Mock 수거예약
               </button>
               <button
                 onClick={() => handleTestShipment(false)}
                 disabled={isTestLoading || isRequesting}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-green-600 bg-green-50 border border-green-200 rounded-xl disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-green-700 bg-white border border-green-300 rounded-lg disabled:opacity-50 active:brightness-95 transition-all"
               >
                 <Truck className="w-4 h-4" />
-                🚚 실제 우체국 API
+                실제 우체국 API
               </button>
             </div>
             {isTestLoading && (
-              <p className="text-xs text-center text-gray-400 animate-pulse">처리 중...</p>
+              <p className="text-xs text-center text-orange-400 animate-pulse">처리 중...</p>
             )}
             {testResult && (
-              <p className="text-xs text-center whitespace-pre-line font-medium text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+              <p className="text-xs text-center whitespace-pre-line font-medium text-gray-700 bg-white rounded-lg px-3 py-2 border border-gray-100">
                 {testResult}
               </p>
             )}
