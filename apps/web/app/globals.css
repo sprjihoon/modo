@@ -52,7 +52,7 @@
 @layer components {
   /* 모바일 앱 컨테이너 */
   .app-container {
-    @apply mx-auto bg-white min-h-screen relative;
+    @apply mx-auto bg-white min-h-screen relative flex flex-col;
     max-width: 430px;
   }
 

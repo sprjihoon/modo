@@ -33,7 +33,7 @@ export default function RootLayout({
         <Providers>
           {/* 데스크톱: 회색 배경 위 중앙 430px 컨테이너 */}
           <div className="min-h-screen bg-gray-100 flex justify-center">
-            <div className="app-container w-full shadow-sm">
+            <div className="app-container w-full shadow-sm flex flex-col">
               {children}
             </div>
           </div>

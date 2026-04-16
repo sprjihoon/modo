@@ -159,25 +159,39 @@ export function PaymentClient() {
   }
 
   async function initPaymentWidget(amount: number) {
+    // DOM이 완전히 페인트된 뒤 실행 보장 (Toss 문서 권고)
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+    const el = document.getElementById("payment-method-widget");
+    if (!el) {
+      setError("결제 위젯 영역을 찾을 수 없습니다. 새로고침 후 다시 시도해주세요.");
+      return;
+    }
+
     try {
       const tossPayments = await loadTossPayments(CLIENT_KEY);
       const widgets = tossPayments.widgets({ customerKey: ANONYMOUS });
 
       await widgets.setAmount({ currency: "KRW", value: amount });
-      await widgets.renderPaymentMethods({
-        selector: "#payment-method-widget",
-        variantKey: "DEFAULT",
-      });
-      await widgets.renderAgreement({
-        selector: "#agreement-widget",
-        variantKey: "AGREEMENT",
-      });
+
+      // 공식 문서 권고: 두 위젯을 Promise.all로 동시에 렌더
+      await Promise.all([
+        widgets.renderPaymentMethods({
+          selector: "#payment-method-widget",
+          variantKey: "DEFAULT",
+        }),
+        widgets.renderAgreement({
+          selector: "#agreement-widget",
+          variantKey: "AGREEMENT",
+        }),
+      ]);
 
       widgetsRef.current = widgets;
       setIsWidgetReady(true);
     } catch (e) {
       console.error("TossPayments init error:", e);
-      setError("결제 위젯 초기화에 실패했습니다. 새로고침 후 다시 시도해주세요.");
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(`결제 위젯 초기화에 실패했습니다.\n${msg}`);
     }
   }
 
@@ -218,11 +232,19 @@ export function PaymentClient() {
     return (
       <div className="m-4 p-6 bg-white border border-gray-100 rounded-2xl text-center shadow-sm">
         <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-        <p className="text-sm font-bold text-gray-800 mb-1">오류가 발생했습니다</p>
-        <p className="text-xs text-gray-500 mb-4">{error}</p>
-        <button onClick={() => router.back()} className="text-sm text-[#00C896] font-semibold">
-          돌아가기
-        </button>
+        <p className="text-sm font-bold text-gray-800 mb-1">결제 오류가 발생했습니다</p>
+        <p className="text-xs text-gray-500 mb-4 whitespace-pre-line">{error}</p>
+        <div className="flex gap-3 justify-center">
+          <button
+            onClick={() => { widgetInitialized.current = false; setError(null); if (order) initPaymentWidget(order.total_price); }}
+            className="text-sm text-white bg-[#00C896] font-semibold px-4 py-2 rounded-lg"
+          >
+            다시 시도
+          </button>
+          <button onClick={() => router.back()} className="text-sm text-gray-500 font-semibold px-4 py-2 rounded-lg border border-gray-200">
+            돌아가기
+          </button>
+        </div>
       </div>
     );
   }
