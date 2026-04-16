@@ -127,13 +127,22 @@ export function TopHeader({
     <header className="sticky top-0 z-40 bg-white border-b border-gray-100">
       <div className="flex items-center h-14 px-4 gap-2">
         {showBack ? (
-          <button
-            onClick={() => router.back()}
-            className="p-1 -ml-1 active:opacity-60"
-            aria-label="뒤로가기"
-          >
-            <ChevronLeft className="w-6 h-6 text-gray-800" />
-          </button>
+          <>
+            <button
+              onClick={() => router.back()}
+              className="p-1 -ml-1 active:opacity-60"
+              aria-label="뒤로가기"
+            >
+              <ChevronLeft className="w-6 h-6 text-gray-800" />
+            </button>
+            <Link
+              href="/"
+              className="p-1 active:opacity-60"
+              aria-label="홈으로"
+            >
+              <Home className="w-5 h-5 text-gray-500" />
+            </Link>
+          </>
         ) : null}
 
         {title ? (
@@ -151,17 +160,6 @@ export function TopHeader({
 
         {showIcons && (
           <div className="flex items-center gap-1">
-            {/* 홈 버튼 - 타이틀이 있는 내부 페이지에서만 표시 */}
-            {title && (
-              <Link
-                href="/"
-                className="p-2 active:opacity-60"
-                aria-label="홈으로"
-              >
-                <Home className="w-5 h-5 text-gray-700" />
-              </Link>
-            )}
-
             {/* 알림 */}
             <Link
               href={isLoggedIn ? "/notifications" : "/login"}
