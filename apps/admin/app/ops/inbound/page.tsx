@@ -186,7 +186,34 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       deliveryAddress: deliveryAddr || "주소 없음",
       orderId: order.id || "",
       itemName: order.item_name || "항목명 없음",
-      repairParts: Array.isArray(order.repair_parts) ? order.repair_parts : [],
+      // text[] 컬럼이라 모바일은 ['소매기장 줄임'], 웹은 [{name,price,quantity,detail}] 또는 그것이 직렬화된 JSON 문자열로 저장됨.
+      // 표시용으로는 사람이 읽을 수 있는 한 줄로 정규화한다.
+      repairParts: Array.isArray(order.repair_parts)
+        ? (order.repair_parts as unknown[])
+            .map((p) => {
+              if (p == null) return "";
+              if (typeof p === "string") {
+                const s = p.trim();
+                if (s.startsWith("{")) {
+                  try {
+                    const obj = JSON.parse(s) as { name?: string; quantity?: number; detail?: string };
+                    const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
+                    return `${obj.name ?? s}${qty}${obj.detail ? ` (${obj.detail})` : ""}`;
+                  } catch {
+                    return s;
+                  }
+                }
+                return s;
+              }
+              if (typeof p === "object") {
+                const obj = p as { name?: string; quantity?: number; detail?: string };
+                const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
+                return `${obj.name ?? ""}${qty}${obj.detail ? ` (${obj.detail})` : ""}`;
+              }
+              return String(p);
+            })
+            .filter(Boolean)
+        : [],
       images: imageUrls,
       pinsCount: totalPins,
       imagesWithPins: imagesWithPinsData, // 수정된 데이터 사용
@@ -676,11 +703,6 @@ export default function InboundPage() {
               </div>
             </div>
 
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-xs text-yellow-800">
-                ※ 아래 버튼들은 아직 동작하지 않는 상태입니다 (후속 단계에서 구현).
-              </p>
-            </div>
           </div>
         )}
       </div>

@@ -96,10 +96,33 @@ export default function WorkPage() {
       }
       const { shipment, order } = json.data;
       
-      // repair_parts 추출
-      const repairParts = Array.isArray(order.repair_parts) 
-        ? order.repair_parts 
+      // repair_parts 추출 (text[]: 모바일 plain string / 웹 직렬화 객체 혼재 가능)
+      const normalizePart = (raw: unknown): string => {
+        if (raw == null) return "";
+        if (typeof raw === "string") {
+          const s = raw.trim();
+          if (s.startsWith("{")) {
+            try {
+              const obj = JSON.parse(s) as { name?: string; quantity?: number };
+              const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
+              return `${obj.name ?? s}${qty}`;
+            } catch {
+              return s;
+            }
+          }
+          return s;
+        }
+        if (typeof raw === "object") {
+          const obj = raw as { name?: string; quantity?: number };
+          const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
+          return `${obj.name ?? ""}${qty}`;
+        }
+        return String(raw);
+      };
+      const rawParts = Array.isArray(order.repair_parts)
+        ? (order.repair_parts as unknown[])
         : (order.repair_parts ? [order.repair_parts] : []);
+      const repairParts = rawParts.map(normalizePart).filter(Boolean);
 
       const found: LookupResult = {
         orderId: shipment.order_id,

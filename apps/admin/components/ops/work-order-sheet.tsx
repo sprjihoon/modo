@@ -9,8 +9,33 @@ export interface WorkOrderData {
   customerPhone?: string;
   itemName: string;
   summary: string;
-  repairParts?: string[];
+  // text[] 컬럼이라 부위명 문자열 / JSON 직렬화 객체가 혼재 가능
+  repairParts?: Array<string | { name?: string; price?: number; quantity?: number; detail?: string }>;
   images?: WorkOrderImage[];
+}
+
+// repair_parts 항목을 표시 가능한 형태로 정규화
+export function formatRepairPart(raw: unknown): { label: string; sub?: string; price?: number } {
+  if (raw == null) return { label: "" };
+  if (typeof raw === "object") {
+    const obj = raw as { name?: string; price?: number; quantity?: number; detail?: string };
+    const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
+    return { label: `${obj.name ?? ""}${qty}`, sub: obj.detail, price: obj.price };
+  }
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (s.startsWith("{")) {
+      try {
+        const obj = JSON.parse(s) as { name?: string; price?: number; quantity?: number; detail?: string };
+        const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
+        return { label: `${obj.name ?? s}${qty}`, sub: obj.detail, price: obj.price };
+      } catch {
+        return { label: s };
+      }
+    }
+    return { label: s };
+  }
+  return { label: String(raw) };
 }
 
 export interface WorkOrderImage {
@@ -186,11 +211,19 @@ export function WorkOrderSheet({ data }: { data: WorkOrderData }) {
           <p className="text-xs font-bold mt-0 leading-tight">{data.itemName}</p>
           {data.repairParts && data.repairParts.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
-              {data.repairParts.map((part, idx) => (
-                <span key={idx} className="px-1 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
-                  {part}
-                </span>
-              ))}
+              {data.repairParts.map((part, idx) => {
+                const f = formatRepairPart(part);
+                return (
+                  <span
+                    key={idx}
+                    className="px-1 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium"
+                    title={f.sub}
+                  >
+                    {f.label}
+                    {f.sub ? ` (${f.sub})` : ""}
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>

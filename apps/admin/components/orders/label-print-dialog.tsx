@@ -291,11 +291,37 @@ export function LabelPrintDialog({ trackingNo, type, orderId }: LabelPrintDialog
         return new Date(dateString).toLocaleDateString('ko-KR');
       };
 
-      // 수선 항목 리스트
-      const repairParts = Array.isArray(fullOrder?.repair_parts) ? fullOrder.repair_parts : 
-                         Array.isArray(order?.repair_parts) ? order.repair_parts : [];
+      // 수선 항목 리스트 (text[]: 객체 직렬화 / plain string 혼재 가능)
+      const normalizePart = (raw: unknown): string => {
+        if (raw == null) return "";
+        if (typeof raw === "string") {
+          const s = raw.trim();
+          if (s.startsWith("{")) {
+            try {
+              const obj = JSON.parse(s) as { name?: string; quantity?: number };
+              const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
+              return `${obj.name ?? s}${qty}`;
+            } catch {
+              return s;
+            }
+          }
+          return s;
+        }
+        if (typeof raw === "object") {
+          const obj = raw as { name?: string; quantity?: number };
+          const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
+          return `${obj.name ?? ""}${qty}`;
+        }
+        return String(raw);
+      };
+      const rawParts: unknown[] = Array.isArray(fullOrder?.repair_parts)
+        ? fullOrder.repair_parts
+        : Array.isArray(order?.repair_parts)
+          ? order.repair_parts
+          : [];
+      const repairParts: string[] = rawParts.map(normalizePart).filter(Boolean);
       const itemsList = repairParts.length > 0
-        ? repairParts.map((part: string, idx: number) => `${idx + 1}. ${part}`).join('\n')
+        ? repairParts.map((part, idx) => `${idx + 1}. ${part}`).join('\n')
         : order.item_name || "거래물품";
 
       console.log('📦 [LabelPrint] 상품 정보:', { repairParts, itemsList });

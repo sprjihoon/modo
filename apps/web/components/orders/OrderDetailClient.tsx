@@ -45,6 +45,7 @@ interface OrderData {
   pickup_date?: string;
   tracking_no?: string;
   repair_items?: RepairItem[];
+  repair_parts?: RepairItem[];
 }
 
 interface ShipmentData {
@@ -134,7 +135,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [inboundVideoUrl, setInboundVideoUrl] = useState<string | null>(null);
   const [outboundVideoUrl, setOutboundVideoUrl] = useState<string | null>(null);
   const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
-  const [activeVideo, setActiveVideo] = useState<{ url: string; title: string } | null>(null);
+  const [activeVideo, setActiveVideo] = useState<{ url: string; title: string; comparisonUrl?: string; comparisonTitle?: string } | null>(null);
   const [isExtraActionLoading, setIsExtraActionLoading] = useState(false);
 
   // 배송지/메모 수정 상태
@@ -459,7 +460,35 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     shipment?.pickup_tracking_no ??
     shipment?.tracking_no ??
     order.tracking_no;
-  const repairItems: RepairItem[] = Array.isArray(order.repair_items) ? order.repair_items : [];
+  // repair_parts 컬럼은 text[] 타입이라 다양한 형식이 들어올 수 있음:
+  //   1) 객체 배열: [{name, price, quantity, detail}, ...]   (Web v1)
+  //   2) JSON 문자열 배열: ['{"name":"...","price":...}', ...] (Web → text[]에 저장될 때 직렬화됨)
+  //   3) 단순 문자열 배열: ['소매기장 줄임', ...] (Mobile)
+  // 모든 형식을 RepairItem[]으로 정규화한다.
+  const normalizeRepairItem = (raw: unknown): RepairItem | null => {
+    if (raw == null) return null;
+    if (typeof raw === "object") return raw as RepairItem;
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith("{")) {
+        try {
+          return JSON.parse(trimmed) as RepairItem;
+        } catch {
+          return { name: raw };
+        }
+      }
+      return { name: raw };
+    }
+    return null;
+  };
+  const rawList: unknown[] = Array.isArray(order.repair_parts)
+    ? order.repair_parts
+    : Array.isArray(order.repair_items)
+      ? order.repair_items
+      : [];
+  const repairItems: RepairItem[] = rawList
+    .map(normalizeRepairItem)
+    .filter((x): x is RepairItem => !!x);
 
   return (
     <div className="pb-8">
@@ -871,7 +900,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           {/* 전후 비교 카드 (둘 다 있을 때 우선 표시) */}
           {inboundVideoUrl && outboundVideoUrl ? (
             <button
-              onClick={() => setActiveVideo({ url: inboundVideoUrl, title: "입고 영상" })}
+              onClick={() => setActiveVideo({ url: inboundVideoUrl, title: "입고 영상", comparisonUrl: outboundVideoUrl, comparisonTitle: "출고 영상" })}
               className="w-full p-4 rounded-xl border-2 border-[#00C896]/30 bg-gradient-to-br from-[#00C896]/10 to-[#00C896]/5 active:opacity-80 text-left"
             >
               <div className="flex items-center gap-4">
@@ -1045,7 +1074,9 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <p className="text-white text-sm font-bold">{activeVideo.title}</p>
+              <p className="text-white text-sm font-bold">
+                {activeVideo.comparisonUrl ? "입출고 전후 영상" : activeVideo.title}
+              </p>
               <button
                 onClick={() => setActiveVideo(null)}
                 className="text-white/70 hover:text-white"
@@ -1053,24 +1084,59 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="aspect-video w-full">
-              {activeVideo.url.includes("iframe.videodelivery.net") ? (
-                <iframe
-                  src={activeVideo.url}
-                  className="w-full h-full"
-                  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <video
-                  src={activeVideo.url}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-contain"
-                />
-              )}
-            </div>
+            {activeVideo.comparisonUrl ? (
+              /* 전후 비교: 입고/출고 영상 세로 배치 */
+              <div className="flex flex-col">
+                <div>
+                  <p className="text-white/60 text-[10px] font-medium px-3 pt-2 pb-1">
+                    {activeVideo.title}
+                  </p>
+                  <div className="aspect-video w-full">
+                    {activeVideo.url.includes("iframe.videodelivery.net") ? (
+                      <iframe src={activeVideo.url} className="w-full h-full"
+                        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+                    ) : (
+                      <video src={activeVideo.url} controls autoPlay playsInline
+                        className="w-full h-full object-contain" />
+                    )}
+                  </div>
+                </div>
+                <div className="border-t border-white/10">
+                  <p className="text-white/60 text-[10px] font-medium px-3 pt-2 pb-1">
+                    {activeVideo.comparisonTitle}
+                  </p>
+                  <div className="aspect-video w-full">
+                    {activeVideo.comparisonUrl.includes("iframe.videodelivery.net") ? (
+                      <iframe src={activeVideo.comparisonUrl} className="w-full h-full"
+                        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+                    ) : (
+                      <video src={activeVideo.comparisonUrl} controls playsInline
+                        className="w-full h-full object-contain" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* 단일 영상 */
+              <div className="aspect-video w-full">
+                {activeVideo.url.includes("iframe.videodelivery.net") ? (
+                  <iframe
+                    src={activeVideo.url}
+                    className="w-full h-full"
+                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    src={activeVideo.url}
+                    controls
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-contain"
+                  />
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -421,10 +423,34 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         repairType = widget.repairItems[0]['repairPart'] ?? '기타';
       }
       
-      // repair_parts 배열 생성
-      final List<String> repairParts = widget.repairItems
-          .map((item) => item['repairPart'] as String)
-          .toList();
+      // repair_parts 배열 생성 (웹과 동일한 구조: {name, price, quantity, detail}을 JSON 직렬화)
+      // text[] 컬럼이라 객체를 직접 넣지 못하므로 jsonEncode로 직렬화한다.
+      final List<String> repairParts = widget.repairItems.map((item) {
+        final name = (item['repairPart'] as String?) ?? '';
+        final price = item['price'] is int
+            ? item['price'] as int
+            : int.tryParse(item['price']?.toString() ?? '') ?? 0;
+        // 상세: 범위/측정/선택 부속 요약
+        final scope = item['scope']?.toString();
+        final measurement = item['measurement']?.toString();
+        final selected = (item['selectedParts'] as List?)?.cast<dynamic>();
+        final parts = <String>[];
+        if (scope != null && scope.isNotEmpty) parts.add(scope);
+        if (measurement != null && measurement.isNotEmpty && measurement != '{}') {
+          parts.add(measurement);
+        }
+        if (selected != null && selected.isNotEmpty) {
+          parts.add('부위: ${selected.join(', ')}');
+        }
+        final detail = parts.join(' / ');
+        final obj = <String, dynamic>{
+          'name': name,
+          'price': price,
+          'quantity': 1,
+          if (detail.isNotEmpty) 'detail': detail,
+        };
+        return jsonEncode(obj);
+      }).toList();
       
       debugPrint('주문명: $itemNames');
       debugPrint('주문 상세: $itemDescription');
