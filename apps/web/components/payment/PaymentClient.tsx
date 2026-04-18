@@ -251,15 +251,16 @@ export function PaymentClient() {
 
   const repairItems = Array.isArray(order?.repair_parts) ? order!.repair_parts! : [];
 
-  // 실제 배송비 = shipping_fee - discount (없으면 7000 기본)
+  // 실제 배송비 = shipping_fee - discount
   const BASE_SHIPPING = 7000;
   const shippingFeeDisplay = order?.shipping_fee ?? BASE_SHIPPING;
   const shippingDiscount = order?.shipping_discount_amount ?? 0;
   const actualShipping = shippingFeeDisplay - shippingDiscount;
-  // 수선비 = 총액 - 실제배송비 (shipping_fee 컬럼이 있을 때만)
-  const repairTotal = order?.shipping_fee != null
-    ? order.total_price - actualShipping
-    : null;
+
+  // 수선비 계산: total_price - 실제배송비
+  // shipping_fee가 있고, total_price >= actualShipping 이면 정상 신규 주문
+  const hasShippingInfo = order?.shipping_fee != null && order.total_price >= actualShipping;
+  const repairTotal = hasShippingInfo ? order!.total_price - actualShipping : null;
 
   return (
     <>
@@ -342,7 +343,7 @@ export function PaymentClient() {
           {formatPrice(order?.total_price ?? 0)}
         </p>
         {repairTotal == null && (
-          <p className="text-xs text-gray-400 mt-1">왕복배송비 7,000원 포함</p>
+          <p className="text-xs text-gray-400 mt-1">왕복배송비 7,000원 포함 금액입니다.</p>
         )}
       </div>
 

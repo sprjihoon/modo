@@ -29,6 +29,7 @@ export function CartClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -133,16 +134,52 @@ export function CartClient() {
     }
   }, [selectedIds]);
 
-  // ── 선택결제 (선택된 첫 번째 주문부터 결제) ──
-  function handlePaySelected() {
+  // ── 선택결제 (다중 선택 시 병합 후 결제) ──
+  async function handlePaySelected() {
     if (selectedOrders.length === 0) return;
-    router.push(`/payment?orderId=${selectedOrders[0].id}`);
+    if (selectedOrders.length === 1) {
+      router.push(`/payment?orderId=${selectedOrders[0].id}`);
+      return;
+    }
+    setIsMerging(true);
+    try {
+      const res = await fetch("/api/orders/batch-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: selectedOrders.map((o) => o.id) }),
+      });
+      if (!res.ok) throw new Error("병합 실패");
+      const { orderId } = await res.json();
+      router.push(`/payment?orderId=${orderId}`);
+    } catch {
+      setDeleteError("주문 병합 중 오류가 발생했습니다. 다시 시도해주세요.");
+    } finally {
+      setIsMerging(false);
+    }
   }
 
-  // ── 전체결제 (전체 선택 후 첫 번째부터) ──
-  function handlePayAll() {
+  // ── 전체결제 (전체 선택 후 병합 결제) ──
+  async function handlePayAll() {
     if (pendingOrders.length === 0) return;
-    router.push(`/payment?orderId=${pendingOrders[0].id}`);
+    if (pendingOrders.length === 1) {
+      router.push(`/payment?orderId=${pendingOrders[0].id}`);
+      return;
+    }
+    setIsMerging(true);
+    try {
+      const res = await fetch("/api/orders/batch-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: pendingOrders.map((o) => o.id) }),
+      });
+      if (!res.ok) throw new Error("병합 실패");
+      const { orderId } = await res.json();
+      router.push(`/payment?orderId=${orderId}`);
+    } catch {
+      setDeleteError("주문 병합 중 오류가 발생했습니다. 다시 시도해주세요.");
+    } finally {
+      setIsMerging(false);
+    }
   }
 
   const isEmpty = draftItems.length === 0 && pendingOrders.length === 0;
@@ -304,9 +341,10 @@ export function CartClient() {
               )}
               <button
                 onClick={handlePayAll}
-                className="text-xs font-bold text-white bg-orange-500 px-3 py-1 rounded-lg active:brightness-95"
+                disabled={isMerging}
+                className="text-xs font-bold text-white bg-orange-500 px-3 py-1 rounded-lg active:brightness-95 disabled:opacity-60"
               >
-                전체결제 {allTotal > 0 && formatPrice(allTotal)}
+                {isMerging ? "처리 중..." : `전체결제 ${allTotal > 0 ? formatPrice(allTotal) : ""}`}
               </button>
             </div>
           </div>
@@ -447,9 +485,12 @@ export function CartClient() {
               </button>
               <button
                 onClick={handlePaySelected}
-                className="flex-[2] py-3 bg-orange-500 text-white text-sm font-bold rounded-xl active:brightness-90"
+                disabled={isMerging}
+                className="flex-[2] py-3 bg-orange-500 text-white text-sm font-bold rounded-xl active:brightness-90 disabled:opacity-60"
               >
-                선택결제 {selectedTotal > 0 && `(${formatPrice(selectedTotal)})`}
+                {isMerging
+                  ? "처리 중..."
+                  : `선택결제 ${selectedTotal > 0 ? `(${formatPrice(selectedTotal)})` : ""}`}
               </button>
             </div>
           </div>

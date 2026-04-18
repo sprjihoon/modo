@@ -1,10 +1,6 @@
-feat: 왕복배송비 7000원 별도 항목 추가 및 배송비 프로모션 시스템 구축
+fix: 장바구니 다중 주문 결제 및 배송비 표시 수정
 
-- orders 테이블에 shipping_fee(7000원 기본), shipping_discount_amount, shipping_promotion_id 컬럼 추가
-- shipping_promotions 테이블 생성 (FIRST_ORDER, FREE_ABOVE_AMOUNT, PERCENTAGE_OFF, FIXED_DISCOUNT)
-- 웹/관리자/모바일 전체 주문 생성 흐름에 배송비 별도 계산 적용
-- 결제 페이지 수선비 + 왕복배송비 항목별 표시 (할인 시 취소선/할인금액 표시)
-- 관리자 /dashboard/settings/shipping 배송비 프로모션 관리 페이지 추가
-- /api/shipping-promotion GET 엔드포인트 추가 (적용 가능 프로모션 계산)
-- 장바구니 및 수거신청 단계에서 배송비 절약 안내 문구 표시
-- PaymentClient base_price 컬럼 의존성 제거 (DB 없는 컬럼 쿼리 오류 수정)
+- batch-checkout API 추가: 다중 PENDING_PAYMENT 주문을 1건으로 병합하여 배송비 1회만 부과
+- CartClient 선택결제/전체결제: 여러 주문 선택 시 병합 후 결제 페이지로 이동
+- PENDING_PAYMENT 기존 주문 마이그레이션: shipping_fee/total_price 누락 건 보정
+- PaymentClient: total_price >= actualShipping 조건 검증으로 배송비 분리 표시 안정화
