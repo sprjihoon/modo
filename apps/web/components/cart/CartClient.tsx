@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   ShoppingCart, Trash2, ChevronRight, CreditCard,
   Package, Scissors, RefreshCw, CheckSquare, Square,
-  AlertCircle, Truck,
+  AlertCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice } from "@/lib/utils";
@@ -104,12 +104,10 @@ export function CartClient() {
   // ── 금액 계산 (배송비 이중 청구 방지) ──
   const selectedOrders = pendingOrders.filter((o) => selectedIds.has(o.id));
 
-  // 수선비 합산 (배송비 제외)
-  const allRepairTotal = pendingOrders.reduce((sum, o) => sum + getRepairCost(o), 0);
+  // 선택된 수선비 합산 (배송비 제외)
   const selectedRepairTotal = selectedOrders.reduce((sum, o) => sum + getRepairCost(o), 0);
 
-  // 실제 결제 금액 = 수선비 합 + 왕복배송비 1회
-  const allPayTotal = allRepairTotal + BASE_SHIPPING;
+  // 선택 결제 금액 = 수선비 합 + 왕복배송비 1회
   const selectedPayTotal = selectedRepairTotal + BASE_SHIPPING;
 
   // ── 선택삭제 ──
@@ -237,31 +235,12 @@ export function CartClient() {
       {/* ── 결제 대기 주문 ── */}
       {pendingOrders.length > 0 && (
         <section className="mt-4">
-          {/* 배송비 합산 안내 박스 */}
-          <div className="mx-4 mb-3 bg-[#00C896]/5 border border-[#00C896]/20 rounded-xl p-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Truck className="w-4 h-4 text-[#00C896]" />
-              <p className="text-xs font-bold text-[#00C896]">결제 대기 합산</p>
-              <span className="ml-1 text-xs text-gray-400">({pendingOrders.length}건 합포장)</span>
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">수선비 합계</span>
-                <span className="text-gray-800 font-medium">{formatPrice(allRepairTotal)}~</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">왕복배송비</span>
-                <span className="text-gray-800 font-medium">{formatPrice(BASE_SHIPPING)}</span>
-              </div>
-              <div className="border-t border-[#00C896]/20 pt-1.5 mt-1 flex justify-between">
-                <span className="text-sm font-bold text-gray-700">합계</span>
-                <span className="text-base font-extrabold text-[#00C896]">{formatPrice(allPayTotal)}~</span>
-              </div>
-            </div>
-            <p className="text-[11px] text-[#00C896] mt-2 font-semibold">
-              💡 여러 건을 합포장하면 배송비(7,000원)는 1회만 청구됩니다!
+          {/* 절약 안내 (2건 이상일 때만) */}
+          {pendingOrders.length > 1 && (
+            <p className="mx-4 mb-3 text-xs text-[#00C896] font-semibold bg-[#00C896]/5 border border-[#00C896]/20 rounded-lg px-3 py-2">
+              💡 여러 건을 함께 선택하면 배송비(7,000원)를 1회만 내서 더 경제적입니다!
             </p>
-          </div>
+          )}
 
           {/* 섹션 헤더 */}
           <div className="px-4 mb-2 flex items-center justify-between">
