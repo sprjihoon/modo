@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Upload, X, Image } from "lucide-react";
+import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Upload, X, Image, FolderOpen, Folder } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
 
@@ -16,7 +16,9 @@ interface RepairCategory {
   display_order: number;
   icon_name?: string;
   is_active: boolean;
+  parent_category_id?: string | null;
   repair_types?: RepairType[];
+  sub_categories?: RepairCategory[];
 }
 
 interface RepairType {
@@ -28,17 +30,19 @@ interface RepairType {
   price: number;
   display_order: number;
   is_active: boolean;
-  requires_measurement?: boolean; // 수치 입력 필요 여부
+  requires_measurement?: boolean;
   requires_multiple_inputs?: boolean;
   input_count?: number;
   input_labels?: string[];
-  has_sub_parts?: boolean;    // 세부 부위 선택 필요 (앞섶, 뒤판...)
-  allow_multiple_sub_parts?: boolean; // 세부 부위 다중 선택 허용
-  sub_parts_title?: string; // 세부 항목 선택 화면 제목
+  has_sub_parts?: boolean;
+  allow_multiple_sub_parts?: boolean;
+  sub_parts_title?: string;
 }
 
 export default function RepairMenuPage() {
-  const [categories, setCategories] = useState<RepairCategory[]>([]);
+  const [mainCategories, setMainCategories] = useState<RepairCategory[]>([]);
+  const [flatCategories, setFlatCategories] = useState<RepairCategory[]>([]);
+  const [isHierarchical, setIsHierarchical] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
 
@@ -46,7 +50,6 @@ export default function RepairMenuPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // API Route를 통해 조회 (Service Role Key 사용하여 RLS 우회)
       const response = await fetch('/api/admin/repair-menu');
       const result = await response.json();
 
@@ -54,7 +57,15 @@ export default function RepairMenuPage() {
         throw new Error(result.error || '데이터 조회 실패');
       }
 
-      setCategories(result.data || []);
+      if (result.hierarchical) {
+        setIsHierarchical(true);
+        setMainCategories(result.mainCategories || []);
+        setFlatCategories(result.data || []);
+      } else {
+        setIsHierarchical(false);
+        setMainCategories([]);
+        setFlatCategories(result.data || []);
+      }
     } catch (error) {
       console.error('데이터 로드 실패:', error);
       alert('데이터 로드 실패: ' + (error as Error).message);
@@ -80,18 +91,29 @@ export default function RepairMenuPage() {
     });
   };
 
-  // 카테고리 순서 변경
+  // 카테고리 순서 변경 (대카테고리/소카테고리/flat 모두 처리)
   const moveCategoryOrder = async (categoryId: string, direction: 'up' | 'down') => {
-    const currentIndex = categories.findIndex(c => c.id === categoryId);
+    // 전체 카테고리 목록에서 찾기 (대카테고리 → 소카테고리 → flat 순)
+    const allFlat: RepairCategory[] = [
+      ...mainCategories,
+      ...mainCategories.flatMap(m => m.sub_categories || []),
+      ...flatCategories,
+    ];
+    const currentIndex = allFlat.findIndex(c => c.id === categoryId);
     if (currentIndex === -1) return;
-    
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= categories.length) return;
+
+    // 같은 레벨의 카테고리만 상대로 순서 변경
+    const current = allFlat[currentIndex];
+    const sameLevel = allFlat.filter(c =>
+      (c as any).parent_category_id === (current as any).parent_category_id
+    );
+    const levelIndex = sameLevel.findIndex(c => c.id === categoryId);
+    const targetIndex = direction === 'up' ? levelIndex - 1 : levelIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sameLevel.length) return;
+
+    const target = sameLevel[targetIndex];
 
     try {
-      // 현재 카테고리와 대상 카테고리의 display_order를 교환
-      const current = categories[currentIndex];
-      const target = categories[targetIndex];
 
       const response = await fetch('/api/admin/repair-menu/categories/order', {
         method: 'PUT',
@@ -172,177 +194,248 @@ export default function RepairMenuPage() {
     );
   }
 
+  const hasNoData = mainCategories.length === 0 && flatCategories.length === 0;
+
   return (
     <div className="space-y-6">
+      {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">수선 메뉴 관리</h1>
           <p className="text-muted-foreground mt-2">
-            수선 카테고리 및 항목을 관리합니다
+            대카테고리(상의/하의/공통) → 소카테고리 → 수선항목 순으로 구성합니다
           </p>
         </div>
         <div className="flex gap-2">
-          <AddCategoryDialog onAdded={loadData} />
+          {/* 대카테고리 추가 */}
+          <AddCategoryDialog onAdded={loadData} isMainCategory label="+ 대카테고리 추가" />
+          {/* 소카테고리 추가 (대카테고리가 없으면 기존 방식) */}
+          {!isHierarchical && <AddCategoryDialog onAdded={loadData} />}
         </div>
       </div>
 
-      {/* 카테고리 목록 */}
-      <div className="space-y-4">
-        {categories.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">등록된 카테고리가 없습니다</p>
-              <AddCategoryDialog onAdded={loadData}>
-                <Button className="mt-4">첫 카테고리 추가하기</Button>
-              </AddCategoryDialog>
-            </CardContent>
-          </Card>
-        ) : (
-          categories.map((category, index) => (
-            <Card key={category.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleCategory(category.id)}
-                    >
-                      {expandedCategories.has(category.id) ? (
-                        <ChevronUp className="h-5 w-5" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5" />
-                      )}
-                    </Button>
-                    <div>
-                      <CardTitle className="text-xl">{category.name}</CardTitle>
-                      <CardDescription>
-                        {category.repair_types?.length || 0}개 항목
-                      </CardDescription>
-                    </div>
-                    {!category.is_active && (
-                      <Badge variant="secondary">비활성</Badge>
-                    )}
+      {/* 안내 배너 (대카테고리 없을 때) */}
+      {!isHierarchical && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+          <strong>💡 계층 구조 사용하기:</strong> 상단의 &ldquo;+ 대카테고리 추가&rdquo;로 상의·하의·공통사항 등
+          대분류를 먼저 만들면, 기존 카테고리를 그 아래에 묶어 관리할 수 있습니다.
+        </div>
+      )}
+
+      {hasNoData ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">등록된 카테고리가 없습니다</p>
+            <AddCategoryDialog onAdded={loadData} isMainCategory label="대카테고리 추가하기">
+              <Button className="mt-4">시작하기</Button>
+            </AddCategoryDialog>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+
+          {/* ── 대카테고리 섹션 ── */}
+          {mainCategories.map((main, mainIdx) => (
+            <div key={main.id} className="border-2 border-gray-200 rounded-xl overflow-hidden">
+              {/* 대카테고리 헤더 */}
+              <div className="flex items-center justify-between px-5 py-4 bg-gray-50 border-b border-gray-200">
+                <div className="flex items-center gap-3">
+                  <FolderOpen className="h-5 w-5 text-primary" />
+                  <div>
+                    <span className="text-lg font-bold">{main.name}</span>
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      소카테고리 {main.sub_categories?.length || 0}개
+                    </span>
                   </div>
-                  <div className="flex gap-2">
-                    {/* 순서 변경 버튼 */}
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => moveCategoryOrder(category.id, 'up')}
-                        disabled={index === 0}
-                        title="위로"
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => moveCategoryOrder(category.id, 'down')}
-                        disabled={index === categories.length - 1}
-                        title="아래로"
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </Button>
+                  {!main.is_active && <Badge variant="secondary">비활성</Badge>}
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={() => moveCategoryOrder(main.id, 'up')} disabled={mainIdx === 0}>
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => moveCategoryOrder(main.id, 'down')} disabled={mainIdx === mainCategories.length - 1}>
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <EditCategoryDialog category={main} onUpdated={loadData} />
+                  {/* 소카테고리 추가 */}
+                  <AddCategoryDialog
+                    onAdded={loadData}
+                    parentCategoryId={main.id}
+                    label="+ 소카테고리"
+                  />
+                  <Button variant="outline" size="sm" onClick={() => deleteCategory(main.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* 소카테고리 목록 */}
+              <div className="p-4 space-y-3 bg-white">
+                {(main.sub_categories || []).length === 0 ? (
+                  <div className="py-6 text-center text-muted-foreground text-sm border border-dashed rounded-lg">
+                    소카테고리가 없습니다. &ldquo;+ 소카테고리&rdquo; 버튼으로 추가하세요.
+                  </div>
+                ) : (
+                  (main.sub_categories || []).map((sub, subIdx) => (
+                    <SubCategoryCard
+                      key={sub.id}
+                      category={sub}
+                      index={subIdx}
+                      total={(main.sub_categories || []).length}
+                      expanded={expandedCategories.has(sub.id)}
+                      onToggle={() => toggleCategory(sub.id)}
+                      onMoveUp={() => moveCategoryOrder(sub.id, 'up')}
+                      onMoveDown={() => moveCategoryOrder(sub.id, 'down')}
+                      onDelete={() => deleteCategory(sub.id)}
+                      onDeleteType={deleteRepairType}
+                      onReload={loadData}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* ── 소카테고리 미분류 / 기존 flat 카테고리 ── */}
+          {flatCategories.length > 0 && (
+            <div>
+              {isHierarchical && (
+                <p className="text-sm text-muted-foreground mb-3 px-1">
+                  📁 대카테고리에 속하지 않은 기존 카테고리
+                </p>
+              )}
+              <div className="space-y-3">
+                {flatCategories.map((category, index) => (
+                  <SubCategoryCard
+                    key={category.id}
+                    category={category}
+                    index={index}
+                    total={flatCategories.length}
+                    expanded={expandedCategories.has(category.id)}
+                    onToggle={() => toggleCategory(category.id)}
+                    onMoveUp={() => moveCategoryOrder(category.id, 'up')}
+                    onMoveDown={() => moveCategoryOrder(category.id, 'down')}
+                    onDelete={() => deleteCategory(category.id)}
+                    onDeleteType={deleteRepairType}
+                    onReload={loadData}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 소카테고리 카드 컴포넌트 ──
+function SubCategoryCard({
+  category,
+  index,
+  total,
+  expanded,
+  onToggle,
+  onMoveUp,
+  onMoveDown,
+  onDelete,
+  onDeleteType,
+  onReload,
+}: {
+  category: RepairCategory;
+  index: number;
+  total: number;
+  expanded: boolean;
+  onToggle: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onDelete: () => void;
+  onDeleteType: (id: string) => Promise<void>;
+  onReload: () => void;
+}) {
+  return (
+    <Card className="shadow-none border border-gray-200">
+      <CardHeader className="py-3 px-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={onToggle} className="h-7 w-7 p-0">
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+            <Folder className="h-4 w-4 text-gray-400" />
+            <div>
+              <span className="font-semibold text-base">{category.name}</span>
+              <span className="ml-2 text-xs text-muted-foreground">
+                {category.repair_types?.length || 0}개 항목
+              </span>
+            </div>
+            {!category.is_active && <Badge variant="secondary">비활성</Badge>}
+          </div>
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" onClick={onMoveUp} disabled={index === 0}>
+              <ArrowUp className="h-3 w-3" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={onMoveDown} disabled={index === total - 1}>
+              <ArrowDown className="h-3 w-3" />
+            </Button>
+            <EditCategoryDialog category={category} onUpdated={onReload} />
+            <AddRepairTypeDialog categoryId={category.id} categoryName={category.name} onAdded={onReload} />
+            <Button variant="outline" size="sm" onClick={onDelete}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+
+      {expanded && (
+        <CardContent className="pt-0 pb-3 px-4">
+          {category.repair_types && category.repair_types.length > 0 ? (
+            <div className="space-y-2 mt-1">
+              {category.repair_types.map((type) => (
+                <div
+                  key={type.id}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <GripVertical className="h-4 w-4 text-gray-400" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium">{type.name}</p>
+                        {type.requires_measurement === false && (
+                          <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">선택만</Badge>
+                        )}
+                        {type.requires_multiple_inputs && (
+                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">입력×2</Badge>
+                        )}
+                        {type.has_sub_parts && (
+                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">세부부위</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{type.price.toLocaleString()}원</p>
                     </div>
-                    <EditCategoryDialog
-                      category={category}
-                      onUpdated={loadData}
-                    />
-                    <AddRepairTypeDialog
-                      categoryId={category.id}
-                      categoryName={category.name}
-                      onAdded={loadData}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteCategory(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!type.is_active && <Badge variant="secondary">비활성</Badge>}
+                    <EditRepairTypeDialog repairType={type} categoryName={category.name} onUpdated={onReload} />
+                    <Button variant="ghost" size="sm" onClick={() => onDeleteType(type.id)}>
+                      <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </div>
                 </div>
-              </CardHeader>
-
-              {/* 수선 항목 리스트 */}
-              {expandedCategories.has(category.id) && (
-                <CardContent>
-                  {category.repair_types && category.repair_types.length > 0 ? (
-                    <div className="space-y-2">
-                      {category.repair_types.map((type) => (
-                        <div
-                          key={type.id}
-                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <GripVertical className="h-4 w-4 text-gray-400" />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-medium">{type.name}</p>
-                                {type.requires_measurement === false && (
-                                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                                    선택만
-                                  </Badge>
-                                )}
-                                {type.requires_multiple_inputs && (
-                                  <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                                    입력×2
-                                  </Badge>
-                                )}
-                                {type.has_sub_parts && (
-                                  <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
-                                    세부부위
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                {type.price.toLocaleString()}원
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {!type.is_active && (
-                              <Badge variant="secondary">비활성</Badge>
-                            )}
-                            <EditRepairTypeDialog
-                              repairType={type}
-                              categoryName={category.name}
-                              onUpdated={loadData}
-                            />
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteRepairType(type.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>등록된 수선 항목이 없습니다</p>
-                      <AddRepairTypeDialog
-                        categoryId={category.id}
-                        categoryName={category.name}
-                        onAdded={loadData}
-                      >
-                        <Button variant="outline" size="sm" className="mt-3">
-                          첫 항목 추가하기
-                        </Button>
-                      </AddRepairTypeDialog>
-                    </div>
-                  )}
-                </CardContent>
-              )}
-            </Card>
-          ))
-        )}
-      </div>
-    </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground text-sm border border-dashed rounded-lg mt-1">
+              <p>등록된 수선 항목이 없습니다</p>
+              <AddRepairTypeDialog categoryId={category.id} categoryName={category.name} onAdded={onReload}>
+                <Button variant="outline" size="sm" className="mt-2">첫 항목 추가하기</Button>
+              </AddRepairTypeDialog>
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
   );
 }
 
@@ -601,7 +694,19 @@ function EditCategoryDialog({
 }
 
 // 카테고리 추가 Dialog
-function AddCategoryDialog({ onAdded, children }: { onAdded: () => void; children?: React.ReactNode }) {
+function AddCategoryDialog({
+  onAdded,
+  children,
+  isMainCategory,
+  parentCategoryId,
+  label,
+}: {
+  onAdded: () => void;
+  children?: React.ReactNode;
+  isMainCategory?: boolean;
+  parentCategoryId?: string;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [iconName, setIconName] = useState("");
@@ -657,7 +762,8 @@ function AddCategoryDialog({ onAdded, children }: { onAdded: () => void; childre
         body: JSON.stringify({
           name,
           icon_name: iconName || null,
-          display_order: 999, // 마지막에 추가
+          display_order: 999,
+          parent_category_id: parentCategoryId || null,
         }),
       });
 
@@ -679,29 +785,35 @@ function AddCategoryDialog({ onAdded, children }: { onAdded: () => void; childre
     }
   };
 
+  const dialogTitle = isMainCategory ? '대카테고리 추가' : parentCategoryId ? '소카테고리 추가' : '카테고리 추가';
+  const dialogDesc = isMainCategory
+    ? '상의·하의·공통사항 등 대분류를 추가합니다'
+    : parentCategoryId
+    ? '이 대카테고리 하위에 소카테고리를 추가합니다'
+    : '새로운 카테고리를 추가합니다';
+  const placeholder = isMainCategory ? '예: 상의, 하의, 공통사항' : '예: 아우터, 청바지';
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children || (
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            카테고리 추가
+          <Button variant={isMainCategory ? 'default' : 'outline'} size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            {label || (isMainCategory ? '대카테고리 추가' : parentCategoryId ? '소카테고리 추가' : '카테고리 추가')}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>카테고리 추가</DialogTitle>
-          <DialogDescription>
-            새로운 의류 카테고리를 추가합니다
-          </DialogDescription>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDesc}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
             <Label htmlFor="name">카테고리명 *</Label>
             <Input
               id="name"
-              placeholder="예: 아우터"
+              placeholder={placeholder}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -911,7 +1023,7 @@ function EditRepairTypeDialog({
         .order('display_order');
 
       if (!error && data) {
-        setSubParts(data.map(part => ({
+        setSubParts((data as any[]).map(part => ({
           id: part.id,
           name: part.name,
           icon: part.icon_name,
@@ -1204,7 +1316,10 @@ function EditRepairTypeDialog({
                   <p className="text-xs font-medium text-amber-900 mb-2">
                     🎯 세부 부위 목록 (예: 앞섶, 뒤판, 왼팔, 오른팔)
                   </p>
-                  
+                  <p className="text-[11px] text-amber-800 -mt-1 mb-2">
+                    ※ 부위 가격은 상위 항목 가격에 더해지지 않고, 그 자체가 결제 단가가 됩니다 (0원이면 상위 항목 가격으로 폴백).
+                  </p>
+
                   {isLoadingSubParts && (
                     <p className="text-xs text-gray-500">로딩 중...</p>
                   )}
@@ -1254,7 +1369,7 @@ function EditRepairTypeDialog({
                         )}
                       </div>
                       <Input
-                        placeholder="가격 (10000)"
+                        placeholder="결제 단가 (예: 10000, 0이면 상위 항목 가격 사용)"
                         type="number"
                         value={newSubPartPrice}
                         onChange={(e) => setNewSubPartPrice(e.target.value)}
@@ -1312,7 +1427,7 @@ function EditRepairTypeDialog({
                               )}
                               {part.price && part.price > 0 && (
                                 <p className="text-xs font-medium text-green-600">
-                                  {part.price.toLocaleString()}원
+                                  {part.price.toLocaleString()}원 (최종 단가)
                                 </p>
                               )}
                             </div>
@@ -1777,7 +1892,10 @@ function AddRepairTypeDialog({
                   <p className="text-xs font-medium text-amber-900 mb-2">
                     🎯 세부 부위 목록 (예: 앞섶, 뒤판, 왼팔, 오른팔)
                   </p>
-                  
+                  <p className="text-[11px] text-amber-800 -mt-1 mb-2">
+                    ※ 부위 가격은 상위 항목 가격에 더해지지 않고, 그 자체가 결제 단가가 됩니다 (0원이면 상위 항목 가격으로 폴백).
+                  </p>
+
                   {/* 세부 부위 추가 입력 */}
                   <div className="space-y-2">
                     <Input
@@ -1822,7 +1940,7 @@ function AddRepairTypeDialog({
                       )}
                     </div>
                     <Input
-                      placeholder="가격 (10000)"
+                      placeholder="결제 단가 (예: 10000, 0이면 상위 항목 가격 사용)"
                       type="number"
                       value={newSubPartPrice}
                       onChange={(e) => setNewSubPartPrice(e.target.value)}
@@ -1879,7 +1997,7 @@ function AddRepairTypeDialog({
                               )}
                               {part.price && part.price > 0 && (
                                 <p className="text-xs font-medium text-green-600">
-                                  +{part.price.toLocaleString()}원
+                                  {part.price.toLocaleString()}원 (최종 단가)
                                 </p>
                               )}
                             </div>

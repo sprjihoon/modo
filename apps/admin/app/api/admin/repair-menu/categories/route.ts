@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
         name,
         icon_name: icon_name || null,
         display_order: display_order || 999,
+        parent_category_id: body.parent_category_id || null,
       })
       .select()
       .single();
@@ -82,12 +83,14 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const updatePayload: Record<string, any> = { name, icon_name: icon_name || null };
+    if ('parent_category_id' in body) {
+      updatePayload.parent_category_id = body.parent_category_id || null;
+    }
+
     const { data, error } = await supabaseAdmin
       .from('repair_categories')
-      .update({
-        name,
-        icon_name: icon_name || null,
-      })
+      .update(updatePayload)
       .eq('id', id)
       .select();
 
