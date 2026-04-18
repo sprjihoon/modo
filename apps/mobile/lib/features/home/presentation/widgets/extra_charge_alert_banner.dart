@@ -22,11 +22,15 @@ class ExtraChargeAlertBanner extends StatelessWidget {
     final note = extraChargeData?['managerNote'] as String? ?? '추가 작업';
     
     // 토스페이먼츠 결제 화면으로 이동
+    // 주의: payments-confirm-toss는 추가결제 분기에서 original_order_id로 orders.id를 매칭함
+    //       → originalOrderId 반드시 함께 전달해야 함 (없으면 레거시 extra_charge_requests 분기로 빠져 실패)
+    // 주의: orderId 패턴은 웹과 동일하게 'EXTRA_<uuid>_<ts>' (대문자) - 웹 success URL 파싱과 통일
     context.push('/toss-payment', extra: {
-      'orderId': 'extra_${orderId}_${DateTime.now().millisecondsSinceEpoch}',
+      'orderId': 'EXTRA_${orderId}_${DateTime.now().millisecondsSinceEpoch}',
       'amount': price,
       'orderName': '$orderNumber - $note',
       'isExtraCharge': true,
+      'originalOrderId': orderId,
     });
   }
 

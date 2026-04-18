@@ -23,6 +23,7 @@ interface OrderData {
   id: string;
   order_number?: string;
   status: string;
+  payment_status?: string;
   extra_charge_status?: string;
   extra_charge_data?: {
     managerPrice?: number;
@@ -318,19 +319,26 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   }
 
   async function handleCancel() {
-    if (!confirm("수거 예약을 취소하시겠습니까?\n취소 후에는 다시 예약하셔야 합니다.")) return;
+    // 결제 완료된 주문이면 환불 안내를 함께 노출
+    const isPaid = order?.payment_status === "PAID";
+    const confirmMsg = isPaid
+      ? "수거 예약을 취소하시겠습니까?\n결제하신 금액은 카드사를 통해 자동으로 환불됩니다."
+      : "수거 예약을 취소하시겠습니까?\n취소 후에는 다시 예약하셔야 합니다.";
+    if (!confirm(confirmMsg)) return;
     setIsCancelling(true);
     try {
-      const supabase = createClient();
-
-      // 우체국 API + DB 취소: shipments-cancel Edge Function 호출
-      const { data, error: fnError } = await supabase.functions.invoke("shipments-cancel", {
-        body: { order_id: orderId, delete_after_cancel: true },
+      // /api/orders/{id}/cancel : 수거 취소 + 결제 환불을 한 트랜잭션으로 처리
+      const res = await fetch(`/api/orders/${orderId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "고객 요청 - 수거 예약 취소" }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        throw new Error(data?.error || "취소 처리에 실패했습니다.");
+      }
 
-      if (fnError) throw new Error(fnError.message);
-
-      // 응답 파싱 (모바일과 동일한 로직)
+      // 응답 파싱
       const epostResult = data?.epost_result as Record<string, string> | undefined;
       const canceledYn = epostResult?.canceledYn;
       const cancelDate = epostResult?.cancelDate;
@@ -352,8 +360,21 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         msg += "\n🗑️ 우체국 전산에서 삭제되었습니다.";
       }
 
+      // 결제 환불 결과 안내
+      if (data?.hasValidPayment) {
+        if (data?.paymentCanceled) {
+          msg += "\n💳 결제 금액이 자동으로 환불되었습니다.";
+        } else if (data?.paymentCancelError) {
+          msg += `\n⚠️ 결제 환불에 실패했습니다: ${data.paymentCancelError}\n고객센터로 문의해 주세요.`;
+        }
+      }
+
       alert(msg);
-      setOrder((prev) => prev ? { ...prev, status: "CANCELLED" } : prev);
+      setOrder((prev) => prev ? {
+        ...prev,
+        status: "CANCELLED",
+        payment_status: data?.paymentCanceled ? "CANCELED" : prev.payment_status,
+      } : prev);
       await loadOrder(true);
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
@@ -367,28 +388,47 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     const msg =
       action === "SKIP"
         ? "추가 작업 없이 원안대로 진행하시겠습니까?"
-        : "반송 처리하시겠습니까?\n왕복 배송비 6,000원이 차감됩니다.";
+        : "반송 처리하시겠습니까?\n왕복 배송비 6,000원이 차감되고 나머지 금액은 자동 환불됩니다.";
     if (!confirm(msg)) return;
     setIsExtraActionLoading(true);
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { alert("로그인이 필요합니다."); return; }
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("id")
-        .eq("auth_id", user.id)
-        .maybeSingle();
-      if (!userRow) { alert("사용자 정보를 찾을 수 없습니다."); return; }
-      const { error } = await supabase.rpc("process_customer_decision", {
-        p_order_id: orderId,
-        p_action: action,
-        p_customer_id: userRow.id,
-      });
-      if (error) throw error;
+      if (action === "RETURN") {
+        // 반송: RPC + Toss 부분환불을 한 트랜잭션으로 처리하는 신규 라우트
+        const res = await fetch(`/api/orders/${orderId}/return-and-refund`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.success === false) {
+          throw new Error(data?.error || "반송 처리에 실패했습니다.");
+        }
+        let resultMsg = data?.message || "반송 요청이 접수되었습니다.";
+        if (data?.refundError) {
+          resultMsg += `\n⚠️ 환불 처리 오류: ${data.refundError}\n고객센터로 문의해 주세요.`;
+        }
+        alert(resultMsg);
+      } else {
+        // SKIP: 단순 RPC
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { alert("로그인이 필요합니다."); return; }
+        const { data: userRow } = await supabase
+          .from("users")
+          .select("id")
+          .eq("auth_id", user.id)
+          .maybeSingle();
+        if (!userRow) { alert("사용자 정보를 찾을 수 없습니다."); return; }
+        const { error } = await supabase.rpc("process_customer_decision", {
+          p_order_id: orderId,
+          p_action: action,
+          p_customer_id: userRow.id,
+        });
+        if (error) throw error;
+      }
       await loadOrder(true);
     } catch (e) {
-      alert("처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      const errMsg = e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.";
+      alert(errMsg);
       console.error(e);
     } finally {
       setIsExtraActionLoading(false);

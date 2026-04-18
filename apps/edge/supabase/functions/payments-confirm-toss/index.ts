@@ -85,23 +85,54 @@ serve(async (req) => {
       orderData = data
     } else {
       // 일반 결제인 경우 orders에서 조회
+      // 우선순위:
+      //   1) original_order_id (모바일은 Toss orderId가 'MODO_<uuid>_<rand>' 형태라
+      //      orders.id로 직접 매칭 불가 → 클라이언트가 보낸 원본 UUID 사용)
+      //   2) order_id 자체가 UUID 형태이면 그대로 매칭 (웹 일반결제)
+      //   3) 'MODO_<uuid>_*' 패턴이면 UUID 부분 추출
+      const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+      let lookupId: string | null = null
+      if (typeof original_order_id === 'string' && UUID_RE.test(original_order_id)) {
+        lookupId = original_order_id.match(UUID_RE)![0]
+      } else if (typeof order_id === 'string' && UUID_RE.test(order_id)) {
+        lookupId = order_id.match(UUID_RE)![0]
+      }
+
+      if (!lookupId) {
+        throw new Error('주문 ID 형식이 올바르지 않습니다. (UUID 필요)')
+      }
+
       const { data, error } = await supabaseClient
         .from('orders')
-        .select('id, total_price, payment_status, user_id')
-        .eq('id', order_id)
+        .select('id, total_price, payment_status, payment_key, user_id')
+        .eq('id', lookupId)
         .single()
 
       if (error || !data) {
         throw new Error('주문 정보를 찾을 수 없습니다.')
       }
 
-      // 이미 결제 완료된 주문 확인
+      // 멱등성: 동일 paymentKey로 이미 PAID이면 성공으로 간주 (재시도/중복 confirm 안전)
       if (data.payment_status === 'PAID') {
+        if (data.payment_key && data.payment_key === payment_key) {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: {
+                orderId: order_id,
+                paymentKey: payment_key,
+                totalAmount: amount,
+                idempotent: true,
+              },
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
         throw new Error('이미 결제가 완료된 주문입니다.')
       }
 
       originalAmount = data.total_price
-      orderData = data
+      orderData = { ...data, _resolved_id: lookupId }
     }
 
     // 금액 검증 (클라이언트 조작 방지)
@@ -207,15 +238,17 @@ serve(async (req) => {
       }
     } else {
       // 일반 주문 결제인 경우
+      // orders.id 매칭은 위에서 결정된 _resolved_id 사용 (모바일 MODO_* 대응)
+      const ordersId = orderData?._resolved_id || order_id
       await supabaseClient
         .from('orders')
         .update({
-          status: 'PAID',  // 주문 상태도 함께 업데이트
+          status: 'PAID',
           payment_status: 'PAID',
           payment_key: payment_key,
-          paid_at: new Date().toISOString(),
+          paid_at: tossData.approvedAt || new Date().toISOString(),
         })
-        .eq('id', order_id)
+        .eq('id', ordersId)
 
       // 고객에게 결제 완료 알림
       if (orderData?.user_id) {
@@ -224,7 +257,7 @@ serve(async (req) => {
           type: 'PAYMENT_COMPLETED',
           title: '결제 완료',
           body: `${amount.toLocaleString()}원 결제가 완료되었습니다.`,
-          order_id: order_id,
+          order_id: ordersId,
         })
       }
 
@@ -234,15 +267,20 @@ serve(async (req) => {
       console.log('✅ 결제 확인 완료. 수거 예약은 클라이언트에서 처리합니다.')
     }
 
-    // 결제 로그 저장
+    // 결제 로그 저장 (audit)
     try {
+      // 추가결제(orders 기반)는 original_order_id, 레거시는 orderData.order_id, 일반은 lookupId
+      const logOrderId = is_extra_charge && original_order_id
+        ? original_order_id
+        : (is_extra_charge ? (orderData?.order_id || null) : (orderData?._resolved_id || order_id))
       await supabaseClient.from('payment_logs').insert({
-        order_id: is_extra_charge ? orderData?.order_id : order_id,
+        order_id: logOrderId,
         payment_key: payment_key,
         amount: tossData.totalAmount,
         method: tossData.method,
         status: 'SUCCESS',
         provider: 'TOSS',
+        is_extra_charge: !!is_extra_charge,
         response_data: tossData,
         approved_at: tossData.approvedAt,
       })
