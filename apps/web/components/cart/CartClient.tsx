@@ -235,13 +235,6 @@ export function CartClient() {
       {/* ── 결제 대기 주문 ── */}
       {pendingOrders.length > 0 && (
         <section className="mt-4">
-          {/* 절약 안내 (2건 이상일 때만) */}
-          {pendingOrders.length > 1 && (
-            <p className="mx-4 mb-3 text-xs text-[#00C896] font-semibold bg-[#00C896]/5 border border-[#00C896]/20 rounded-lg px-3 py-2">
-              💡 여러 건을 함께 선택하면 배송비(7,000원)를 1회만 내서 더 경제적입니다!
-            </p>
-          )}
-
           {/* 섹션 헤더 */}
           <div className="px-4 mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
