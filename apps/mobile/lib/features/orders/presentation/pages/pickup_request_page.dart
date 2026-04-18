@@ -59,11 +59,29 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   // 프로모션 코드 관련
   Map<String, dynamic>? _appliedPromotion;
   String? _promotionErrorMessage;
-  
+
+  // 배송비 프로모션
+  Map<String, dynamic>? _shippingPromo;
+
   @override
   void initState() {
     super.initState();
     _loadDefaultAddress();
+    _loadShippingPromotion();
+  }
+
+  Future<void> _loadShippingPromotion() async {
+    try {
+      final repairAmount = _calculateRepairItemsTotal();
+      final promo = await _orderService.checkShippingPromotion(
+        repairAmount: repairAmount,
+      );
+      if (mounted) {
+        setState(() => _shippingPromo = promo);
+      }
+    } catch (e) {
+      debugPrint('배송비 프로모션 확인 실패: $e');
+    }
   }
   
   @override
@@ -269,10 +287,10 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     });
     
     try {
-      final totalPrice = _calculateTotalPrice();
+      final repairItemsTotal = _calculateRepairItemsTotal();
       final promoData = await _promotionService.validatePromotionCode(
         code,
-        orderAmount: totalPrice,
+        orderAmount: repairItemsTotal,
       );
       
       setState(() {
@@ -458,10 +476,10 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       debugPrint('수선 타입: $repairType');
       debugPrint('수선 부위들: $repairParts');
       
-      final totalPrice = _calculateTotalPrice();
+      final repairItemsTotal = _calculateRepairItemsTotal();
       
       // 모든 수선 항목의 사진과 핀을 모음
-      final allImagesWithPins = <Map<String, dynamic>>[];
+      final allImagesWithPins = <Map<String, dynamic>>[]; 
       for (var repairItem in widget.repairItems) {
         final itemImages = repairItem['itemImages'] as List?; // itemImages로 변경
         if (itemImages != null) {
@@ -475,17 +493,26 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       
       debugPrint('📦 주문 생성 중...');
       
-      // 프로모션 코드 적용된 최종 금액 계산
-      final finalTotalPrice = _appliedPromotion != null 
+      // 배송비 프로모션이 적용된 실제 배송비
+      final actualShippingFee = (_shippingPromo?['finalShippingFee'] as int?) ?? _shippingFee;
+      final shippingDiscountAmount = (_shippingPromo?['discountAmount'] as int?) ?? 0;
+      final shippingPromotionId = _shippingPromo?['promotionId'] as String?;
+
+      // 수선 프로모션은 수선비에만 적용, 배송비는 별도 청구 (배송비 프로모션 적용)
+      final repairFinalPrice = _appliedPromotion != null
         ? (_appliedPromotion!['final_amount'] as int)
-        : totalPrice;
-      
+        : repairItemsTotal;
+      final finalTotalPrice = repairFinalPrice + actualShippingFee;
+
       // 주문 생성
       final order = await _orderService.createOrder(
         itemName: itemNames,
         itemDescription: itemDescription,
-        basePrice: totalPrice,
-        totalPrice: finalTotalPrice, // 프로모션 할인 적용된 최종 금액
+        basePrice: repairItemsTotal,
+        totalPrice: finalTotalPrice,
+        shippingFee: _shippingFee,
+        shippingDiscountAmount: shippingDiscountAmount,
+        shippingPromotionId: shippingPromotionId,
         
         // 수거지 정보
         pickupAddress: _addressController.text,
@@ -508,7 +535,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         repairParts: repairParts, // 수선 부위들
         promotionCodeId: _appliedPromotion?['id'] as String?, // 프로모션 코드 ID
         promotionDiscountAmount: _appliedPromotion?['discount_amount'] as int?, // 할인 금액
-        originalTotalPrice: _appliedPromotion != null ? totalPrice : null, // 할인 전 원래 금액
+        originalTotalPrice: _appliedPromotion != null ? (repairItemsTotal + actualShippingFee) : null,
         
         // 수취인 정보 (배송지 기준)
         recipientName: _isDeliveryAddressSame ? _recipientNameController.text : _deliveryRecipientNameController.text,
@@ -565,8 +592,10 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     }
   }
   
-  // 총 예상 가격 계산
-  int _calculateTotalPrice() {
+  static const int _shippingFee = 7000;
+
+  // 수선 항목 합산 (배송비 제외)
+  int _calculateRepairItemsTotal() {
     int total = 0;
     for (var item in widget.repairItems) {
       final priceRange = item['priceRange'] as String;
@@ -582,6 +611,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     }
     return total;
   }
+
   
   // 가격 포맷팅
   String _formatPrice(int price) {
@@ -593,7 +623,11 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
 
   @override
   Widget build(BuildContext context) {
-    final totalPrice = _calculateTotalPrice();
+    final repairItemsTotal = _calculateRepairItemsTotal();
+    final actualShippingFee = (_shippingPromo?['finalShippingFee'] as int?) ?? _shippingFee;
+    final shippingDiscountAmt = (_shippingPromo?['discountAmount'] as int?) ?? 0;
+    final shippingPromoName = _shippingPromo?['promotionName'] as String?;
+    final totalPrice = repairItemsTotal + actualShippingFee;
     
     return PopScope(
       canPop: false,
@@ -1425,6 +1459,38 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                     ),
                     const SizedBox(height: 32),
                     
+                    // 배송비 절약 안내
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00C896).withOpacity(0.07),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF00C896).withOpacity(0.2),
+                        ),
+                      ),
+                      child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('💡', style: TextStyle(fontSize: 14)),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '왕복배송비(7,000원)는 수량과 관계없이 1회 동일합니다. 여러 벌을 한 번에 맡기시면 더 경제적입니다!',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF00A07A),
+                                height: 1.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
                     // 예상 금액
                     Container(
                       padding: const EdgeInsets.all(20),
@@ -1437,29 +1503,36 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                       ),
                       child: Column(
                         children: [
-                          // 프로모션 할인이 있는 경우 원래 금액 표시
+                          // 수선 예상금액
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '수선 예상금액',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              Text(
+                                _appliedPromotion != null
+                                  ? '${_formatPrice(repairItemsTotal)}원~'
+                                  : '${_formatPrice(repairItemsTotal)}원~',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: _appliedPromotion != null
+                                    ? Colors.grey.shade500
+                                    : Colors.black87,
+                                  decoration: _appliedPromotion != null
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                                ),
+                              ),
+                            ],
+                          ),
+                          // 프로모션 할인이 있는 경우
                           if (_appliedPromotion != null) ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  '예상 금액',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                                Text(
-                                  '${_formatPrice(totalPrice)}원~',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade600,
-                                    decoration: TextDecoration.lineThrough,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -1480,25 +1553,102 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            Divider(color: Colors.grey.shade300),
-                            const SizedBox(height: 12),
                           ],
+                          const SizedBox(height: 6),
+                          // 왕복배송비
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                _appliedPromotion != null ? '최종 결제 금액' : '총 예상 금액',
-                                style: const TextStyle(
+                              const Text(
+                                '왕복배송비',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  if (shippingDiscountAmt > 0) ...[
+                                    Text(
+                                      '${_formatPrice(_shippingFee)}원',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade400,
+                                        decoration: TextDecoration.lineThrough,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      actualShippingFee == 0
+                                          ? '무료'
+                                          : '${_formatPrice(actualShippingFee)}원',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF00C896),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ] else
+                                    Text(
+                                      '${_formatPrice(_shippingFee)}원',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          // 배송비 할인 프로모션 표시
+                          if (shippingDiscountAmt > 0) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text('🎉 ', style: TextStyle(fontSize: 12)),
+                                    Text(
+                                      shippingPromoName ?? '배송비 할인',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF00C896),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '-${_formatPrice(shippingDiscountAmt)}원',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF00C896),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          Divider(color: Colors.grey.shade300),
+                          const SizedBox(height: 12),
+                          // 최종 합계
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '총 예상 결제금액',
+                                style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.black87,
                                 ),
                               ),
                               Text(
-                                '${_formatPrice(_appliedPromotion != null 
-                                  ? (_appliedPromotion!['final_amount'] as int)
-                                  : totalPrice,)}원~',
+                                '${_formatPrice(_appliedPromotion != null
+                                  ? ((_appliedPromotion!['final_amount'] as int) + actualShippingFee)
+                                  : totalPrice)}원~',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,

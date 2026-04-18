@@ -44,10 +44,18 @@ function isUnavailable(date: Date): boolean {
   return KR_HOLIDAYS.has(date.toISOString().split("T")[0]);
 }
 
+interface ShippingPromo {
+  baseShippingFee: number;
+  discountAmount: number;
+  finalShippingFee: number;
+  promotionName: string | null;
+}
+
 export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   const [showAddressList, setShowAddressList] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [shippingPromo, setShippingPromo] = useState<ShippingPromo | null>(null);
 
   // 날짜 계산 (state 초기값에 사용)
   function getNextWeekday(): string {
@@ -87,15 +95,31 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
     return d;
   }).filter(isUnavailable).map((d) => d.toISOString().split("T")[0]);
 
-  // 예상 금액 계산
-  const estimatedPrice = draft.repairItems.reduce(
+  const SHIPPING_FEE = 7000;
+
+  // 예상 수선비 계산 (배송비 제외)
+  const estimatedRepairPrice = draft.repairItems.reduce(
     (sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 1),
     0
   );
 
+  // 총 예상 금액 = 수선비 + 왕복배송비
+  const estimatedPrice = estimatedRepairPrice + SHIPPING_FEE;
+
   useEffect(() => {
     loadSavedAddresses();
+    loadShippingPromo();
   }, []);
+
+  async function loadShippingPromo() {
+    try {
+      const res = await fetch(`/api/shipping-promotion?repairAmount=${estimatedRepairPrice}`);
+      if (res.ok) {
+        const data = await res.json();
+        setShippingPromo(data);
+      }
+    } catch { /* 오류 시 기본 배송비 표시 */ }
+  }
 
   async function loadSavedAddresses() {
     try {
@@ -174,17 +198,59 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
       <div className="px-4 py-5 space-y-6">
 
         {/* 예상 금액 */}
-        {estimatedPrice > 0 && (
-          <div className="bg-[#00C896]/5 border border-[#00C896]/20 rounded-xl p-4">
-            <p className="text-xs font-bold text-[#00C896] mb-1">총 예상 금액</p>
-            <p className="text-xl font-extrabold text-gray-900">
-              {estimatedPrice.toLocaleString()}원~
+        <div className="bg-[#00C896]/5 border border-[#00C896]/20 rounded-xl p-4 space-y-2">
+          <p className="text-xs font-bold text-[#00C896] mb-2">결제 예정 금액</p>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-500">수선비</span>
+            <span className="text-gray-800 font-medium">{estimatedRepairPrice.toLocaleString()}원~</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-500">왕복배송비</span>
+            <div className="text-right">
+              {shippingPromo && shippingPromo.discountAmount > 0 ? (
+                <>
+                  <span className="line-through text-gray-400 text-xs mr-1">
+                    {SHIPPING_FEE.toLocaleString()}원
+                  </span>
+                  <span className="text-[#00C896] font-bold">
+                    {shippingPromo.finalShippingFee === 0
+                      ? "무료"
+                      : `${shippingPromo.finalShippingFee.toLocaleString()}원`}
+                  </span>
+                </>
+              ) : (
+                <span className="text-gray-800 font-medium">{SHIPPING_FEE.toLocaleString()}원</span>
+              )}
+            </div>
+          </div>
+          {shippingPromo && shippingPromo.discountAmount > 0 && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[#00C896] font-semibold flex items-center gap-1">
+                🎉 {shippingPromo.promotionName ?? "배송비 할인"}
+              </span>
+              <span className="text-[#00C896] font-semibold">
+                -{shippingPromo.discountAmount.toLocaleString()}원
+              </span>
+            </div>
+          )}
+          <div className="border-t border-[#00C896]/20 pt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-gray-700">합계</span>
+              <span className="text-xl font-extrabold text-gray-900">
+                {(estimatedRepairPrice + (shippingPromo?.finalShippingFee ?? SHIPPING_FEE)).toLocaleString()}원~
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400">정확한 수선비는 의류 입고 후 확정됩니다.</p>
+          <div className="mt-1 pt-2 border-t border-[#00C896]/15">
+            <p className="text-xs text-[#00C896] font-semibold">
+              💡 여러 벌 동시 접수 시 더 경제적입니다!
             </p>
-            <p className="text-xs text-gray-400 mt-1">
-              정확한 수선비는 의류 입고 후 확정됩니다.
+            <p className="text-xs text-gray-500 mt-0.5">
+              왕복배송비는 수량과 관계없이 1회 {SHIPPING_FEE.toLocaleString()}원으로 동일합니다.
             </p>
           </div>
-        )}
+        </div>
 
         {/* 수거 주소 */}
         <div>
@@ -452,14 +518,13 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
               {draft.repairItems.map((i) => i.name).join(", ")}
             </span>
           </p>
-          {estimatedPrice > 0 && (
-            <p className="text-sm text-gray-700 mt-1">
-              예상 금액:{" "}
-              <span className="font-bold text-[#00C896]">
-                {estimatedPrice.toLocaleString()}원~
-              </span>
-            </p>
-          )}
+          <p className="text-sm text-gray-700 mt-1">
+            예상 금액:{" "}
+            <span className="font-bold text-[#00C896]">
+              {estimatedPrice.toLocaleString()}원~
+            </span>
+            <span className="text-xs text-gray-400 ml-1">(배송비 {SHIPPING_FEE.toLocaleString()}원 포함)</span>
+          </p>
         </div>
       </div>
 

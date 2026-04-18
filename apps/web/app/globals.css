@@ -53,7 +53,7 @@
   /* 모바일 앱 컨테이너 */
   .app-container {
     @apply mx-auto bg-white min-h-screen relative flex flex-col;
-    max-width: 430px;
+    max-width: 600px;
   }
 
   /* 브랜드 버튼 */

@@ -216,27 +216,34 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   };
 
   const handleCancelShipment = async () => {
-    if (!confirm('수거 예약을 취소하시겠습니까?\n\n우체국 전산에서 취소되며, 취소 후에는 되돌릴 수 없습니다.')) {
-      return;
-    }
+    const isPaid =
+      order?.payment_key &&
+      ['PAID', 'COMPLETED', 'DONE'].includes(order?.payment_status ?? '');
+
+    const confirmMsg = isPaid
+      ? '수거 예약을 취소하시겠습니까?\n\n✅ 우체국 수거 취소\n✅ 카드 결제 자동 취소 (전액 환불)\n\n취소 후에는 되돌릴 수 없습니다.'
+      : '수거 예약을 취소하시겠습니까?\n\n우체국 전산에서 취소되며, 취소 후에는 되돌릴 수 없습니다.';
+
+    if (!confirm(confirmMsg)) return;
 
     setIsCancelling(true);
     try {
       const response = await fetch(`/api/shipments/cancel`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          order_id: params.id,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: params.id }),
       });
 
       const result = await response.json();
 
       if (response.ok && result.success) {
-        alert(`수거 취소가 완료되었습니다.\n\n${result.message || '수거 예약이 취소되었습니다.'}`);
-        // 주문 정보 새로고침
+        let msg = '수거 취소가 완료되었습니다.';
+        if (result.paymentCanceled) {
+          msg += '\n\n💳 카드 결제도 자동으로 취소되었습니다. (환불은 영업일 기준 3~5일 소요)';
+        } else if (result.hasValidPayment && result.paymentCancelError) {
+          msg += `\n\n⚠️ 수거는 취소됐으나 카드 취소에 실패했습니다.\n사유: ${result.paymentCancelError}\n\n결제 취소 메뉴에서 수동으로 처리해주세요.`;
+        }
+        alert(msg);
         await loadOrder();
       } else {
         throw new Error(result.error || '수거 취소에 실패했습니다.');
@@ -283,11 +290,29 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     amount: order.total_price || 0,
     paymentMethod: order.payment_method || '신용카드',
     paymentId: order.payment_key || order.id,
-    paymentStatus: order.payment_status || 'COMPLETED',
+    paymentStatus: (() => {
+      const s = order.payment_status;
+      if (!s || s === 'PAID' || s === 'COMPLETED' || s === 'DONE') return 'COMPLETED';
+      if (s === 'PENDING' || s === 'PENDING_PAYMENT' || s === 'WAITING') return 'PENDING';
+      return s;
+    })(),
     createdAt: new Date(order.created_at).toLocaleString('ko-KR'),
     pickupAddress: [order.pickup_address, order.pickup_address_detail].filter(Boolean).join(' ') || '주소 없음',
     deliveryAddress: [order.delivery_address, order.delivery_address_detail].filter(Boolean).join(' ') || '주소 없음',
+    deliveryZipcode: order.delivery_zipcode || '',
+    deliveryAddressUpdatedAt: order.delivery_address_updated_at || null,
+    deliveryTrackingCreatedAt: order.shipment?.delivery_tracking_created_at || null,
   };
+
+  // 배송지 변경 후 송장 재출력 필요 여부
+  const needsLabelReprint = (() => {
+    const { deliveryAddressUpdatedAt, deliveryTrackingNo, deliveryTrackingCreatedAt } = displayOrder;
+    if (!deliveryAddressUpdatedAt || !deliveryTrackingNo) return false;
+    if (deliveryTrackingCreatedAt) {
+      return new Date(deliveryAddressUpdatedAt) > new Date(deliveryTrackingCreatedAt);
+    }
+    return true; // delivery_tracking_created_at 없으면 보수적으로 경고
+  })();
 
   // Payment history
   const paymentHistory = [
@@ -626,9 +651,44 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
               <p className="font-medium text-sm">{displayOrder.pickupAddress}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">배송지</p>
-              <p className="font-medium text-sm">{displayOrder.deliveryAddress}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm text-muted-foreground">배송지</p>
+                {displayOrder.deliveryAddressUpdatedAt && (
+                  <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded">
+                    주소 변경됨
+                  </span>
+                )}
+              </div>
+              {displayOrder.deliveryZipcode && (
+                <p className="text-xs text-muted-foreground mt-0.5">[{displayOrder.deliveryZipcode}]</p>
+              )}
+              <p className={`font-medium text-sm ${needsLabelReprint ? "text-red-700" : ""}`}>
+                {displayOrder.deliveryAddress}
+              </p>
+              {displayOrder.deliveryAddressUpdatedAt && (
+                <p className="text-xs text-amber-600 mt-0.5">
+                  변경: {new Date(displayOrder.deliveryAddressUpdatedAt).toLocaleString("ko-KR")}
+                </p>
+              )}
             </div>
+
+            {/* 송장 재출력 필요 알림 */}
+            {needsLabelReprint && (
+              <div className="p-3 bg-red-50 border border-red-300 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <span className="text-red-600 text-base shrink-0">⚠️</span>
+                  <div>
+                    <p className="text-sm font-bold text-red-700">
+                      송장 재출력 필요
+                    </p>
+                    <p className="text-xs text-red-600 mt-0.5">
+                      고객이 출고 송장 생성 이후 배송 주소를 변경했습니다.
+                      현재 주소로 송장을 재출력하여 기존 송장과 교체하세요.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 반송 송장 정보 - 반송 요청 상태인 경우에만 표시 */}
             {order?.extra_charge_status === 'RETURN_REQUESTED' && (

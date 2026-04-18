@@ -116,13 +116,84 @@ export async function POST(request: NextRequest) {
     // repair_type: 첫 번째 수선 항목 이름 (모바일 앱과 동일)
     const repairType = repairArr[0]?.name || "기타";
 
-    // total_price 계산 (수량 × 단가 합산)
-    const totalPrice = repairArr.reduce(
+    const BASE_SHIPPING_FEE = 7000;
+
+    // 수선 항목 합산 (배송비 제외)
+    const repairItemsTotal = repairArr.reduce(
       (sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 1),
       0
     );
 
-    const initialStatus = totalPrice > 0 ? "PENDING_PAYMENT" : "BOOKED";
+    // 배송비 프로모션 확인 (내부 호출)
+    let shippingFee = BASE_SHIPPING_FEE;
+    let shippingDiscountAmount = 0;
+    let shippingPromotionId: string | null = null;
+
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+      const now = new Date().toISOString();
+
+      const { data: promotions } = await supabase
+        .from("shipping_promotions")
+        .select("*")
+        .eq("is_active", true)
+        .lte("valid_from", now)
+        .or(`valid_until.is.null,valid_until.gte.${now}`);
+
+      if (promotions && promotions.length > 0) {
+        // 첫 주문 여부 확인
+        const hasFirstOrderPromo = promotions.some((p) => p.type === "FIRST_ORDER");
+        let isFirstOrder = false;
+
+        if (hasFirstOrderPromo) {
+          const { count } = await supabase
+            .from("orders")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", userRow.id)
+            .not("status", "in", '("CANCELLED","PENDING_PAYMENT")');
+          isFirstOrder = (count ?? 0) === 0;
+        }
+
+        let bestDiscount = 0;
+        let bestPromoId: string | null = null;
+
+        for (const promo of promotions) {
+          let eligible = false;
+          switch (promo.type) {
+            case "FIRST_ORDER": eligible = isFirstOrder; break;
+            case "FREE_ABOVE_AMOUNT": eligible = repairItemsTotal >= (promo.min_order_amount ?? 0); break;
+            case "PERCENTAGE_OFF":
+            case "FIXED_DISCOUNT": eligible = repairItemsTotal >= (promo.min_order_amount ?? 0); break;
+          }
+          if (!eligible) continue;
+
+          let discountAmt = promo.discount_type === "PERCENTAGE"
+            ? Math.round(BASE_SHIPPING_FEE * promo.discount_value / 100)
+            : promo.discount_value;
+
+          if (promo.max_discount_amount != null) discountAmt = Math.min(discountAmt, promo.max_discount_amount);
+          discountAmt = Math.min(discountAmt, BASE_SHIPPING_FEE);
+
+          if (discountAmt > bestDiscount) {
+            bestDiscount = discountAmt;
+            bestPromoId = promo.id;
+          }
+        }
+
+        shippingDiscountAmount = bestDiscount;
+        shippingFee = BASE_SHIPPING_FEE - bestDiscount;
+        shippingPromotionId = bestPromoId;
+      }
+
+      void supabaseUrl; // suppress unused warning
+    } catch (promoError) {
+      console.warn("배송비 프로모션 확인 실패 (기본 배송비 적용):", promoError);
+    }
+
+    // total_price = 수선비 합산 + 실제 배송비 (할인 후)
+    const totalPrice = repairItemsTotal + shippingFee;
+
+    const initialStatus = "PENDING_PAYMENT";
     const orderNumber = `ORD${Date.now()}`;
     const finalDeliveryAddress = deliveryAddress || pickupAddress;
     const finalDeliveryAddressDetail = deliveryAddressDetail || pickupAddressDetail || null;
@@ -146,7 +217,10 @@ export async function POST(request: NextRequest) {
     // 선택적 컬럼 목록 (DB에 없을 수 있음 → PGRST204 오류 시 자동 제거)
     const optionalFields: Record<string, unknown> = {
       order_number: orderNumber,
-      base_price: totalPrice,
+      base_price: repairItemsTotal,
+      shipping_fee: BASE_SHIPPING_FEE,
+      shipping_discount_amount: shippingDiscountAmount,
+      ...(shippingPromotionId ? { shipping_promotion_id: shippingPromotionId } : {}),
       customer_email: userRow.email || user.email || null,
       customer_phone: phone,
       delivery_address: finalDeliveryAddress,
@@ -197,7 +271,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 0원 주문은 바로 수거 예약 호출 (결제 불필요)
+    // 0원 주문은 바로 수거 예약 호출 (결제 불필요) - 배송비만으로도 결제 필요
     if (totalPrice === 0 && userRow.name && pickupAddress) {
       try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -227,7 +301,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ orderId: order.id, totalPrice });
+    return NextResponse.json({
+      orderId: order.id,
+      totalPrice,
+      repairItemsTotal,
+      baseShippingFee: BASE_SHIPPING_FEE,
+      shippingFee,
+      shippingDiscountAmount,
+      shippingPromotionId,
+    });
   } catch (e) {
     console.error("Unexpected error:", e);
     return NextResponse.json(

@@ -464,7 +464,44 @@ class _HomePageState extends ConsumerState<HomePage>
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              // 배송비 절약 안내 배너
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C896).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF00C896).withOpacity(0.25),
+                  ),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '🚚 배송비를 아끼는 방법',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF00C896),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '왕복배송비(7,000원)는 수량과 관계없이 1회 동일!\n여러 벌을 한 번에 맡기시면 더 경제적입니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF555555),
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
 
               // 확인 버튼
               SizedBox(
@@ -896,8 +933,7 @@ class _HomePageState extends ConsumerState<HomePage>
               Icons.receipt_long_outlined,
               const Color(0xFF00C896),
               () {
-                context.push('/content-view',
-                    extra: {'key': 'price_list', 'title': '가격표'});
+                context.push('/price-guide');
               },
             ),
           ),

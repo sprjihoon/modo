@@ -8,21 +8,29 @@ export async function GET(request: NextRequest) {
 
     const supabase = createClient();
 
-    // display_order 로 정렬 시도, 없으면 created_at
-    const selectColumns = "id, name, price, description, category_id";
-
-    let query = supabase.from("repair_types").select(selectColumns);
+    // select("*") 로 컬럼명 불일치 오류 방지 (모바일 앱과 동일 방식)
+    // is_active 필터는 기존 데이터가 null인 경우 빈 결과를 낼 수 있어 제외
+    let query = supabase.from("repair_types").select("*");
 
     if (categoryId) {
       query = query.eq("category_id", categoryId);
     }
 
-    // 정렬: display_order 우선, 실패시 별도 쿼리로 재시도 불필요 (데이터 자체 확인)
-    const { data, error } = await query;
+    // display_order 정렬 시도
+    let { data, error } = await query.order("display_order", { ascending: true });
 
+    // display_order 컬럼 없으면 정렬 없이 재시도
     if (error) {
       console.error("repair_types query error:", error.message);
-      return NextResponse.json({ error: error.message, data: [] }, { status: 200 });
+      let fallback = supabase.from("repair_types").select("*");
+      if (categoryId) fallback = fallback.eq("category_id", categoryId);
+      const { data: fallbackData, error: fallbackError } = await fallback;
+
+      if (fallbackError) {
+        console.error("repair_types fallback error:", fallbackError.message);
+        return NextResponse.json({ error: fallbackError.message, data: [] }, { status: 200 });
+      }
+      data = fallbackData;
     }
 
     return NextResponse.json({ data: data ?? [] });

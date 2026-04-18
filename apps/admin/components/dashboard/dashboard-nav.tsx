@@ -81,6 +81,7 @@ const navGroups: NavGroup[] = [
       { title: "고객 관리", href: "/dashboard/customers", icon: Users },
       { title: "포인트 관리", href: "/dashboard/points", icon: TrendingUp },
       { title: "프로모션 코드", href: "/dashboard/promotions", icon: Ticket },
+      { title: "배송비 관리", href: "/dashboard/settings/shipping", icon: Truck },
     ],
   },
   {

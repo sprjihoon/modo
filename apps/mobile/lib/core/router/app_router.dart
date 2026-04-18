@@ -41,6 +41,7 @@ import '../../features/profile/presentation/pages/customer_service_page.dart';
 import '../../features/profile/presentation/pages/app_settings_page.dart';
 import '../../features/video/presentation/pages/comparison_video_player_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
+import '../../features/home/presentation/pages/price_guide_page.dart';
 
 /// GoRouter 프로바이더
 /// 참고: OAuth 딥링크(modorepair://)는 GoRouter가 파싱하다 에러가 발생하지만,
@@ -112,7 +113,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NotificationsPage(),
       ),
 
-      // Content View (가격표, 쉬운가이드 등)
+      // Content View (쉬운가이드 등)
       GoRoute(
         path: '/content-view',
         name: 'content-view',
@@ -123,6 +124,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             title: data['title'] as String,
           );
         },
+      ),
+
+      // 가격표 (repair_types 테이블에서 동적으로 로드)
+      GoRoute(
+        path: '/price-guide',
+        name: 'price-guide',
+        builder: (context, state) => const PriceGuidePage(),
       ),
       
       // Orders

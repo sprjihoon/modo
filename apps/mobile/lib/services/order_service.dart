@@ -125,6 +125,9 @@ class OrderService {
     required String itemDescription,
     required int basePrice,
     required int totalPrice,
+    int shippingFee = 7000,
+    int shippingDiscountAmount = 0,
+    String? shippingPromotionId,
     required String pickupAddress,
     required String deliveryAddress,
     String? pickupAddressDetail,
@@ -228,6 +231,13 @@ class OrderService {
         orderData['promotion_code_id'] = promotionCodeId;
         orderData['promotion_discount_amount'] = promotionDiscountAmount ?? 0;
         orderData['original_total_price'] = originalTotalPrice ?? totalPrice;
+      }
+
+      // 왕복배송비 추가
+      orderData['shipping_fee'] = shippingFee;
+      orderData['shipping_discount_amount'] = shippingDiscountAmount;
+      if (shippingPromotionId != null) {
+        orderData['shipping_promotion_id'] = shippingPromotionId;
       }
 
       // repair_parts 배열 추가
@@ -539,6 +549,104 @@ class OrderService {
       return response.data['data'];
     } catch (e) {
       throw Exception('수거예약 실패: $e');
+    }
+  }
+
+  /// 배송비 프로모션 확인
+  /// 현재 사용자에게 적용 가능한 최대 배송비 할인을 반환합니다.
+  Future<Map<String, dynamic>> checkShippingPromotion({
+    required int repairAmount,
+    int baseShippingFee = 7000,
+  }) async {
+    const noDiscount = {
+      'baseShippingFee': 7000,
+      'discountAmount': 0,
+      'finalShippingFee': 7000,
+      'promotionId': null,
+      'promotionName': null,
+    };
+
+    try {
+      final user = _supabase.auth.currentUser;
+      final now = DateTime.now().toUtc().toIso8601String();
+
+      // 활성 배송비 프로모션 조회
+      final List promos = await _supabase
+          .from('shipping_promotions')
+          .select('*')
+          .eq('is_active', true)
+          .lte('valid_from', now)
+          .or('valid_until.is.null,valid_until.gte.$now');
+
+      if (promos.isEmpty) return noDiscount;
+
+      // 첫 주문 여부 확인
+      final hasFirstOrder = promos.any((p) => p['type'] == 'FIRST_ORDER');
+      bool isFirstOrder = false;
+
+      if (hasFirstOrder && user != null) {
+        final userRow = await _supabase
+            .from('users')
+            .select('id')
+            .eq('auth_id', user.id)
+            .maybeSingle();
+
+        final userId = userRow?['id'] as String? ?? user.id;
+        final List existingOrders = await _supabase
+            .from('orders')
+            .select('id')
+            .eq('user_id', userId)
+            .not('status', 'in', '("CANCELLED","PENDING_PAYMENT")')
+            .limit(1);
+        isFirstOrder = existingOrders.isEmpty;
+      }
+
+      int bestDiscount = 0;
+      String? bestPromoId;
+      String? bestPromoName;
+
+      for (final promo in promos) {
+        bool eligible = false;
+        switch (promo['type'] as String) {
+          case 'FIRST_ORDER':
+            eligible = isFirstOrder;
+            break;
+          case 'FREE_ABOVE_AMOUNT':
+          case 'PERCENTAGE_OFF':
+          case 'FIXED_DISCOUNT':
+            eligible = repairAmount >= ((promo['min_order_amount'] as int?) ?? 0);
+            break;
+        }
+        if (!eligible) continue;
+
+        int discountAmt;
+        if (promo['discount_type'] == 'PERCENTAGE') {
+          discountAmt = (baseShippingFee * (promo['discount_value'] as int) / 100).round();
+        } else {
+          discountAmt = (promo['discount_value'] as int);
+        }
+
+        final maxDiscount = promo['max_discount_amount'] as int?;
+        if (maxDiscount != null) discountAmt = discountAmt.clamp(0, maxDiscount);
+        discountAmt = discountAmt.clamp(0, baseShippingFee);
+
+        if (discountAmt > bestDiscount) {
+          bestDiscount = discountAmt;
+          bestPromoId = promo['id'] as String;
+          bestPromoName = promo['name'] as String;
+        }
+      }
+
+      return {
+        'baseShippingFee': baseShippingFee,
+        'discountAmount': bestDiscount,
+        'finalShippingFee': baseShippingFee - bestDiscount,
+        'promotionId': bestPromoId,
+        'promotionName': bestPromoName,
+      };
+    } catch (e) {
+      debugPrint('⚠️ 배송비 프로모션 확인 실패 (기본 배송비 적용): $e');
+      return noDiscount;
     }
   }
 

@@ -32,6 +32,8 @@ interface OrderInfo {
   item_name?: string;
   clothing_type?: string;
   total_price: number;
+  shipping_fee?: number;
+  shipping_discount_amount?: number;
   pickup_address?: string;
   pickup_phone?: string;
   pickup_zipcode?: string;
@@ -100,10 +102,11 @@ export function PaymentClient() {
   async function loadOrder() {
     try {
       const supabase = createClient();
+      // shipping_fee, shipping_discount_amount 포함 조회 시도
       const { data: d1, error: e1 } = await supabase
         .from("orders")
         .select(
-          "id, item_name, clothing_type, total_price, pickup_address, pickup_phone, pickup_zipcode, delivery_address, delivery_phone, delivery_zipcode, notes, repair_parts, customer_name, customer_email, customer_phone"
+          "id, item_name, clothing_type, total_price, shipping_fee, shipping_discount_amount, pickup_address, pickup_phone, pickup_zipcode, delivery_address, delivery_phone, delivery_zipcode, notes, repair_parts, customer_name, customer_email, customer_phone"
         )
         .eq("id", orderId)
         .single();
@@ -112,7 +115,7 @@ export function PaymentClient() {
         // 컬럼 없는 구버전 fallback
         const { data: d2 } = await supabase
           .from("orders")
-          .select("id, item_name, clothing_type, total_price, pickup_address, customer_name")
+          .select("id, item_name, clothing_type, total_price, pickup_address, customer_name, repair_parts")
           .eq("id", orderId)
           .single();
         if (!d2) throw new Error("주문 정보를 찾을 수 없습니다.");
@@ -248,6 +251,16 @@ export function PaymentClient() {
 
   const repairItems = Array.isArray(order?.repair_parts) ? order!.repair_parts! : [];
 
+  // 실제 배송비 = shipping_fee - discount (없으면 7000 기본)
+  const BASE_SHIPPING = 7000;
+  const shippingFeeDisplay = order?.shipping_fee ?? BASE_SHIPPING;
+  const shippingDiscount = order?.shipping_discount_amount ?? 0;
+  const actualShipping = shippingFeeDisplay - shippingDiscount;
+  // 수선비 = 총액 - 실제배송비 (shipping_fee 컬럼이 있을 때만)
+  const repairTotal = order?.shipping_fee != null
+    ? order.total_price - actualShipping
+    : null;
+
   return (
     <>
     <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
@@ -292,13 +305,45 @@ export function PaymentClient() {
 
       {/* 결제 금액 */}
       <div className="mx-4 mt-3 p-5 bg-[#00C896]/5 border border-[#00C896]/20 rounded-2xl">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-3">
           <CreditCard className="w-4 h-4 text-[#00C896]" />
           <p className="text-sm font-bold text-[#00C896]">결제 금액</p>
         </div>
-        <p className="text-2xl font-bold text-gray-900 mt-1">
+        {/* 배송비 컬럼이 있는 신규 주문 — 항목별 상세 표시 */}
+        {repairTotal != null && (
+          <div className="space-y-1.5 mb-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">수선비</span>
+              <span className="text-gray-700 font-medium">{formatPrice(repairTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">왕복배송비</span>
+              <div className="flex items-center gap-1.5">
+                {shippingDiscount > 0 && (
+                  <span className="text-xs text-gray-400 line-through">
+                    {formatPrice(shippingFeeDisplay)}
+                  </span>
+                )}
+                <span className="text-gray-700 font-medium">
+                  {actualShipping === 0 ? "무료" : formatPrice(actualShipping)}
+                </span>
+              </div>
+            </div>
+            {shippingDiscount > 0 && (
+              <div className="flex items-center justify-between text-xs text-[#00C896] font-semibold">
+                <span>🎉 배송비 할인 적용</span>
+                <span>-{formatPrice(shippingDiscount)}</span>
+              </div>
+            )}
+            <div className="border-t border-[#00C896]/20 pt-2 mt-1" />
+          </div>
+        )}
+        <p className="text-2xl font-bold text-gray-900">
           {formatPrice(order?.total_price ?? 0)}
         </p>
+        {repairTotal == null && (
+          <p className="text-xs text-gray-400 mt-1">왕복배송비 7,000원 포함</p>
+        )}
       </div>
 
       {/* 결제 수단 선택 */}

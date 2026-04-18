@@ -13,6 +13,7 @@ import '../../../../services/order_service.dart';
 import '../../../../core/enums/extra_charge_status.dart';
 import '../../providers/extra_charge_provider.dart';
 import '../../domain/models/extra_charge_data.dart';
+import '../../../profile/presentation/widgets/daum_postcode_widget.dart';
 
 /// 주문 상세 화면
 class OrderDetailPage extends ConsumerStatefulWidget {
@@ -47,6 +48,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
 
   // 우체국 API 취소 응답 정보 저장
   Map<String, dynamic>? _cancelInfo;
+
+  // 배송지/메모 수정
+  bool _isSavingDelivery = false;
 
   /// 배송추적 treatStusCd (00:신청준비, 01:소포신청, 02:운송장출력, 03:집하완료, 04:배송중, 05:배송완료)
   /// 00~02: 수거준비(취소 가능), 03~05: 접수/발송/도착(취소 불가 → 문의하기)
@@ -618,7 +622,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '• 그냥 진행: 추가 작업 없이 원안대로 진행합니다\n• 반송: 왕복 배송비 6,000원이 차감됩니다',
+                      '• 그냥 진행: 추가 작업 없이 원안대로 진행합니다\n• 반송: 왕복 배송비 7,000원이 차감됩니다',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[700],
@@ -778,7 +782,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         title: const Text('반송 요청'),
         content: const Text(
           '반송을 요청하시겠습니까?\n\n'
-          '⚠️ 왕복 배송비 6,000원이 차감됩니다.\n'
+          '⚠️ 왕복 배송비 7,000원이 차감됩니다.\n'
           '이 금액은 환불 시 공제됩니다.',
         ),
         actions: [
@@ -821,7 +825,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('반송 요청 완료. 배송비 6,000원이 차감됩니다'),
+            content: Text('반송 요청 완료. 배송비 7,000원이 차감됩니다'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -1204,6 +1208,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
           _buildInfoRow('수선 항목', _orderData?['item_name'] ?? '수선 항목'),
           _buildInfoRow('주문일시', _formatDateTime(_orderData?['created_at'])),
           Divider(height: 24, color: Colors.grey.shade200),
+          // 배송비 내역이 있는 경우 항목별 표시
+          if (_orderData?['shipping_fee'] != null) ...[
+            _buildInfoRow(
+              '수선비',
+              _formatPrice(_orderData?['base_price'] ?? ((_orderData?['total_price'] as int? ?? 0) - (_orderData?['shipping_fee'] as int? ?? 0))),
+            ),
+            _buildInfoRow('왕복배송비', _formatPrice(_orderData?['shipping_fee'])),
+          ],
           _buildInfoRow('결제금액', _formatPrice(_orderData?['total_price']),
               isHighlight: true),
           _buildInfoRow(
@@ -2895,13 +2907,83 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
               _orderData?['pickup_address_detail'],
             ),
           ),
-          _buildInfoRow(
-            '배송지',
-            _formatAddress(
-              _orderData?['delivery_address'],
-              _orderData?['delivery_address_detail'],
+          _buildDeliveryAddressRow(context),
+          if (_orderData?['notes'] != null &&
+              (_orderData!['notes'] as String).isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    '배송 메모',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    _orderData!['notes'] as String,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryAddressRow(BuildContext context) {
+    final addr = _formatAddress(
+      _orderData?['delivery_address'],
+      _orderData?['delivery_address_detail'],
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '배송지',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             ),
           ),
+          Expanded(
+            child: Text(addr, style: const TextStyle(fontSize: 14)),
+          ),
+          if (_canEditDelivery)
+            GestureDetector(
+              onTap: () => _showDeliveryEditSheet(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C896).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.edit_outlined, size: 13, color: Color(0xFF00C896)),
+                    SizedBox(width: 4),
+                    Text(
+                      '수정',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF00C896),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -3125,6 +3207,274 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         ),
       ],
     );
+  }
+
+  /// 출고완료 전까지만 배송지 수정 가능
+  bool get _canEditDelivery =>
+      !['READY_TO_SHIP', 'DELIVERED', 'CANCELLED'].contains(_currentStatus);
+
+  /// 배송지/메모 수정 바텀시트
+  Future<void> _showDeliveryEditSheet(BuildContext context) async {
+    final zipcode = _orderData?['delivery_zipcode'] as String? ?? '';
+    final address = _orderData?['delivery_address'] as String? ?? '';
+    final addressDetail = _orderData?['delivery_address_detail'] as String? ?? '';
+    final notes = _orderData?['notes'] as String? ?? '';
+
+    final zipcodeController = TextEditingController(text: zipcode);
+    final addressController = TextEditingController(text: address);
+    final detailController = TextEditingController(text: addressDetail);
+    final notesController = TextEditingController(text: notes);
+    final detailFocus = FocusNode();
+
+    Future<void> searchAddress(StateSetter setModalState) async {
+      final result = await showDialog<Map<String, String>>(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: const DaumPostcodeWidget(),
+        ),
+      );
+      if (result != null) {
+        setModalState(() {
+          zipcodeController.text = result['zonecode'] ?? '';
+          addressController.text = result['address'] ?? '';
+        });
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (context.mounted) detailFocus.requestFocus();
+      }
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 헤더
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '배송지 수정',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // 배송 주소
+                const Text(
+                  '배송 주소',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Text(
+                          addressController.text.isEmpty
+                              ? '주소를 검색해주세요'
+                              : '${zipcodeController.text.isNotEmpty ? '[${zipcodeController.text}] ' : ''}${addressController.text}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: addressController.text.isEmpty
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.search, size: 18),
+                      label: const Text('검색'),
+                      onPressed: () => searchAddress(setModalState),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // 상세 주소
+                const Text(
+                  '상세 주소',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: detailController,
+                  focusNode: detailFocus,
+                  decoration: InputDecoration(
+                    hintText: '동, 호수 등 상세주소 입력',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF00C896)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // 배송 메모
+                const Text(
+                  '배송 메모',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: notesController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: '배송 시 요청사항 (예: 문 앞에 놓아주세요)',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF00C896)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // 저장 버튼
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isSavingDelivery
+                        ? null
+                        : () async {
+                            if (addressController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('배송 주소를 입력해주세요.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                            Navigator.of(context).pop();
+                            await _saveDeliveryInfo(
+                              zipcode: zipcodeController.text.trim(),
+                              address: addressController.text.trim(),
+                              addressDetail: detailController.text.trim(),
+                              notes: notesController.text.trim(),
+                            );
+                          },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    child: const Text('저장하기', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    zipcodeController.dispose();
+    addressController.dispose();
+    detailController.dispose();
+    notesController.dispose();
+    detailFocus.dispose();
+  }
+
+  /// 배송지 정보 Supabase 저장
+  Future<void> _saveDeliveryInfo({
+    required String zipcode,
+    required String address,
+    required String addressDetail,
+    required String notes,
+  }) async {
+    if (!mounted) return;
+    setState(() => _isSavingDelivery = true);
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase.from('orders').update({
+        'delivery_address': address,
+        'delivery_address_detail': addressDetail.isEmpty ? null : addressDetail,
+        'delivery_zipcode': zipcode.isEmpty ? null : zipcode,
+        'notes': notes.isEmpty ? null : notes,
+        'delivery_address_updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', widget.orderId);
+
+      if (mounted) {
+        setState(() {
+          _orderData = {
+            ..._orderData ?? {},
+            'delivery_address': address,
+            'delivery_address_detail': addressDetail.isEmpty ? null : addressDetail,
+            'delivery_zipcode': zipcode.isEmpty ? null : zipcode,
+            'notes': notes.isEmpty ? null : notes,
+          };
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('배송지가 수정되었습니다.'),
+            backgroundColor: Color(0xFF00C896),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('저장 중 오류가 발생했습니다. 다시 시도해주세요.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingDelivery = false);
+    }
   }
 
   /// 수거 취소 확인 다이얼로그

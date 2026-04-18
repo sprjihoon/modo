@@ -9,7 +9,7 @@ import { formatDate } from "@/lib/utils";
 interface Notification {
   id: string;
   title?: string;
-  message?: string;
+  body?: string;
   is_read: boolean;
   created_at?: string;
   order_id?: string;
@@ -40,7 +40,7 @@ export function NotificationsClient() {
 
       const { data } = await supabase
         .from("notifications")
-        .select("id, title, message, is_read, created_at, order_id")
+        .select("id, title, body, is_read, created_at, order_id")
         .eq("user_id", userRow.id)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -51,9 +51,11 @@ export function NotificationsClient() {
       if (data && data.some((n) => !n.is_read)) {
         await supabase
           .from("notifications")
-          .update({ is_read: true })
+          .update({ is_read: true, read_at: new Date().toISOString() })
           .eq("user_id", userRow.id)
           .eq("is_read", false);
+
+        window.dispatchEvent(new Event("modu_notifications_read"));
       }
     } catch {
       // 에러 무시
@@ -117,7 +119,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
             </p>
           )}
           <p className="text-sm text-gray-600 leading-snug">
-            {notification.message}
+            {notification.body}
           </p>
           {notification.created_at && (
             <p className="text-xs text-gray-400 mt-1">
