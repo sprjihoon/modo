@@ -34,20 +34,42 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (!userRow) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    // 선택된 주문 모두 조회
-    const { data: orders, error: fetchErr } = await supabase
+    // 선택된 주문 모두 조회 — 필수 컬럼만 (없는 컬럼이 포함되면 전체 쿼리 실패)
+    const selectCols = "id, user_id, item_name, clothing_type, total_price, shipping_fee, repair_parts";
+    let orders: Record<string, unknown>[] | null = null;
+    let fetchErr: unknown = null;
+
+    const { data: d1, error: e1 } = await supabase
       .from("orders")
-      .select("id, user_id, item_name, clothing_type, total_price, shipping_fee, shipping_discount_amount, pickup_address, pickup_address_detail, pickup_zipcode, pickup_phone, pickup_date, delivery_address, delivery_address_detail, delivery_zipcode, delivery_phone, notes, repair_parts, customer_name, customer_email, customer_phone, repair_type, order_number")
+      .select(selectCols)
       .in("id", orderIds)
       .eq("status", "PENDING_PAYMENT");
 
+    if (e1) {
+      // 일부 컬럼이 없을 수 있으므로 최소한으로 재시도
+      console.warn("Batch fetch attempt 1 failed:", e1.message);
+      const { data: d2, error: e2 } = await supabase
+        .from("orders")
+        .select("id, user_id, item_name, clothing_type, total_price")
+        .in("id", orderIds)
+        .eq("status", "PENDING_PAYMENT");
+      orders = d2 as Record<string, unknown>[] | null;
+      fetchErr = e2;
+    } else {
+      orders = d1 as Record<string, unknown>[] | null;
+    }
+
     if (fetchErr || !orders || orders.length === 0) {
-      return NextResponse.json({ error: "Orders not found" }, { status: 404 });
+      console.error("Batch fetch final error:", fetchErr);
+      return NextResponse.json(
+        { error: `Orders not found (${orders?.length ?? 0} matched, requested ${orderIds.length})` },
+        { status: 404 }
+      );
     }
 
     // 본인 주문인지 확인
-    const ownerIds = [userRow.id, user.id];
-    const unauthorized = orders.some((o) => !ownerIds.includes(o.user_id));
+    const ownerIds = [userRow.id as string, user.id];
+    const unauthorized = orders.some((o) => !ownerIds.includes(o.user_id as string));
     if (unauthorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // repair_parts는 TEXT[] 또는 JSONB[] 형태일 수 있음
