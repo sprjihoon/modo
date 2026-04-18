@@ -65,6 +65,8 @@ export function PaymentClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const orderId = searchParams.get("orderId") ?? "";
+  const batchIds = searchParams.get("batchIds")?.split(",").filter(Boolean) ?? [];
+  const isBatchPayment = batchIds.length > 0;
 
   const [order, setOrder] = useState<OrderInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -304,6 +306,11 @@ export function PaymentClient() {
         <div className="flex items-center gap-2 mb-3">
           <Scissors className="w-4 h-4 text-[#00C896]" />
           <p className="text-sm font-bold text-gray-800">주문 정보</p>
+          {isBatchPayment && (
+            <span className="text-[10px] font-bold text-white bg-orange-500 px-1.5 py-0.5 rounded">
+              {batchIds.length + 1}건 합포장
+            </span>
+          )}
         </div>
         {order?.clothing_type && (
           <p className="text-xs text-gray-400 mb-2">{order.clothing_type}</p>

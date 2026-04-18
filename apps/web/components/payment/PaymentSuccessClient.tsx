@@ -70,6 +70,11 @@ export function PaymentSuccessClient() {
       setPaymentInfo(data.data);
       setStatus("success");
 
+      // 합포장 결제 성공 시: 나머지 주문 CANCELLED + 세션 클리어
+      if (!isExtraCharge) {
+        finalizeBatchOrders(supabase, dbOrderId);
+      }
+
       // 일반 결제인 경우 수거 예약 호출 (모바일 앱의 _processAfterPayment와 동일한 방식)
       if (!isExtraCharge && dbOrderId) {
         bookShipmentAfterPayment(supabase, dbOrderId);
@@ -83,6 +88,35 @@ export function PaymentSuccessClient() {
       setError(e instanceof Error ? e.message : "결제 승인 중 오류가 발생했습니다.");
       setStatus("error");
     }
+  }
+
+  /** 합포장 결제 성공 → 나머지 주문 CANCELLED 처리 + 세션 클리어 */
+  async function finalizeBatchOrders(
+    supabase: ReturnType<typeof createClient>,
+    _primaryOrderId: string
+  ) {
+    try {
+      const raw = typeof window !== "undefined"
+        ? sessionStorage.getItem("batch_checkout_session")
+        : null;
+      if (!raw) return;
+      const session = JSON.parse(raw) as {
+        primaryOrderId: string;
+        otherOrderIds: string[];
+      };
+      sessionStorage.removeItem("batch_checkout_session");
+
+      if (session.otherOrderIds?.length > 0) {
+        await supabase
+          .from("orders")
+          .update({ status: "CANCELLED" })
+          .in("id", session.otherOrderIds);
+        console.log("✅ 합포장 결제 완료: 나머지 주문 취소됨", session.otherOrderIds);
+      }
+    } catch (e) {
+      console.error("합포장 후처리 오류 (무시):", e);
+    }
+    void _primaryOrderId;
   }
 
   async function bookShipmentAfterPayment(

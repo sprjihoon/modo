@@ -43,9 +43,30 @@ export function CartClient() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    setDraftItems(getCartItems());
-    loadPendingOrders();
+    restoreBatchSession().then(() => {
+      setDraftItems(getCartItems());
+      loadPendingOrders();
+    });
   }, []);
+
+  /** 결제 안 하고 돌아온 경우 대표 주문 total 원복 */
+  async function restoreBatchSession() {
+    try {
+      const raw = sessionStorage.getItem("batch_checkout_session");
+      if (!raw) return;
+      const session = JSON.parse(raw) as {
+        primaryOrderId: string;
+        originalPrimaryTotal: number;
+      };
+      sessionStorage.removeItem("batch_checkout_session");
+      const supabase = createClient();
+      await supabase
+        .from("orders")
+        .update({ total_price: session.originalPrimaryTotal })
+        .eq("id", session.primaryOrderId)
+        .eq("status", "PENDING_PAYMENT");
+    } catch { /* ignore */ }
+  }
 
   async function loadPendingOrders() {
     try {
@@ -141,60 +162,55 @@ export function CartClient() {
     }
   }, [selectedIds]);
 
-  // ── 선택결제 ──
-  async function handlePaySelected() {
-    if (selectedOrders.length === 0) return;
+  /** 공통: batch-checkout 호출 후 세션 저장 + 결제 페이지 이동 */
+  async function doBatchCheckout(ids: string[]) {
     setMergeError(null);
-    if (selectedOrders.length === 1) {
-      router.push(`/payment?orderId=${selectedOrders[0].id}`);
-      return;
-    }
     setIsMerging(true);
     try {
       const res = await fetch("/api/orders/batch-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderIds: selectedOrders.map((o) => o.id) }),
+        body: JSON.stringify({ orderIds: ids }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setMergeError(`주문 병합 실패: ${data?.error ?? "오류"}`);
+        setMergeError(`합포장 결제 준비 실패: ${data?.error ?? "오류"}`);
         return;
       }
-      router.push(`/payment?orderId=${data.orderId}`);
+      // 세션에 원본 정보 저장 (결제 미완료 시 복원용)
+      if (data.batchMode) {
+        sessionStorage.setItem("batch_checkout_session", JSON.stringify({
+          primaryOrderId: data.orderId,
+          otherOrderIds: data.otherOrderIds,
+          originalPrimaryTotal: data.originalPrimaryTotal,
+        }));
+      }
+      router.push(`/payment?orderId=${data.orderId}${data.otherOrderIds?.length ? `&batchIds=${data.otherOrderIds.join(",")}` : ""}`);
     } catch {
-      setMergeError("주문 병합 중 오류가 발생했습니다. 다시 시도해주세요.");
+      setMergeError("합포장 결제 준비 중 오류가 발생했습니다.");
     } finally {
       setIsMerging(false);
     }
   }
 
+  // ── 선택결제 ──
+  async function handlePaySelected() {
+    if (selectedOrders.length === 0) return;
+    if (selectedOrders.length === 1) {
+      router.push(`/payment?orderId=${selectedOrders[0].id}`);
+      return;
+    }
+    await doBatchCheckout(selectedOrders.map((o) => o.id));
+  }
+
   // ── 전체결제 ──
   async function handlePayAll() {
     if (pendingOrders.length === 0) return;
-    setMergeError(null);
     if (pendingOrders.length === 1) {
       router.push(`/payment?orderId=${pendingOrders[0].id}`);
       return;
     }
-    setIsMerging(true);
-    try {
-      const res = await fetch("/api/orders/batch-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderIds: pendingOrders.map((o) => o.id) }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setMergeError(`주문 병합 실패: ${data?.error ?? "오류"}`);
-        return;
-      }
-      router.push(`/payment?orderId=${data.orderId}`);
-    } catch {
-      setMergeError("주문 병합 중 오류가 발생했습니다. 다시 시도해주세요.");
-    } finally {
-      setIsMerging(false);
-    }
+    await doBatchCheckout(pendingOrders.map((o) => o.id));
   }
 
   const isEmpty = draftItems.length === 0 && pendingOrders.length === 0;
