@@ -50,17 +50,38 @@ export async function POST(request: NextRequest) {
     const unauthorized = orders.some((o) => !ownerIds.includes(o.user_id));
     if (unauthorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // 모든 수선 항목 합산
+    // repair_parts는 TEXT[] 또는 JSONB[] 형태일 수 있음
+    // TEXT[]인 경우 각 element가 JSON 문자열이므로 파싱 필요
     type RepairPart = { name: string; price: number; quantity: number; detail?: string };
-    const allRepairParts: RepairPart[] = orders.flatMap((o) =>
-      Array.isArray(o.repair_parts) ? (o.repair_parts as RepairPart[]) : []
-    );
+
+    const parseRepairPart = (raw: unknown): RepairPart | null => {
+      if (!raw) return null;
+      if (typeof raw === "string") {
+        try { return JSON.parse(raw) as RepairPart; } catch { return null; }
+      }
+      if (typeof raw === "object") return raw as RepairPart;
+      return null;
+    };
+
+    const allRepairParts: RepairPart[] = orders.flatMap((o) => {
+      if (!Array.isArray(o.repair_parts)) return [];
+      return (o.repair_parts as unknown[]).map(parseRepairPart).filter((p): p is RepairPart => p !== null);
+    });
 
     // 수선비 합산 (배송비 제외)
-    const totalRepairAmount = allRepairParts.reduce(
+    // repair_parts가 없거나 0원이면 각 주문의 total_price - shipping_fee로 fallback
+    let totalRepairAmount = allRepairParts.reduce(
       (sum, p) => sum + (p.price ?? 0) * (p.quantity ?? 1),
       0
     );
+
+    if (totalRepairAmount === 0) {
+      // repair_parts 파싱 실패 시: total_price - shipping_fee 합산으로 fallback
+      totalRepairAmount = orders.reduce((sum, o) => {
+        const shipping = (o.shipping_fee as number | null) ?? BASE_SHIPPING_FEE;
+        return sum + Math.max(0, ((o.total_price as number) ?? 0) - shipping);
+      }, 0);
+    }
 
     // 배송비 프로모션 확인
     let shippingFee = BASE_SHIPPING_FEE;
@@ -128,19 +149,24 @@ export async function POST(request: NextRequest) {
     const otherOrderIds = orders.slice(1).map((o) => o.id);
 
     // 합산된 item_name 생성
-    const combinedItemName = allRepairParts.map((p) => p.name).join(", ");
+    const combinedItemName = allRepairParts.length > 0
+      ? allRepairParts.map((p) => p.name).join(", ")
+      : orders.map((o) => o.item_name).filter(Boolean).join(", ");
     const clothingTypes = orders.map((o) => o.clothing_type).filter(Boolean) as string[];
     const combinedClothingType = clothingTypes.filter((v, i, a) => a.indexOf(v) === i).join(", ");
 
     // 첫 번째 주문을 업데이트 (PGRST204 오류 시 없는 컬럼 제거 후 재시도)
+    // repair_parts: 파싱된 객체 배열로 저장 (Supabase가 적절히 직렬화)
+    const repairPartsForUpdate = allRepairParts.length > 0 ? allRepairParts : undefined;
+
     let updateData: Record<string, unknown> = {
       item_name: combinedItemName || primaryOrder.item_name,
       clothing_type: combinedClothingType || primaryOrder.clothing_type,
       total_price: newTotal,
-      repair_parts: allRepairParts.length > 0 ? allRepairParts : primaryOrder.repair_parts,
       shipping_fee: BASE_SHIPPING_FEE,
       shipping_discount_amount: shippingDiscountAmount,
       ...(shippingPromotionId ? { shipping_promotion_id: shippingPromotionId } : {}),
+      ...(repairPartsForUpdate ? { repair_parts: repairPartsForUpdate } : {}),
     };
 
     let updateErr: { code?: string; message?: string } | null = null;

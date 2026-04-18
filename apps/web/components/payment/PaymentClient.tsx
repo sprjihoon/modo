@@ -250,7 +250,17 @@ export function PaymentClient() {
     );
   }
 
-  const repairItems = Array.isArray(order?.repair_parts) ? order!.repair_parts! : [];
+  // repair_parts는 TEXT[] 또는 JSONB[]일 수 있음 (TEXT[]이면 각 element가 JSON 문자열)
+  const repairItems: Array<{ name: string; price: number; quantity: number }> = (() => {
+    const raw = order?.repair_parts;
+    if (!Array.isArray(raw)) return [];
+    return (raw as unknown[]).map((item) => {
+      if (typeof item === "string") {
+        try { return JSON.parse(item); } catch { return null; }
+      }
+      return item;
+    }).filter(Boolean) as Array<{ name: string; price: number; quantity: number }>;
+  })();
 
   // 실제 배송비 = shipping_fee - discount
   const BASE_SHIPPING = 7000;

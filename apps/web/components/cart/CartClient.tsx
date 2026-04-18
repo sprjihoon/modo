@@ -6,20 +6,29 @@ import Link from "next/link";
 import {
   ShoppingCart, Trash2, ChevronRight, CreditCard,
   Package, Scissors, RefreshCw, CheckSquare, Square,
-  AlertCircle,
+  AlertCircle, Truck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice } from "@/lib/utils";
 import { getCartItems, removeCartItem, CartDraftItem } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 
+const BASE_SHIPPING = 7000;
+
 interface PendingOrder {
   id: string;
   item_name?: string;
   clothing_type?: string;
   total_price?: number;
+  shipping_fee?: number;
   created_at?: string;
   status: string;
+}
+
+/** 주문의 수선비만 추출 (total_price - shipping_fee) */
+function getRepairCost(order: PendingOrder): number {
+  const shipping = order.shipping_fee ?? BASE_SHIPPING;
+  return Math.max(0, (order.total_price ?? 0) - shipping);
 }
 
 export function CartClient() {
@@ -30,6 +39,7 @@ export function CartClient() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+  const [mergeError, setMergeError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,7 +60,7 @@ export function CartClient() {
       if (!userRow) { setIsLoading(false); return; }
       const { data } = await supabase
         .from("orders")
-        .select("id, item_name, clothing_type, total_price, created_at, status")
+        .select("id, item_name, clothing_type, total_price, shipping_fee, created_at, status")
         .eq("user_id", userRow.id)
         .eq("status", "PENDING_PAYMENT")
         .order("created_at", { ascending: false });
@@ -91,16 +101,16 @@ export function CartClient() {
     });
   }
 
-  // ── 선택된 주문 목록 ──
+  // ── 금액 계산 (배송비 이중 청구 방지) ──
   const selectedOrders = pendingOrders.filter((o) => selectedIds.has(o.id));
-  const selectedTotal = selectedOrders.reduce(
-    (sum, o) => sum + (o.total_price ?? 0),
-    0
-  );
-  const allTotal = pendingOrders.reduce(
-    (sum, o) => sum + (o.total_price ?? 0),
-    0
-  );
+
+  // 수선비 합산 (배송비 제외)
+  const allRepairTotal = pendingOrders.reduce((sum, o) => sum + getRepairCost(o), 0);
+  const selectedRepairTotal = selectedOrders.reduce((sum, o) => sum + getRepairCost(o), 0);
+
+  // 실제 결제 금액 = 수선비 합 + 왕복배송비 1회
+  const allPayTotal = allRepairTotal + BASE_SHIPPING;
+  const selectedPayTotal = selectedRepairTotal + BASE_SHIPPING;
 
   // ── 선택삭제 ──
   const handleDeleteSelected = useCallback(async () => {
@@ -121,7 +131,6 @@ export function CartClient() {
       if (failed.length > 0) {
         setDeleteError(`${failed.length}건 취소에 실패했습니다.`);
       }
-      // 성공한 항목 제거
       const successIds = new Set(
         Array.from(selectedIds).filter((_, i) => results[i].ok)
       );
@@ -134,9 +143,10 @@ export function CartClient() {
     }
   }, [selectedIds]);
 
-  // ── 선택결제 (다중 선택 시 병합 후 결제) ──
+  // ── 선택결제 ──
   async function handlePaySelected() {
     if (selectedOrders.length === 0) return;
+    setMergeError(null);
     if (selectedOrders.length === 1) {
       router.push(`/payment?orderId=${selectedOrders[0].id}`);
       return;
@@ -148,19 +158,23 @@ export function CartClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderIds: selectedOrders.map((o) => o.id) }),
       });
-      if (!res.ok) throw new Error("병합 실패");
-      const { orderId } = await res.json();
-      router.push(`/payment?orderId=${orderId}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setMergeError(`주문 병합 실패: ${data?.error ?? "오류"}`);
+        return;
+      }
+      router.push(`/payment?orderId=${data.orderId}`);
     } catch {
-      setDeleteError("주문 병합 중 오류가 발생했습니다. 다시 시도해주세요.");
+      setMergeError("주문 병합 중 오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setIsMerging(false);
     }
   }
 
-  // ── 전체결제 (전체 선택 후 병합 결제) ──
+  // ── 전체결제 ──
   async function handlePayAll() {
     if (pendingOrders.length === 0) return;
+    setMergeError(null);
     if (pendingOrders.length === 1) {
       router.push(`/payment?orderId=${pendingOrders[0].id}`);
       return;
@@ -172,11 +186,14 @@ export function CartClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderIds: pendingOrders.map((o) => o.id) }),
       });
-      if (!res.ok) throw new Error("병합 실패");
-      const { orderId } = await res.json();
-      router.push(`/payment?orderId=${orderId}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setMergeError(`주문 병합 실패: ${data?.error ?? "오류"}`);
+        return;
+      }
+      router.push(`/payment?orderId=${data.orderId}`);
     } catch {
-      setDeleteError("주문 병합 중 오류가 발생했습니다. 다시 시도해주세요.");
+      setMergeError("주문 병합 중 오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setIsMerging(false);
     }
@@ -215,10 +232,170 @@ export function CartClient() {
   }
 
   return (
-    <div className={cn("pb-8", selectedIds.size > 0 && "pb-32")}>
+    <div className={cn("pb-8", selectedIds.size > 0 && "pb-36")}>
+
+      {/* ── 결제 대기 주문 ── */}
+      {pendingOrders.length > 0 && (
+        <section className="mt-4">
+          {/* 배송비 합산 안내 박스 */}
+          <div className="mx-4 mb-3 bg-[#00C896]/5 border border-[#00C896]/20 rounded-xl p-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Truck className="w-4 h-4 text-[#00C896]" />
+              <p className="text-xs font-bold text-[#00C896]">결제 대기 합산</p>
+              <span className="ml-1 text-xs text-gray-400">({pendingOrders.length}건 합포장)</span>
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">수선비 합계</span>
+                <span className="text-gray-800 font-medium">{formatPrice(allRepairTotal)}~</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">왕복배송비</span>
+                <span className="text-gray-800 font-medium">{formatPrice(BASE_SHIPPING)}</span>
+              </div>
+              <div className="border-t border-[#00C896]/20 pt-1.5 mt-1 flex justify-between">
+                <span className="text-sm font-bold text-gray-700">합계</span>
+                <span className="text-base font-extrabold text-[#00C896]">{formatPrice(allPayTotal)}~</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-[#00C896] mt-2 font-semibold">
+              💡 여러 건을 합포장하면 배송비(7,000원)는 1회만 청구됩니다!
+            </p>
+          </div>
+
+          {/* 섹션 헤더 */}
+          <div className="px-4 mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-orange-500" />
+              <p className="text-sm font-bold text-gray-800">
+                결제 대기
+                <span className="ml-1 text-xs font-normal text-gray-400">({pendingOrders.length}건)</span>
+              </p>
+            </div>
+            <span className="text-[10px] text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full border border-orange-100">
+              결제 후 수거 예약 진행
+            </span>
+          </div>
+
+          {/* 전체선택 + 전체결제 바 */}
+          <div className="mx-4 mb-2 flex items-center justify-between bg-orange-50 border border-orange-100 rounded-xl px-3 py-2">
+            <button
+              onClick={toggleAll}
+              className="flex items-center gap-1.5 text-sm font-medium text-orange-700 active:opacity-70"
+            >
+              {allSelected ? (
+                <CheckSquare className="w-4 h-4 text-orange-500" />
+              ) : (
+                <Square className="w-4 h-4 text-orange-300" />
+              )}
+              전체선택
+            </button>
+            <div className="flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={handleDeleteSelected}
+                  disabled={isDeleting}
+                  className="text-xs font-bold text-red-500 bg-red-50 border border-red-100 px-2.5 py-1 rounded-lg active:brightness-95 disabled:opacity-50"
+                >
+                  {isDeleting ? "취소 중..." : "선택삭제"}
+                </button>
+              )}
+              <button
+                onClick={handlePayAll}
+                disabled={isMerging}
+                className="text-xs font-bold text-white bg-orange-500 px-3 py-1 rounded-lg active:brightness-95 disabled:opacity-60"
+              >
+                {isMerging ? "처리 중..." : `전체결제`}
+              </button>
+            </div>
+          </div>
+
+          {/* 오류 메시지 */}
+          {(mergeError || deleteError) && (
+            <div className="mx-4 mb-2 flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              {mergeError || deleteError}
+            </div>
+          )}
+
+          {/* 주문 카드 목록 */}
+          <div className="space-y-3 px-4">
+            {pendingOrders.map((order) => {
+              const isSelected = selectedIds.has(order.id);
+              const repairCost = getRepairCost(order);
+              return (
+                <div
+                  key={order.id}
+                  className={cn(
+                    "bg-orange-50 border rounded-2xl overflow-hidden transition-all",
+                    isSelected ? "border-orange-400 shadow-md" : "border-orange-200"
+                  )}
+                >
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      {/* 체크박스 */}
+                      <button
+                        onClick={() => toggleOne(order.id)}
+                        className="mt-0.5 shrink-0 active:scale-95 transition-transform"
+                        aria-label="선택"
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-5 h-5 text-orange-500" />
+                        ) : (
+                          <Square className="w-5 h-5 text-orange-300" />
+                        )}
+                      </button>
+
+                      <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                        <CreditCard className="w-5 h-5 text-orange-500" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-[11px] font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded">
+                            결제필요
+                          </span>
+                          {order.created_at && (
+                            <span className="text-[11px] text-gray-400">
+                              {formatDate(order.created_at)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm font-bold text-gray-900 truncate">
+                          {order.item_name ?? "수선 서비스"}
+                        </p>
+                        {order.clothing_type && (
+                          <p className="text-xs text-gray-400 mt-0.5">{order.clothing_type}</p>
+                        )}
+                        {/* 수선비만 표시 (배송비 별도 청구이므로 합산 미포함) */}
+                        {repairCost > 0 && (
+                          <p className="text-sm font-bold text-orange-700 mt-1">
+                            수선비 {formatPrice(repairCost)}~
+                          </p>
+                        )}
+                      </div>
+
+                      <ChevronRight className="w-4 h-4 text-orange-300 shrink-0 mt-1" />
+                    </div>
+                  </div>
+
+                  {/* 단건 결제 버튼 */}
+                  <Link
+                    href={`/payment?orderId=${order.id}`}
+                    className="block w-full py-2.5 bg-orange-500 text-white text-xs font-bold text-center active:brightness-90"
+                  >
+                    이 건만 결제 →
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* ── 저장된 수거신청 항목 ── */}
       {draftItems.length > 0 && (
-        <section className="mt-4">
+        <section className="mt-5">
           <div className="px-4 mb-2 flex items-center gap-2">
             <Scissors className="w-4 h-4 text-[#00C896]" />
             <p className="text-sm font-bold text-gray-800">
@@ -230,12 +407,10 @@ export function CartClient() {
           <div className="space-y-3 px-4">
             {draftItems.map((item) => {
               const d = item.draft;
-              const SHIPPING_FEE = 7000;
               const repairTotal = d.repairItems.reduce(
                 (s, r) => s + r.price * (r.quantity ?? 1),
                 0
               );
-              const totalPrice = repairTotal + SHIPPING_FEE;
               return (
                 <div
                   key={item.id}
@@ -250,11 +425,11 @@ export function CartClient() {
                         <p className="text-sm font-bold text-gray-900 truncate">
                           {d.clothingType} · {d.repairItems.map((r) => r.name).join(", ")}
                         </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-xs text-gray-500 mt-0.5">
                           {d.repairItems.length}개 수선 항목
                           {repairTotal > 0 && (
-                            <span className="ml-2 font-semibold text-gray-600">
-                              수선비 {formatPrice(repairTotal)}~ + 왕복배송비 {formatPrice(SHIPPING_FEE)} = <span className="text-[#00C896]">{formatPrice(totalPrice)}~</span>
+                            <span className="ml-2 font-semibold text-[#00C896]">
+                              수선비 {formatPrice(repairTotal)}~
                             </span>
                           )}
                         </p>
@@ -301,134 +476,6 @@ export function CartClient() {
         </section>
       )}
 
-      {/* ── 결제 대기 주문 ── */}
-      {pendingOrders.length > 0 && (
-        <section className="mt-5">
-          {/* 섹션 헤더 */}
-          <div className="px-4 mb-2 flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-orange-500" />
-            <p className="text-sm font-bold text-gray-800 flex-1">
-              결제 대기
-              <span className="ml-1 text-xs font-normal text-gray-400">({pendingOrders.length}건)</span>
-            </p>
-            <span className="text-[10px] text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full border border-orange-100">
-              결제 후 수거 예약 진행
-            </span>
-          </div>
-
-          {/* 전체선택 + 전체결제 바 */}
-          <div className="mx-4 mb-2 flex items-center justify-between bg-orange-50 border border-orange-100 rounded-xl px-3 py-2">
-            <button
-              onClick={toggleAll}
-              className="flex items-center gap-1.5 text-sm font-medium text-orange-700 active:opacity-70"
-            >
-              {allSelected ? (
-                <CheckSquare className="w-4 h-4 text-orange-500" />
-              ) : (
-                <Square className="w-4 h-4 text-orange-300" />
-              )}
-              전체선택
-            </button>
-            <div className="flex items-center gap-2">
-              {selectedIds.size > 0 && (
-                <button
-                  onClick={handleDeleteSelected}
-                  disabled={isDeleting}
-                  className="text-xs font-bold text-red-500 bg-red-50 border border-red-100 px-2.5 py-1 rounded-lg active:brightness-95 disabled:opacity-50"
-                >
-                  {isDeleting ? "취소 중..." : "선택삭제"}
-                </button>
-              )}
-              <button
-                onClick={handlePayAll}
-                disabled={isMerging}
-                className="text-xs font-bold text-white bg-orange-500 px-3 py-1 rounded-lg active:brightness-95 disabled:opacity-60"
-              >
-                {isMerging ? "처리 중..." : `전체결제 ${allTotal > 0 ? formatPrice(allTotal) : ""}`}
-              </button>
-            </div>
-          </div>
-
-          {/* 오류 메시지 */}
-          {deleteError && (
-            <div className="mx-4 mb-2 flex items-center gap-1.5 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              {deleteError}
-            </div>
-          )}
-
-          <div className="space-y-3 px-4">
-            {pendingOrders.map((order) => {
-              const isSelected = selectedIds.has(order.id);
-              return (
-                <div
-                  key={order.id}
-                  className={cn(
-                    "bg-orange-50 border rounded-2xl overflow-hidden transition-all",
-                    isSelected ? "border-orange-400 shadow-md" : "border-orange-200"
-                  )}
-                >
-                  <div className="p-4">
-                    <div className="flex items-start gap-3">
-                      {/* 체크박스 */}
-                      <button
-                        onClick={() => toggleOne(order.id)}
-                        className="mt-0.5 shrink-0 active:scale-95 transition-transform"
-                        aria-label="선택"
-                      >
-                        {isSelected ? (
-                          <CheckSquare className="w-5 h-5 text-orange-500" />
-                        ) : (
-                          <Square className="w-5 h-5 text-orange-300" />
-                        )}
-                      </button>
-
-                      <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
-                        <CreditCard className="w-5 h-5 text-orange-500" />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span className="text-[11px] font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded">
-                            결제필요
-                          </span>
-                          {order.created_at && (
-                            <span className="text-[11px] text-gray-400">
-                              {formatDate(order.created_at)}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm font-bold text-gray-900 truncate">
-                          {order.item_name ?? "수선 서비스"}
-                        </p>
-                        {order.clothing_type && (
-                          <p className="text-xs text-gray-400 mt-0.5">{order.clothing_type}</p>
-                        )}
-                        {order.total_price != null && order.total_price > 0 && (
-                          <p className="text-sm font-bold text-orange-700 mt-1">
-                            {formatPrice(order.total_price)}
-                          </p>
-                        )}
-                      </div>
-
-                      <ChevronRight className="w-4 h-4 text-orange-300 shrink-0 mt-1" />
-                    </div>
-                  </div>
-
-                  {/* 결제하기 버튼 */}
-                  <Link
-                    href={`/payment?orderId=${order.id}`}
-                    className="block w-full py-2.5 bg-orange-500 text-white text-xs font-bold text-center active:brightness-90"
-                  >
-                    결제하기 →
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* ── 새 수거신청 ── */}
       <div className="px-4 mt-6">
         <Link
@@ -438,15 +485,6 @@ export function CartClient() {
           <Package className="w-4 h-4" />
           새 수거신청 하기
         </Link>
-      </div>
-
-      {/* 왕복배송비 절약 안내 */}
-      <div className="mx-4 mt-4 p-4 bg-[#00C896]/8 border border-[#00C896]/20 rounded-xl">
-        <p className="text-xs font-bold text-[#00C896] mb-1">🚚 왕복배송비를 아끼는 방법</p>
-        <p className="text-xs text-gray-600 leading-relaxed">
-          왕복배송비(7,000원)는 주문 수량과 관계없이 <span className="font-bold">1회당 동일</span>하게 부과됩니다.
-          여러 벌을 <span className="font-bold">한 번에 맡기시면</span> 배송비를 절약할 수 있어 더 경제적입니다!
-        </p>
       </div>
 
       <div className="mx-4 mt-3 p-3.5 bg-gray-50 rounded-xl">
@@ -459,21 +497,18 @@ export function CartClient() {
       {selectedIds.size > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-4 py-3 shadow-2xl">
           <div className="max-w-md mx-auto">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-500">
-                <span className="font-bold text-gray-800">{selectedIds.size}건</span> 선택
-                {selectedTotal > 0 && (
-                  <span className="ml-1">
-                    · 합계 <span className="font-bold text-orange-600">{formatPrice(selectedTotal)}</span>
-                  </span>
-                )}
-              </p>
-              <button
-                onClick={() => setSelectedIds(new Set())}
-                className="text-xs text-gray-400 active:text-gray-600"
-              >
-                선택 해제
-              </button>
+            {/* 선택 금액 분해 */}
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+              <span>수선비 합계</span>
+              <span className="font-semibold text-gray-700">{formatPrice(selectedRepairTotal)}~</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+              <span>왕복배송비 (1회)</span>
+              <span className="font-semibold text-gray-700">{formatPrice(BASE_SHIPPING)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm font-bold text-gray-800 mb-2">
+              <span>{selectedIds.size}건 합계</span>
+              <span className="text-orange-600">{formatPrice(selectedPayTotal)}~</span>
             </div>
             <div className="flex gap-2">
               <button
@@ -490,7 +525,7 @@ export function CartClient() {
               >
                 {isMerging
                   ? "처리 중..."
-                  : `선택결제 ${selectedTotal > 0 ? `(${formatPrice(selectedTotal)})` : ""}`}
+                  : `${selectedIds.size}건 합포장 결제`}
               </button>
             </div>
           </div>
