@@ -34,6 +34,7 @@ interface OrderInfo {
   total_price: number;
   shipping_fee?: number;
   shipping_discount_amount?: number;
+  remote_area_fee?: number;
   pickup_address?: string;
   pickup_phone?: string;
   pickup_zipcode?: string;
@@ -106,7 +107,7 @@ export function PaymentClient() {
       const { data: d1, error: e1 } = await supabase
         .from("orders")
         .select(
-          "id, item_name, clothing_type, total_price, shipping_fee, shipping_discount_amount, pickup_address, pickup_phone, pickup_zipcode, delivery_address, delivery_phone, delivery_zipcode, notes, repair_parts, customer_name, customer_email, customer_phone"
+          "id, item_name, clothing_type, total_price, shipping_fee, shipping_discount_amount, remote_area_fee, pickup_address, pickup_phone, pickup_zipcode, delivery_address, delivery_phone, delivery_zipcode, notes, repair_parts, customer_name, customer_email, customer_phone"
         )
         .eq("id", orderId)
         .single();
@@ -256,11 +257,33 @@ export function PaymentClient() {
   const shippingFeeDisplay = order?.shipping_fee ?? BASE_SHIPPING;
   const shippingDiscount = order?.shipping_discount_amount ?? 0;
   const actualShipping = shippingFeeDisplay - shippingDiscount;
+  const remoteAreaFee = order?.remote_area_fee ?? 0;
 
-  // 수선비 계산: total_price - 실제배송비
-  // shipping_fee가 있고, total_price >= actualShipping 이면 정상 신규 주문
-  const hasShippingInfo = order?.shipping_fee != null && order.total_price >= actualShipping;
-  const repairTotal = hasShippingInfo ? order!.total_price - actualShipping : null;
+  // repair_parts 합산으로 수선비 직접 계산
+  const repairPartsSum = repairItems.reduce(
+    (sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 1),
+    0
+  );
+
+  // 배송비 포함 여부 판단:
+  //  - repair_parts가 있으면: total ≈ repairPartsSum + actualShipping + remoteAreaFee 인지 확인
+  //  - repair_parts가 없으면: shipping_fee 컬럼이 있고 total > actualShipping 이면 포함으로 간주
+  const expectedTotal = repairPartsSum + actualShipping + remoteAreaFee;
+  const hasShippingInfo: boolean = (() => {
+    if (order?.shipping_fee == null) return false;
+    if (repairPartsSum > 0) {
+      // repair_parts 합산 기준: total이 수선비+배송비와 가까우면 포함
+      return Math.abs(order!.total_price - expectedTotal) <= 500;
+    }
+    // repair_parts 없는 구버전: total이 배송비보다 확실히 크면 포함
+    return order!.total_price > actualShipping + 500;
+  })();
+
+  const repairTotal = hasShippingInfo
+    ? order!.total_price - actualShipping - remoteAreaFee
+    : repairPartsSum > 0
+      ? repairPartsSum
+      : null;
 
   return (
     <>
@@ -336,13 +359,21 @@ export function PaymentClient() {
                 <span>-{formatPrice(shippingDiscount)}</span>
               </div>
             )}
+            {remoteAreaFee > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-orange-600 font-medium flex items-center gap-1">
+                  🏝 도서산간 추가 배송비
+                </span>
+                <span className="text-orange-600 font-bold">+{formatPrice(remoteAreaFee)}</span>
+              </div>
+            )}
             <div className="border-t border-[#00C896]/20 pt-2 mt-1" />
           </div>
         )}
         <p className="text-2xl font-bold text-gray-900">
           {formatPrice(order?.total_price ?? 0)}
         </p>
-        {repairTotal == null && (
+        {repairTotal == null && repairPartsSum > 0 && (
           <p className="text-xs text-gray-400 mt-1">왕복배송비 7,000원 포함 금액입니다.</p>
         )}
       </div>

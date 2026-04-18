@@ -132,19 +132,35 @@ export async function POST(request: NextRequest) {
     const clothingTypes = orders.map((o) => o.clothing_type).filter(Boolean) as string[];
     const combinedClothingType = clothingTypes.filter((v, i, a) => a.indexOf(v) === i).join(", ");
 
-    // 첫 번째 주문을 업데이트
-    const { error: updateErr } = await supabase
-      .from("orders")
-      .update({
-        item_name: combinedItemName || primaryOrder.item_name,
-        clothing_type: combinedClothingType || primaryOrder.clothing_type,
-        total_price: newTotal,
-        shipping_fee: BASE_SHIPPING_FEE,
-        shipping_discount_amount: shippingDiscountAmount,
-        ...(shippingPromotionId ? { shipping_promotion_id: shippingPromotionId } : {}),
-        repair_parts: allRepairParts.length > 0 ? allRepairParts : primaryOrder.repair_parts,
-      })
-      .eq("id", primaryOrder.id);
+    // 첫 번째 주문을 업데이트 (PGRST204 오류 시 없는 컬럼 제거 후 재시도)
+    let updateData: Record<string, unknown> = {
+      item_name: combinedItemName || primaryOrder.item_name,
+      clothing_type: combinedClothingType || primaryOrder.clothing_type,
+      total_price: newTotal,
+      repair_parts: allRepairParts.length > 0 ? allRepairParts : primaryOrder.repair_parts,
+      shipping_fee: BASE_SHIPPING_FEE,
+      shipping_discount_amount: shippingDiscountAmount,
+      ...(shippingPromotionId ? { shipping_promotion_id: shippingPromotionId } : {}),
+    };
+
+    let updateErr: { code?: string; message?: string } | null = null;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const result = await supabase
+        .from("orders")
+        .update(updateData)
+        .eq("id", primaryOrder.id);
+      updateErr = result.error as { code?: string; message?: string } | null;
+      if (!updateErr) break;
+      if (updateErr.code === "PGRST204" && updateErr.message) {
+        const match = updateErr.message.match(/Could not find the '(.+?)' column/);
+        if (match?.[1]) {
+          console.warn(`Batch update: 컬럼 '${match[1]}' 없음, 제거 후 재시도`);
+          delete updateData[match[1]];
+          continue;
+        }
+      }
+      break;
+    }
 
     if (updateErr) {
       console.error("Batch update error:", updateErr);

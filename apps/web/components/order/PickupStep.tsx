@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { OrderDraft } from "./OrderNewClient";
 import { AddressSearchButton } from "@/components/ui/AddressSearchButton";
+import { isRemoteArea, REMOTE_AREA_FEE_ROUNDTRIP } from "@/lib/remote-area";
 
 interface Address {
   id: string;
@@ -97,14 +98,17 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
 
   const SHIPPING_FEE = 7000;
 
+  // 도서산간 여부 (수거지 기준)
+  const remoteAreaFee = isRemoteArea(pickupZipcode, address) ? REMOTE_AREA_FEE_ROUNDTRIP : 0;
+
   // 예상 수선비 계산 (배송비 제외)
   const estimatedRepairPrice = draft.repairItems.reduce(
     (sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 1),
     0
   );
 
-  // 총 예상 금액 = 수선비 + 왕복배송비
-  const estimatedPrice = estimatedRepairPrice + SHIPPING_FEE;
+  // 총 예상 금액 = 수선비 + 왕복배송비 + 도서산간추가비
+  const estimatedPrice = estimatedRepairPrice + SHIPPING_FEE + remoteAreaFee;
 
   useEffect(() => {
     loadSavedAddresses();
@@ -182,6 +186,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
         deliveryAddressDetail: sameAsPickup ? addressDetail.trim() : deliveryAddressDetail.trim(),
         deliveryZipcode: sameAsPickup ? pickupZipcode.trim() : deliveryZipcode.trim(),
         agreedToExtraCharge: true,
+        remoteAreaFee,
       });
     } finally {
       setIsSubmitting(false);
@@ -233,15 +238,33 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
               </span>
             </div>
           )}
+          {remoteAreaFee > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-orange-600 font-medium flex items-center gap-1">
+                🏝 도서산간 추가 배송비
+              </span>
+              <span className="text-orange-600 font-bold">+{remoteAreaFee.toLocaleString()}원</span>
+            </div>
+          )}
           <div className="border-t border-[#00C896]/20 pt-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-gray-700">합계</span>
               <span className="text-xl font-extrabold text-gray-900">
-                {(estimatedRepairPrice + (shippingPromo?.finalShippingFee ?? SHIPPING_FEE)).toLocaleString()}원~
+                {(estimatedRepairPrice + (shippingPromo?.finalShippingFee ?? SHIPPING_FEE) + remoteAreaFee).toLocaleString()}원~
               </span>
             </div>
           </div>
           <p className="text-xs text-gray-400">정확한 수선비는 의류 입고 후 확정됩니다.</p>
+          {remoteAreaFee > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mt-1">
+              <p className="text-xs text-orange-700 font-semibold">
+                🏝 도서산간 지역 추가 배송비 안내
+              </p>
+              <p className="text-xs text-orange-600 mt-0.5">
+                해당 주소는 우체국 지정 도서산간 지역으로, 왕복 배송비 {remoteAreaFee.toLocaleString()}원이 추가됩니다.
+              </p>
+            </div>
+          )}
           <div className="mt-1 pt-2 border-t border-[#00C896]/15">
             <p className="text-xs text-[#00C896] font-semibold">
               💡 여러 벌 동시 접수 시 더 경제적입니다!

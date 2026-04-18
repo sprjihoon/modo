@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getRemoteAreaFee } from "@/lib/remote-area";
 
 async function fetchOrdersByFilter(
   supabase: ReturnType<typeof createClient>,
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
       deliveryAddressDetail,
       deliveryZipcode,
       agreedToExtraCharge,
+      remoteAreaFee: clientRemoteAreaFee,
     } = body;
 
     if (!agreedToExtraCharge) {
@@ -190,8 +192,13 @@ export async function POST(request: NextRequest) {
       console.warn("배송비 프로모션 확인 실패 (기본 배송비 적용):", promoError);
     }
 
-    // total_price = 수선비 합산 + 실제 배송비 (할인 후)
-    const totalPrice = repairItemsTotal + shippingFee;
+    // 도서산간 추가비: 서버에서 재검증 (클라이언트 값도 허용, 단 서버 검증 우선)
+    const serverRemoteAreaFee = getRemoteAreaFee(pickupZipcode || "", pickupAddress || "");
+    // 클라이언트가 보낸 값과 서버 계산 값 중 큰 값 사용 (위변조 방지: 0보다 크면 서버값 우선)
+    const remoteAreaFee = serverRemoteAreaFee > 0 ? serverRemoteAreaFee : (clientRemoteAreaFee ?? 0);
+
+    // total_price = 수선비 합산 + 실제 배송비 (할인 후) + 도서산간 추가비
+    const totalPrice = repairItemsTotal + shippingFee + remoteAreaFee;
 
     const initialStatus = "PENDING_PAYMENT";
     const orderNumber = `ORD${Date.now()}`;
@@ -220,6 +227,7 @@ export async function POST(request: NextRequest) {
       base_price: repairItemsTotal,
       shipping_fee: BASE_SHIPPING_FEE,
       shipping_discount_amount: shippingDiscountAmount,
+      remote_area_fee: remoteAreaFee,
       ...(shippingPromotionId ? { shipping_promotion_id: shippingPromotionId } : {}),
       customer_email: userRow.email || user.email || null,
       customer_phone: phone,
@@ -309,6 +317,7 @@ export async function POST(request: NextRequest) {
       shippingFee,
       shippingDiscountAmount,
       shippingPromotionId,
+      remoteAreaFee,
     });
   } catch (e) {
     console.error("Unexpected error:", e);

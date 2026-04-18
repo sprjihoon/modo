@@ -42,6 +42,7 @@ export interface OrderDraft {
   deliveryAddressDetail?: string;
   deliveryZipcode?: string;
   agreedToExtraCharge?: boolean;
+  remoteAreaFee?: number;
 }
 
 const STEPS: { key: OrderStep; label: string }[] = [

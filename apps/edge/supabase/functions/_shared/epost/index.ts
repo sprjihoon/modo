@@ -60,6 +60,7 @@ export { getApprovalNumber } from './approval.ts';
 // 종추적조회 (배송추적)
 export {
   getTrackingInfo,
+  getPublicTrackingInfo,
   mapDeliveryStatusToCode,
   getStatusFromEvents,
 } from './tracking.ts';

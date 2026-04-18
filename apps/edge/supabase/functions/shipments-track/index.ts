@@ -62,9 +62,8 @@ Deno.serve(async (req) => {
     let epostStatus: any = null;
     let epostError: { message: string; code: string } | null = null;
     let trackingInfo: TrackingResponse | null = null;
-    
-    // 1. 먼저 웹 스크래핑으로 실제 배송 상태 조회 시도
-    let scrapingError: string | null = null;
+
+    // 1. 우체국 웹 스크래핑 (1순위)
     try {
       console.log('🔍 우체국 웹 스크래핑 시작:', trackingNo);
       trackingInfo = await getTrackingInfo(trackingNo);
@@ -73,31 +72,33 @@ Deno.serve(async (req) => {
         eventCount: trackingInfo.events.length,
         error: trackingInfo.error,
       });
-      
+
       if (trackingInfo.success && trackingInfo.events.length > 0) {
-        // 스크래핑 성공 - 실제 물류 추적 정보 사용
-        console.log('✅ 웹 스크래핑 성공:', {
-          deliveryStatus: trackingInfo.deliveryStatus,
-          eventCount: trackingInfo.events.length,
-          latestEvent: trackingInfo.events[trackingInfo.events.length - 1],
-        });
-        
-        // 스크래핑 결과를 epostStatus 형식으로 변환
+        console.log('✅ 웹 스크래핑 성공:', trackingInfo.events.length, '건');
         const statusCode = getStatusFromEvents(trackingInfo.events);
         epostStatus = {
           treatStusCd: statusCode,
-          trackingEvents: trackingInfo.events,
           deliveryStatus: trackingInfo.deliveryStatus,
           senderName: trackingInfo.senderName,
           receiverName: trackingInfo.receiverName,
         };
+        // 성공 시 이벤트를 DB에 저장 (이후 API 실패 시 fallback)
+        try {
+          const eventsToStore = trackingInfo.events.map((e: TrackingEvent) => ({
+            date: e.date, time: e.time, location: e.location,
+            status: e.status, description: e.description || null,
+          }));
+          await supabase.from('shipments').update({ tracking_events: eventsToStore }).eq('id', shipment.id);
+          console.log('✅ 추적 이벤트 DB 저장 완료:', eventsToStore.length, '건');
+        } catch (saveErr: any) {
+          console.warn('⚠️ 이벤트 DB 저장 실패 (무시):', saveErr?.message);
+        }
       }
     } catch (err: any) {
-      scrapingError = err?.message || 'Unknown scraping error';
-      console.error('⚠️ 웹 스크래핑 실패:', scrapingError);
+      console.error('⚠️ 웹 스크래핑 실패:', err?.message);
     }
-    
-    // 2. 스크래핑 실패 시 기존 GetResInfo API 사용
+
+    // 2. 스크래핑 실패 시 GetResInfo API (2순위)
     if (!epostStatus) {
       try {
         console.log('⚠️ 스크래핑 데이터 없음, GetResInfo API로 폴백');
@@ -261,11 +262,26 @@ Deno.serve(async (req) => {
 
     // 종추적조회 이벤트가 있는지 확인
     const hasTrackingEvents = trackingInfo?.success && trackingInfo.events.length > 0;
+
+    // DB에 저장된 이전 추적 이벤트 (live API 실패 시 fallback)
+    // BOOKED 등 예약 이벤트는 제외하고 실제 택배 추적 이력만 사용
+    const BOOKING_STATUSES = ['BOOKED', 'PENDING', 'CANCELLED', 'CANCELED'];
+    const storedTrackingEvents = Array.isArray(shipment.tracking_events)
+      ? shipment.tracking_events.filter((e: any) =>
+          e?.date && e?.time && // 날짜·시간이 있는 이벤트만 (실제 추적 이력)
+          !BOOKING_STATUSES.includes(e?.status)
+        )
+      : [];
+    const useCachedEvents = !hasTrackingEvents && storedTrackingEvents.length > 0;
+    if (useCachedEvents) {
+      console.log('📦 live 스크래핑 없음 → DB 캐시 이벤트 사용:', storedTrackingEvents.length, '건');
+    }
     
     // 응답
     return successResponse({
       tracking_no: trackingNo,
       tracking_url: trackingUrl,
+      isCachedEvents: useCachedEvents, // 캐시 데이터 사용 여부
       shipment: {
         order_id: shipment.order_id,
         status: shipment.status,
@@ -276,7 +292,7 @@ Deno.serve(async (req) => {
         pickup_completed_at: shipment.pickup_completed_at,
         delivery_started_at: shipment.delivery_started_at,
         delivery_completed_at: shipment.delivery_completed_at,
-        tracking_events: shipment.tracking_events || [],
+        tracking_events: storedTrackingEvents,
       },
       epost: epostStatus ? {
         reqNo: epostStatus.reqNo,
@@ -291,17 +307,19 @@ Deno.serve(async (req) => {
         senderName: epostStatus.senderName || null,
         receiverName: epostStatus.receiverName || null,
       } : null,
-      // 종추적조회 이벤트 (실제 물류 추적 이력)
-      trackingEvents: hasTrackingEvents ? trackingInfo!.events.map((event: TrackingEvent) => ({
-        date: event.date,
-        time: event.time,
-        location: event.location,
-        status: event.status,
-        description: event.description || null,
-      })) : [],
+      // 종추적조회 이벤트: live 스크래핑 → DB 캐시 순으로 fallback
+      trackingEvents: hasTrackingEvents
+        ? trackingInfo!.events.map((event: TrackingEvent) => ({
+            date: event.date,
+            time: event.time,
+            location: event.location,
+            status: event.status,
+            description: event.description || null,
+          }))
+        : storedTrackingEvents,
       epostError: epostError || null,
-      // 종추적조회 이벤트가 있으면 집하된 것으로 판단
-      isNotYetPickedUp: !hasTrackingEvents && epostStatus === null && epostError === null,
+      // 아직 집하 전: live도 없고 캐시도 없고 epost 상태도 없는 경우
+      isNotYetPickedUp: !hasTrackingEvents && storedTrackingEvents.length === 0 && epostStatus === null && epostError === null,
     });
 
   } catch (error) {

@@ -334,12 +334,14 @@ Deno.serve(async (req) => {
     };
 
     // 7. shipments 테이블 업데이트
+    const nowIso = new Date().toISOString();
     const { error: updateError } = await supabase
       .from('shipments')
       .update({
         delivery_tracking_no: epostResult.regiNo,
         delivery_info: deliveryInfo, // notifyMsg와 도서산간 정보 포함
-        updated_at: new Date().toISOString(),
+        delivery_tracking_created_at: nowIso, // 출고 송장 생성 시각 기록
+        updated_at: nowIso,
       })
       .eq('order_id', orderId);
 
