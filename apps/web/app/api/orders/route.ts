@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getRemoteAreaFee } from "@/lib/remote-area";
+import { getShippingSettings } from "@/lib/shipping-settings";
 
 async function fetchOrdersByFilter(
   supabase: ReturnType<typeof createClient>,
@@ -118,7 +119,9 @@ export async function POST(request: NextRequest) {
     // repair_type: 첫 번째 수선 항목 이름 (모바일 앱과 동일)
     const repairType = repairArr[0]?.name || "기타";
 
-    const BASE_SHIPPING_FEE = 7000;
+    // 글로벌 배송비 설정 (관리자 페이지에서 변경 가능)
+    const shippingSettings = await getShippingSettings();
+    const BASE_SHIPPING_FEE = shippingSettings.baseShippingFee;
 
     // 수선 항목 합산 (배송비 제외)
     const repairItemsTotal = repairArr.reduce(
@@ -193,7 +196,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 도서산간 추가비: 서버에서 재검증 (클라이언트 값도 허용, 단 서버 검증 우선)
-    const serverRemoteAreaFee = getRemoteAreaFee(pickupZipcode || "", pickupAddress || "");
+    // 추가 금액은 관리자 설정의 remote_area_fee 사용
+    const serverRemoteAreaFee = getRemoteAreaFee(
+      pickupZipcode || "",
+      pickupAddress || "",
+      shippingSettings.remoteAreaFee
+    );
     // 클라이언트가 보낸 값과 서버 계산 값 중 큰 값 사용 (위변조 방지: 0보다 크면 서버값 우선)
     const remoteAreaFee = serverRemoteAreaFee > 0 ? serverRemoteAreaFee : (clientRemoteAreaFee ?? 0);
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/enums/extra_charge_status.dart';
+import '../../../../services/shipping_settings_service.dart';
 import '../../providers/extra_charge_provider.dart';
 import '../../domain/models/extra_charge_data.dart';
 
@@ -209,7 +210,7 @@ class ExtraChargeRequestCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '• 그냥 진행: 추가 작업 없이 원안대로 진행합니다\n• 반송: 왕복 배송비 6,000원이 차감됩니다',
+                      '• 그냥 진행: 추가 작업 없이 원안대로 진행합니다\n• 반송: 왕복 배송비 ${NumberFormat('#,###').format(ShippingSettingsService().current.returnShippingFee)}원이 차감됩니다',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[700],
@@ -375,13 +376,15 @@ class ExtraChargeRequestCard extends StatelessWidget {
 
   /// 반송하기
   Future<void> _handleReturn(BuildContext context) async {
+    final returnFee = ShippingSettingsService().current.returnShippingFee;
+    final formattedFee = NumberFormat('#,###').format(returnFee);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('반송 요청'),
-        content: const Text(
+        content: Text(
           '반송을 요청하시겠습니까?\n\n'
-          '⚠️ 왕복 배송비 6,000원이 차감됩니다.\n'
+          '⚠️ 왕복 배송비 ${formattedFee}원이 차감됩니다.\n'
           '이 금액은 환불 시 공제됩니다.',
         ),
         actions: [
@@ -424,8 +427,8 @@ class ExtraChargeRequestCard extends StatelessWidget {
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('반송 요청 완료. 배송비 6,000원이 차감됩니다'),
+          SnackBar(
+            content: Text('반송 요청 완료. 배송비 ${formattedFee}원이 차감됩니다'),
             backgroundColor: Colors.orange,
           ),
         );

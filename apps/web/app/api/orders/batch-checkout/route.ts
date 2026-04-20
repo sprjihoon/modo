@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { BASE_SHIPPING_FEE } from "@/lib/shipping-promotion";
+import { getShippingSettings } from "@/lib/shipping-settings";
 
 /**
  * POST /api/orders/batch-checkout
@@ -53,14 +53,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // 글로벌 배송비 설정 (관리자 페이지에서 변경 가능)
+    const shippingSettings = await getShippingSettings();
+    const baseShippingFee = shippingSettings.baseShippingFee;
+
     // 수선비 합산 (배송비 제외)
     const totalRepairAmount = orders.reduce((sum, o) => {
-      const shipping = (o.shipping_fee as number | null) ?? BASE_SHIPPING_FEE;
+      const shipping = (o.shipping_fee as number | null) ?? baseShippingFee;
       return sum + Math.max(0, ((o.total_price as number) ?? 0) - shipping);
     }, 0);
 
     // 배송비 1회만
-    const shippingFee = BASE_SHIPPING_FEE;
+    const shippingFee = baseShippingFee;
     const newTotal = totalRepairAmount + shippingFee;
 
     // 대표 주문(첫 번째)의 total_price만 합산으로 임시 업데이트

@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { OrderDraft } from "./OrderNewClient";
 import { AddressSearchButton } from "@/components/ui/AddressSearchButton";
-import { isRemoteArea, REMOTE_AREA_FEE_ROUNDTRIP } from "@/lib/remote-area";
+import { isRemoteArea } from "@/lib/remote-area";
 
 interface Address {
   id: string;
@@ -52,11 +52,24 @@ interface ShippingPromo {
   promotionName: string | null;
 }
 
+interface ShippingSettings {
+  baseShippingFee: number;
+  remoteAreaFee: number;
+  returnShippingFee: number;
+}
+
+const FALLBACK_SHIPPING: ShippingSettings = {
+  baseShippingFee: 7000,
+  remoteAreaFee: 400,
+  returnShippingFee: 7000,
+};
+
 export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   const [showAddressList, setShowAddressList] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [shippingPromo, setShippingPromo] = useState<ShippingPromo | null>(null);
+  const [shippingSettings, setShippingSettings] = useState<ShippingSettings>(FALLBACK_SHIPPING);
 
   // 날짜 계산 (state 초기값에 사용)
   function getNextWeekday(): string {
@@ -96,10 +109,10 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
     return d;
   }).filter(isUnavailable).map((d) => d.toISOString().split("T")[0]);
 
-  const SHIPPING_FEE = 7000;
+  const SHIPPING_FEE = shippingSettings.baseShippingFee;
 
-  // 도서산간 여부 (수거지 기준)
-  const remoteAreaFee = isRemoteArea(pickupZipcode, address) ? REMOTE_AREA_FEE_ROUNDTRIP : 0;
+  // 도서산간 여부 (수거지 기준) — 추가 금액은 관리자 설정값
+  const remoteAreaFee = isRemoteArea(pickupZipcode, address) ? shippingSettings.remoteAreaFee : 0;
 
   // 예상 수선비 계산 (배송비 제외)
   const estimatedRepairPrice = draft.repairItems.reduce(
@@ -113,7 +126,22 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
   useEffect(() => {
     loadSavedAddresses();
     loadShippingPromo();
+    loadShippingSettings();
   }, []);
+
+  async function loadShippingSettings() {
+    try {
+      const res = await fetch("/api/shipping-settings");
+      if (res.ok) {
+        const data = (await res.json()) as ShippingSettings;
+        setShippingSettings({
+          baseShippingFee: data.baseShippingFee ?? FALLBACK_SHIPPING.baseShippingFee,
+          remoteAreaFee: data.remoteAreaFee ?? FALLBACK_SHIPPING.remoteAreaFee,
+          returnShippingFee: data.returnShippingFee ?? FALLBACK_SHIPPING.returnShippingFee,
+        });
+      }
+    } catch { /* 폴백값 사용 */ }
+  }
 
   async function loadShippingPromo() {
     try {

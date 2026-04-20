@@ -9,6 +9,7 @@ import '../../../orders/providers/cart_provider.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/banner_service.dart';
 import '../../../../services/order_limit_service.dart';
+import '../../../../services/shipping_settings_service.dart';
 import '../../../../app.dart';
 import '../widgets/extra_charge_alert_banner.dart';
 import '../../../orders/presentation/widgets/order_limit_dialog.dart';
@@ -367,6 +368,13 @@ class _HomePageState extends ConsumerState<HomePage>
 
   /// 실제 수선물 준비 안내 다이얼로그
   void _showActualPreparationDialog(BuildContext context) {
+    // 다이얼로그 열기 직전에 최신 배송비 설정을 읽어옴 (실패해도 캐시값 사용)
+    ShippingSettingsService().get();
+    final settings = ShippingSettingsService().current;
+    final formattedFee = settings.baseShippingFee.toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]},',
+        );
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -477,10 +485,10 @@ class _HomePageState extends ConsumerState<HomePage>
                     color: const Color(0xFF00C896).withOpacity(0.25),
                   ),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       '🚚 배송비를 아끼는 방법',
                       style: TextStyle(
                         fontSize: 12,
@@ -488,10 +496,10 @@ class _HomePageState extends ConsumerState<HomePage>
                         color: Color(0xFF00C896),
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      '왕복배송비(7,000원)는 수량과 관계없이 1회 동일!\n여러 벌을 한 번에 맡기시면 더 경제적입니다.',
-                      style: TextStyle(
+                      '왕복배송비(${formattedFee}원)는 수량과 관계없이 1회 동일!\n여러 벌을 한 번에 맡기시면 더 경제적입니다.',
+                      style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF555555),
                         height: 1.5,

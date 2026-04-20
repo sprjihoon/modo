@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,17 @@ import {
   Save, ToggleLeft, ToggleRight, Info
 } from "lucide-react";
 
-const BASE_SHIPPING_FEE = 7000;
+const DEFAULT_BASE_SHIPPING_FEE = 7000;
+const DEFAULT_REMOTE_AREA_FEE = 400;
+const DEFAULT_RETURN_SHIPPING_FEE = 7000;
+
+interface ShippingSettings {
+  id: number;
+  base_shipping_fee: number;
+  remote_area_fee: number;
+  return_shipping_fee: number;
+  updated_at: string;
+}
 
 type PromotionType = "FIRST_ORDER" | "FREE_ABOVE_AMOUNT" | "PERCENTAGE_OFF" | "FIXED_DISCOUNT";
 type DiscountType = "PERCENTAGE" | "FIXED";
@@ -60,6 +70,10 @@ const emptyForm = {
 };
 
 export default function ShippingSettingsPage() {
+  // 로그인 세션(쿠키)을 공유하는 SSR-aware 클라이언트.
+  // 기존 lib/supabase의 단순 createClient는 세션을 localStorage에서만 찾기 때문에
+  // 로그인된 admin이 anon으로 인식되어 RLS에 차단되는 문제가 있었음.
+  const supabase = useMemo(() => createClient(), []);
   const [promotions, setPromotions] = useState<ShippingPromotion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,9 +82,77 @@ export default function ShippingSettingsPage() {
   const [formData, setFormData] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 글로벌 배송비 설정
+  const [settings, setSettings] = useState<ShippingSettings | null>(null);
+  const [settingsForm, setSettingsForm] = useState({
+    base_shipping_fee: DEFAULT_BASE_SHIPPING_FEE,
+    remote_area_fee: DEFAULT_REMOTE_AREA_FEE,
+    return_shipping_fee: DEFAULT_RETURN_SHIPPING_FEE,
+  });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsSavedAt, setSettingsSavedAt] = useState<number | null>(null);
+
+  // 현재 화면에서 사용할 기본 배송비 (할인% 미리보기 등)
+  const baseShippingFee = settings?.base_shipping_fee ?? DEFAULT_BASE_SHIPPING_FEE;
+
   useEffect(() => {
     loadPromotions();
+    loadSettings();
   }, []);
+
+  const loadSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("shipping_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) {
+        const row = data as unknown as ShippingSettings;
+        setSettings(row);
+        setSettingsForm({
+          base_shipping_fee: row.base_shipping_fee,
+          remote_area_fee: row.remote_area_fee,
+          return_shipping_fee: row.return_shipping_fee,
+        });
+      }
+    } catch (e) {
+      console.warn("배송비 설정 불러오기 실패:", e);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (settingsForm.base_shipping_fee < 0 || settingsForm.remote_area_fee < 0 || settingsForm.return_shipping_fee < 0) {
+      alert("0 이상의 값을 입력해주세요.");
+      return;
+    }
+    setIsSavingSettings(true);
+    try {
+      const payload = {
+        id: 1,
+        base_shipping_fee: Math.round(settingsForm.base_shipping_fee),
+        remote_area_fee: Math.round(settingsForm.remote_area_fee),
+        return_shipping_fee: Math.round(settingsForm.return_shipping_fee),
+      };
+      const { data, error } = await (supabase
+        .from("shipping_settings") as any)
+        .upsert(payload, { onConflict: "id" })
+        .select();
+      if (error) throw error;
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        throw new Error("권한이 없거나 RLS 정책에 의해 차단되었습니다 (0행 변경)");
+      }
+      setSettingsSavedAt(Date.now());
+      await loadSettings();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "저장 실패";
+      console.error("[shipping_settings save] failed:", e);
+      alert(`설정 저장 실패: ${msg}`);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   const loadPromotions = async () => {
     setIsLoading(true);
@@ -140,22 +222,31 @@ export default function ShippingSettingsPage() {
       };
 
       if (editingPromotion) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("shipping_promotions")
           .update(payload)
-          .eq("id", editingPromotion.id);
+          .eq("id", editingPromotion.id)
+          .select();
         if (error) throw error;
+        if (!data || (Array.isArray(data) && data.length === 0)) {
+          throw new Error("권한이 없거나 RLS 정책에 의해 차단되었습니다 (0행 변경)");
+        }
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("shipping_promotions")
-          .insert(payload);
+          .insert(payload)
+          .select();
         if (error) throw error;
+        if (!data || (Array.isArray(data) && data.length === 0)) {
+          throw new Error("권한이 없거나 RLS 정책에 의해 차단되었습니다 (0행 변경)");
+        }
       }
 
       setShowModal(false);
       await loadPromotions();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "저장 실패";
+      console.error("[shipping_promotions save] failed:", e);
       alert(`저장 실패: ${msg}`);
     } finally {
       setIsSaving(false);
@@ -164,33 +255,45 @@ export default function ShippingSettingsPage() {
 
   const toggleActive = async (id: string, current: boolean) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("shipping_promotions")
         .update({ is_active: !current })
-        .eq("id", id);
+        .eq("id", id)
+        .select();
       if (error) throw error;
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        throw new Error("권한이 없거나 RLS 정책에 의해 차단되었습니다 (0행 변경)");
+      }
       await loadPromotions();
-    } catch {
-      alert("상태 변경 실패");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "상태 변경 실패";
+      console.error("[shipping_promotions toggle] failed:", e);
+      alert(`상태 변경 실패: ${msg}`);
     }
   };
 
   const deletePromotion = async (id: string) => {
     if (!confirm("삭제하시겠습니까?")) return;
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("shipping_promotions")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .select();
       if (error) throw error;
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        throw new Error("권한이 없거나 RLS 정책에 의해 차단되었습니다 (0행 변경)");
+      }
       await loadPromotions();
-    } catch {
-      alert("삭제 실패");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "삭제 실패";
+      console.error("[shipping_promotions delete] failed:", e);
+      alert(`삭제 실패: ${msg}`);
     }
   };
 
   const formatDiscount = (promo: ShippingPromotion) => {
-    const base = BASE_SHIPPING_FEE;
+    const base = baseShippingFee;
     if (promo.discount_type === "PERCENTAGE") {
       const discountAmt = Math.round(base * promo.discount_value / 100);
       return `${promo.discount_value}% 할인 (${discountAmt.toLocaleString()}원↓)`;
@@ -225,24 +328,89 @@ export default function ShippingSettingsPage() {
         </Button>
       </div>
 
-      {/* 기본 배송비 정책 카드 */}
+      {/* 기본 배송비 정책 카드 (편집 가능) */}
       <Card className="border-blue-100 bg-blue-50/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Info className="w-4 h-4 text-blue-500" />
             기본 배송비 정책
           </CardTitle>
+          <CardDescription>
+            여기서 변경한 값이 웹/모바일의 주문 화면, 결제 페이지, 도서산간 추가비 계산에 즉시 반영됩니다.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between py-2 border-b border-blue-100">
-            <span className="text-sm font-medium text-gray-700">왕복배송비 (기본)</span>
-            <span className="text-lg font-bold text-gray-900">7,000원</span>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs">왕복배송비 (기본)</Label>
+              <div className="flex items-center gap-1 mt-1">
+                <Input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={settingsForm.base_shipping_fee}
+                  onChange={(e) =>
+                    setSettingsForm((p) => ({ ...p, base_shipping_fee: Number(e.target.value) }))
+                  }
+                />
+                <span className="text-sm text-gray-500 shrink-0">원</span>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">도서산간 추가배송비</Label>
+              <div className="flex items-center gap-1 mt-1">
+                <Input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={settingsForm.remote_area_fee}
+                  onChange={(e) =>
+                    setSettingsForm((p) => ({ ...p, remote_area_fee: Number(e.target.value) }))
+                  }
+                />
+                <span className="text-sm text-gray-500 shrink-0">원</span>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">반송 차감 배송비</Label>
+              <div className="flex items-center gap-1 mt-1">
+                <Input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={settingsForm.return_shipping_fee}
+                  onChange={(e) =>
+                    setSettingsForm((p) => ({ ...p, return_shipping_fee: Number(e.target.value) }))
+                  }
+                />
+                <span className="text-sm text-gray-500 shrink-0">원</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-start gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-gray-500">
+              {settings?.updated_at && (
+                <>마지막 수정: {new Date(settings.updated_at).toLocaleString("ko-KR")}</>
+              )}
+              {settingsSavedAt && Date.now() - settingsSavedAt < 3000 && (
+                <span className="ml-2 text-green-600 font-medium">✓ 저장 완료</span>
+              )}
+            </p>
+            <Button
+              size="sm"
+              onClick={handleSaveSettings}
+              disabled={isSavingSettings}
+              className="flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              {isSavingSettings ? "저장 중..." : "기본 설정 저장"}
+            </Button>
+          </div>
+          <div className="flex items-start gap-2 pt-2 border-t border-blue-100">
             <span className="text-lg">💡</span>
             <p className="text-sm text-gray-600 leading-relaxed">
-              왕복배송비(7,000원)는 수량과 관계없이 1회 동일하게 부과됩니다.{" "}
-              <strong>여러 벌 동시 접수 시 더 경제적입니다.</strong>
+              왕복배송비({baseShippingFee.toLocaleString()}원)는 수량과 관계없이 1회 동일하게 부과됩니다.
+              <strong> 도서산간({settingsForm.remote_area_fee.toLocaleString()}원 추가)은 우체국 지정 우편번호일 때 자동 합산됩니다.</strong>
             </p>
           </div>
           <div className="bg-blue-100 rounded-lg px-3 py-2">
@@ -415,7 +583,7 @@ export default function ShippingSettingsPage() {
                         onClick={() => setFormData((p) => ({
                           ...p,
                           discount_type: dt,
-                          discount_value: dt === "PERCENTAGE" ? 100 : BASE_SHIPPING_FEE,
+                          discount_value: dt === "PERCENTAGE" ? 100 : baseShippingFee,
                         }))}
                         className={`flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition-all ${
                           formData.discount_type === dt
@@ -447,7 +615,7 @@ export default function ShippingSettingsPage() {
                   </div>
                   {formData.discount_type === "PERCENTAGE" && (
                     <p className="text-xs text-gray-400 mt-1">
-                      실제 할인: {Math.round(BASE_SHIPPING_FEE * formData.discount_value / 100).toLocaleString()}원
+                      실제 할인: {Math.round(baseShippingFee * formData.discount_value / 100).toLocaleString()}원
                     </p>
                   )}
                 </div>

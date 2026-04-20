@@ -6,8 +6,9 @@ class IslandAreaService {
   factory IslandAreaService() => _instance;
   IslandAreaService._internal();
 
-  /// 도서산간 추가 배송비 (왕복 기준)
-  static const int additionalFee = 1000;
+  /// 도서산간 추가 배송비 폴백값 (관리자 설정 미존재 시)
+  /// 실제 운영 값은 [ShippingSettingsService]를 통해 DB에서 가져온 값을 사용한다.
+  static const int additionalFee = 400;
 
   /// 도서산간지역 우편번호 목록 (231개)
   /// 데이터 기준일: 2024.11.10
@@ -167,19 +168,20 @@ class IslandAreaService {
   }
 
   /// 도서산간 추가 배송비 계산
-  /// 수거지 또는 배송지 중 하나라도 도서산간 지역이면 1,000원 추가
+  /// 수거지 또는 배송지 중 하나라도 도서산간 지역이면 [feeAmount]만큼 추가
   /// [pickupZipcode] 수거지 우편번호
   /// [deliveryZipcode] 배송지 우편번호 (없으면 수거지와 동일하다고 간주)
+  /// [feeAmount] 추가 금액 (관리자 설정값, 기본 [additionalFee])
   /// Returns: 추가 배송비 (원)
   int calculateAdditionalFee({
     String? pickupZipcode,
     String? deliveryZipcode,
+    int feeAmount = additionalFee,
   }) {
-    // 수거지 또는 배송지 중 하나라도 도서산간이면 1,000원 추가
     final isPickupIsland = isIslandArea(pickupZipcode);
     final isDeliveryIsland = isIslandArea(deliveryZipcode ?? pickupZipcode);
-    
-    return (isPickupIsland || isDeliveryIsland) ? additionalFee : 0;
+
+    return (isPickupIsland || isDeliveryIsland) ? feeAmount : 0;
   }
 
   /// 전체 도서산간 우편번호 개수

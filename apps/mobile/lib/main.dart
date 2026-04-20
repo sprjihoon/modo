@@ -15,6 +15,7 @@ import 'features/orders/providers/extra_charge_provider.dart';
 import 'core/config/supabase_config.dart';
 import 'core/config/feature_flags.dart';
 import 'services/network_monitor_service.dart';
+import 'services/shipping_settings_service.dart';
 
 /// 모두의수선 메인 엔트리포인트
 void main() async {
@@ -133,6 +134,11 @@ void main() async {
     // 📡 네트워크 모니터링 서비스 초기화
     await NetworkMonitorService().initialize();
     print('✅ Network monitoring 초기화 완료');
+
+    // 💰 배송비 글로벌 설정 프리로드 (관리자 페이지에서 변경 가능)
+    // 실패해도 폴백값으로 동작하므로 await 하지 않고 백그라운드 실행
+    // ignore: unawaited_futures
+    ShippingSettingsService().refresh();
   } catch (e, stackTrace) {
     print('❌ 초기화 실패: $e');
     print('   스택 트레이스: $stackTrace');

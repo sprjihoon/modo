@@ -1,11 +1,16 @@
 /**
  * 우체국 도서산간 지역 판정 유틸리티
  * 우체국 소포/등기 기준 도서산간 추가 요금 적용 지역
- * 편도 400원, 왕복(수거+배송) 800원 추가
+ *
+ * 추가 요금은 관리자 페이지(shipping_settings.remote_area_fee)에서 변경합니다.
+ * 아래 상수는 폴백/하위 호환용입니다.
  */
 
-export const REMOTE_AREA_FEE_ONE_WAY = 400; // 편도 추가비
-export const REMOTE_AREA_FEE_ROUNDTRIP = 800; // 왕복 추가비 (수거 + 배송)
+export const REMOTE_AREA_FEE_DEFAULT = 400; // 폴백 추가비 (관리자 설정 미존재 시)
+/** @deprecated shipping_settings.remote_area_fee 사용 */
+export const REMOTE_AREA_FEE_ONE_WAY = 400;
+/** @deprecated shipping_settings.remote_area_fee 사용 */
+export const REMOTE_AREA_FEE_ROUNDTRIP = 800;
 
 /**
  * 우체국 도서산간 우편번호 목록
@@ -113,8 +118,15 @@ export function isRemoteArea(zipcode: string, address?: string): boolean {
 
 /**
  * 도서산간 추가 배송비 계산
- * @returns 추가 금액 (왕복: 800원, 아니면 0)
+ * @param zipcode  우편번호
+ * @param address  보조 주소 문자열
+ * @param feeAmount 도서산간일 때 부과할 금액 (없으면 REMOTE_AREA_FEE_DEFAULT)
+ * @returns 추가 금액 (도서산간이면 feeAmount, 아니면 0)
  */
-export function getRemoteAreaFee(zipcode: string, address?: string): number {
-  return isRemoteArea(zipcode, address) ? REMOTE_AREA_FEE_ROUNDTRIP : 0;
+export function getRemoteAreaFee(
+  zipcode: string,
+  address?: string,
+  feeAmount: number = REMOTE_AREA_FEE_DEFAULT
+): number {
+  return isRemoteArea(zipcode, address) ? feeAmount : 0;
 }

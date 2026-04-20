@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/enums/action_type.dart';
 import 'log_service.dart';
 import 'network_monitor_service.dart';
+import 'shipping_settings_service.dart';
 
 /// 네트워크 에러 타입
 enum NetworkErrorType {
@@ -128,6 +129,7 @@ class OrderService {
     int shippingFee = 7000,
     int shippingDiscountAmount = 0,
     String? shippingPromotionId,
+    int remoteAreaFee = 0, // 도서산간 추가비 (관리자 설정값 반영)
     required String pickupAddress,
     required String deliveryAddress,
     String? pickupAddressDetail,
@@ -239,6 +241,8 @@ class OrderService {
       if (shippingPromotionId != null) {
         orderData['shipping_promotion_id'] = shippingPromotionId;
       }
+      // 도서산간 추가비 (없으면 0)
+      orderData['remote_area_fee'] = remoteAreaFee;
 
       // repair_parts 배열 추가
       if (repairParts != null && repairParts.isNotEmpty) {
@@ -554,14 +558,19 @@ class OrderService {
 
   /// 배송비 프로모션 확인
   /// 현재 사용자에게 적용 가능한 최대 배송비 할인을 반환합니다.
+  /// [baseShippingFee]를 명시하지 않으면 [ShippingSettingsService]에서 가져온 값을 사용합니다.
   Future<Map<String, dynamic>> checkShippingPromotion({
     required int repairAmount,
-    int baseShippingFee = 7000,
+    int? baseShippingFee,
   }) async {
-    const noDiscount = {
-      'baseShippingFee': 7000,
+    // 글로벌 배송비 설정 (관리자 페이지에서 변경 가능)
+    final settings = await ShippingSettingsService().get();
+    final base = baseShippingFee ?? settings.baseShippingFee;
+
+    final noDiscount = <String, dynamic>{
+      'baseShippingFee': base,
       'discountAmount': 0,
-      'finalShippingFee': 7000,
+      'finalShippingFee': base,
       'promotionId': null,
       'promotionName': null,
     };
@@ -621,14 +630,14 @@ class OrderService {
 
         int discountAmt;
         if (promo['discount_type'] == 'PERCENTAGE') {
-          discountAmt = (baseShippingFee * (promo['discount_value'] as int) / 100).round();
+          discountAmt = (base * (promo['discount_value'] as int) / 100).round();
         } else {
           discountAmt = (promo['discount_value'] as int);
         }
 
         final maxDiscount = promo['max_discount_amount'] as int?;
         if (maxDiscount != null) discountAmt = discountAmt.clamp(0, maxDiscount);
-        discountAmt = discountAmt.clamp(0, baseShippingFee);
+        discountAmt = discountAmt.clamp(0, base);
 
         if (discountAmt > bestDiscount) {
           bestDiscount = discountAmt;
@@ -638,9 +647,9 @@ class OrderService {
       }
 
       return {
-        'baseShippingFee': baseShippingFee,
+        'baseShippingFee': base,
         'discountAmount': bestDiscount,
-        'finalShippingFee': baseShippingFee - bestDiscount,
+        'finalShippingFee': base - bestDiscount,
         'promotionId': bestPromoId,
         'promotionName': bestPromoName,
       };

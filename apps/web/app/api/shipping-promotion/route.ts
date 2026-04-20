@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { BASE_SHIPPING_FEE, ShippingPromoResult } from "@/lib/shipping-promotion";
+import { getShippingSettings, type ShippingPromoResult } from "@/lib/shipping-settings";
 
 /**
  * GET /api/shipping-promotion?repairAmount=숫자
@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
 
     const repairAmount = Number(request.nextUrl.searchParams.get("repairAmount") ?? "0");
+
+    // 글로벌 배송비 설정 (관리자 페이지에서 변경 가능)
+    const { baseShippingFee: BASE_SHIPPING_FEE } = await getShippingSettings();
 
     // 현재 활성화된 모든 배송비 프로모션 조회
     const now = new Date().toISOString();
@@ -114,10 +117,11 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     console.error("Shipping promotion check error:", e);
     // 오류 시 기본 배송비 반환 (주문 프로세스 차단하지 않음)
+    const { baseShippingFee } = await getShippingSettings().catch(() => ({ baseShippingFee: 7000 }));
     return NextResponse.json<ShippingPromoResult>({
-      baseShippingFee: BASE_SHIPPING_FEE,
+      baseShippingFee,
       discountAmount: 0,
-      finalShippingFee: BASE_SHIPPING_FEE,
+      finalShippingFee: baseShippingFee,
       promotionId: null,
       promotionName: null,
       promotionDescription: null,

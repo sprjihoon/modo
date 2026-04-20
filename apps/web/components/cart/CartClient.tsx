@@ -13,7 +13,8 @@ import { formatDate, formatPrice } from "@/lib/utils";
 import { getCartItems, removeCartItem, CartDraftItem } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 
-const BASE_SHIPPING = 7000;
+// 폴백 — 실제 사용 시 GET /api/shipping-settings 로 교체됨
+const FALLBACK_BASE_SHIPPING = 7000;
 
 interface PendingOrder {
   id: string;
@@ -26,8 +27,8 @@ interface PendingOrder {
 }
 
 /** 주문의 수선비만 추출 (total_price - shipping_fee) */
-function getRepairCost(order: PendingOrder): number {
-  const shipping = order.shipping_fee ?? BASE_SHIPPING;
+function getRepairCost(order: PendingOrder, baseShipping: number): number {
+  const shipping = order.shipping_fee ?? baseShipping;
   return Math.max(0, (order.total_price ?? 0) - shipping);
 }
 
@@ -38,6 +39,18 @@ export function CartClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [baseShipping, setBaseShipping] = useState<number>(FALLBACK_BASE_SHIPPING);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/shipping-settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.baseShippingFee != null) setBaseShipping(data.baseShippingFee);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const [isMerging, setIsMerging] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -126,10 +139,10 @@ export function CartClient() {
   const selectedOrders = pendingOrders.filter((o) => selectedIds.has(o.id));
 
   // 선택된 수선비 합산 (배송비 제외)
-  const selectedRepairTotal = selectedOrders.reduce((sum, o) => sum + getRepairCost(o), 0);
+  const selectedRepairTotal = selectedOrders.reduce((sum, o) => sum + getRepairCost(o, baseShipping), 0);
 
   // 선택 결제 금액 = 수선비 합 + 왕복배송비 1회
-  const selectedPayTotal = selectedRepairTotal + BASE_SHIPPING;
+  const selectedPayTotal = selectedRepairTotal + baseShipping;
 
   // ── 선택삭제 ──
   const handleDeleteSelected = useCallback(async () => {
@@ -310,7 +323,7 @@ export function CartClient() {
           <div className="space-y-3 px-4">
             {pendingOrders.map((order) => {
               const isSelected = selectedIds.has(order.id);
-              const repairCost = getRepairCost(order);
+              const repairCost = getRepairCost(order, baseShipping);
               return (
                 <div
                   key={order.id}
@@ -492,7 +505,7 @@ export function CartClient() {
             </div>
             <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
               <span>왕복배송비 (1회)</span>
-              <span className="font-semibold text-gray-700">{formatPrice(BASE_SHIPPING)}</span>
+              <span className="font-semibold text-gray-700">{formatPrice(baseShipping)}</span>
             </div>
             <div className="flex items-center justify-between text-sm font-bold text-gray-800 mb-2">
               <span>{selectedIds.size}건 합계</span>

@@ -6,9 +6,11 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../services/address_service.dart';
+import '../../../../services/island_area_service.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/payment_service.dart';
 import '../../../../services/promotion_service.dart';
+import '../../../../services/shipping_settings_service.dart';
 import '../../providers/repair_items_provider.dart';
 import '../../providers/cart_provider.dart';
 
@@ -63,11 +65,26 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   // 배송비 프로모션
   Map<String, dynamic>? _shippingPromo;
 
+  // 배송비 글로벌 설정 (관리자 페이지 값)
+  ShippingSettings _shippingSettings = ShippingSettings.fallback;
+
   @override
   void initState() {
     super.initState();
     _loadDefaultAddress();
+    _loadShippingSettings();
     _loadShippingPromotion();
+  }
+
+  Future<void> _loadShippingSettings() async {
+    try {
+      final settings = await ShippingSettingsService().get();
+      if (mounted) {
+        setState(() => _shippingSettings = settings);
+      }
+    } catch (e) {
+      debugPrint('배송비 설정 조회 실패 (폴백 사용): $e');
+    }
   }
 
   Future<void> _loadShippingPromotion() async {
@@ -492,17 +509,31 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       }
       
       debugPrint('📦 주문 생성 중...');
-      
+
       // 배송비 프로모션이 적용된 실제 배송비
-      final actualShippingFee = (_shippingPromo?['finalShippingFee'] as int?) ?? _shippingFee;
-      final shippingDiscountAmount = (_shippingPromo?['discountAmount'] as int?) ?? 0;
+      final baseShippingFee = _shippingSettings.baseShippingFee;
+      final actualShippingFee =
+          (_shippingPromo?['finalShippingFee'] as int?) ?? baseShippingFee;
+      final shippingDiscountAmount =
+          (_shippingPromo?['discountAmount'] as int?) ?? 0;
       final shippingPromotionId = _shippingPromo?['promotionId'] as String?;
+
+      // 도서산간 추가 배송비 (관리자 설정값 적용)
+      final pickupZip = _zipcodeController.text;
+      final deliveryZip = _isDeliveryAddressSame
+          ? _zipcodeController.text
+          : _deliveryZipcodeController.text;
+      final remoteAreaFee = IslandAreaService().calculateAdditionalFee(
+        pickupZipcode: pickupZip,
+        deliveryZipcode: deliveryZip,
+        feeAmount: _shippingSettings.remoteAreaFee,
+      );
 
       // 수선 프로모션은 수선비에만 적용, 배송비는 별도 청구 (배송비 프로모션 적용)
       final repairFinalPrice = _appliedPromotion != null
-        ? (_appliedPromotion!['final_amount'] as int)
-        : repairItemsTotal;
-      final finalTotalPrice = repairFinalPrice + actualShippingFee;
+          ? (_appliedPromotion!['final_amount'] as int)
+          : repairItemsTotal;
+      final finalTotalPrice = repairFinalPrice + actualShippingFee + remoteAreaFee;
 
       // 주문 생성
       final order = await _orderService.createOrder(
@@ -510,9 +541,10 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         itemDescription: itemDescription,
         basePrice: repairItemsTotal,
         totalPrice: finalTotalPrice,
-        shippingFee: _shippingFee,
+        shippingFee: baseShippingFee,
         shippingDiscountAmount: shippingDiscountAmount,
         shippingPromotionId: shippingPromotionId,
+        remoteAreaFee: remoteAreaFee,
         
         // 수거지 정보
         pickupAddress: _addressController.text,
@@ -540,11 +572,11 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
         // 수취인 정보 (배송지 기준)
         recipientName: _isDeliveryAddressSame ? _recipientNameController.text : _deliveryRecipientNameController.text,
         recipientPhone: _isDeliveryAddressSame ? _recipientPhoneController.text : _deliveryRecipientPhoneController.text,
-        
+
         // 수거 희망일 (DB 저장, 우체국 API는 자동 배정)
         pickupDate: _selectedPickupDate,
       );
-      
+
       debugPrint('✅ 주문 생성 완료: ${order['id']}');
       
       // 프로모션 코드 사용 기록
@@ -592,7 +624,17 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     }
   }
   
-  static const int _shippingFee = 7000;
+  /// 폴백용 — 실제 값은 _shippingSettings.baseShippingFee 사용
+  int get _shippingFee => _shippingSettings.baseShippingFee;
+
+  /// 현재 입력된 수거지/배송지 기준 도서산간 추가비 (관리자 설정값 적용)
+  int get _remoteAreaFee => IslandAreaService().calculateAdditionalFee(
+        pickupZipcode: _zipcodeController.text,
+        deliveryZipcode: _isDeliveryAddressSame
+            ? _zipcodeController.text
+            : _deliveryZipcodeController.text,
+        feeAmount: _shippingSettings.remoteAreaFee,
+      );
 
   // 수선 항목 합산 (배송비 제외)
   int _calculateRepairItemsTotal() {
@@ -627,7 +669,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
     final actualShippingFee = (_shippingPromo?['finalShippingFee'] as int?) ?? _shippingFee;
     final shippingDiscountAmt = (_shippingPromo?['discountAmount'] as int?) ?? 0;
     final shippingPromoName = _shippingPromo?['promotionName'] as String?;
-    final totalPrice = repairItemsTotal + actualShippingFee;
+    final remoteAreaFee = _remoteAreaFee;
+    final totalPrice = repairItemsTotal + actualShippingFee + remoteAreaFee;
     
     return PopScope(
       canPop: false,
@@ -1470,15 +1513,15 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                           color: const Color(0xFF00C896).withOpacity(0.2),
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('💡', style: TextStyle(fontSize: 14)),
-                          SizedBox(width: 8),
+                          const Text('💡', style: TextStyle(fontSize: 14)),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '왕복배송비(7,000원)는 수량과 관계없이 1회 동일합니다. 여러 벌을 한 번에 맡기시면 더 경제적입니다!',
-                              style: TextStyle(
+                              '왕복배송비(${_formatPrice(_shippingFee)}원)는 수량과 관계없이 1회 동일합니다. 여러 벌을 한 번에 맡기시면 더 경제적입니다!',
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF00A07A),
                                 height: 1.5,
@@ -1625,6 +1668,36 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
                                     fontSize: 12,
                                     color: Color(0xFF00C896),
                                     fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          // 도서산간 추가 배송비 표시
+                          if (remoteAreaFee > 0) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Text('🏝 ', style: TextStyle(fontSize: 12)),
+                                    Text(
+                                      '도서산간 추가 배송비',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFFE07000),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '+${_formatPrice(remoteAreaFee)}원',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFFE07000),
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
