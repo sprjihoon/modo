@@ -952,8 +952,7 @@ class _HomePageState extends ConsumerState<HomePage>
               Icons.help_outline,
               const Color(0xFF00C896),
               () {
-                context.push('/content-view',
-                    extra: {'key': 'easy_guide', 'title': '쉬운가이드'});
+                context.push('/easy-guide');
               },
             ),
           ),

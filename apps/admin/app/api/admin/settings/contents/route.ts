@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("app_contents")
-      .select("key, title, content, images, updated_at")
+      .select("key, title, content, images, metadata, updated_at")
       .order("key");
 
     if (error) {
@@ -36,7 +36,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { key, content, images } = body;
+    const { key, content, images, metadata } = body;
 
     if (!key) {
       return NextResponse.json(
@@ -52,17 +52,21 @@ export async function POST(request: NextRequest) {
         {
           key,
           title:
-            key === "price_list"
-              ? "가격표"
-              : key === "easy_guide"
+            key === "easy_guide"
               ? "쉬운가이드"
               : key === "terms_of_service"
               ? "이용약관"
               : key === "privacy_policy"
               ? "개인정보처리방침"
+              : key === "refund_policy"
+              ? "결제 · 취소 · 환불 정책"
               : key,
           content: content || "",
           images: Array.isArray(images) ? images : [],
+          metadata:
+            metadata && typeof metadata === "object" && !Array.isArray(metadata)
+              ? metadata
+              : {},
           updated_at: new Date().toISOString(),
         },
         { onConflict: "key" }

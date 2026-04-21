@@ -12,6 +12,7 @@ import '../../features/auth/presentation/pages/privacy_policy_page.dart';
 import '../../features/auth/presentation/pages/complete_profile_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/home/presentation/pages/content_view_page.dart';
+import '../../features/home/presentation/pages/easy_guide_page.dart';
 import '../../features/orders/presentation/pages/order_list_page.dart';
 import '../../features/orders/presentation/pages/order_detail_page.dart';
 import '../../features/orders/presentation/pages/tracking_page.dart';
@@ -113,7 +114,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NotificationsPage(),
       ),
 
-      // Content View (쉬운가이드 등)
+      // Content View (이용약관, 개인정보처리방침, 환불정책 등)
       GoRoute(
         path: '/content-view',
         name: 'content-view',
@@ -124,6 +125,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             title: data['title'] as String,
           );
         },
+      ),
+
+      // 쉬운가이드 (이용 방법) - 단계 카드 UI, 웹과 동일한 데이터 소스
+      GoRoute(
+        path: '/easy-guide',
+        name: 'easy-guide',
+        builder: (context, state) => const EasyGuidePage(),
       ),
 
       // 가격표 (repair_types 테이블에서 동적으로 로드)

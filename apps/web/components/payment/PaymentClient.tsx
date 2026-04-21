@@ -48,10 +48,19 @@ interface OrderInfo {
   customer_phone?: string;
 }
 
-const CLIENT_KEY = (
-  process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ||
-  "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq"
-).trim();
+// 토스페이먼츠 클라이언트 키
+// - 운영(production)에서는 환경변수가 반드시 설정되어 있어야 함 (없으면 throw)
+// - 개발 환경에서는 환경변수 미설정 시 토스 공개 테스트 키 사용
+const CLIENT_KEY = (() => {
+  const fromEnv = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY?.trim();
+  if (fromEnv) return fromEnv;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "NEXT_PUBLIC_TOSS_CLIENT_KEY 환경변수가 설정되지 않았습니다. (운영 환경)"
+    );
+  }
+  return "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq";
+})();
 
 type PaymentMethod = "CARD" | "TRANSFER" | "VIRTUAL_ACCOUNT";
 

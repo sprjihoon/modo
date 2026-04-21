@@ -2,6 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../services/repair_service.dart';
 
+const Color _kBrand = Color(0xFF00C896);
+const String _kOtherTabId = '__other__';
+
+/// ?? ?? ???
+/// ? `/guide/price`? ??? ??? ?? / UI ??:
+/// - ?? ??
+/// - ????? ? (?? ?? ?) / ???? ? (flat) + ???? "??" ?
+/// - ?? ????? ?? ?? ?? ?? ?? ?
+/// - CTA ?? (?? ?? ????)
 class PriceGuidePage extends StatefulWidget {
   const PriceGuidePage({super.key});
 
@@ -12,109 +21,121 @@ class PriceGuidePage extends StatefulWidget {
 class _PriceGuidePageState extends State<PriceGuidePage> {
   final RepairService _repairService = RepairService();
 
-  /// [{name, display_order, items: [repair_type, ...]}]
-  List<Map<String, dynamic>> _categories = [];
+  RepairCategoriesResult? _data;
   bool _isLoading = true;
   String? _error;
-  int _selectedTabIndex = 0; // 0 = 전체
+  String? _selectedId;
 
   @override
   void initState() {
     super.initState();
-    _loadRepairTypes();
+    _load();
   }
 
-  Future<void> _loadRepairTypes() async {
+  Future<void> _load() async {
     try {
-      final types = await _repairService.getAllRepairTypesWithCategories();
+      final data = await _repairService.getRepairCategoriesForGuide();
+      if (!mounted) return;
 
-      final grouped = <String, Map<String, dynamic>>{};
-      for (final r in types) {
-        final cat = r['category'] as Map<String, dynamic>?;
-        final catId = cat?['id'] as String? ?? '__none__';
-        if (!grouped.containsKey(catId)) {
-          grouped[catId] = {
-            'name': cat?['name'] as String? ?? '기타',
-            'display_order': cat?['display_order'] as num? ?? 999,
-            'items': <Map<String, dynamic>>[],
-          };
-        }
-        (grouped[catId]!['items'] as List<Map<String, dynamic>>).add(r);
+      String? initialId;
+      if (data.hierarchical && data.mainCategories.isNotEmpty) {
+        initialId = data.mainCategories.first.id;
+      } else if (data.flatCategories.isNotEmpty) {
+        initialId = data.flatCategories.first.id;
+      } else if (data.uncategorized.isNotEmpty) {
+        initialId = _kOtherTabId;
       }
 
-      final sorted = grouped.values.toList()
-        ..sort((a, b) =>
-            (a['display_order'] as num).compareTo(b['display_order'] as num));
-
-      if (mounted) {
-        setState(() {
-          _categories = sorted;
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _data = data;
+        _selectedId = initialId;
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = '데이터를 불러오지 못했어요';
-          _isLoading = false;
-        });
+      if (!mounted) return;
+      setState(() {
+        _error = '???? ???? ????';
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _priceLabel(RepairTypeItem r) {
+    final price = r.price;
+    if (price != null && price > 0) {
+      final n = price.toInt();
+      final str = n.toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (m) => '${m[1]},',
+      );
+      return '?$str';
+    }
+    return '?? ??';
+  }
+
+  List<_TabSpec> _buildTabs() {
+    final data = _data;
+    if (data == null) return const [];
+
+    final tabs = <_TabSpec>[];
+    if (data.hierarchical) {
+      for (final m in data.mainCategories) {
+        tabs.add(_TabSpec(id: m.id, name: m.name));
+      }
+    } else {
+      for (final c in data.flatCategories) {
+        tabs.add(_TabSpec(id: c.id, name: c.name));
       }
     }
-  }
-
-  String _priceLabel(Map<String, dynamic> r) {
-    final price = r['price'];
-    if (price != null && price is num && price > 0) {
-      return '₩${price.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
+    if (data.uncategorized.isNotEmpty) {
+      tabs.add(const _TabSpec(id: _kOtherTabId, name: '??'));
     }
-    return '가격 문의';
+    return tabs;
   }
 
-  List<Map<String, dynamic>> get _visibleCategories {
-    if (_selectedTabIndex == 0) return _categories;
-    return [_categories[_selectedTabIndex - 1]];
+  bool get _hasContent {
+    final data = _data;
+    if (data == null) return false;
+    return data.mainCategories.isNotEmpty ||
+        data.flatCategories.isNotEmpty ||
+        data.uncategorized.isNotEmpty;
+  }
+
+  String? get _selectedName {
+    final data = _data;
+    if (data == null) return null;
+    if (_selectedId == _kOtherTabId) return '??';
+    if (data.hierarchical) {
+      for (final m in data.mainCategories) {
+        if (m.id == _selectedId) return m.name;
+      }
+      return null;
+    }
+    for (final c in data.flatCategories) {
+      if (c.id == _selectedId) return c.name;
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
+      backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
         title: const Text(
-          '가격표',
+          '?? ??',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),
-        centerTitle: true,
+        centerTitle: false,
       ),
-      body: _buildBody(),
+      body: SafeArea(child: _buildBody()),
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildNoticeBanner(),
-          const SizedBox(height: 16),
-          ...List.generate(
-            8,
-            (_) => Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
     if (_error != null) {
       return Center(
         child: Column(
@@ -130,59 +151,60 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
                   _isLoading = true;
                   _error = null;
                 });
-                _loadRepairTypes();
+                _load();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00C896),
+                backgroundColor: _kBrand,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              child: const Text('다시 시도'),
+              child: const Text('?? ??'),
             ),
           ],
         ),
       );
     }
 
-    if (_categories.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.content_cut, size: 48, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
-            Text('등록된 수선 항목이 없어요', style: TextStyle(color: Colors.grey.shade500)),
-            const SizedBox(height: 4),
-            Text('잠시 후 다시 확인해 주세요', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
-          ],
-        ),
-      );
-    }
+    final tabs = _buildTabs();
 
     return Column(
       children: [
-        // 안내 배너
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: _buildNoticeBanner(),
-        ),
-        // 카테고리 탭 필터
-        if (_categories.length > 1) ...[
-          const SizedBox(height: 12),
-          _buildCategoryTabs(),
-        ],
-        const SizedBox(height: 4),
-        // 수선 목록
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: EdgeInsets.zero,
             children: [
-              for (final cat in _visibleCategories) ...[
-                _buildCategoryHeader(cat['name'] as String),
-                const SizedBox(height: 8),
-                ...(cat['items'] as List<Map<String, dynamic>>).map((r) => _buildRepairItem(r)),
+              const SizedBox(height: 16),
+              _buildNoticeBanner(),
+              if (!_isLoading && _hasContent && tabs.length > 1) ...[
                 const SizedBox(height: 16),
+                _buildCategoryTabs(tabs),
               ],
+              if (!_isLoading && _selectedName != null) ...[
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    _selectedName!,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF111111),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              if (_isLoading)
+                _buildLoadingSkeleton()
+              else if (!_hasContent)
+                _buildEmptyAll()
+              else
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: _buildSelectedContent(),
+                ),
             ],
           ),
         ),
@@ -191,41 +213,78 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
     );
   }
 
-  Widget _buildCategoryTabs() {
-    final tabs = ['전체', ..._categories.map((c) => c['name'] as String)];
+  Widget _buildNoticeBanner() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _kBrand.withValues(alpha: 0.05),
+          border: Border.all(color: _kBrand.withValues(alpha: 0.2)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '?? ??',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _kBrand,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              '?? ?? ??? ??? ?? ??? ? ????.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF666666),
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryTabs(List<_TabSpec> tabs) {
     return SizedBox(
-      height: 40,
+      height: 36,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: tabs.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final isSelected = _selectedTabIndex == index;
+          final tab = tabs[index];
+          final isSelected = _selectedId == tab.id;
           return GestureDetector(
-            onTap: () => setState(() => _selectedTabIndex = index),
+            onTap: () => setState(() => _selectedId = tab.id),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF00C896) : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(20),
+                color: isSelected ? _kBrand : const Color(0xFFF3F3F3),
+                borderRadius: BorderRadius.circular(999),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF00C896).withOpacity(0.25),
+                          color: _kBrand.withValues(alpha: 0.25),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
-                        )
+                        ),
                       ]
                     : [],
               ),
+              alignment: Alignment.center,
               child: Text(
-                tabs[index],
+                tab.name,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : Colors.grey.shade600,
+                  color: isSelected ? Colors.white : const Color(0xFF6B6B6B),
                 ),
               ),
             ),
@@ -235,64 +294,88 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
     );
   }
 
-  Widget _buildNoticeBanner() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF00C896).withOpacity(0.07),
-        border: Border.all(color: const Color(0xFF00C896).withOpacity(0.2)),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.info_outline, size: 16, color: Color(0xFF00C896)),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '참고 안내',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF00C896),
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  '실제 수선 가격은 상태에 따라 달라질 수 있습니다.',
-                  style: TextStyle(fontSize: 12, color: Colors.black54, height: 1.5),
-                ),
-              ],
-            ),
+  Widget _buildSelectedContent() {
+    final data = _data!;
+    if (_selectedId == _kOtherTabId) {
+      return _ItemListCard(
+        items: data.uncategorized,
+        priceLabel: _priceLabel,
+      );
+    }
+
+    if (data.hierarchical) {
+      RepairMainCategory? main;
+      for (final m in data.mainCategories) {
+        if (m.id == _selectedId) {
+          main = m;
+          break;
+        }
+      }
+      if (main == null) return const SizedBox.shrink();
+
+      final blocks = <Widget>[];
+      if (main.repairTypes.isNotEmpty) {
+        blocks.add(
+          _ItemListCard(
+            items: main.repairTypes,
+            priceLabel: _priceLabel,
           ),
-        ],
-      ),
-    );
+        );
+      }
+      for (final sub in main.subCategories) {
+        if (blocks.isNotEmpty) blocks.add(const SizedBox(height: 20));
+        blocks.add(_buildSubCategoryHeader(sub.name));
+        blocks.add(const SizedBox(height: 8));
+        blocks.add(
+          _ItemListCard(
+            items: sub.repairTypes,
+            priceLabel: _priceLabel,
+          ),
+        );
+      }
+      if (main.subCategories.isEmpty && main.repairTypes.isEmpty) {
+        blocks.add(_buildEmptyState());
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: blocks,
+      );
+    }
+
+    RepairSubCategory? cat;
+    for (final c in data.flatCategories) {
+      if (c.id == _selectedId) {
+        cat = c;
+        break;
+      }
+    }
+    if (cat == null) return const SizedBox.shrink();
+    return cat.repairTypes.isNotEmpty
+        ? _ItemListCard(items: cat.repairTypes, priceLabel: _priceLabel)
+        : _buildEmptyState();
   }
 
-  Widget _buildCategoryHeader(String name) {
+  Widget _buildSubCategoryHeader(String name) {
     return Padding(
-      padding: const EdgeInsets.only(left: 2, bottom: 4),
+      padding: const EdgeInsets.only(left: 2),
       child: Row(
         children: [
           Container(
             width: 4,
-            height: 18,
+            height: 16,
             decoration: BoxDecoration(
-              color: const Color(0xFF00C896),
-              borderRadius: BorderRadius.circular(2),
+              color: _kBrand.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(999),
             ),
           ),
           const SizedBox(width: 8),
           Text(
             name,
             style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF6B6B6B),
             ),
           ),
         ],
@@ -300,55 +383,183 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
     );
   }
 
-  Widget _buildRepairItem(Map<String, dynamic> r) {
-    final name = r['name'] as String? ?? '';
-    final description = r['description'] as String?;
-    final priceLabel = _priceLabel(r);
-    final isPriceInquiry = priceLabel == '가격 문의';
+  Widget _buildEmptyState() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 40),
+      child: Center(
+        child: Text(
+          '??? ??? ???',
+          style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
+        ),
+      ),
+    );
+  }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade100),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+  Widget _buildEmptyAll() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 80),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.content_cut, size: 48, color: Colors.grey.shade300),
+          const SizedBox(height: 12),
+          const Text(
+            '??? ?? ??? ???',
+            style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '?? ? ?? ??? ???',
+            style: TextStyle(fontSize: 11, color: Color(0xFFCCCCCC)),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            margin: const EdgeInsets.only(top: 2, right: 10),
-            decoration: const BoxDecoration(
-              color: Color(0xFF00C896),
-              shape: BoxShape.circle,
+    );
+  }
+
+  Widget _buildLoadingSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        children: List.generate(
+          5,
+          (_) => Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F1F1),
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCTAButton() {
+    return Container(
+      color: const Color(0xFFFAFAFA),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: ElevatedButton(
+          onPressed: () =>
+              context.push('/select-clothing-type', extra: <String>[]),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _kBrand,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 0,
+          ),
+          child: const Text(
+            '?? ?? ????',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabSpec {
+  final String id;
+  final String name;
+  const _TabSpec({required this.id, required this.name});
+}
+
+/// ?? ??? ?? (?? ItemList ????? ??? ?? ??)
+class _ItemListCard extends StatelessWidget {
+  final List<RepairTypeItem> items;
+  final String Function(RepairTypeItem) priceLabel;
+
+  const _ItemListCard({required this.items, required this.priceLabel});
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: Text(
+            '??? ??? ???',
+            style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFF1F1F1)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0)
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFFAFAFA),
+                  indent: 16,
+                  endIndent: 16,
+                ),
+              _RepairItemRow(item: items[i], label: priceLabel(items[i])),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RepairItemRow extends StatelessWidget {
+  final RepairTypeItem item;
+  final String label;
+
+  const _RepairItemRow({required this.item, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final isInquiry = label == '?? ??';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
+                  item.name,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    color: Color(0xFF333333),
                   ),
                 ),
-                if (description != null && description.isNotEmpty) ...[
+                if (item.description != null &&
+                    item.description!.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    description,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    item.description!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFAAAAAA),
+                    ),
                   ),
                 ],
               ],
@@ -356,41 +567,14 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
           ),
           const SizedBox(width: 12),
           Text(
-            priceLabel,
+            label,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: isPriceInquiry ? Colors.grey.shade500 : const Color(0xFF00C896),
+              color: isInquiry ? const Color(0xFFAAAAAA) : _kBrand,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCTAButton() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () => context.push('/select-clothing-type', extra: <String>[]),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00C896),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              elevation: 0,
-            ),
-            child: const Text(
-              '수선 신청 바로가기',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
       ),
     );
   }

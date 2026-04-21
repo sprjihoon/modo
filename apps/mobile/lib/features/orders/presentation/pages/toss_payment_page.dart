@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
@@ -51,17 +52,24 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
-  // 토스페이먼츠 클라이언트 키 (환경변수에서 로드, 없으면 테스트 키 사용)
-  // ⚠️ 프로덕션 배포 전 반드시 환경변수 설정 필요!
+  // 토스페이먼츠 클라이언트 키
+  // - 릴리즈 빌드(=운영)에서는 .env의 TOSS_CLIENT_KEY가 반드시 설정되어 있어야 함
+  //   (없으면 StateError 던져서 결제 진행 차단)
+  // - 디버그 빌드에서는 환경변수 미설정 시 토스 공개 테스트 키로 동작
   static const String _testClientKey = 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm';
-  
+
   static String get _clientKey {
     final key = dotenv.env['TOSS_CLIENT_KEY'];
-    if (key == null || key.isEmpty) {
-      debugPrint('⚠️ TOSS_CLIENT_KEY 환경변수 미설정 - 테스트 키 사용');
-      return _testClientKey;
+    if (key != null && key.isNotEmpty) {
+      return key;
     }
-    return key;
+    if (kReleaseMode) {
+      throw StateError(
+        'TOSS_CLIENT_KEY 환경변수가 설정되지 않았습니다. (릴리즈 빌드에서는 필수)',
+      );
+    }
+    debugPrint('⚠️ TOSS_CLIENT_KEY 환경변수 미설정 - 테스트 키 사용 (디버그 모드)');
+    return _testClientKey;
   }
   
   // 위젯 selector 식별자

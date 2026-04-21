@@ -6,16 +6,27 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Loader2, Image as ImageIcon, Upload } from "lucide-react";
+import { ArrowLeft, Loader2, Image as ImageIcon, Plus, Trash2, ArrowUp, ArrowDown, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import * as React from "react";
+
+interface EasyGuideStep {
+  emoji: string;
+  title: string;
+  desc: string;
+}
+
+interface AppContentMetadata {
+  steps?: EasyGuideStep[];
+}
 
 interface AppContent {
   key: string;
   title: string;
   content: string;
   images?: string[] | null;
+  metadata?: AppContentMetadata | null;
   updated_at: string;
 }
 
@@ -37,6 +48,10 @@ export default function ContentsPage() {
           (json.data || []).map((item: AppContent) => ({
             ...item,
             images: Array.isArray((item as any).images) ? (item as any).images : [],
+            metadata:
+              item.metadata && typeof item.metadata === "object"
+                ? item.metadata
+                : {},
           }))
         );
       } else {
@@ -49,18 +64,21 @@ export default function ContentsPage() {
     }
   };
 
-  const handleSave = async (key: string, content: string, images: string[]) => {
+  const handleSave = async (
+    key: string,
+    payload: { content?: string; images?: string[]; metadata?: AppContentMetadata }
+  ) => {
     setSaving(true);
     try {
       const res = await fetch("/api/admin/settings/contents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, content, images }),
+        body: JSON.stringify({ key, ...payload }),
       });
       const json = await res.json();
       if (json.success) {
         alert("저장되었습니다.");
-        fetchContents(); // Refresh to update timestamp
+        fetchContents();
       } else {
         alert("저장 실패: " + json.error);
       }
@@ -73,6 +91,8 @@ export default function ContentsPage() {
 
   const getContent = (key: string) => contents.find(c => c.key === key)?.content || "";
   const getImages = (key: string) => contents.find(c => c.key === key)?.images || [];
+  const getMetadata = (key: string) =>
+    contents.find(c => c.key === key)?.metadata ?? {};
 
   if (loading) {
     return <div className="flex justify-center p-8"><Loader2 className="animate-spin h-8 w-8" /></div>;
@@ -89,37 +109,40 @@ export default function ContentsPage() {
         <div>
           <h1 className="text-3xl font-bold">앱 컨텐츠 관리</h1>
           <p className="text-muted-foreground">
-            가격표, 쉬운가이드, 이용약관, 개인정보처리방침 내용을 관리합니다
+            쉬운가이드, 이용약관, 개인정보처리방침, 결제 · 취소 · 환불 정책 내용을 관리합니다
           </p>
         </div>
       </div>
 
-      <Tabs defaultValue="price_list" className="w-full">
+      {/* 가격표 안내 배너 (가격표는 별도 메뉴에서 관리) */}
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 flex items-start gap-3">
+        <Info className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+        <div className="text-sm text-blue-900">
+          <p className="font-semibold">가격표는 어디서 관리하나요?</p>
+          <p className="text-blue-800 mt-1">
+            가격표는 <Link href="/dashboard/repair-types" className="underline font-medium">수선 종류 관리</Link> 메뉴에서 입력한
+            데이터(<code className="px-1 py-0.5 rounded bg-blue-100 text-xs">repair_types</code>)가 웹/모바일 가격 안내에 자동으로 반영됩니다.
+            여기서는 별도로 관리하지 않습니다.
+          </p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="easy_guide" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="price_list">가격표</TabsTrigger>
           <TabsTrigger value="easy_guide">쉬운가이드</TabsTrigger>
           <TabsTrigger value="terms_of_service">이용약관</TabsTrigger>
           <TabsTrigger value="privacy_policy">개인정보처리방침</TabsTrigger>
+          <TabsTrigger value="refund_policy">결제 · 환불</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="price_list">
-          <ContentEditor
-            title="가격표"
-            description="앱의 가격표 화면에 표시될 텍스트와 이미지를 설정합니다."
-            value={getContent("price_list")}
-            images={getImages("price_list")}
-            onSave={(val: string, imgs: string[]) => handleSave("price_list", val, imgs)}
-            saving={saving}
-          />
-        </TabsContent>
-
         <TabsContent value="easy_guide">
-          <ContentEditor
-            title="쉬운가이드"
-            description="앱의 쉬운가이드 화면에 표시될 텍스트와 이미지를 설정합니다."
-            value={getContent("easy_guide")}
-            images={getImages("easy_guide")}
-            onSave={(val: string, imgs: string[]) => handleSave("easy_guide", val, imgs)}
+          <EasyGuideEditor
+            description="이용 방법(쉬운가이드)에 표시될 단계를 관리합니다. 단계는 추가/삭제/순서 변경이 가능하며, 웹과 모바일 앱에 동일하게 반영됩니다."
+            intro={getContent("easy_guide")}
+            steps={(getMetadata("easy_guide").steps as EasyGuideStep[] | undefined) ?? []}
+            onSave={(intro, steps) =>
+              handleSave("easy_guide", { content: intro, metadata: { steps } })
+            }
             saving={saving}
           />
         </TabsContent>
@@ -130,7 +153,9 @@ export default function ContentsPage() {
             description="앱에서 표시되는 서비스 이용약관 전문을 수정합니다."
             value={getContent("terms_of_service")}
             images={getImages("terms_of_service")}
-            onSave={(val: string, imgs: string[]) => handleSave("terms_of_service", val, imgs)}
+            onSave={(val: string, imgs: string[]) =>
+              handleSave("terms_of_service", { content: val, images: imgs })
+            }
             saving={saving}
           />
         </TabsContent>
@@ -141,7 +166,22 @@ export default function ContentsPage() {
             description="앱에서 표시되는 개인정보처리방침 전문을 수정합니다."
             value={getContent("privacy_policy")}
             images={getImages("privacy_policy")}
-            onSave={(val: string, imgs: string[]) => handleSave("privacy_policy", val, imgs)}
+            onSave={(val: string, imgs: string[]) =>
+              handleSave("privacy_policy", { content: val, images: imgs })
+            }
+            saving={saving}
+          />
+        </TabsContent>
+
+        <TabsContent value="refund_policy">
+          <ContentEditor
+            title="결제 · 취소 · 환불 정책"
+            description="결제수단, 주문 취소, 환불 처리 등에 관한 정책 전문을 수정합니다. (PG사 심사용 필수 컨텐츠)"
+            value={getContent("refund_policy")}
+            images={getImages("refund_policy")}
+            onSave={(val: string, imgs: string[]) =>
+              handleSave("refund_policy", { content: val, images: imgs })
+            }
             saving={saving}
           />
         </TabsContent>
@@ -283,6 +323,192 @@ function ContentEditor({ title, description, value, images, onSave, saving }: Co
         <div className="flex justify-end">
           <Button onClick={() => onSave(text, imageUrls)} disabled={saving || isUploading}>
             {(saving || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            저장
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// =====================================================
+// 쉬운가이드 단계 편집기
+// =====================================================
+interface EasyGuideEditorProps {
+  description: string;
+  intro: string;
+  steps: EasyGuideStep[];
+  onSave: (intro: string, steps: EasyGuideStep[]) => void;
+  saving: boolean;
+}
+
+function EasyGuideEditor({
+  description,
+  intro,
+  steps,
+  onSave,
+  saving,
+}: EasyGuideEditorProps) {
+  const [introText, setIntroText] = useState(intro);
+  const [items, setItems] = useState<EasyGuideStep[]>(steps);
+
+  useEffect(() => {
+    setIntroText(intro);
+    setItems(steps);
+  }, [intro, steps]);
+
+  const updateStep = (index: number, field: keyof EasyGuideStep, value: string) => {
+    setItems((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+    );
+  };
+
+  const addStep = () => {
+    setItems((prev) => [...prev, { emoji: "✨", title: "새 단계", desc: "" }]);
+  };
+
+  const removeStep = (index: number) => {
+    if (!confirm(`${index + 1}번째 단계를 삭제하시겠습니까?`)) return;
+    setItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const moveStep = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= items.length) return;
+    setItems((prev) => {
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  const handleSubmit = () => {
+    const cleaned = items
+      .map((s) => ({
+        emoji: s.emoji.trim(),
+        title: s.title.trim(),
+        desc: s.desc.trim(),
+      }))
+      .filter((s) => s.title || s.desc);
+    onSave(introText.trim(), cleaned);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>쉬운가이드</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* 인트로 텍스트 */}
+        <div className="space-y-2">
+          <Label>안내 문구 (선택)</Label>
+          <Textarea
+            value={introText}
+            onChange={(e) => setIntroText(e.target.value)}
+            placeholder="예: 4단계 만에 끝나는 비대면 의류 수선 서비스"
+            rows={2}
+          />
+          <p className="text-xs text-muted-foreground">
+            단계 위에 표시되는 짧은 안내 문구입니다. 비워두면 표시되지 않습니다.
+          </p>
+        </div>
+
+        {/* 단계 목록 */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label>단계 ({items.length}개)</Label>
+            <Button variant="outline" size="sm" onClick={addStep}>
+              <Plus className="h-4 w-4 mr-1" />
+              단계 추가
+            </Button>
+          </div>
+
+          {items.length === 0 && (
+            <div className="rounded-md border border-dashed border-gray-300 p-6 text-center text-sm text-muted-foreground">
+              아직 등록된 단계가 없습니다. 위의 “단계 추가” 버튼으로 시작하세요.
+            </div>
+          )}
+
+          {items.map((step, index) => (
+            <div
+              key={index}
+              className="rounded-lg border border-gray-200 p-4 bg-gray-50/50 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-500">
+                  STEP {index + 1}
+                </span>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => moveStep(index, -1)}
+                    disabled={index === 0}
+                    title="위로"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => moveStep(index, 1)}
+                    disabled={index === items.length - 1}
+                    title="아래로"
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => removeStep(index)}
+                    title="삭제"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-[80px_1fr] gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">이모지</Label>
+                  <Input
+                    value={step.emoji}
+                    onChange={(e) => updateStep(index, "emoji", e.target.value)}
+                    placeholder="📦"
+                    maxLength={4}
+                    className="text-center text-lg"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">제목</Label>
+                  <Input
+                    value={step.title}
+                    onChange={(e) => updateStep(index, "title", e.target.value)}
+                    placeholder="예: 수선 접수"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">설명</Label>
+                <Textarea
+                  value={step.desc}
+                  onChange={(e) => updateStep(index, "desc", e.target.value)}
+                  placeholder="단계에 대한 설명을 입력하세요."
+                  rows={2}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end">
+          <Button onClick={handleSubmit} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             저장
           </Button>
         </div>

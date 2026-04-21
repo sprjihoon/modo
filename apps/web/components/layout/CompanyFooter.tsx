@@ -82,7 +82,7 @@ export function CompanyFooter() {
           ))}
 
           {/* 링크 */}
-          <div className="flex gap-4 pt-2">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
             <Link
               href="/terms"
               className="text-xs text-gray-600 underline underline-offset-2"
@@ -94,6 +94,12 @@ export function CompanyFooter() {
               className="text-xs text-gray-600 underline underline-offset-2"
             >
               개인정보처리방침
+            </Link>
+            <Link
+              href="/refund-policy"
+              className="text-xs text-gray-600 underline underline-offset-2"
+            >
+              결제 · 취소 · 환불 정책
             </Link>
           </div>
         </div>
