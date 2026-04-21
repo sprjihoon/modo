@@ -5,12 +5,12 @@ import '../../../../services/repair_service.dart';
 const Color _kBrand = Color(0xFF00C896);
 const String _kOtherTabId = '__other__';
 
-/// ?? ?? ???
-/// ? `/guide/price`? ??? ??? ?? / UI ??:
-/// - ?? ??
-/// - ????? ? (?? ?? ?) / ???? ? (flat) + ???? "??" ?
-/// - ?? ????? ?? ?? ?? ?? ?? ?
-/// - CTA ?? (?? ?? ????)
+/// 가격 안내 페이지
+/// 웹 `/guide/price`와 동일한 데이터 구조 / UI 구성:
+/// - 안내 배너
+/// - 대카테고리 탭 (계층 구조 시) / 카테고리 탭 (flat) + 미분류는 "기타" 탭
+/// - 선택 카테고리명 아래 그룹 카드 안에 항목 행
+/// - CTA 버튼 (수선 신청 바로가기)
 class PriceGuidePage extends StatefulWidget {
   const PriceGuidePage({super.key});
 
@@ -54,7 +54,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = '???? ???? ????';
+        _error = '데이터를 불러오지 못했어요';
         _isLoading = false;
       });
     }
@@ -68,9 +68,9 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
         RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
         (m) => '${m[1]},',
       );
-      return '?$str';
+      return '₩$str';
     }
-    return '?? ??';
+    return '가격 문의';
   }
 
   List<_TabSpec> _buildTabs() {
@@ -88,7 +88,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
       }
     }
     if (data.uncategorized.isNotEmpty) {
-      tabs.add(const _TabSpec(id: _kOtherTabId, name: '??'));
+      tabs.add(const _TabSpec(id: _kOtherTabId, name: '기타'));
     }
     return tabs;
   }
@@ -104,7 +104,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
   String? get _selectedName {
     final data = _data;
     if (data == null) return null;
-    if (_selectedId == _kOtherTabId) return '??';
+    if (_selectedId == _kOtherTabId) return '기타';
     if (data.hierarchical) {
       for (final m in data.mainCategories) {
         if (m.id == _selectedId) return m.name;
@@ -126,7 +126,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
         elevation: 0,
         foregroundColor: Colors.black,
         title: const Text(
-          '?? ??',
+          '가격 안내',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),
         centerTitle: false,
@@ -160,7 +160,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text('?? ??'),
+              child: const Text('다시 시도'),
             ),
           ],
         ),
@@ -227,7 +227,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '?? ??',
+              '삸고 안내',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -236,7 +236,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
             ),
             SizedBox(height: 4),
             Text(
-              '?? ?? ??? ??? ?? ??? ? ????.',
+              '실제 수선 가격은 상태에 따라 달라질 수 있습니다.',
               style: TextStyle(
                 fontSize: 12,
                 color: Color(0xFF666666),
@@ -388,7 +388,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
       padding: EdgeInsets.symmetric(vertical: 40),
       child: Center(
         child: Text(
-          '??? ??? ???',
+          '등록된 항목이 없어요',
           style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
         ),
       ),
@@ -404,12 +404,12 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
           Icon(Icons.content_cut, size: 48, color: Colors.grey.shade300),
           const SizedBox(height: 12),
           const Text(
-            '??? ?? ??? ???',
+            '등록된 수선 항목이 없어요',
             style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
           ),
           const SizedBox(height: 4),
           const Text(
-            '?? ? ?? ??? ???',
+            '잠시 후 다시 확인해 주세요',
             style: TextStyle(fontSize: 11, color: Color(0xFFCCCCCC)),
           ),
         ],
@@ -455,7 +455,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
             elevation: 0,
           ),
           child: const Text(
-            '?? ?? ????',
+            '수선 신청 바로가기',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ),
@@ -470,7 +470,7 @@ class _TabSpec {
   const _TabSpec({required this.id, required this.name});
 }
 
-/// ?? ??? ?? (?? ItemList ????? ??? ?? ??)
+/// 항목 리스트 카드 (웹의 ItemList 컴포넌트와 동일한 시각 구조)
 class _ItemListCard extends StatelessWidget {
   final List<RepairTypeItem> items;
   final String Function(RepairTypeItem) priceLabel;
@@ -484,7 +484,7 @@ class _ItemListCard extends StatelessWidget {
         padding: EdgeInsets.symmetric(vertical: 32),
         child: Center(
           child: Text(
-            '??? ??? ???',
+            '등록된 항목이 없어요',
             style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
           ),
         ),
@@ -534,7 +534,7 @@ class _RepairItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isInquiry = label == '?? ??';
+    final isInquiry = label == '가격 문의';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
