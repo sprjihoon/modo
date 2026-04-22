@@ -518,12 +518,12 @@ export function RepairTypeStep({
       {/* ── 세부항목 선택 모달 ── */}
       {subPartsModal && (
         <div
-          className="fixed inset-0 z-50 flex items-end"
+          className="fixed inset-0 z-50 flex items-end justify-center"
           style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
           onClick={() => setSubPartsModal(null)}
         >
           <div
-            className="w-full bg-white rounded-t-2xl max-h-[75vh] flex flex-col"
+            className="w-full max-w-[430px] bg-white rounded-t-2xl max-h-[75vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 핸들 */}
@@ -647,12 +647,12 @@ export function RepairTypeStep({
       {/* ── 치수 입력 모달 ── */}
       {measureModal && (
         <div
-          className="fixed inset-0 z-50 flex items-end"
+          className="fixed inset-0 z-50 flex items-end justify-center"
           style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
           onClick={() => setMeasureModal(null)}
         >
           <div
-            className="w-full bg-white rounded-t-2xl"
+            className="w-full max-w-[430px] bg-white rounded-t-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 핸들 */}
