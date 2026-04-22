@@ -4,7 +4,7 @@ import { PaymentClient } from "@/components/payment/PaymentClient";
 
 export default function PaymentPage() {
   return (
-    <PageLayout title="결제" showBack showIcons={false} showAppBanner={false}>
+    <PageLayout title="결제" showBack showIcons={false} showAppBanner={false} showFooter={false}>
       <Suspense fallback={<div className="p-8 text-center text-gray-400 text-sm">로딩 중...</div>}>
         <PaymentClient />
       </Suspense>

@@ -8,6 +8,7 @@ interface PageLayoutProps {
   showBack?: boolean;
   showAppBanner?: boolean;
   showIcons?: boolean;
+  showFooter?: boolean;
 }
 
 export function PageLayout({
@@ -16,6 +17,7 @@ export function PageLayout({
   showBack = false,
   showAppBanner = true,
   showIcons = true,
+  showFooter = true,
 }: PageLayoutProps) {
   return (
     <div className="flex flex-col flex-1 min-h-screen bg-white">
@@ -23,7 +25,7 @@ export function PageLayout({
       <TopHeader title={title} showBack={showBack} showIcons={showIcons} />
       <main className="flex-1 flex flex-col">
         <div className="flex-1">{children}</div>
-        <CompanyFooter />
+        {showFooter && <CompanyFooter />}
       </main>
     </div>
   );
