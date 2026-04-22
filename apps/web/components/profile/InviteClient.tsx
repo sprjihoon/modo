@@ -51,7 +51,7 @@ export function InviteClient() {
   }
 
   async function shareInvite() {
-    const text = `모두의수선 초대 코드: ${inviteCode}\n친구와 함께 수선 혜택을 받아보세요!\nhttps://modosuson.com`;
+    const text = `모두의수선 초대 코드: ${inviteCode}\n친구와 함께 수선 혜택을 받아보세요!\nhttps://modo.mom`;
     if (navigator.share) {
       await navigator.share({ title: "모두의수선 초대", text });
     } else {
