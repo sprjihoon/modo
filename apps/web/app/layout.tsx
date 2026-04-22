@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   title: "모두의수선 - 비대면 의류 수선 서비스",
   description: "문 앞에 두고 맡기는 비대면 의류 수선 서비스. 집에서 편하게 수선하세요.",
   keywords: ["의류수선", "비대면수선", "옷수선", "수선집", "모두의수선"],
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
   openGraph: {
     title: "모두의수선",
     description: "문 앞에 두고 맡기는 비대면 의류 수선 서비스",
