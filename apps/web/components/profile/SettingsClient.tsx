@@ -57,12 +57,12 @@ export function SettingsClient() {
           <SettingRow
             icon={<FileText className="w-4 h-4" />}
             label="서비스 이용약관"
-            href="https://modosuson.com/terms"
+            href="/terms"
           />
           <SettingRow
             icon={<Shield className="w-4 h-4" />}
             label="개인정보 처리방침"
-            href="https://modosuson.com/privacy"
+            href="/privacy-policy"
           />
           <SettingRow
             icon={<CreditCard className="w-4 h-4" />}
