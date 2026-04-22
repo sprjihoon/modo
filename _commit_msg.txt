@@ -1,6 +1,0 @@
-fix: 장바구니 다중 주문 결제 및 배송비 표시 수정
-
-- batch-checkout API 추가: 다중 PENDING_PAYMENT 주문을 1건으로 병합하여 배송비 1회만 부과
-- CartClient 선택결제/전체결제: 여러 주문 선택 시 병합 후 결제 페이지로 이동
-- PENDING_PAYMENT 기존 주문 마이그레이션: shipping_fee/total_price 누락 건 보정
-- PaymentClient: total_price >= actualShipping 조건 검증으로 배송비 분리 표시 안정화
