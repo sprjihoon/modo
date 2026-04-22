@@ -22,14 +22,19 @@ interface PendingOrder {
   clothing_type?: string;
   total_price?: number;
   shipping_fee?: number;
+  shipping_discount_amount?: number;
+  remote_area_fee?: number;
   created_at?: string;
   status: string;
 }
 
-/** 주문의 수선비만 추출 (total_price - shipping_fee) */
+/** 주문의 수선비만 추출 (total_price - 실제배송비 - 도서산간) */
 function getRepairCost(order: PendingOrder, baseShipping: number): number {
-  const shipping = order.shipping_fee ?? baseShipping;
-  return Math.max(0, (order.total_price ?? 0) - shipping);
+  const shippingFee = order.shipping_fee ?? baseShipping;
+  const discount = order.shipping_discount_amount ?? 0;
+  const remoteAreaFee = order.remote_area_fee ?? 0;
+  const actualShipping = Math.max(0, shippingFee - discount) + remoteAreaFee;
+  return Math.max(0, (order.total_price ?? 0) - actualShipping);
 }
 
 export function CartClient() {
@@ -94,7 +99,7 @@ export function CartClient() {
       if (!userRow) { setIsLoading(false); return; }
       const { data } = await supabase
         .from("orders")
-        .select("id, item_name, clothing_type, total_price, shipping_fee, created_at, status")
+        .select("id, item_name, clothing_type, total_price, shipping_fee, shipping_discount_amount, remote_area_fee, created_at, status")
         .eq("user_id", userRow.id)
         .eq("status", "PENDING_PAYMENT")
         .order("created_at", { ascending: false });

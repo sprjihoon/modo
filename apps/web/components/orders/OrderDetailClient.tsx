@@ -370,11 +370,15 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
       }
 
       alert(msg);
-      setOrder((prev) => prev ? {
-        ...prev,
-        status: "CANCELLED",
-        payment_status: data?.paymentCanceled ? "CANCELED" : prev.payment_status,
-      } : prev);
+      // 결제 환불 실패 시 DB가 CANCELLED로 업데이트되지 않으므로 UI 낙관적 업데이트 생략
+      const dbActuallyCancelled = !data?.hasValidPayment || data?.paymentCanceled;
+      if (dbActuallyCancelled) {
+        setOrder((prev) => prev ? {
+          ...prev,
+          status: "CANCELLED",
+          payment_status: data?.paymentCanceled ? "CANCELED" : prev.payment_status,
+        } : prev);
+      }
       await loadOrder(true);
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);

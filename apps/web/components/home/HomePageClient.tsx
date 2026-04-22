@@ -87,16 +87,6 @@ export function HomePageClient() {
         orderData = data2 ?? [];
       }
 
-      if (orderData.length === 0) {
-        const { data: data3 } = await supabase
-          .from("orders")
-          .select(cols)
-          .neq("status", "CANCELLED")
-          .order("created_at", { ascending: false })
-          .limit(5);
-        orderData = data3 ?? [];
-      }
-
       setOrders(orderData);
     } catch {
       // 에러 무시

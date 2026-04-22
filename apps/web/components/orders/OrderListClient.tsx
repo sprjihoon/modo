@@ -28,6 +28,7 @@ export function OrderListClient() {
   const [filtered, setFiltered] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -48,19 +49,35 @@ export function OrderListClient() {
   }, [activeTab, orders]);
 
   async function loadOrders() {
+    setHasError(false);
     try {
       const res = await fetch("/api/orders");
-      if (!res.ok) { setIsLoading(false); return; }
+      if (!res.ok) { setHasError(true); return; }
       const json = await res.json();
       setOrders(json.orders ?? []);
     } catch {
-      // ignore
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
   }
 
   const pendingCount = orders.filter((o) => o.status === "PENDING_PAYMENT").length;
+
+  if (hasError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3 px-6 text-center">
+        <Package className="w-12 h-12 text-gray-200" />
+        <p className="text-sm font-bold text-gray-500">주문 목록을 불러오지 못했습니다</p>
+        <button
+          onClick={loadOrders}
+          className="text-xs text-[#00C896] font-semibold underline underline-offset-2"
+        >
+          다시 시도
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

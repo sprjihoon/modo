@@ -53,12 +53,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // SQL 반환 순서가 보장되지 않으므로 orderIds 순서에 맞게 정렬
+    const orderMap = new Map(orders.map((o) => [o.id, o]));
+    const sortedOrders = orderIds.map((id) => orderMap.get(id)).filter(Boolean) as typeof orders;
+
     // 글로벌 배송비 설정 (관리자 페이지에서 변경 가능)
     const shippingSettings = await getShippingSettings();
     const baseShippingFee = shippingSettings.baseShippingFee;
 
     // 수선비 합산 (배송비 제외)
-    const totalRepairAmount = orders.reduce((sum, o) => {
+    const totalRepairAmount = sortedOrders.reduce((sum, o) => {
       const shipping = (o.shipping_fee as number | null) ?? baseShippingFee;
       return sum + Math.max(0, ((o.total_price as number) ?? 0) - shipping);
     }, 0);
@@ -67,8 +71,8 @@ export async function POST(request: NextRequest) {
     const shippingFee = baseShippingFee;
     const newTotal = totalRepairAmount + shippingFee;
 
-    // 대표 주문(첫 번째)의 total_price만 합산으로 임시 업데이트
-    const primaryOrder = orders[0];
+    // 대표 주문(orderIds 첫 번째)의 total_price만 합산으로 임시 업데이트
+    const primaryOrder = sortedOrders[0];
     const originalPrimaryTotal = primaryOrder.total_price as number;
 
     await supabase
@@ -82,7 +86,7 @@ export async function POST(request: NextRequest) {
       orderId: primaryOrder.id,
       merged: false,
       batchMode: true,
-      otherOrderIds: orders.slice(1).map((o) => o.id),
+      otherOrderIds: sortedOrders.slice(1).map((o) => o.id),
       originalPrimaryTotal,
       totalPrice: newTotal,
       repairAmount: totalRepairAmount,

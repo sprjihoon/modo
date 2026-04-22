@@ -77,7 +77,7 @@ export async function POST(
     // 정책: 수거 완료(=INBOUND) 이후에는 사용자가 직접 취소할 수 없음.
     //       이미 의류가 출발했거나 보관/작업 단계이므로 반송 절차로만 처리 가능.
     //       → 관리자 승인을 통한 RETURN 워크플로우로 안내
-    const SELF_CANCELLABLE = new Set(["PENDING", "PAID", "BOOKED"]);
+    const SELF_CANCELLABLE = new Set(["PENDING_PAYMENT", "PENDING", "PAID", "BOOKED"]);
     if (!SELF_CANCELLABLE.has(order.status)) {
       return NextResponse.json(
         {

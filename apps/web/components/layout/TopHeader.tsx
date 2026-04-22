@@ -32,11 +32,15 @@ export function TopHeader({
     setCartCount(getCartCount());
 
     const onCartUpdate = () => setCartCount(getCartCount());
-    window.addEventListener("modu_cart_update", onCartUpdate);
-    window.addEventListener("storage", (e: StorageEvent) => {
+    const onStorage = (e: StorageEvent) => {
       if (e.key === "modu_cart_drafts") onCartUpdate();
-    });
-    return () => window.removeEventListener("modu_cart_update", onCartUpdate);
+    };
+    window.addEventListener("modu_cart_update", onCartUpdate);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("modu_cart_update", onCartUpdate);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCircle, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -13,7 +13,8 @@ export function PaymentSuccessClient() {
   const paymentKey = searchParams.get("paymentKey") ?? "";
   // Toss가 추가하는 orderId (requestPayment 시 전달한 orderId)
   const tossOrderId = searchParams.get("orderId") ?? "";
-  const amount = Number(searchParams.get("amount") ?? "0");
+  const amountRaw = searchParams.get("amount") ?? "0";
+  const amount = Number(amountRaw);
 
   // 추가결제 여부 및 실제 DB 주문 UUID
   const isExtraCharge = searchParams.get("isExtraCharge") === "true";
@@ -31,8 +32,15 @@ export function PaymentSuccessClient() {
     approvedAt?: string;
   } | null>(null);
 
+  // 이중 승인 방지: Strict Mode 등에서 두 번 실행되지 않도록 ref로 가드
+  const confirmCalledRef = useRef(false);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (!paymentKey || !tossOrderId || !amount) {
+    if (confirmCalledRef.current) return;
+    confirmCalledRef.current = true;
+
+    if (!paymentKey || !tossOrderId || isNaN(amount) || amount <= 0) {
       setError("결제 정보가 올바르지 않습니다.");
       setStatus("error");
       return;
@@ -43,6 +51,10 @@ export function PaymentSuccessClient() {
       return;
     }
     confirmPayment();
+
+    return () => {
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -70,18 +82,14 @@ export function PaymentSuccessClient() {
       setPaymentInfo(data.data);
       setStatus("success");
 
-      // 합포장 결제 성공 시: 나머지 주문 CANCELLED + 세션 클리어
+      // 합포장 후처리 + 수거 예약 (순차 실행, 오류 무시)
       if (!isExtraCharge) {
-        finalizeBatchOrders(supabase, dbOrderId);
-      }
-
-      // 일반 결제인 경우 수거 예약 호출 (모바일 앱의 _processAfterPayment와 동일한 방식)
-      if (!isExtraCharge && dbOrderId) {
-        bookShipmentAfterPayment(supabase, dbOrderId);
+        await finalizeBatchOrders(supabase, dbOrderId);
+        if (dbOrderId) await bookShipmentAfterPayment(supabase, dbOrderId);
       }
 
       // 3초 후 주문 상세로 이동
-      setTimeout(() => {
+      redirectTimerRef.current = setTimeout(() => {
         router.replace(`/orders/${dbOrderId}${isExtraCharge ? "" : "?paid=true"}`);
       }, 3000);
     } catch (e) {

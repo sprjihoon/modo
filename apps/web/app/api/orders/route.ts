@@ -190,15 +190,13 @@ export async function POST(request: NextRequest) {
       console.warn("배송비 프로모션 확인 실패 (기본 배송비 적용):", promoError);
     }
 
-    // 도서산간 추가비: 서버에서 재검증 (클라이언트 값도 허용, 단 서버 검증 우선)
-    // 추가 금액은 관리자 설정의 remote_area_fee 사용
-    const serverRemoteAreaFee = getRemoteAreaFee(
+    // 도서산간 추가비: 서버에서만 계산 (클라이언트 값 무시 - 위변조 방지)
+    const remoteAreaFee = getRemoteAreaFee(
       pickupZipcode || "",
       pickupAddress || "",
       shippingSettings.remoteAreaFee
     );
-    // 클라이언트가 보낸 값과 서버 계산 값 중 큰 값 사용 (위변조 방지: 0보다 크면 서버값 우선)
-    const remoteAreaFee = serverRemoteAreaFee > 0 ? serverRemoteAreaFee : (clientRemoteAreaFee ?? 0);
+    void clientRemoteAreaFee; // 클라이언트 값 무시
 
     // total_price = 수선비 합산 + 실제 배송비 (할인 후) + 도서산간 추가비
     const totalPrice = repairItemsTotal + shippingFee + remoteAreaFee;
