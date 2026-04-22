@@ -270,10 +270,10 @@ export function HomePageClient() {
       <button
         onClick={handleOrderStart}
         className="fixed bottom-20 right-1/2 translate-x-1/2 z-40 flex items-center gap-2 bg-[#00C896] text-white font-bold px-6 py-3.5 rounded-full shadow-lg shadow-[#00C896]/30 active:shadow-none active:bg-[#00A07B] transition-all"
-        style={{ maxWidth: "calc(430px - 32px)", right: "unset", transform: "none", left: "50%", marginLeft: "-80px" }}
+        style={{ maxWidth: "calc(430px - 32px)", right: "unset", transform: "none", left: "50%", marginLeft: "70px" }}
       >
         <Plus className="w-4 h-4" />
-        {orders.length > 0 ? "수거신청 하기" : "첫 수거신청 하기"}
+        {orders.length > 0 ? "수선신청 하기" : "첫 수선신청 하기"}
       </button>
 
       {/* 수거신청 다이얼로그 */}
