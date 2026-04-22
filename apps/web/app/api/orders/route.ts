@@ -48,11 +48,6 @@ export async function GET() {
       rows = await fetchOrdersByFilter(supabase, { column: "user_id", value: user.id });
     }
 
-    // 3차: RLS에 의존한 전체 조회
-    if (rows.length === 0) {
-      rows = await fetchOrdersByFilter(supabase);
-    }
-
     // 중복 제거 및 정렬
     const unique = Array.from(new Map(rows.map((o) => [o.id, o])).values());
     unique.sort((a, b) =>
