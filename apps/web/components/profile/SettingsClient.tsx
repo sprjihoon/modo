@@ -1,6 +1,7 @@
 "use client";
 
-import { FileText, Shield, ChevronRight, Info } from "lucide-react";
+import Link from "next/link";
+import { FileText, Shield, CreditCard, ChevronRight, Info } from "lucide-react";
 
 const APP_VERSION = "1.0.0";
 
@@ -23,6 +24,10 @@ function SettingRow({ icon, label, href, onClick }: SettingItem) {
   );
 
   if (href) {
+    const isInternal = href.startsWith("/");
+    if (isInternal) {
+      return <Link href={href}>{content}</Link>;
+    }
     return (
       <a href={href} target="_blank" rel="noopener noreferrer">
         {content}
@@ -58,6 +63,11 @@ export function SettingsClient() {
             icon={<Shield className="w-4 h-4" />}
             label="개인정보 처리방침"
             href="https://modosuson.com/privacy"
+          />
+          <SettingRow
+            icon={<CreditCard className="w-4 h-4" />}
+            label="결제 및 환불 규정"
+            href="/refund-policy"
           />
         </div>
       </div>
