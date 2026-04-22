@@ -42,8 +42,10 @@ export function AddressesClient() {
     setIsLoading(true);
     try {
       const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
       const uid = await getUserId(supabase);
-      if (!uid) { router.push("/login"); return; }
+      if (!uid) { setIsLoading(false); return; } // users 레코드 없으면 빈 목록
       setUserId(uid);
 
       const { data } = await supabase
