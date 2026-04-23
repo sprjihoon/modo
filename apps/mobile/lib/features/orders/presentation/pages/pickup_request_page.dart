@@ -29,7 +29,8 @@ class PickupRequestPage extends ConsumerStatefulWidget {
   ConsumerState<PickupRequestPage> createState() => _PickupRequestPageState();
 }
 
-class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
+class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
+    with WidgetsBindingObserver {
   final _recipientNameController = TextEditingController();
   final _recipientPhoneController = TextEditingController();
   final _addressController = TextEditingController();
@@ -69,12 +70,53 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   // 배송비 글로벌 설정 (관리자 페이지 값)
   ShippingSettings _shippingSettings = ShippingSettings.fallback;
 
+  bool _autoSaved = false; // 중복 저장 방지
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadDefaultAddress();
     _loadShippingSettings();
     _loadShippingPromotion();
+  }
+
+  /// 앱이 백그라운드/종료될 때 자동으로 장바구니에 저장한다.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if ((state == AppLifecycleState.paused ||
+            state == AppLifecycleState.detached) &&
+        widget.repairItems.isNotEmpty &&
+        !_autoSaved) {
+      _autoSave();
+    }
+  }
+
+  /// 조용히 장바구니에 저장 (스낵바/이동 없음).
+  Future<void> _autoSave() async {
+    if (_autoSaved || widget.repairItems.isEmpty) return;
+    _autoSaved = true;
+    await ref.read(cartProvider.notifier).addToCart(
+          repairItems: List<Map<String, dynamic>>.from(widget.repairItems),
+          imageUrls: List<String>.from(widget.imageUrls),
+        );
+  }
+
+  /// 홈 버튼: 자동 저장 후 홈으로 이동
+  Future<void> _handleHome() async {
+    if (widget.repairItems.isNotEmpty && !_autoSaved) {
+      await _autoSave();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('장바구니에 자동 저장되었습니다'),
+          backgroundColor: Color(0xFF00C896),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+    if (!mounted) return;
+    GoRouter.of(context).go('/home');
   }
 
   Future<void> _loadShippingSettings() async {
@@ -104,18 +146,17 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _recipientNameController.dispose();
     _recipientPhoneController.dispose();
     _addressController.dispose();
     _addressDetailController.dispose();
     _zipcodeController.dispose();
-    
     _deliveryRecipientNameController.dispose();
     _deliveryRecipientPhoneController.dispose();
     _deliveryAddressController.dispose();
     _deliveryAddressDetailController.dispose();
     _deliveryZipcodeController.dispose();
-    
     _requestController.dispose();
     _promotionCodeController.dispose();
     super.dispose();
@@ -164,6 +205,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
   
   /// 장바구니에 담기 (수거신청 중단 시)
   Future<void> _saveToCart() async {
+    _autoSaved = true; // lifecycle 중복 저장 방지
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     await ref.read(cartProvider.notifier).addToCart(
@@ -700,6 +742,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
           final canLeave = await _onWillPop();
           if (canLeave && mounted) navigator.pop();
         },
+        onHome: _handleHome,
         actions: [
           IconButton(
             icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF00C896)),

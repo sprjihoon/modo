@@ -14,15 +14,44 @@ class CreateOrderPage extends ConsumerStatefulWidget {
   ConsumerState<CreateOrderPage> createState() => _CreateOrderPageState();
 }
 
-class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
-  // State
+class _CreateOrderPageState extends ConsumerState<CreateOrderPage>
+    with WidgetsBindingObserver {
   final List<String> _imageUrls = [];
-  final List<Map<String, dynamic>> _repairItems = []; // 선택한 수선 항목들
+  final List<Map<String, dynamic>> _repairItems = [];
   bool _isLoading = false;
+  bool _autoSaved = false; // 중복 저장 방지
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// 앱이 백그라운드/종료될 때 자동으로 장바구니에 저장한다.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if ((state == AppLifecycleState.paused ||
+            state == AppLifecycleState.detached) &&
+        _repairItems.isNotEmpty &&
+        !_autoSaved) {
+      _autoSave();
+    }
+  }
+
+  /// 조용히 장바구니에 저장 (스낵바/이동 없음).
+  Future<void> _autoSave() async {
+    if (_autoSaved || _repairItems.isEmpty) return;
+    _autoSaved = true;
+    await ref.read(cartProvider.notifier).addToCart(
+          repairItems: List<Map<String, dynamic>>.from(_repairItems),
+          imageUrls: List<String>.from(_imageUrls),
+        );
   }
 
   // 수선 항목 추가
@@ -126,9 +155,10 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
     }
   }
   
-  /// 장바구니에 담기 (현재까지 선택한 수선 항목 저장)
+  /// 장바구니에 담기 (수동 — 스낵바 + 장바구니로 이동)
   Future<void> _saveToCart() async {
     if (_repairItems.isEmpty) return;
+    _autoSaved = true; // 이후 lifecycle 저장 중복 방지
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     await ref.read(cartProvider.notifier).addToCart(
@@ -148,6 +178,23 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
       if (!mounted) return;
       router.push('/cart');
     });
+  }
+
+  /// 홈 버튼: 수선 항목이 있으면 자동 저장 후 홈으로 이동
+  Future<void> _handleHome() async {
+    if (_repairItems.isNotEmpty && !_autoSaved) {
+      await _autoSave();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('장바구니에 자동 저장되었습니다'),
+          backgroundColor: Color(0xFF00C896),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+    if (!mounted) return;
+    GoRouter.of(context).go('/home');
   }
 
   /// 뒤로가기 시 장바구니 저장 여부 확인
@@ -218,6 +265,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
           final canLeave = await _onWillPop();
           if (canLeave && mounted) navigator.pop();
         },
+        onHome: _handleHome,
         actions: [
           if (_repairItems.isNotEmpty)
             IconButton(

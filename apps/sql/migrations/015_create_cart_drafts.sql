@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.cart_drafts (
 ALTER TABLE public.cart_drafts ENABLE ROW LEVEL SECURITY;
 
 -- 본인 장바구니만 전체 접근 가능
+DROP POLICY IF EXISTS "Users can manage own cart drafts" ON public.cart_drafts;
 CREATE POLICY "Users can manage own cart drafts"
   ON public.cart_drafts
   FOR ALL
@@ -37,6 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_cart_drafts_user_id ON public.cart_drafts(user_id
 CREATE INDEX IF NOT EXISTS idx_cart_drafts_created_at ON public.cart_drafts(created_at DESC);
 
 -- updated_at 자동 갱신 트리거
+DROP TRIGGER IF EXISTS update_cart_drafts_updated_at ON public.cart_drafts;
 CREATE TRIGGER update_cart_drafts_updated_at
   BEFORE UPDATE ON public.cart_drafts
   FOR EACH ROW
