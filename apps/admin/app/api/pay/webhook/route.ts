@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
  * 토스페이먼츠 웹훅 이벤트 타입
  * - PAYMENT_STATUS_CHANGED: 결제 상태 변경
  * - DEPOSIT_CALLBACK: 가상계좌 입금 완료
+ * - CANCEL_STATUS_CHANGED: 결제 취소 상태 변경
  * - PAYOUT_STATUS_CHANGED: 지급대행 상태 변경
  */
 interface TossWebhookPayload {
@@ -94,6 +95,11 @@ export async function POST(request: NextRequest) {
       case "PAYMENT_STATUS_CHANGED":
         // 결제 상태 변경 처리
         await handlePaymentStatusChanged(supabase, data);
+        break;
+
+      case "CANCEL_STATUS_CHANGED":
+        // 결제 취소 상태 변경 처리
+        await handleCancelStatusChanged(supabase, data);
         break;
 
       case "PAYOUT_STATUS_CHANGED":
@@ -234,6 +240,52 @@ async function handlePaymentStatusChanged(supabase: any, data: any) {
   }
 }
 
+/**
+ * 결제 취소 상태 변경 처리
+ * CANCEL_STATUS_CHANGED 이벤트: 취소 요청 상태 변경 (DONE → 취소 완료)
+ */
+async function handleCancelStatusChanged(supabase: any, data: any) {
+  const { paymentKey, orderId, status, transactionKey } = data;
+
+  console.log(`❌ 취소 상태 변경: orderId=${orderId}, status=${status}`);
+
+  if (!orderId) {
+    console.error("orderId가 없습니다.");
+    return;
+  }
+
+  // orders 테이블 취소 상태 업데이트
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      payment_status: "CANCELED",
+      canceled_at: new Date().toISOString(),
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    console.error("취소 상태 업데이트 실패:", error);
+  }
+
+  // extra_charge_requests도 취소 처리
+  await supabase
+    .from("extra_charge_requests")
+    .update({ status: "CANCELED" })
+    .eq("id", orderId);
+
+  // 결제 로그 업데이트
+  try {
+    if (paymentKey) {
+      await supabase
+        .from("payment_logs")
+        .update({ status: "CANCELED" })
+        .eq("payment_key", paymentKey);
+    }
+  } catch (e) {
+    // 테이블이 없을 수 있음
+  }
+}
+
 // GET 요청 처리 (웹훅 테스트용)
 export async function GET() {
   return NextResponse.json({
@@ -242,6 +294,7 @@ export async function GET() {
     supportedEvents: [
       "DEPOSIT_CALLBACK - 가상계좌 입금 완료",
       "PAYMENT_STATUS_CHANGED - 결제 상태 변경",
+      "CANCEL_STATUS_CHANGED - 결제 취소 상태 변경",
       "PAYOUT_STATUS_CHANGED - 지급대행 상태 변경",
     ],
   });
