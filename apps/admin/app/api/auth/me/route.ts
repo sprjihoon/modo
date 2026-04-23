@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // Get current session
     const { data: { session } } = await supabase.auth.getSession();
@@ -37,7 +37,7 @@ export async function GET() {
   } catch (error: any) {
     console.error("API error:", error);
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
     // 필터 적용
     if (status) {
-      query = query.eq('status', status);
+      query = query.eq('status', status as any);
     }
 
     // 날짜 필터 적용

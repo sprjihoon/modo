@@ -48,7 +48,7 @@ export default function PromotionsPage() {
       }
       
       console.log('Loaded promotions:', data);
-      setPromotions(data || []);
+      setPromotions((data || []) as any);
     } catch (error: any) {
       console.error('프로모션 코드 로드 실패:', error);
       setError(error.message || '프로모션 코드를 불러올 수 없습니다.');

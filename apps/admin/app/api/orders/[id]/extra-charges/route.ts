@@ -6,10 +6,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient();
+    const { id: orderId } = await params;
+    const supabase = await createClient();
     
     // Auth check
     const { data: { session } } = await supabase.auth.getSession();
@@ -19,7 +20,7 @@ export async function GET(
     const { data: order, error } = await supabase
       .from("orders")
       .select("extra_charge_status, extra_charge_data")
-      .eq("id", params.id)
+      .eq("id", orderId)
       .single();
 
     if (error) throw error;
@@ -42,8 +43,8 @@ export async function GET(
       }
 
       requests.push({
-        id: params.id, // Use order ID as request ID
-        order_id: params.id,
+        id: orderId, // Use order ID as request ID
+        order_id: orderId,
         worker_reason: data.workerMemo || "",
         amount: data.managerPrice || 0,
         admin_note: data.managerNote || "",

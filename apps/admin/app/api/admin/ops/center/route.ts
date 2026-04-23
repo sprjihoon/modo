@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
           address: `${payload.address1} ${payload.address2}`.trim(),
           phone: payload.phone,
           updated_at: new Date().toISOString(),
-        },
+        } as any,
         { onConflict: "id" }
       );
 

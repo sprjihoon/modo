@@ -255,8 +255,8 @@ Deno.serve(async (req) => {
 
     if (linkError || !linkData?.properties?.action_link) {
       console.error("❌ Magic link 생성 실패:", linkError);
-      // 폴백: signInWithPassword 방식
-      const tempPassword = `Naver_${naverId}_2024!secure`;
+      // 폴백: signInWithPassword 방식 (예측 불가능한 임시 비밀번호 사용)
+      const tempPassword = `Nv_${crypto.randomUUID()}_${Date.now()}`;
       await supabaseAdmin.auth.admin.updateUserById(userId, {
         password: tempPassword,
       });

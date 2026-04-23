@@ -62,7 +62,7 @@ async function handleFileUpload(
     try {
       const { data: shipment } = await supabaseAdmin
         .from("shipments")
-        .select("tracking_no, outbound_tracking_no, delivery_tracking_no, pickup_tracking_no")
+        .select("tracking_no, delivery_tracking_no, pickup_tracking_no")
         .eq("order_id", orderId)
         .maybeSingle();
       

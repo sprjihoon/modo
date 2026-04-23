@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       // 새 레코드 생성
       result = await supabaseAdmin
         .from("company_info")
-        .insert(payload);
+        .insert(payload as any);
     }
 
     if (result.error) throw result.error;

@@ -13,9 +13,9 @@ function getTossSecretKey(): string {
 }
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 /**
@@ -25,8 +25,8 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const supabase = createClient();
-    const orderId = params.id;
+    const { id: orderId } = await params;
+    const supabase = await createClient();
     
     // 1. DB에서 주문 정보 조회
     const { data: order, error: orderError } = await supabase

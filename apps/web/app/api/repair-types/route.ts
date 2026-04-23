@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get("category_id");
 
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // select("*") 로 컬럼명 불일치 오류 방지 (모바일 앱과 동일 방식)
     // is_active 필터는 기존 데이터가 null인 경우 빈 결과를 낼 수 있어 제외

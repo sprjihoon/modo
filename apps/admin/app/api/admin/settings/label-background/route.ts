@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
         .insert({
           label_background_image_url: backgroundImageUrl || null,
           updated_at: new Date().toISOString(),
-        });
+        } as any);
 
       error = insertError;
     }

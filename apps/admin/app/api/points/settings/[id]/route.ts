@@ -17,10 +17,10 @@ const supabase = createClient(
 // 포인트 설정 수정
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const settingId = params.id;
+    const { id: settingId } = await params;
     const body = await request.json();
     const { 
       name, 
@@ -102,10 +102,10 @@ export async function PATCH(
 // 포인트 설정 삭제
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const settingId = params.id;
+    const { id: settingId } = await params;
 
     // 포인트 설정 삭제
     const { error } = await supabase

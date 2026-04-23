@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 
@@ -378,10 +379,8 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
   List<Map<String, String>> searchResults = [];
   bool isSearching = false;
 
-  // 카카오 REST API 키
-  // 발급 방법: https://developers.kakao.com/ → 내 애플리케이션 → 앱 추가 → REST API 키 복사
-  // .env 파일에 KAKAO_REST_API_KEY 추가 권장
-  static const String kakaoApiKey = '009546eb1aca545ba309aabc78010bf7';
+  // 카카오 REST API 키 - .env 파일의 KAKAO_REST_API_KEY에서 로드
+  static String get kakaoApiKey => dotenv.env['KAKAO_REST_API_KEY'] ?? '';
 
   Future<void> _searchAddress(String query) async {
     if (query.isEmpty) {

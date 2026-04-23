@@ -1,11 +1,12 @@
 import { OrderDetailClient } from "@/components/orders/OrderDetailClient";
 import { PageLayout } from "@/components/layout/PageLayout";
 
-export default function OrderDetailPage({
+export default async function OrderDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   return (
     <PageLayout
       title="주문 상세"
@@ -13,7 +14,7 @@ export default function OrderDetailPage({
 
       showAppBanner={false}
     >
-      <OrderDetailClient orderId={params.id} />
+      <OrderDetailClient orderId={id} />
     </PageLayout>
   );
 }

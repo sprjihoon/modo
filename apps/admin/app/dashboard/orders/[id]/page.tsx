@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +18,7 @@ import PointManagementDialog from "@/components/customers/PointManagementDialog"
 import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send } from "lucide-react";
 
 interface OrderDetailPageProps {
-  params: {
-    id: string;
-  };
+  // params is now handled via useParams() in Next.js 15
 }
 
 interface MediaVideo {
@@ -33,8 +31,9 @@ interface MediaVideo {
   created_at: string;
 }
 
-export default function OrderDetailPage({ params }: OrderDetailPageProps) {
+export default function OrderDetailPage(_props: OrderDetailPageProps) {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
   const [order, setOrder] = useState<any | null>(null);
   const [videos, setVideos] = useState<MediaVideo[]>([]);
   const [isLoadingOrder, setIsLoadingOrder] = useState(true);

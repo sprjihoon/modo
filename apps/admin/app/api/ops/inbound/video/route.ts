@@ -39,13 +39,7 @@ export async function POST(req: NextRequest) {
     const { data: pub } = supabaseAdmin.storage.from(bucket).getPublicUrl(key);
     const publicUrl = pub?.publicUrl;
 
-    // Try to record into shipments (best effort)
-    try {
-      await supabaseAdmin
-        .from("shipments")
-        .update({ inbound_video_url: publicUrl })
-        .eq("order_id", orderId);
-    } catch {}
+    // Note: video ID association is handled via the videos-upload Edge Function
 
     return NextResponse.json({ success: true, url: publicUrl, path: key });
   } catch (e: any) {

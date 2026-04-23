@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 // 포인트 지급/차감 API
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await Promise.resolve(params);
@@ -97,9 +97,9 @@ export async function POST(
       p_amount: Math.abs(amount),
       p_type: type,
       p_description: description,
-      p_order_id: null,
-      p_admin_user_id: adminUserId || null,
-      p_expires_at: null
+      p_order_id: undefined,
+      p_admin_user_id: adminUserId || undefined,
+      p_expires_at: undefined
     });
 
     if (error) {
@@ -142,7 +142,7 @@ export async function POST(
 // 포인트 거래 내역 조회 API
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await Promise.resolve(params);

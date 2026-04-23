@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // parent_category_id 컬럼 포함 시도, 없으면 fallback
     let { data: categories, error: catError } = await supabase
@@ -26,7 +26,7 @@ export async function GET() {
 
     if (catError) {
       console.error("repair_categories error:", catError.message);
-      return NextResponse.json({ error: catError.message, data: [] }, { status: 200 });
+      return NextResponse.json({ error: "카테고리 데이터를 불러올 수 없습니다", data: [] }, { status: 200 });
     }
 
     const { data: types, error: typeError } = await supabase
@@ -94,7 +94,7 @@ export async function GET() {
 
     return NextResponse.json({ hierarchical: false, data: result, uncategorized });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Internal server error";
-    return NextResponse.json({ error: msg, data: [] }, { status: 200 });
+    console.error("repair-categories error:", e);
+    return NextResponse.json({ error: "서버 오류가 발생했습니다", data: [] }, { status: 200 });
   }
 }

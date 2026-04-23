@@ -26,7 +26,7 @@ const supabaseAdmin = createClient(
 export async function GET(request: NextRequest) {
   try {
     // 서버 사이드 Supabase 클라이언트 사용 (쿠키 자동 처리)
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     // 쿠키에서 이메일 가져오기 (fallback용)
@@ -159,7 +159,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 서버 사이드 Supabase 클라이언트 사용
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     
     // 쿠키에서 이메일 가져오기 (fallback용)

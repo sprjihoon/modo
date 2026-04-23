@@ -2,12 +2,13 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { TrackingClient } from "@/components/orders/TrackingClient";
 
 interface Props {
-  params: { id: string };
-  searchParams: { tracking_no?: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tracking_no?: string }>;
 }
 
-export default function TrackingPage({ params, searchParams }: Props) {
-  const trackingNo = searchParams.tracking_no ?? "";
+export default async function TrackingPage({ params, searchParams }: Props) {
+  const { id: orderId } = await params;
+  const { tracking_no: trackingNo = "" } = await searchParams;
 
   if (!trackingNo) {
     return (
@@ -21,7 +22,7 @@ export default function TrackingPage({ params, searchParams }: Props) {
 
   return (
     <PageLayout title="배송추적" showBack>
-      <TrackingClient orderId={params.id} trackingNo={trackingNo} />
+      <TrackingClient orderId={orderId} trackingNo={trackingNo} />
     </PageLayout>
   );
 }

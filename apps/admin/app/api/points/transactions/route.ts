@@ -14,13 +14,13 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || '';
 
-    // 기본 쿼리 (customer_email 필드 포함)
+    // 기본 쿼리
     let query = supabaseAdmin
       .from('point_transactions')
       .select(`
         *,
         user:users!point_transactions_user_id_fkey(id, name, email),
-        order:orders(id, item_name, total_price, customer_email)
+        order:orders(id, item_name, total_price)
       `, { count: 'exact' })
       .order('created_at', { ascending: false });
 
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       };
       
       if (typeMap[type]) {
-        query = query.in('type', typeMap[type]);
+        query = query.in('type', typeMap[type] as any);
       }
     }
 
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
       // 사용자 정보 (user_id 기준으로만 매칭)
       const userId = transaction.user_id;
       const userName = transaction.user?.name || '알 수 없음';
-      const userEmail = transaction.user?.email || transaction.customer_email || null;
+      const userEmail = transaction.user?.email || null;
 
       return {
         id: transaction.id,

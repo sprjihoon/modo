@@ -722,7 +722,7 @@ export default function MyDashboardPage() {
                       if (active && payload && payload.length) {
                         return (
                           <div className="bg-white border border-gray-200 p-2 rounded shadow-sm text-xs">
-                            <p className="font-bold mb-1">{label} ({getDayName(label)})</p>
+                            <p className="font-bold mb-1">{label} ({getDayName(String(label))})</p>
                             <p className="text-green-600">완료: {payload[0].value}건</p>
                           </div>
                         );

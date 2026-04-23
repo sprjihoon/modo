@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCustomers, getCustomerStats } from '@/lib/api/customers';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search') || undefined;
     
@@ -25,16 +32,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('고객 목록 조회 실패:', error);
-    console.error('에러 상세:', {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-    });
     return NextResponse.json(
       { 
-        error: error.message || '고객 목록을 불러올 수 없습니다',
-        details: error.details || error.hint || '',
+        error: '고객 목록을 불러올 수 없습니다',
         customers: [],
         stats: {
           totalCustomers: 0,

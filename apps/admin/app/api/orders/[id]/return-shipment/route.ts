@@ -21,17 +21,18 @@ async function createReturnWaybill(orderId: string, returnFee: number) {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient();
+    const { id: orderId } = await params;
+    const supabase = await createClient();
     const { returnFee = 6000 } = await request.json();
 
     // 1. 주문 조회
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .select("id, extra_charge_status, extra_charge_data, user_id, item_name, order_number")
-      .eq("id", params.id)
+      .eq("id", orderId)
       .single();
 
     if (orderError || !order) {
@@ -59,7 +60,7 @@ export async function POST(
     }
 
     // 4. 우체국 API를 통해 반송 송장 생성
-    const { trackingNo, labelUrl } = await createReturnWaybill(params.id, returnFee);
+    const { trackingNo, labelUrl } = await createReturnWaybill(orderId, returnFee);
 
     // 5. extra_charge_data 업데이트
     const updatedExtraChargeData = {
@@ -77,7 +78,7 @@ export async function POST(
         status: "RETURN_SHIPPING", // 반송 배송중 상태로 변경
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.id);
+      .eq("id", orderId);
 
     if (updateError) {
       console.error("주문 업데이트 실패:", updateError);
@@ -95,7 +96,7 @@ export async function POST(
         title: "반송 송장 발급",
         body: `'${order.item_name || "수선 의류"}' 상품의 반송이 준비되었습니다. 송장번호: ${trackingNo}`,
         metadata: {
-          orderId: params.id,
+          orderId: orderId,
           trackingNo: trackingNo,
         },
       });
@@ -115,7 +116,7 @@ export async function POST(
           actor_id: user.id,
           action_type: "CREATE_RETURN_SHIPMENT",
           details: {
-            orderId: params.id,
+            orderId: orderId,
             trackingNo: trackingNo,
             returnFee: returnFee,
           },

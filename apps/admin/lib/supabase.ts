@@ -1,32 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from './database.types'
 
-// Database 타입 정의 (타입 추론 오류 방지)
-// 실제 프로덕션에서는 `supabase gen types typescript` 명령어로 생성된 타입 사용 권장
-export type Database = {
-  public: {
-    Tables: {
-      [key: string]: {
-        Row: Record<string, unknown>
-        Insert: Record<string, unknown>
-        Update: Record<string, unknown>
-      }
-    }
-    Views: {
-      [key: string]: {
-        Row: Record<string, unknown>
-      }
-    }
-    Functions: {
-      [key: string]: {
-        Args: Record<string, unknown>
-        Returns: unknown
-      }
-    }
-    Enums: {
-      [key: string]: string
-    }
-  }
-}
+export type { Database }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -59,7 +34,7 @@ export const supabaseAdmin = new Proxy({} as SupabaseClient<Database>, {
     if (!_supabaseAdmin) {
       _supabaseAdmin = getSupabaseAdmin()
     }
-    return (_supabaseAdmin as Record<string, unknown>)[prop]
+    return (_supabaseAdmin as unknown as Record<string | symbol, unknown>)[prop]
   }
 })
 

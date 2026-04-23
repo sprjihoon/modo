@@ -5,8 +5,8 @@
  * 검수 후 추가 비용 발생 시 고객에게 추가 결제 요청
  */
 
-import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
-import { createSupabaseClient } from '../_shared/supabase.ts';
+import { handleCorsOptions, getCorsHeaders } from '../_shared/cors.ts';
+import { createSupabaseClient, createSupabaseAdminClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 
 interface AdditionalPaymentRequest {
@@ -19,7 +19,7 @@ interface AdditionalPaymentRequest {
 Deno.serve(async (req) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
-    return handleCorsOptions();
+    return handleCorsOptions(req);
   }
 
   try {
@@ -42,7 +42,26 @@ Deno.serve(async (req) => {
       return errorResponse('Amount must be greater than 0', 400, 'INVALID_AMOUNT');
     }
 
-    // Supabase 클라이언트 생성
+    // Authorization 헤더에서 JWT를 추출하여 실제 호출자 검증
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+    const callerJwt = authHeader.replace('Bearer ', '');
+
+    // service_role 클라이언트로 JWT를 명시적으로 전달하여 사용자 확인
+    const adminClient = createSupabaseAdminClient();
+    const { data: { user }, error: userError } = await adminClient.auth.getUser(callerJwt);
+    if (userError || !user) {
+      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+
+    const callerRole = user.user_metadata?.role || user.app_metadata?.role;
+    if (callerRole !== 'admin') {
+      return errorResponse('Admin role required', 403, 'FORBIDDEN');
+    }
+
+    // DB 작업용 service_role 클라이언트
     const supabase = createSupabaseClient(req);
 
     // 주문 존재 여부 확인
@@ -54,17 +73,6 @@ Deno.serve(async (req) => {
 
     if (orderCheckError || !existingOrder) {
       return errorResponse('Order not found', 404, 'ORDER_NOT_FOUND');
-    }
-
-    // 관리자 권한 확인
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
-    }
-
-    const isAdmin = user.user_metadata?.role === 'admin';
-    if (!isAdmin) {
-      return errorResponse('Admin role required', 403, 'FORBIDDEN');
     }
 
     // 토스페이먼츠용 고유 주문번호 생성

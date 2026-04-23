@@ -36,13 +36,7 @@ export async function POST(req: NextRequest) {
     const { data: pub } = supabaseAdmin.storage.from(bucket).getPublicUrl(key);
     const publicUrl = pub?.publicUrl;
 
-    // Store to shipments (best effort)
-    try {
-      await supabaseAdmin
-        .from("shipments")
-        .update({ outbound_video_url: publicUrl })
-        .eq("order_id", orderId);
-    } catch {}
+    // Note: video ID association is handled via the videos-upload Edge Function
 
     // Note: Merging is expected to be triggered by storage event worker
     return NextResponse.json({ success: true, url: publicUrl, path: key });

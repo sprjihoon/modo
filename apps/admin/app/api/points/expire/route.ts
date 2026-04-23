@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     // expire_points_manual 함수 호출
-    const { data, error } = await supabaseAdmin.rpc('expire_points_manual');
+    const { data, error } = await (supabaseAdmin as any).rpc('expire_points_manual');
 
     if (error) {
       console.error('포인트 만료 처리 오류:', error);
@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 결과 반환
-    const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
+    const raw = data as any;
+    const result = Array.isArray(raw) && raw.length > 0 ? raw[0] : raw;
     
     return NextResponse.json({
       success: true,

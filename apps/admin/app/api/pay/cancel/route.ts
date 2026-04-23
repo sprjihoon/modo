@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // Basic 인증 헤더 생성
     const encodedSecretKey = Buffer.from(`${getTossSecretKey()}:`).toString("base64");

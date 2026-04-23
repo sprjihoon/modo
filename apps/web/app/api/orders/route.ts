@@ -4,7 +4,7 @@ import { getRemoteAreaFee } from "@/lib/remote-area";
 import { getShippingSettings } from "@/lib/shipping-settings";
 
 async function fetchOrdersByFilter(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   filter?: { column: string; value: string }
 ) {
   const cols = "id, status, extra_charge_status, item_name, clothing_type, total_price, created_at, pickup_date";
@@ -26,7 +26,7 @@ async function fetchOrdersByFilter(
 
 export async function GET() {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -63,7 +63,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

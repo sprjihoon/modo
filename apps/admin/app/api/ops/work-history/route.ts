@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import type { Database } from "@/lib/database.types";
+
+type WorkItemStatus = Database["public"]["Enums"]["work_item_status"];
 
 export const dynamic = 'force-dynamic';
 
@@ -49,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     // 필터링
     if (status) {
-      query = query.eq("status", status);
+      query = query.eq("status", status as WorkItemStatus);
     }
     if (startDate) {
       query = query.gte("created_at", startDate);
@@ -106,7 +109,7 @@ export async function GET(request: NextRequest) {
       .eq("worker_id", userData.id);  // 본인의 작업만
 
     if (status) {
-      countQuery = countQuery.eq("status", status);
+      countQuery = countQuery.eq("status", status as WorkItemStatus);
     }
     if (startDate) {
       countQuery = countQuery.gte("created_at", startDate);

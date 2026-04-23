@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await Promise.resolve(params);
@@ -18,7 +18,7 @@ export async function GET(
       p_order_id: orderId 
     });
     
-    let order = orderResult;
+    let order = orderResult as any;
     let error = sqlError;
     
     // RPC 함수가 없으면 일반 쿼리로 fallback

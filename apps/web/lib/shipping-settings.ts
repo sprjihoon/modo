@@ -40,7 +40,7 @@ export async function getShippingSettings(): Promise<ShippingSettings> {
   if (cached && cached.expiresAt > now) return cached.value;
 
   try {
-    const supabase = createServerSupabase();
+    const supabase = await createServerSupabase();
     const { data, error } = await supabase
       .from("shipping_settings")
       .select("base_shipping_fee, remote_area_fee, return_shipping_fee")

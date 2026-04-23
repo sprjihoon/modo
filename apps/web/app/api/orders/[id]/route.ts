@@ -3,13 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const { id: orderId } = await params;
     const body = await request.json();
     const { status } = body;
 
@@ -31,7 +32,7 @@ export async function PATCH(
     const { data: order, error: fetchError } = await supabase
       .from("orders")
       .select("id, status, user_id")
-      .eq("id", params.id)
+      .eq("id", orderId)
       .maybeSingle();
 
     if (fetchError || !order) {
@@ -53,7 +54,7 @@ export async function PATCH(
     const { error: updateError } = await supabase
       .from("orders")
       .update({ status })
-      .eq("id", params.id);
+      .eq("id", orderId);
 
     if (updateError) {
       return NextResponse.json({ error: "Update failed" }, { status: 500 });

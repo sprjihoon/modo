@@ -105,11 +105,12 @@ Deno.serve(async (req) => {
       .update({ status: 'OUT_FOR_DELIVERY' })
       .eq('id', order_id);
 
-    // 알림 생성
+    // 알림 생성 (orders join에서 user_id 추출)
+    const orderUserId = (shipment.orders as any)?.user_id || null;
     await supabase
       .from('notifications')
       .insert({
-        user_id: shipment.order_id, // TODO: 실제 user_id
+        user_id: orderUserId,
         type: 'DELIVERY_STARTED',
         title: '배송 시작',
         body: `발송 송장번호 ${deliveryTrackingNo}로 배송이 시작되었습니다.`,

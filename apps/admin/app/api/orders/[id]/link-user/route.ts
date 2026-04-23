@@ -9,7 +9,7 @@ import { supabaseAdmin } from '@/lib/supabase';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await Promise.resolve(params);
@@ -46,6 +46,9 @@ export async function POST(
     console.log('👤 [Link User] user_id 없음, 사용자 찾기/생성 시작');
 
     // 2. customer_email로 기존 사용자 찾기
+    if (!order.customer_email) {
+      return NextResponse.json({ success: false, error: '고객 이메일이 없습니다.' }, { status: 400 });
+    }
     const { data: existingUser, error: findUserError } = await supabaseAdmin
       .from('users')
       .select('id, email, name')
@@ -69,8 +72,8 @@ export async function POST(
       const { data: newUser, error: createUserError } = await supabaseAdmin
         .from('users')
         .insert({
-          email: order.customer_email,
-          name: order.customer_name,
+          email: order.customer_email!,
+          name: order.customer_name || order.customer_email!,
           phone: order.customer_phone,
           point_balance: 0,
           total_earned_points: 0,

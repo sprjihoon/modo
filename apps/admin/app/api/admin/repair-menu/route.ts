@@ -24,7 +24,7 @@ export async function GET() {
       );
     }
 
-    const all = categoriesData || [];
+    const all = (categoriesData || []) as any[];
 
     // parent_category_id 컬럼 존재 여부 확인 (마이그레이션 전 호환)
     const hasParentField = all.length === 0 || 'parent_category_id' in all[0];

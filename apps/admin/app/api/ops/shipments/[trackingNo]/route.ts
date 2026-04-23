@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ trackingNo: string }> | { trackingNo: string } }
+  { params }: { params: Promise<{ trackingNo: string }> }
 ) {
   try {
     // Next.js 15+에서는 params가 Promise일 수 있음
@@ -118,13 +118,10 @@ export async function GET(
     }
 
     // 송장번호 확인 및 정리
-    const deliveryTrackingNo = resolvedShipment.delivery_tracking_no || 
-                               resolvedShipment.outbound_tracking_no || 
-                               null;
+    const deliveryTrackingNo = resolvedShipment.delivery_tracking_no || null;
 
     console.log('📦 Shipment 데이터 확인:', {
       delivery_tracking_no: resolvedShipment.delivery_tracking_no,
-      outbound_tracking_no: resolvedShipment.outbound_tracking_no,
       tracking_no: resolvedShipment.tracking_no,
       pickup_tracking_no: resolvedShipment.pickup_tracking_no,
       delivery_info: deliveryInfo,

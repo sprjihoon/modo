@@ -27,6 +27,22 @@ Deno.serve(async (req) => {
       return errorResponse('Method not allowed', 405);
     }
 
+    // 호출자 JWT 검증 - 관리자만 허용
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+    const callerJwt = authHeader.replace('Bearer ', '');
+    const authSupabase = createSupabaseClient(req);
+    const { data: { user: callerUser }, error: authError } = await authSupabase.auth.getUser(callerJwt);
+    if (authError || !callerUser) {
+      return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+    const callerRole = callerUser.user_metadata?.role || callerUser.app_metadata?.role;
+    if (callerRole !== 'admin') {
+      return errorResponse('Admin role required', 403, 'FORBIDDEN');
+    }
+
     // 요청 본문 파싱
     const body: VideoUploadRequest = await req.json();
     const { tracking_no, video_type, video_url } = body;
@@ -44,10 +60,10 @@ Deno.serve(async (req) => {
     // Supabase 클라이언트 생성
     const supabase = createSupabaseClient(req);
 
-    // 송장 존재 확인
+    // 송장 존재 확인 (user_id를 위해 orders join)
     const { data: existingShipment, error: shipmentCheckError } = await supabase
       .from('shipments')
-      .select('id, tracking_no, status')
+      .select('id, tracking_no, status, orders!inner(user_id)')
       .eq('tracking_no', tracking_no)
       .single();
 
@@ -127,10 +143,11 @@ Deno.serve(async (req) => {
       ? '고객님의 의류가 입고되었습니다. 영상을 확인해보세요.'
       : '수선이 완료되어 출고되었습니다. 영상을 확인해보세요.';
 
+    const videoUserId = (existingShipment.orders as any)?.user_id || null;
     const { error: notificationError } = await supabase
       .from('notifications')
       .insert({
-        user_id: existingShipment.order_id, // TODO: 실제 user_id 가져오기
+        user_id: videoUserId,
         type: video_type === 'INBOUND' ? 'INBOUND_VIDEO' : 'OUTBOUND_VIDEO',
         title: notificationTitle,
         body: notificationBody,

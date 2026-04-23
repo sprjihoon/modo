@@ -42,17 +42,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const shipmentAny = shipment as any;
     // 라벨 URL이 있으면 반환
-    if (shipment?.label_url) {
+    if (shipmentAny?.label_url) {
       return NextResponse.json({
         success: true,
-        labelUrl: shipment.label_url,
+        labelUrl: shipmentAny.label_url,
         trackingNo: trackingNo,
         shipment: {
-          id: shipment.id,
-          order_id: shipment.order_id,
-          pickup_tracking_no: shipment.pickup_tracking_no,
-          delivery_tracking_no: shipment.delivery_tracking_no,
+          id: shipment!.id,
+          order_id: shipment!.order_id,
+          pickup_tracking_no: shipment!.pickup_tracking_no,
+          delivery_tracking_no: shipment!.delivery_tracking_no,
         }
       });
     }

@@ -11,8 +11,13 @@ export async function POST(req: NextRequest) {
 
     // 환경변수 값의 줄바꿈/공백 문자 및 리터럴 \r\n 제거
     const sanitize = (v: string) => v.replace(/\\r|\\n|\r|\n|"/g, "").trim();
-    const clientId = sanitize(process.env.NAVER_CLIENT_ID || "b7QJILomSlfsFL7RuAQs");
-    const clientSecret = sanitize(process.env.NAVER_CLIENT_SECRET || "M_cxR3WuTs");
+    const rawClientId = process.env.NAVER_CLIENT_ID;
+    const rawClientSecret = process.env.NAVER_CLIENT_SECRET;
+    if (!rawClientId || !rawClientSecret) {
+      return NextResponse.json({ error: "Naver OAuth not configured" }, { status: 500 });
+    }
+    const clientId = sanitize(rawClientId);
+    const clientSecret = sanitize(rawClientSecret);
 
     // 1. Naver 토큰 교환
     const tokenRes = await fetch("https://nid.naver.com/oauth2.0/token", {
@@ -60,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Supabase Edge Function 호출 (naver-auth)
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: sessionData, error: fnError } = await supabase.functions.invoke(
       "naver-auth",
       {

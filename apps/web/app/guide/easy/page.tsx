@@ -18,7 +18,7 @@ const FALLBACK_STEPS: EasyGuideStep[] = [
 ];
 
 export default async function EasyGuidePage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data } = await supabase
     .from("app_contents")
     .select("content, metadata")

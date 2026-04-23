@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "repair_type_id is required", data: [] }, { status: 200 });
     }
 
-    const supabase = createClient();
+    const supabase = await createClient();
 
     let { data, error } = await supabase
       .from("repair_sub_parts")

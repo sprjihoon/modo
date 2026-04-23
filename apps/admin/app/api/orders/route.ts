@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,14 +11,24 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
-    const search = searchParams.get('search');
+    const rawSearch = searchParams.get('search');
+    // PostgREST 필터 인젝션 방지: 특수문자 제거 후 최대 100자 제한
+    const search = rawSearch
+      ? rawSearch.replace(/[(),]/g, '').trim().slice(0, 100)
+      : null;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const promotionFilter = searchParams.get('promotionFilter');
     const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
+    const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '20'), 100);
 
     // 기본 쿼리
     let query = supabaseAdmin
@@ -64,7 +75,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('주문 조회 실패:', error);
       return NextResponse.json(
-        { error: '주문 조회 실패', details: error.message },
+        { error: '주문 조회 실패' },
         { status: 500 }
       );
     }
@@ -110,7 +121,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('API 에러:', error);
     return NextResponse.json(
-      { error: '서버 오류', details: error.message },
+      { error: '서버 오류' },
       { status: 500 }
     );
   }

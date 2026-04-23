@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     
     console.log("🔔 토스페이먼츠 웹훅 수신:", JSON.stringify(payload, null, 2));
 
-    const supabase = createClient();
+    const supabase = await createClient();
     const { eventType, data, createdAt } = payload;
 
     // 웹훅 로그 저장

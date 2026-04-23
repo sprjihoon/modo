@@ -89,7 +89,7 @@ export async function updateShipmentStatus(
 ) {
   const { data, error } = await supabase
     .from('shipments')
-    .update({ status })
+    .update({ status: status as any })
     .eq('tracking_no', trackingNo)
     .select()
     .single();

@@ -5,9 +5,7 @@ import { getCustomerById } from "@/lib/api/customers";
 interface CustomerDetailPageProps {
   params: Promise<{
     id: string;
-  }> | {
-    id: string;
-  };
+  }>;
 }
 
 export default async function CustomerDetailPage({ params }: CustomerDetailPageProps) {

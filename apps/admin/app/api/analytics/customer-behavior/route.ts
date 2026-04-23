@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     // 기본 쿼리
     let query = supabaseAdmin
-      .from('customer_events')
+      .from('customer_events' as any)
       .select('*');
 
     // 날짜 필터
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     // 이벤트 타입 필터
     if (eventType) {
-      query = query.eq('event_type', eventType);
+      query = query.eq('event_type', eventType as any);
     }
 
     switch (type) {
@@ -156,24 +156,24 @@ async function getOverviewStats(startDate?: string | null, endDate?: string | nu
   }
 
   // 전체 이벤트 수
-  const { data: totalEvents } = await supabaseAdmin
+  const { data: totalEvents } = await (supabaseAdmin as any)
     .rpc('count_customer_events', { filter: dateFilter })
     .single();
 
   // 고유 사용자 수
-  const { data: uniqueUsers } = await supabaseAdmin
+  const { data: uniqueUsers } = await (supabaseAdmin as any)
     .from('customer_events')
     .select('user_id', { count: 'exact', head: false })
     .not('user_id', 'is', null);
 
   // 이벤트 타입별 카운트
-  const { data: eventTypeCounts } = await supabaseAdmin.rpc('get_event_type_counts', {
+  const { data: eventTypeCounts } = await (supabaseAdmin as any).rpc('get_event_type_counts', {
     start_date: startDate,
     end_date: endDate,
   });
 
   // 장바구니 관련 통계
-  const { data: cartStats } = await supabaseAdmin
+  const { data: cartStats } = await (supabaseAdmin as any)
     .from('customer_events')
     .select('event_type', { count: 'exact', head: false })
     .in('event_type', ['CART_ADD', 'CART_REMOVE', 'CART_CLEAR']);
@@ -282,7 +282,7 @@ async function getEventStats(
   startDate?: string | null,
   endDate?: string | null
 ) {
-  let query = supabaseAdmin
+  let query = (supabaseAdmin as any)
     .from('customer_events')
     .select('event_type', { count: 'exact', head: false });
 
@@ -504,7 +504,7 @@ async function getRetentionAnalysis(
       break;
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from(viewName)
     .select('*')
     .order('cohort_date', { ascending: false })
@@ -545,7 +545,7 @@ async function getJourneyAnalysis(journeyType: string) {
       break;
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await (supabaseAdmin as any)
     .from(viewName)
     .select('*')
     .order(orderBy, { ascending: false })

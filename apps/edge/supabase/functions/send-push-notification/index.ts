@@ -65,13 +65,14 @@ serve(async (req) => {
 
     // 4. notification_events 테이블 업데이트 (eventId가 있는 경우)
     if (payload.eventId) {
+      // retry_count는 별도 RPC로 증가 (inline에 넣으면 Promise가 값으로 저장되는 버그)
+      await supabase.rpc('increment_retry_count', { event_id: payload.eventId })
       await supabase
         .from('notification_events')
         .update({
           notification_sent: success,
           notification_sent_at: success ? new Date().toISOString() : null,
           error_message: success ? null : JSON.stringify(fcmResult),
-          retry_count: supabase.rpc('increment_retry_count', { event_id: payload.eventId }),
         })
         .eq('id', payload.eventId)
 

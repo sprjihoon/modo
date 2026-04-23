@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 /**
  * SVG 파일 업로드 API (관리자용)
@@ -7,6 +8,15 @@ import { createClient } from "@supabase/supabase-js";
  */
 export async function POST(request: NextRequest) {
   try {
+    const sessionClient = await createServerClient();
+    const { data: { session } } = await sessionClient.auth.getSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const folder = formData.get('folder') as string || 'category-icons';
@@ -34,12 +44,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Supabase 클라이언트 생성 (Service Role Key로 RLS 우회)
+    // Supabase Storage 클라이언트 (Service Role Key로 RLS 우회)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     
-    // Service Role Key가 있으면 사용 (RLS 우회), 없으면 anon key
     const supabase = createClient(
       supabaseUrl, 
       serviceRoleKey || anonKey,
@@ -67,7 +76,7 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Storage 업로드 실패:', error);
       return NextResponse.json(
-        { success: false, error: `업로드 실패: ${error.message}` },
+        { success: false, error: '파일 업로드에 실패했습니다' },
         { status: 500 }
       );
     }
@@ -88,7 +97,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('SVG 업로드 API 에러:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: '파일 업로드 중 오류가 발생했습니다' },
       { status: 500 }
     );
   }

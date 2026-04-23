@@ -6,10 +6,11 @@ export const dynamic = 'force-dynamic';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient();
+    const { id: orderId } = await params;
+    const supabase = await createClient();
     const { action, amount, adminNote } = await request.json();
 
     // 1. Auth check (Admin/Manager only)
@@ -22,7 +23,10 @@ export async function PUT(
       .eq("auth_id", session.user.id)
       .single();
 
-    if (!["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(user?.role)) {
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if (!["ADMIN", "SUPER_ADMIN", "MANAGER"].includes(user?.role as string)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -34,7 +38,7 @@ export async function PUT(
 
       // Call approve_extra_charge RPC function
       const { data, error } = await supabase.rpc('approve_extra_charge', {
-        p_order_id: params.id,
+        p_order_id: orderId,
         p_manager_id: user.id,
         p_price: amount,
         p_note: adminNote || ''
@@ -49,7 +53,7 @@ export async function PUT(
       const { data: order } = await supabase
         .from("orders")
         .select("user_id, item_name")
-        .eq("id", params.id)
+        .eq("id", orderId)
         .single();
 
       if (order?.user_id) {
@@ -59,7 +63,7 @@ export async function PUT(
           title: "추가 결제 요청",
           body: `'${order.item_name}' 수선 작업 중 추가 비용(${amount?.toLocaleString()}원)이 발생했습니다. 확인 후 결제해주세요.`,
           metadata: { 
-            orderId: params.id,
+            orderId: orderId,
             amount 
           }
         });
@@ -70,7 +74,7 @@ export async function PUT(
         actor_id: user.id,
         action_type: "APPROVE_EXTRA_CHARGE",
         details: {
-          orderId: params.id,
+          orderId: orderId,
           amount,
           adminNote,
           result: data
@@ -88,7 +92,7 @@ export async function PUT(
           status: 'PROCESSING', // Resume work
           updated_at: new Date().toISOString()
         })
-        .eq("id", params.id);
+        .eq("id", orderId);
 
       if (error) {
         console.error("Reject error:", error);
@@ -100,7 +104,7 @@ export async function PUT(
         actor_id: user.id,
         action_type: "REJECT_EXTRA_CHARGE",
         details: {
-          orderId: params.id,
+          orderId: orderId,
           adminNote
         }
       });

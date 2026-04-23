@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const paymentMethod = searchParams.get('paymentMethod'); // 결제 방식 필터
 
     // 주문 및 결제 정보 조회
-    let query = supabaseAdmin
+    let query = (supabaseAdmin as any)
       .from('orders')
       .select(`
         id,
@@ -58,9 +58,9 @@ export async function GET(request: NextRequest) {
     }
 
     // 결제 방식별 필터링 (클라이언트 사이드에서도 가능하지만, 서버에서 필터링하면 더 효율적)
-    let filteredOrders = orders || [];
+    let filteredOrders = (orders || []) as any[];
     if (paymentMethod && paymentMethod !== 'ALL') {
-      filteredOrders = filteredOrders.filter(order => 
+      filteredOrders = filteredOrders.filter((order: any) => 
         order.payments && order.payments.length > 0 && 
         order.payments.some((p: any) => p.payment_method === paymentMethod)
       );

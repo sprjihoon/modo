@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     try {
       const { data: shipment } = await supabaseAdmin
         .from("shipments")
-        .select("tracking_no, outbound_tracking_no, delivery_tracking_no, pickup_tracking_no")
+        .select("tracking_no, delivery_tracking_no, pickup_tracking_no")
         .eq("order_id", orderId)
         .maybeSingle();
 
@@ -35,7 +35,6 @@ export async function GET(request: NextRequest) {
         const candidates = [
           shipment.pickup_tracking_no,
           shipment.delivery_tracking_no,
-          shipment.outbound_tracking_no,
           shipment.tracking_no,
         ].filter(Boolean) as string[];
         

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import type { Database } from "@/lib/database.types";
+
+type WorkItemStatus = Database["public"]["Enums"]["work_item_status"];
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +29,7 @@ export async function GET(request: NextRequest) {
       query = query.eq("order_id", orderId);
     }
     if (status) {
-      query = query.eq("status", status);
+      query = query.eq("status", status as WorkItemStatus);
     }
     if (workerName) {
       query = query.ilike("worker_name", `%${workerName}%`);
@@ -88,7 +91,7 @@ export async function GET(request: NextRequest) {
       countQuery = countQuery.eq("order_id", orderId);
     }
     if (status) {
-      countQuery = countQuery.eq("status", status);
+      countQuery = countQuery.eq("status", status as WorkItemStatus);
     }
     if (workerName) {
       countQuery = countQuery.ilike("worker_name", `%${workerName}%`);

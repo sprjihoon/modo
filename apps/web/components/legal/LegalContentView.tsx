@@ -16,7 +16,7 @@ export async function LegalContentView({
   contentKey,
   fallbackTitle,
 }: LegalContentViewProps) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data } = await supabase
     .from("app_contents")
     .select("content, images, updated_at")

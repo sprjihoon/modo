@@ -88,9 +88,7 @@ void main() async {
       return; // 앱 초기화 중단
     }
     
-    print('✅ Supabase 설정 확인됨');
-    print('   URL: ${url.length > 30 ? url.substring(0, 30) : url}...');
-    print('   Key: ${anonKey.length > 20 ? anonKey.substring(0, 20) : anonKey}...');
+    assert(() { debugPrint('✅ Supabase 설정 확인됨 (URL: ${url.substring(0, url.length > 30 ? 30 : url.length)}...)'); return true; }());
     
     // Supabase 초기화 (OAuth 딥링크 처리 포함)
     // ⚠️ 카카오 OAuth는 implicit flow 사용 (PKCE가 제대로 작동하지 않는 경우)
@@ -100,7 +98,7 @@ void main() async {
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.implicit,
       ),
-      debug: true,
+      debug: kDebugMode,
     );
     
     // 🔗 딥링크 리스너 설정 (OAuth 콜백 처리)

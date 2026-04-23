@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const resolvedParams = await Promise.resolve(params);
@@ -96,7 +96,7 @@ export async function PATCH(
           trackingNo,
         },
         created_at: new Date().toISOString(),
-      });
+      } as any);
     } catch (logError) {
       // 로그 실패는 무시
       console.log("상태 변경 로그 기록 실패:", logError);

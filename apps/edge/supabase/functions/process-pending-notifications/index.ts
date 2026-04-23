@@ -123,7 +123,7 @@ serve(async (req) => {
         success: true,
         message: '알림 처리 완료',
         total: events.length,
-        success: successCount,
+        sent_count: successCount,
         failed: failCount,
         results: results.map((r) => 
           r.status === 'fulfilled' ? r.value : { error: r.reason }

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
+import { getCorsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -20,20 +21,49 @@ interface AnnouncementPayload {
  * 대상 사용자의 FCM 토큰을 모두 조회하여 일괄 발송
  */
 serve(async (req) => {
+  // catch 블록에서 announcementId에 접근하기 위해 outer scope에 선언
+  let payload: AnnouncementPayload | undefined
   try {
     // CORS 처리
     if (req.method === 'OPTIONS') {
-      return new Response('ok', {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST',
-          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        },
+      return new Response('ok', { headers: getCorsHeaders(req) })
+    }
+
+    // 호출자 JWT 검증 - 관리자만 허용
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    const callerJwt = authHeader.replace('Bearer ', '')
+    const supabaseForAuth = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const { data: { user: callerUser }, error: authError } = await supabaseForAuth.auth.getUser(callerJwt)
+    if (authError || !callerUser) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    const callerRole = callerUser.user_metadata?.role || callerUser.app_metadata?.role
+    if (callerRole !== 'admin') {
+      return new Response(JSON.stringify({ success: false, error: 'Admin role required' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
       })
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-    const payload: AnnouncementPayload = await req.json()
+    // body를 한 번만 읽어 catch 블록에서도 재사용 가능하게 저장
+    try {
+      payload = await req.json()
+    } catch {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid JSON body' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...getCorsHeaders(req) },
+      })
+    }
 
     console.log('📢 공지사항 푸시 발송 시작:', payload.announcementId)
 
@@ -147,23 +177,22 @@ serve(async (req) => {
         success: true,
         message: '공지사항 푸시 발송 완료',
         total: tokens.length,
-        success: successCount,
+        sent_count: successCount,
         failed: failCount,
       }),
       {
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...getCorsHeaders(req),
         },
       }
     )
   } catch (error) {
     console.error('❌ 공지사항 푸시 발송 오류:', error)
 
-    // 공지사항 상태를 failed로 업데이트
-    if (req.json) {
+    // payload는 이미 위에서 파싱됨 — 재파싱 금지 (body already consumed)
+    if (payload?.announcementId) {
       try {
-        const payload = await req.json()
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
         await supabase
           .from('announcements')
@@ -182,7 +211,7 @@ serve(async (req) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          ...getCorsHeaders(req),
         },
         status: 500,
       }

@@ -279,7 +279,11 @@ export async function getStoppedZipCodes(zipCd?: string): Promise<any[]> {
  * API 키: c9199c6be5cf67e8b1764577878692
  */
 export async function getPostOfficeInfo(params: PostOfficeParams): Promise<PostOfficeResponse> {
-  const apiKey = Deno.env.get('EPOST_POST_OFFICE_API_KEY') || 'c9199c6be5cf67e8b1764577878692';
+  const apiKey = Deno.env.get('EPOST_POST_OFFICE_API_KEY');
+  if (!apiKey) {
+    console.warn('⚠️ EPOST_POST_OFFICE_API_KEY 환경변수가 설정되지 않았습니다.');
+    return {};
+  }
   
   try {
     const url = new URL('http://openapi.epost.go.kr/postal/retrievePostNmList');
@@ -314,7 +318,11 @@ export async function getPostOfficeInfo(params: PostOfficeParams): Promise<PostO
  * API 키: c9199c6be5cf67e8e1764577163889
  */
 export async function getDeliveryCode(params: DeliveryCodeParams): Promise<DeliveryCodeResponse> {
-  const apiKey = Deno.env.get('EPOST_DELIVERY_CODE_API_KEY') || 'c9199c6be5cf67e8e1764577163889';
+  const apiKey = Deno.env.get('EPOST_DELIVERY_CODE_API_KEY');
+  if (!apiKey) {
+    console.warn('⚠️ EPOST_DELIVERY_CODE_API_KEY 환경변수가 설정되지 않았습니다.');
+    return {};
+  }
   
   try {
     // 공공데이터포털 집배코드조회 API 호출

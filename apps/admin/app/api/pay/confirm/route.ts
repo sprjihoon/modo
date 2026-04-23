@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 서버에 저장된 주문 정보와 금액 일치 여부 확인 (데이터 무결성 검증)
     // extra_charge_requests 테이블에서 주문 정보 조회

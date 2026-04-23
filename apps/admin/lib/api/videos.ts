@@ -30,10 +30,10 @@ export async function uploadVideo(
  */
 export async function getVideosByTrackingNo(trackingNo: string) {
   const { data, error } = await supabase
-    .from('videos')
+    .from('media')
     .select('*')
-    .eq('tracking_no', trackingNo)
-    .order('uploaded_at', { ascending: false });
+    .eq('final_waybill_no', trackingNo)
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
   return data;

@@ -113,8 +113,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const baseDeliveryInfo = (existingDeliveryInfo && typeof existingDeliveryInfo === 'object' && !Array.isArray(existingDeliveryInfo)
+      ? existingDeliveryInfo
+      : {}) as Record<string, unknown>;
     const updatedDeliveryInfo = {
-      ...existingDeliveryInfo,
+      ...baseDeliveryInfo,
       ...deliveryCodeInfo,
     };
 

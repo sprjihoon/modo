@@ -57,19 +57,18 @@ async function handleFileUpload(
 ) {
   try {
 
-    // 작업 영상: outbound_tracking_no (출고 송장번호) 사용
+    // 작업 영상: delivery_tracking_no (출고 송장번호) 사용
     let finalWaybillNo = orderId;
     try {
       const { data: shipment } = await supabaseAdmin
         .from("shipments")
-        .select("tracking_no, outbound_tracking_no, delivery_tracking_no, pickup_tracking_no")
+        .select("tracking_no, delivery_tracking_no, pickup_tracking_no")
         .eq("order_id", orderId)
         .maybeSingle();
       
       // 작업 단계이므로 출고 송장번호 우선
       finalWaybillNo =
         shipment?.delivery_tracking_no ||
-        shipment?.outbound_tracking_no ||
         shipment?.tracking_no ||
         shipment?.pickup_tracking_no ||
         orderId;

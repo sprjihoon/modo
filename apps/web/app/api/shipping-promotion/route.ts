@@ -9,7 +9,7 @@ import { getShippingSettings, type ShippingPromoResult } from "@/lib/shipping-se
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     const repairAmount = Number(request.nextUrl.searchParams.get("repairAmount") ?? "0");
