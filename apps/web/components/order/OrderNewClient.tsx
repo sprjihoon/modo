@@ -43,6 +43,10 @@ export interface OrderDraft {
   deliveryZipcode?: string;
   agreedToExtraCharge?: boolean;
   remoteAreaFee?: number;
+  // 프로모션 코드
+  promotionCodeId?: string;
+  promotionDiscountAmount?: number;
+  originalTotalPrice?: number;
 }
 
 /** 의류 단위 항목 (여러 벌을 한 수거신청에 묶을 때 사용) */

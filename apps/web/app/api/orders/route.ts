@@ -87,6 +87,8 @@ export async function POST(request: NextRequest) {
       deliveryZipcode,
       agreedToExtraCharge,
       remoteAreaFee: clientRemoteAreaFee,
+      promotionCodeId,
+      promotionDiscountAmount: clientPromoDiscountAmount,
     } = body;
 
     if (!agreedToExtraCharge) {
@@ -198,8 +200,35 @@ export async function POST(request: NextRequest) {
     );
     void clientRemoteAreaFee; // 클라이언트 값 무시
 
-    // total_price = 수선비 합산 + 실제 배송비 (할인 후) + 도서산간 추가비
-    const totalPrice = repairItemsTotal + shippingFee + remoteAreaFee;
+    // 프로모션 코드 할인 서버 검증
+    let promoDiscountAmount = 0;
+    let verifiedPromoCodeId: string | null = null;
+    if (promotionCodeId && typeof clientPromoDiscountAmount === "number") {
+      try {
+        const { data: promo } = await supabase
+          .from("promotion_codes")
+          .select("*")
+          .eq("id", promotionCodeId)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (promo) {
+          let calc = promo.discount_type === "PERCENTAGE"
+            ? Math.round(repairItemsTotal * promo.discount_value / 100)
+            : promo.discount_value;
+          if (promo.max_discount_amount != null) calc = Math.min(calc, promo.max_discount_amount);
+          calc = Math.min(calc, repairItemsTotal);
+          promoDiscountAmount = calc;
+          verifiedPromoCodeId = promo.id;
+        }
+      } catch (e) {
+        console.warn("프로모션 코드 서버 검증 실패:", e);
+      }
+    }
+    void clientPromoDiscountAmount;
+
+    // total_price = 수선비(할인 후) + 실제 배송비 (할인 후) + 도서산간 추가비
+    const repairFinalPrice = repairItemsTotal - promoDiscountAmount;
+    const totalPrice = repairFinalPrice + shippingFee + remoteAreaFee;
 
     const initialStatus = "PENDING_PAYMENT";
     const orderNumber = `ORD${Date.now()}`;
@@ -230,6 +259,11 @@ export async function POST(request: NextRequest) {
       shipping_discount_amount: shippingDiscountAmount,
       remote_area_fee: remoteAreaFee,
       ...(shippingPromotionId ? { shipping_promotion_id: shippingPromotionId } : {}),
+      ...(verifiedPromoCodeId ? {
+        promotion_code_id: verifiedPromoCodeId,
+        promotion_discount_amount: promoDiscountAmount,
+        original_total_price: repairItemsTotal + shippingFee + remoteAreaFee,
+      } : {}),
       customer_email: userRow.email || user.email || null,
       customer_phone: phone,
       delivery_address: finalDeliveryAddress,

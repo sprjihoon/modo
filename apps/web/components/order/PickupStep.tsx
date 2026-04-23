@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   MapPin, Calendar, MessageSquare, ChevronDown, CheckCircle,
-  Plus, Info, Truck,
+  Plus, Info, Truck, Tag, X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -103,6 +103,16 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
   // 필수 동의
   const [agreedToExtraCharge, setAgreedToExtraCharge] = useState(false);
 
+  // 프로모션 코드
+  const [promoCode, setPromoCode] = useState("");
+  const [promoResult, setPromoResult] = useState<{
+    id: string; code: string; description?: string;
+    discount_amount: number; final_amount: number;
+  } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+  const promoInputRef = useRef<HTMLInputElement>(null);
+
   const disabledDates = Array.from({ length: 21 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i + 1);
@@ -120,8 +130,45 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
     0
   );
 
-  // 총 예상 금액 = 수선비 + 왕복배송비 + 도서산간추가비
-  const estimatedPrice = estimatedRepairPrice + SHIPPING_FEE + remoteAreaFee;
+  // 프로모션 할인 적용된 수선비
+  const repairFinalPrice = promoResult ? promoResult.final_amount : estimatedRepairPrice;
+  const promoDiscountAmount = promoResult ? promoResult.discount_amount : 0;
+
+  // 총 예상 금액 = 수선비(할인 후) + 왕복배송비 + 도서산간추가비
+  const estimatedPrice = repairFinalPrice + SHIPPING_FEE + remoteAreaFee;
+
+  async function handleValidatePromo() {
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
+    setIsValidatingPromo(true);
+    setPromoError(null);
+    try {
+      const res = await fetch("/api/promotions/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, orderAmount: estimatedRepairPrice }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPromoError(data.error ?? "유효하지 않은 코드입니다.");
+        setPromoResult(null);
+      } else {
+        setPromoResult(data);
+        setPromoError(null);
+      }
+    } catch {
+      setPromoError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setIsValidatingPromo(false);
+    }
+  }
+
+  function handleRemovePromo() {
+    setPromoResult(null);
+    setPromoCode("");
+    setPromoError(null);
+    setTimeout(() => promoInputRef.current?.focus(), 100);
+  }
 
   useEffect(() => {
     loadSavedAddresses();
@@ -215,6 +262,11 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
         deliveryZipcode: sameAsPickup ? pickupZipcode.trim() : deliveryZipcode.trim(),
         agreedToExtraCharge: true,
         remoteAreaFee,
+        ...(promoResult ? {
+          promotionCodeId: promoResult.id,
+          promotionDiscountAmount: promoResult.discount_amount,
+          originalTotalPrice: estimatedRepairPrice + (shippingPromo?.finalShippingFee ?? SHIPPING_FEE) + remoteAreaFee,
+        } : {}),
       });
     } finally {
       setIsSubmitting(false);
@@ -235,8 +287,24 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
           <p className="text-xs font-bold text-[#00C896] mb-2">결제 예정 금액</p>
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-500">수선비</span>
-            <span className="text-gray-800 font-medium">{estimatedRepairPrice.toLocaleString()}원~</span>
+            <span className={promoResult ? "line-through text-gray-400 text-xs" : "text-gray-800 font-medium"}>
+              {estimatedRepairPrice.toLocaleString()}원~
+            </span>
           </div>
+          {promoResult && (
+            <>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-red-500 font-medium flex items-center gap-1">
+                  <Tag className="w-3.5 h-3.5" /> 프로모션 할인
+                </span>
+                <span className="text-red-500 font-bold">-{promoResult.discount_amount.toLocaleString()}원</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">할인 후 수선비</span>
+                <span className="text-gray-800 font-medium">{promoResult.final_amount.toLocaleString()}원~</span>
+              </div>
+            </>
+          )}
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-500">왕복배송비</span>
             <div className="text-right">
@@ -278,9 +346,14 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-gray-700">합계</span>
               <span className="text-xl font-extrabold text-gray-900">
-                {(estimatedRepairPrice + (shippingPromo?.finalShippingFee ?? SHIPPING_FEE) + remoteAreaFee).toLocaleString()}원~
+                {(repairFinalPrice + (shippingPromo?.finalShippingFee ?? SHIPPING_FEE) + remoteAreaFee).toLocaleString()}원~
               </span>
             </div>
+            {promoDiscountAmount > 0 && (
+              <p className="text-xs text-red-500 font-medium mt-1 text-right">
+                프로모션 {promoDiscountAmount.toLocaleString()}원 할인 적용됨
+              </p>
+            )}
           </div>
           <p className="text-xs text-gray-400">정확한 수선비는 의류 입고 후 확정됩니다.</p>
           {remoteAreaFee > 0 && (
@@ -506,6 +579,60 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
           <p className="text-xs text-gray-400 mt-1.5">
             공용현관 비번, 수거 방법 등을 입력하면 우체국 집배원에게 전달됩니다.
           </p>
+        </div>
+
+        {/* 프로모션 코드 */}
+        <div>
+          <label className="flex items-center gap-1.5 text-sm font-bold text-gray-700 mb-2">
+            <Tag className="w-4 h-4 text-[#00C896]" />
+            프로모션 코드 (선택)
+          </label>
+
+          {promoResult ? (
+            <div className="flex items-center gap-3 p-3.5 bg-[#00C896]/5 border border-[#00C896] rounded-xl">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-[#00C896]">{promoResult.code}</p>
+                {promoResult.description && (
+                  <p className="text-xs text-gray-500 mt-0.5">{promoResult.description}</p>
+                )}
+                <p className="text-sm font-bold text-red-500 mt-0.5">
+                  -{promoResult.discount_amount.toLocaleString()}원 할인
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemovePromo}
+                className="p-1.5 text-gray-400 active:text-red-400 shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <input
+                  ref={promoInputRef}
+                  type="text"
+                  placeholder="프로모션 코드 입력"
+                  value={promoCode}
+                  onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoError(null); }}
+                  onKeyDown={(e) => e.key === "Enter" && handleValidatePromo()}
+                  className="flex-1 px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={handleValidatePromo}
+                  disabled={isValidatingPromo || !promoCode.trim()}
+                  className="px-5 py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 disabled:opacity-40 whitespace-nowrap"
+                >
+                  {isValidatingPromo ? "확인 중..." : "적용"}
+                </button>
+              </div>
+              {promoError && (
+                <p className="text-xs text-red-500 mt-1.5">{promoError}</p>
+              )}
+            </>
+          )}
         </div>
 
         {/* 고지사항 */}
