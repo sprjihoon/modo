@@ -32,7 +32,50 @@ class CartService {
   /// 로그인 여부를 반환한다.
   bool get isLoggedIn => _supabase.auth.currentUser != null;
 
-  /// 내 장바구니 항목을 모두 불러온다.
+  // ── 내부 유틸 ────────────────────────────────────────────────────────────
+
+  /// priceRange 문자열("5,000원~8,000원")에서 최솟값 정수를 추출한다.
+  int _extractMinPrice(String priceRange) {
+    try {
+      final cleaned = priceRange.split('~').first
+          .replaceAll(RegExp(r'[^0-9]'), '');
+      return int.tryParse(cleaned) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// CartItem.toJson() 결과를 웹과 공통으로 사용하는 OrderDraft 포맷으로 변환한다.
+  /// 이렇게 변환해야 웹에서도 동일한 항목이 보인다.
+  Map<String, dynamic> _toUnifiedDraft(Map<String, dynamic> cartItemJson) {
+    final repairItem =
+        Map<String, dynamic>.from(cartItemJson['repairItem'] as Map? ?? {});
+    final imageUrls = List<String>.from(
+      (cartItemJson['imageUrls'] as List?) ?? [],
+    );
+    final priceRange = repairItem['priceRange'] as String? ?? '';
+    return {
+      'clothingType': cartItemJson['clothingType'] as String? ?? '',
+      'repairItems': [
+        {
+          'name': repairItem['repairPart'] ?? repairItem['name'] ?? '',
+          'price': _extractMinPrice(priceRange),
+          'priceRange': priceRange,
+          'quantity': 1,
+          // 앱 전용 필드도 함께 저장해 앱이 다시 읽을 때 그대로 쓸 수 있게 한다.
+          'repairPart': repairItem['repairPart'] ?? '',
+          'scope': repairItem['scope'] ?? '',
+          'measurement': repairItem['measurement'] ?? '',
+        }
+      ],
+      'imageUrls': imageUrls,
+      'imagesWithPins': [],
+    };
+  }
+
+  // ── 공개 API ────────────────────────────────────────────────────────────
+
+  /// 내 장바구니 항목을 모두 불러온다 (source 무관 — 웹/앱 공유).
   Future<List<Map<String, dynamic>>> fetchAll() async {
     final userId = await _resolveUserId();
     if (userId == null) return [];
@@ -41,7 +84,6 @@ class CartService {
           .from('cart_drafts')
           .select('id, draft_data, source, created_at')
           .eq('user_id', userId)
-          .eq('source', 'mobile')
           .order('created_at', ascending: true);
       return List<Map<String, dynamic>>.from(rows as List);
     } catch (e) {
@@ -52,17 +94,18 @@ class CartService {
 
   /// 항목 하나를 추가한다.
   /// [draftData] 는 CartItem.toJson() 결과다.
+  /// 웹과 공통인 OrderDraft 포맷으로 변환해 저장한다.
   /// 반환값은 서버가 부여한 UUID (없으면 null).
   Future<String?> addItem(Map<String, dynamic> draftData) async {
     final userId = await _resolveUserId();
     if (userId == null) return null;
     try {
+      final unified = _toUnifiedDraft(draftData);
       final row = await _supabase
           .from('cart_drafts')
           .insert({
             'user_id': userId,
-            'draft_data': draftData,
-            'source': 'mobile',
+            'draft_data': unified,
           })
           .select('id')
           .single();
@@ -85,7 +128,7 @@ class CartService {
     }
   }
 
-  /// 내 장바구니 전체 삭제.
+  /// 내 장바구니 전체 삭제 (source 무관 — 웹/앱 공유).
   Future<void> clearAll() async {
     final userId = await _resolveUserId();
     if (userId == null) return;
@@ -93,8 +136,7 @@ class CartService {
       await _supabase
           .from('cart_drafts')
           .delete()
-          .eq('user_id', userId)
-          .eq('source', 'mobile');
+          .eq('user_id', userId);
     } catch (e) {
       debugPrint('CartService.clearAll error: $e');
     }

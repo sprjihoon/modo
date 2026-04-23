@@ -443,7 +443,9 @@ export function CartClient() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-gray-900 truncate">
-                          {d.clothingType} · {d.repairItems.map((r) => r.name).join(", ")}
+                          {d.clothingType
+                            ? `${d.clothingType} · ${d.repairItems.map((r) => r.name).join(", ")}`
+                            : d.repairItems.map((r) => r.name).join(", ")}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">
                           {d.repairItems.length}개 수선 항목

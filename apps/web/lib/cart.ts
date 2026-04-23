@@ -65,16 +65,34 @@ export async function fetchCartItems(): Promise<CartDraftItem[]> {
       .from("cart_drafts")
       .select("id, draft_data, created_at")
       .eq("user_id", userId)
-      .eq("source", "web")
       .order("created_at", { ascending: true });
 
     if (error) throw error;
 
-    const items: CartDraftItem[] = (data ?? []).map((row) => ({
-      id: row.id as string,
-      savedAt: row.created_at as string,
-      draft: row.draft_data as OrderDraft,
-    }));
+    const items: CartDraftItem[] = (data ?? []).flatMap((row) => {
+      try {
+        const d = row.draft_data as Record<string, unknown>;
+        // 구형 앱 포맷(repairItem 단일 맵)은 OrderDraft 형식으로 변환한다.
+        if (d && !Array.isArray(d.repairItems) && d.repairItem) {
+          const ri = d.repairItem as Record<string, unknown>;
+          const converted: OrderDraft = {
+            clothingType: (d.clothingType as string) ?? "",
+            repairItems: [{
+              name: (ri.repairPart as string) ?? (ri.name as string) ?? "",
+              price: 0,
+              priceRange: (ri.priceRange as string) ?? "",
+              quantity: 1,
+            }],
+            imageUrls: (d.imageUrls as string[]) ?? [],
+            imagesWithPins: [],
+          };
+          return [{ id: row.id as string, savedAt: row.created_at as string, draft: converted }];
+        }
+        return [{ id: row.id as string, savedAt: row.created_at as string, draft: d as unknown as OrderDraft }];
+      } catch {
+        return [];
+      }
+    });
 
     // 서버 데이터를 로컬에도 캐싱
     localSave(items);
@@ -93,7 +111,7 @@ export async function addCartItem(draft: OrderDraft): Promise<CartDraftItem> {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("cart_drafts")
-        .insert({ user_id: userId, draft_data: draft, source: "web" })
+        .insert({ user_id: userId, draft_data: draft })
         .select("id, created_at")
         .single();
       if (error) throw error;
@@ -143,8 +161,7 @@ export async function clearCartItems(): Promise<void> {
       await supabase
         .from("cart_drafts")
         .delete()
-        .eq("user_id", userId)
-        .eq("source", "web");
+        .eq("user_id", userId);
     }
   } catch { /* fallback */ }
   localSave([]);
