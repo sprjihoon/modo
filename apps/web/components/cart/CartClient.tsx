@@ -512,7 +512,7 @@ export function CartClient() {
 
       <div className="mx-4 mt-3 p-3.5 bg-gray-50 rounded-xl">
         <p className="text-xs text-gray-400 leading-relaxed">
-          💡 저장된 수거신청은 이 기기에만 보관됩니다. &apos;이어서 수거신청&apos;을 눌러 중단된 곳부터 계속할 수 있습니다.
+          💡 장바구니는 모든 기기에서 동기화됩니다. &apos;이어서 수거신청&apos;을 눌러 중단된 곳부터 계속할 수 있습니다.
         </p>
       </div>
 
