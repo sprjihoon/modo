@@ -205,6 +205,36 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
     await _saveLocalCache();
   }
 
+  /// OrderDraft 형식(수거 정보 포함)으로 장바구니에 추가한다.
+  Future<void> addOrderDraftToCart(Map<String, dynamic> orderDraft) async {
+    final localId = '${DateTime.now().millisecondsSinceEpoch}';
+    final repairItems = (orderDraft['repairItems'] as List?) ?? [];
+    final imageUrls = List<String>.from((orderDraft['imageUrls'] as List?) ?? []);
+
+    // 로컬 상태에는 각 repairItem을 CartItem으로 추가
+    final newItems = <CartItem>[];
+    for (int i = 0; i < repairItems.length; i++) {
+      final ri = Map<String, dynamic>.from(repairItems[i] as Map);
+      if (!ri.containsKey('repairPart') ||
+          (ri['repairPart'] as String? ?? '').isEmpty) {
+        ri['repairPart'] = ri['name'] ?? '';
+      }
+      newItems.add(CartItem(
+        id: '${localId}_$i',
+        repairItem: ri,
+        imageUrls: imageUrls,
+      ));
+    }
+
+    // 서버에는 전체 OrderDraft 를 하나의 row 로 저장
+    if (_svc.isLoggedIn) {
+      await _svc.addOrderDraft(orderDraft);
+    }
+
+    state = [...state, ...newItems];
+    await _saveLocalCache();
+  }
+
   /// 항목을 장바구니에서 제거한다.
   Future<void> removeFromCart(String itemId) async {
     final target = state.firstWhere(

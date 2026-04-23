@@ -19,7 +19,6 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage>
   final List<String> _imageUrls = [];
   final List<Map<String, dynamic>> _repairItems = [];
   bool _isLoading = false;
-  bool _autoSaved = false; // 중복 저장 방지
 
   @override
   void initState() {
@@ -33,26 +32,10 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage>
     super.dispose();
   }
 
-  /// 앱이 백그라운드/종료될 때 자동으로 장바구니에 저장한다.
+  /// 앱이 백그라운드/종료 시에는 자동 저장하지 않는다.
+  /// 사용자가 명시적으로 선택해야만 저장된다.
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if ((state == AppLifecycleState.paused ||
-            state == AppLifecycleState.detached) &&
-        _repairItems.isNotEmpty &&
-        !_autoSaved) {
-      _autoSave();
-    }
-  }
-
-  /// 조용히 장바구니에 저장 (스낵바/이동 없음).
-  Future<void> _autoSave() async {
-    if (_autoSaved || _repairItems.isEmpty) return;
-    _autoSaved = true;
-    await ref.read(cartProvider.notifier).addToCart(
-          repairItems: List<Map<String, dynamic>>.from(_repairItems),
-          imageUrls: List<String>.from(_imageUrls),
-        );
-  }
+  void didChangeAppLifecycleState(AppLifecycleState state) {}
 
   // 수선 항목 추가
   void _addRepairItem(Map<String, dynamic> item) {
@@ -180,50 +163,96 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage>
     });
   }
 
-  /// 홈 버튼: 수선 항목이 있으면 자동 저장 후 홈으로 이동
+  /// 홈/뒤로 버튼: 수선 항목이 있으면 이탈 확인 다이얼로그
   Future<void> _handleHome() async {
-    if (_repairItems.isNotEmpty && !_autoSaved) {
-      await _autoSave();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('장바구니에 자동 저장되었습니다'),
-          backgroundColor: Color(0xFF00C896),
-          duration: Duration(seconds: 2),
-        ),
-      );
+    if (_repairItems.isEmpty) {
+      GoRouter.of(context).go('/home');
+      return;
     }
-    if (!mounted) return;
-    GoRouter.of(context).go('/home');
+    await _showExitDialog(onConfirmExit: () => GoRouter.of(context).go('/home'));
   }
 
-  /// 뒤로가기 시 장바구니 저장 여부 확인
-  Future<bool> _onWillPop() async {
-    if (_repairItems.isEmpty) return true;
-    if (!mounted) return true;
-    final result = await showDialog<String>(
+  /// 이탈 확인 다이얼로그 (계속하기 / 장바구니 담기 / 저장없이 나가기)
+  Future<void> _showExitDialog({required VoidCallback onConfirmExit}) async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('수거신청 중단'),
-        content: const Text('작성 중인 수선 항목을 장바구니에 저장하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop('discard'),
-            child: Text('그냥 나가기', style: TextStyle(color: Colors.grey.shade600)),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '신청을 중단하시겠어요?',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '지금까지 입력한 내용을 장바구니에 저장할 수 있습니다.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00C896),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('계속 신청하기', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () async {
+                    Navigator.of(ctx).pop();
+                    await _saveToCart();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF00C896),
+                    side: const BorderSide(color: Color(0xFF00C896)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('장바구니에 담고 나가기', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    onConfirmExit();
+                  },
+                  child: Text('저장 없이 나가기', style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop('cart'),
-            child: const Text('장바구니 저장', style: TextStyle(color: Color(0xFF00C896), fontWeight: FontWeight.bold)),
-          ),
-        ],
+        ),
       ),
     );
-    if (result == 'cart') {
-      await _saveToCart();
-      return false;
-    }
-    return result == 'discard';
+  }
+
+  /// 뒤로가기 시 이탈 확인
+  Future<bool> _onWillPop() async {
+    if (_repairItems.isEmpty) return true;
+    bool shouldPop = false;
+    await _showExitDialog(onConfirmExit: () { shouldPop = true; });
+    return shouldPop;
   }
 
   /// 다음 단계로 이동 (최종 확인)

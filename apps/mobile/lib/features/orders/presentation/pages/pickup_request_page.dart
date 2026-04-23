@@ -70,8 +70,6 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   // 배송비 글로벌 설정 (관리자 페이지 값)
   ShippingSettings _shippingSettings = ShippingSettings.fallback;
 
-  bool _autoSaved = false; // 중복 저장 방지
-
   @override
   void initState() {
     super.initState();
@@ -81,42 +79,89 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
     _loadShippingPromotion();
   }
 
-  /// 앱이 백그라운드/종료될 때 자동으로 장바구니에 저장한다.
+  /// 앱이 백그라운드/종료 시에는 자동 저장하지 않는다.
+  /// 사용자가 명시적으로 선택해야만 저장된다.
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if ((state == AppLifecycleState.paused ||
-            state == AppLifecycleState.detached) &&
-        widget.repairItems.isNotEmpty &&
-        !_autoSaved) {
-      _autoSave();
-    }
-  }
+  void didChangeAppLifecycleState(AppLifecycleState state) {}
 
-  /// 조용히 장바구니에 저장 (스낵바/이동 없음).
-  Future<void> _autoSave() async {
-    if (_autoSaved || widget.repairItems.isEmpty) return;
-    _autoSaved = true;
-    await ref.read(cartProvider.notifier).addToCart(
-          repairItems: List<Map<String, dynamic>>.from(widget.repairItems),
-          imageUrls: List<String>.from(widget.imageUrls),
-        );
-  }
-
-  /// 홈 버튼: 자동 저장 후 홈으로 이동
+  /// 홈 버튼: 이탈 확인 다이얼로그
   Future<void> _handleHome() async {
-    if (widget.repairItems.isNotEmpty && !_autoSaved) {
-      await _autoSave();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('장바구니에 자동 저장되었습니다'),
-          backgroundColor: Color(0xFF00C896),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
+    await _showExitDialog(onConfirmExit: () => GoRouter.of(context).go('/home'));
+  }
+
+  /// 이탈 확인 다이얼로그 (계속하기 / 장바구니 담기 / 저장없이 나가기)
+  Future<void> _showExitDialog({required VoidCallback onConfirmExit}) async {
     if (!mounted) return;
-    GoRouter.of(context).go('/home');
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '신청을 중단하시겠어요?',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '지금까지 입력한 내용을 장바구니에 저장할 수 있습니다.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00C896),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('계속 신청하기', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () async {
+                    Navigator.of(ctx).pop();
+                    await _saveToCart();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF00C896),
+                    side: const BorderSide(color: Color(0xFF00C896)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('장바구니에 담고 나가기', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    onConfirmExit();
+                  },
+                  child: Text('저장 없이 나가기', style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadShippingSettings() async {
@@ -203,15 +248,55 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
     return '${date.year}년 ${date.month}월 ${date.day}일 ($weekday)';
   }
   
-  /// 장바구니에 담기 (수거신청 중단 시)
+  /// 장바구니에 담기 — 수거 정보까지 포함한 완전한 OrderDraft 저장
   Future<void> _saveToCart() async {
-    _autoSaved = true; // lifecycle 중복 저장 방지
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
-    await ref.read(cartProvider.notifier).addToCart(
-      repairItems: List<Map<String, dynamic>>.from(widget.repairItems),
-      imageUrls: List<String>.from(widget.imageUrls),
-    );
+
+    // 웹과 동일한 OrderDraft 포맷으로 변환
+    final repairItemsForDraft = widget.repairItems.map((item) {
+      final priceRange = item['priceRange'] as String? ?? '';
+      final prices = priceRange.split('~');
+      int minPrice = 0;
+      if (prices.isNotEmpty) {
+        final cleaned = prices[0].replaceAll(RegExp(r'[^0-9]'), '');
+        minPrice = int.tryParse(cleaned) ?? 0;
+      }
+      return {
+        'name': item['repairPart'] ?? item['name'] ?? '',
+        'price': minPrice,
+        'priceRange': priceRange,
+        'quantity': 1,
+        'repairPart': item['repairPart'] ?? '',
+        'scope': item['scope'] ?? '',
+        'measurement': item['measurement'] ?? '',
+      };
+    }).toList();
+
+    final orderDraft = <String, dynamic>{
+      'clothingType': '',
+      'repairItems': repairItemsForDraft,
+      'imageUrls': List<String>.from(widget.imageUrls),
+      'imagesWithPins': widget.imagesWithPins ?? [],
+      // 수거 정보 포함
+      'pickupAddress': _addressController.text,
+      'pickupAddressDetail': _addressDetailController.text,
+      'pickupZipcode': _zipcodeController.text,
+      'pickupDate': _selectedPickupDate?.toIso8601String(),
+      'notes': _requestController.text,
+      'deliveryAddress': _isDeliveryAddressSame
+          ? _addressController.text
+          : _deliveryAddressController.text,
+      'deliveryAddressDetail': _isDeliveryAddressSame
+          ? _addressDetailController.text
+          : _deliveryAddressDetailController.text,
+      'deliveryZipcode': _isDeliveryAddressSame
+          ? _zipcodeController.text
+          : _deliveryZipcodeController.text,
+    };
+
+    await ref.read(cartProvider.notifier).addOrderDraftToCart(orderDraft);
+
     if (!mounted) return;
     messenger.showSnackBar(
       const SnackBar(
@@ -227,32 +312,107 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
     });
   }
 
-  /// 뒤로가기 시 장바구니 저장 여부 확인
+  /// 뒤로가기 시 이탈 확인
   Future<bool> _onWillPop() async {
     if (!mounted) return true;
-    final result = await showDialog<String>(
+    bool shouldPop = false;
+    await _showExitDialog(onConfirmExit: () { shouldPop = true; });
+    return shouldPop;
+  }
+
+  /// 수거 정보 완료 후 결제/장바구니 선택 모달
+  Future<void> _showPaymentChoiceModal() async {
+    // 주소 유효성 검사
+    if (_addressController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('수거지를 선택해주세요'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (!_isDeliveryAddressSame) {
+      if (_deliveryAddressController.text.isEmpty ||
+          _deliveryRecipientNameController.text.isEmpty ||
+          _deliveryRecipientPhoneController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('배송지 정보를 모두 입력해주세요'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('수거신청 중단'),
-        content: const Text('작성 중인 수거신청을 장바구니에 저장하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop('discard'),
-            child: Text('그냥 나가기', style: TextStyle(color: Colors.grey.shade600)),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '어떻게 하시겠어요?',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '바로 결제하거나 장바구니에 담아두고 나중에 결제할 수 있습니다.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    _createOrderAndProceedToPayment();
+                  },
+                  icon: const Icon(Icons.credit_card_outlined, size: 18),
+                  label: const Text('바로 결제하기', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00C896),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    Navigator.of(ctx).pop();
+                    await _saveToCart();
+                  },
+                  icon: const Icon(Icons.shopping_cart_outlined, size: 18),
+                  label: const Text('장바구니에 담기', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF00C896),
+                    side: const BorderSide(color: Color(0xFF00C896)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text('취소 (수거정보 다시 확인)', style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop('cart'),
-            child: const Text('장바구니 저장', style: TextStyle(color: Color(0xFF00C896), fontWeight: FontWeight.bold)),
-          ),
-        ],
+        ),
       ),
     );
-    if (result == 'cart') {
-      await _saveToCart();
-      return false;
-    }
-    return result == 'discard';
   }
 
   /// 기본 배송지 불러오기
@@ -1798,7 +1958,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
               child: ElevatedButton(
                 onPressed: (_addressController.text.isEmpty || _isLoading)
                     ? null
-                    : _createOrderAndProceedToPayment,
+                    : _showPaymentChoiceModal,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: (_addressController.text.isEmpty || _isLoading)
                       ? Colors.grey.shade300
@@ -1821,7 +1981,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                         ),
                       )
                     : const Text(
-                        '주문 생성 및 결제',
+                        '수거 정보 완료',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

@@ -116,6 +116,27 @@ class CartService {
     }
   }
 
+  /// 이미 OrderDraft 포맷으로 준비된 데이터를 그대로 저장한다.
+  /// 수거 정보까지 포함된 완성된 draft를 저장할 때 사용한다.
+  Future<String?> addOrderDraft(Map<String, dynamic> orderDraft) async {
+    final userId = await _resolveUserId();
+    if (userId == null) return null;
+    try {
+      final row = await _supabase
+          .from('cart_drafts')
+          .insert({
+            'user_id': userId,
+            'draft_data': orderDraft,
+          })
+          .select('id')
+          .single();
+      return row['id'] as String?;
+    } catch (e) {
+      debugPrint('CartService.addOrderDraft error: $e');
+      return null;
+    }
+  }
+
   /// 항목을 삭제한다. [cartDraftId] 는 cart_drafts.id (서버 UUID).
   Future<void> removeItem(String cartDraftId) async {
     try {
