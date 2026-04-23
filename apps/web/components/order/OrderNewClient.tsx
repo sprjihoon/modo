@@ -94,10 +94,10 @@ export function OrderNewClient() {
     draft.repairItems.length > 0 &&
     !savedToCart;
 
-  function handleSaveToCart() {
+  async function handleSaveToCart() {
     if (!canSaveToCart) return;
-    addCartItem(draft);
     setSavedToCart(true);
+    await addCartItem(draft);
     setTimeout(() => router.push("/cart"), 800);
   }
 

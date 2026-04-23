@@ -1,11 +1,14 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../services/cart_service.dart';
 
 /// 장바구니 항목 모델 (개별 수선 항목)
 class CartItem {
-  final String id;
-  final Map<String, dynamic> repairItem; // 단일 수선 항목 (itemImages 포함)
+  final String id;         // 로컬 임시 ID (서버와 연결되면 serverId 로 교체됨)
+  final String? serverId;  // cart_drafts.id (서버 UUID) — null 이면 아직 미업로드
+  final Map<String, dynamic> repairItem;
   final List<String> imageUrls;
   final DateTime addedAt;
 
@@ -13,12 +16,12 @@ class CartItem {
     required this.id,
     required this.repairItem,
     required this.imageUrls,
+    this.serverId,
     DateTime? addedAt,
   }) : addedAt = addedAt ?? DateTime.now();
 
-  /// 가격 계산
   int get price {
-    final priceRange = repairItem['priceRange'] as String;
+    final priceRange = repairItem['priceRange'] as String? ?? '0';
     final prices = priceRange.split('~');
     if (prices.isNotEmpty) {
       final minPrice = prices[0]
@@ -31,123 +34,181 @@ class CartItem {
     return 0;
   }
 
-  /// JSON으로 변환
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'repairItem': repairItem,
-      'imageUrls': imageUrls,
-      'addedAt': addedAt.toIso8601String(),
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'serverId': serverId,
+        'repairItem': repairItem,
+        'imageUrls': imageUrls,
+        'addedAt': addedAt.toIso8601String(),
+      };
 
-  /// JSON에서 생성
-  factory CartItem.fromJson(Map<String, dynamic> json) {
-    return CartItem(
-      id: json['id'] as String,
-      repairItem: json['repairItem'] as Map<String, dynamic>,
-      imageUrls: List<String>.from(json['imageUrls'] as List),
-      addedAt: DateTime.parse(json['addedAt'] as String),
-    );
-  }
+  factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
+        id: json['id'] as String,
+        serverId: json['serverId'] as String?,
+        repairItem: json['repairItem'] as Map<String, dynamic>,
+        imageUrls: List<String>.from(json['imageUrls'] as List),
+        addedAt: DateTime.parse(json['addedAt'] as String),
+      );
+
+  CartItem copyWith({String? serverId}) => CartItem(
+        id: id,
+        serverId: serverId ?? this.serverId,
+        repairItem: repairItem,
+        imageUrls: imageUrls,
+        addedAt: addedAt,
+      );
 }
 
 /// 장바구니 상태 관리
+/// - 로그인 상태이면 Supabase cart_drafts 를 primary storage 로 사용한다.
+/// - 비로그인 상태이면 SharedPreferences fallback.
+/// - 앱 시작 시 서버 데이터를 불러와서 로컬 캐시를 대체한다.
 class CartNotifier extends StateNotifier<List<CartItem>> {
-  static const String _cartKey = 'cart_items';
+  static const String _cacheKey = 'cart_items_v2';
+
+  final _svc = CartService();
 
   CartNotifier() : super([]) {
-    _loadCart();
+    _init();
   }
 
-  /// SharedPreferences에서 장바구니 로드
-  Future<void> _loadCart() async {
+  // ── 초기화 ─────────────────────────────────────────────────────────────
+
+  Future<void> _init() async {
+    // 1. 로컬 캐시를 먼저 보여줘서 빠른 렌더링
+    await _loadLocalCache();
+
+    // 2. 로그인 되어 있으면 서버에서 최신 데이터로 대체
+    if (_svc.isLoggedIn) {
+      await _syncFromServer();
+    }
+  }
+
+  Future<void> _loadLocalCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final cartJson = prefs.getString(_cartKey);
-      if (cartJson != null) {
-        final List<dynamic> cartList = jsonDecode(cartJson);
-        final cartItems = cartList
-            .map((item) => CartItem.fromJson(item as Map<String, dynamic>))
+      final raw = prefs.getString(_cacheKey);
+      if (raw != null) {
+        final list = jsonDecode(raw) as List<dynamic>;
+        state = list
+            .map((e) => CartItem.fromJson(e as Map<String, dynamic>))
             .toList();
-        state = cartItems;
       }
     } catch (e) {
-      // 로드 실패 시 빈 장바구니로 시작
-      state = [];
+      debugPrint('CartNotifier._loadLocalCache error: $e');
     }
   }
 
-  /// SharedPreferences에 장바구니 저장
-  Future<void> _saveCart() async {
+  Future<void> _saveLocalCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final cartJson = jsonEncode(state.map((item) => item.toJson()).toList());
-      await prefs.setString(_cartKey, cartJson);
+      await prefs.setString(
+        _cacheKey,
+        jsonEncode(state.map((i) => i.toJson()).toList()),
+      );
     } catch (e) {
-      // 저장 실패는 무시 (로컬 저장소 문제)
+      debugPrint('CartNotifier._saveLocalCache error: $e');
     }
   }
 
-  /// 장바구니에 항목 추가 (각 수선 항목을 개별 카드로)
+  /// 서버 데이터를 내려받아 로컬 state 를 덮어쓴다.
+  Future<void> _syncFromServer() async {
+    try {
+      final rows = await _svc.fetchAll();
+      final items = rows.map((row) {
+        final data = Map<String, dynamic>.from(row['draft_data'] as Map);
+        // serverId 는 row['id'] (cart_drafts.id)
+        data['serverId'] = row['id'] as String;
+        return CartItem.fromJson(data);
+      }).toList();
+      state = items;
+      await _saveLocalCache();
+    } catch (e) {
+      debugPrint('CartNotifier._syncFromServer error: $e');
+    }
+  }
+
+  // ── 공개 API ────────────────────────────────────────────────────────────
+
+  /// 서버에서 최신 장바구니를 다시 불러온다 (pull-to-refresh 등에서 호출).
+  Future<void> refresh() async {
+    if (_svc.isLoggedIn) {
+      await _syncFromServer();
+    } else {
+      await _loadLocalCache();
+    }
+  }
+
+  /// 수선 항목들을 장바구니에 추가한다.
   Future<void> addToCart({
     required List<Map<String, dynamic>> repairItems,
     required List<String> imageUrls,
   }) async {
-    // 각 수선 항목을 개별 CartItem으로 변환
-    final int baseTimestamp = DateTime.now().millisecondsSinceEpoch;
-    
-    final List<CartItem> newItems = [];
+    final base = DateTime.now().millisecondsSinceEpoch;
+    final newItems = <CartItem>[];
+
     for (int i = 0; i < repairItems.length; i++) {
-      final item = CartItem(
-        id: '${baseTimestamp + i}',
-        repairItem: repairItems[i],  // repairItem에 itemImages가 포함됨
+      final localId = '${base + i}';
+      var item = CartItem(
+        id: localId,
+        repairItem: repairItems[i],
         imageUrls: imageUrls,
       );
+
+      // 서버에 업로드
+      if (_svc.isLoggedIn) {
+        final serverId = await _svc.addItem(item.toJson());
+        if (serverId != null) {
+          item = item.copyWith(serverId: serverId);
+        }
+      }
+
       newItems.add(item);
     }
-    
+
     state = [...state, ...newItems];
-    await _saveCart();
+    await _saveLocalCache();
   }
 
-  /// 장바구니에서 항목 제거
+  /// 항목을 장바구니에서 제거한다.
   Future<void> removeFromCart(String itemId) async {
-    state = state.where((item) => item.id != itemId).toList();
-    await _saveCart();
+    final target = state.firstWhere(
+      (i) => i.id == itemId,
+      orElse: () => CartItem(id: '', repairItem: {}, imageUrls: []),
+    );
+
+    // 서버에서 삭제
+    if (_svc.isLoggedIn && target.serverId != null) {
+      await _svc.removeItem(target.serverId!);
+    }
+
+    state = state.where((i) => i.id != itemId).toList();
+    await _saveLocalCache();
   }
 
-  /// 장바구니 비우기
+  /// 장바구니를 전체 비운다.
   Future<void> clearCart() async {
+    if (_svc.isLoggedIn) {
+      await _svc.clearAll();
+    }
     state = [];
-    await _saveCart();
+    await _saveLocalCache();
   }
 
-  /// 전체 가격 계산
-  int getTotalPrice() {
-    return state.fold(0, (sum, item) => sum + item.price);
-  }
-
-  /// 전체 항목 개수
-  int getTotalItemCount() {
-    return state.length; // 각 카드가 1개 항목
-  }
+  int getTotalPrice() => state.fold(0, (s, i) => s + i.price);
+  int getTotalItemCount() => state.length;
 }
 
-/// 장바구니 Provider
-final cartProvider = StateNotifierProvider<CartNotifier, List<CartItem>>((ref) {
+/// Providers
+final cartProvider =
+    StateNotifierProvider<CartNotifier, List<CartItem>>((ref) {
   return CartNotifier();
 });
 
-/// 장바구니 항목 개수 Provider
 final cartItemCountProvider = Provider<int>((ref) {
-  final cart = ref.watch(cartProvider);
-  return cart.length; // 각 카드가 1개 항목
+  return ref.watch(cartProvider).length;
 });
 
-/// 장바구니 총 가격 Provider
 final cartTotalPriceProvider = Provider<int>((ref) {
-  final cart = ref.watch(cartProvider);
-  return cart.fold(0, (sum, item) => sum + item.price);
+  return ref.watch(cartProvider).fold(0, (s, i) => s + i.price);
 });
-

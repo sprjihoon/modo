@@ -1,54 +1,161 @@
+/**
+ * 장바구니 — 크로스 디바이스 (Supabase cart_drafts 기반)
+ *
+ * 로그인 상태이면 Supabase 를 primary storage 로 사용한다.
+ * 비로그인 / 서버 오류 시에는 localStorage 를 fallback 으로 유지한다.
+ */
+import { createClient } from "@/lib/supabase/client";
 import { OrderDraft } from "@/components/order/OrderNewClient";
 
 export interface CartDraftItem {
-  id: string;
+  id: string;          // cart_drafts.id (서버 UUID) 또는 로컬 임시 ID
   savedAt: string;
   draft: OrderDraft;
 }
 
-const CART_KEY = "modu_cart_drafts";
+const LOCAL_KEY = "modu_cart_drafts_v2";
 
-function load(): CartDraftItem[] {
+// ── localStorage helpers ─────────────────────────────────────────────────
+
+function localLoad(): CartDraftItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(CART_KEY);
+    const raw = localStorage.getItem(LOCAL_KEY);
     return raw ? (JSON.parse(raw) as CartDraftItem[]) : [];
   } catch {
     return [];
   }
 }
 
-function save(items: CartDraftItem[]) {
+function localSave(items: CartDraftItem[]) {
   try {
-    localStorage.setItem(CART_KEY, JSON.stringify(items));
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(items));
     window.dispatchEvent(new CustomEvent("modu_cart_update"));
   } catch { /* ignore */ }
 }
 
-export function getCartItems(): CartDraftItem[] {
-  return load();
+// ── 내부 헬퍼 ────────────────────────────────────────────────────────────
+
+async function resolveUserId(): Promise<string | null> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data: row } = await supabase
+      .from("users")
+      .select("id")
+      .eq("auth_id", user.id)
+      .maybeSingle();
+    return row?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
-export function addCartItem(draft: OrderDraft): CartDraftItem {
-  const items = load();
+// ── 공개 API ─────────────────────────────────────────────────────────────
+
+/** 장바구니 항목을 모두 불러온다 (서버 우선, fallback: localStorage). */
+export async function fetchCartItems(): Promise<CartDraftItem[]> {
+  try {
+    const userId = await resolveUserId();
+    if (!userId) return localLoad();
+
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("cart_drafts")
+      .select("id, draft_data, created_at")
+      .eq("user_id", userId)
+      .eq("source", "web")
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    const items: CartDraftItem[] = (data ?? []).map((row) => ({
+      id: row.id as string,
+      savedAt: row.created_at as string,
+      draft: row.draft_data as OrderDraft,
+    }));
+
+    // 서버 데이터를 로컬에도 캐싱
+    localSave(items);
+    return items;
+  } catch {
+    // 서버 오류 시 로컬 캐시 반환
+    return localLoad();
+  }
+}
+
+/** 항목 하나를 추가한다. */
+export async function addCartItem(draft: OrderDraft): Promise<CartDraftItem> {
+  try {
+    const userId = await resolveUserId();
+    if (userId) {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("cart_drafts")
+        .insert({ user_id: userId, draft_data: draft, source: "web" })
+        .select("id, created_at")
+        .single();
+      if (error) throw error;
+      const item: CartDraftItem = {
+        id: data.id as string,
+        savedAt: data.created_at as string,
+        draft,
+      };
+      // 로컬 캐시 갱신
+      const cached = localLoad();
+      localSave([item, ...cached]);
+      return item;
+    }
+  } catch { /* fallback to local */ }
+
+  // 비로그인 / 에러 → localStorage
   const item: CartDraftItem = {
     id: `cart_${Date.now()}`,
     savedAt: new Date().toISOString(),
     draft,
   };
-  save([item, ...items]);
+  const items = localLoad();
+  localSave([item, ...items]);
   return item;
 }
 
-export function removeCartItem(id: string) {
-  const items = load().filter((i) => i.id !== id);
-  save(items);
+/** 항목 하나를 삭제한다. */
+export async function removeCartItem(id: string): Promise<void> {
+  try {
+    const userId = await resolveUserId();
+    if (userId) {
+      const supabase = createClient();
+      await supabase.from("cart_drafts").delete().eq("id", id);
+    }
+  } catch { /* fallback: 로컬만 삭제 */ }
+
+  const items = localLoad().filter((i) => i.id !== id);
+  localSave(items);
 }
 
-export function clearCartItems() {
-  save([]);
+/** 장바구니 전체 비우기. */
+export async function clearCartItems(): Promise<void> {
+  try {
+    const userId = await resolveUserId();
+    if (userId) {
+      const supabase = createClient();
+      await supabase
+        .from("cart_drafts")
+        .delete()
+        .eq("user_id", userId)
+        .eq("source", "web");
+    }
+  } catch { /* fallback */ }
+  localSave([]);
 }
 
+/** 로컬 캐시 기반 즉시 카운트 (동기, SSR-safe). */
 export function getCartCount(): number {
-  return load().length;
+  return localLoad().length;
+}
+
+// 하위 호환: 동기 getCartItems (로컬 캐시 반환)
+export function getCartItems(): CartDraftItem[] {
+  return localLoad();
 }

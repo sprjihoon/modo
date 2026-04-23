@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Package, ShoppingCart } from "lucide-react";
 import { RecentOrderCard } from "@/components/home/RecentOrderCard";
+import { fetchCartItems } from "@/lib/cart";
 
 interface Order {
   id: string;
@@ -14,25 +15,6 @@ interface Order {
   total_price?: number;
   created_at?: string;
   pickup_date?: string;
-  payment_status?: string;
-  cancelled_at?: string | null;
-  canceled_at?: string | null;
-}
-
-const PENDING_STATUSES = new Set(["PENDING", "PENDING_PAYMENT"]);
-const BLOCKED_PAYMENT_STATUSES = new Set([
-  "CANCELED",
-  "CANCELLED",
-  "REFUNDED",
-  "PAID",
-]);
-
-function isOpenPendingPayment(order: Order): boolean {
-  if (!PENDING_STATUSES.has(order.status)) return false;
-  if (order.cancelled_at || order.canceled_at) return false;
-  const ps = (order.payment_status ?? "").toUpperCase();
-  if (BLOCKED_PAYMENT_STATUSES.has(ps)) return false;
-  return true;
 }
 
 const STATUS_TABS = [
@@ -48,22 +30,26 @@ export function OrderListClient() {
   const [activeTab, setActiveTab] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
     loadOrders();
+    fetchCartItems().then((items) => setCartCount(items.length));
+
+    const onCartUpdate = () => {
+      fetchCartItems().then((items) => setCartCount(items.length));
+    };
+    window.addEventListener("modu_cart_update", onCartUpdate);
+    return () => window.removeEventListener("modu_cart_update", onCartUpdate);
   }, []);
 
   useEffect(() => {
-    // 결제 대기(미결제) 주문만 장바구니로 이동 처리 → 주문목록에서 제외 (취소된 건은 그대로 노출)
-    const nonPending = orders.filter((o) => !isOpenPendingPayment(o));
     if (activeTab === "") {
-      setFiltered(nonPending);
+      setFiltered(orders);
     } else if (activeTab === "active") {
-      setFiltered(
-        nonPending.filter((o) => !["DELIVERED", "CANCELLED"].includes(o.status))
-      );
+      setFiltered(orders.filter((o) => !["DELIVERED", "CANCELLED"].includes(o.status)));
     } else {
-      setFiltered(nonPending.filter((o) => o.status === activeTab));
+      setFiltered(orders.filter((o) => o.status === activeTab));
     }
   }, [activeTab, orders]);
 
@@ -81,7 +67,7 @@ export function OrderListClient() {
     }
   }
 
-  const pendingCount = orders.filter(isOpenPendingPayment).length;
+  const pendingCount = cartCount;
 
   if (hasError) {
     return (

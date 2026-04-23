@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Receipt, CreditCard, ShoppingCart } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice } from "@/lib/utils";
+import { fetchCartItems } from "@/lib/cart";
 
 interface Payment {
   id: string;
@@ -76,18 +77,9 @@ export function PaymentHistoryClient() {
 
       setPayments(rows);
 
-      // 결제 대기 주문 개수 (배너 표시용)
-      // 취소/환불/결제완료된 주문은 제외 — status 필드가 PENDING으로 잔존하는 케이스 방지
-      const pendingUserId = userRow?.id ?? user.id;
-      const { count } = await supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", pendingUserId)
-        .in("status", ["PENDING", "PENDING_PAYMENT"])
-        .is("cancelled_at", null)
-        .is("canceled_at", null)
-        .not("payment_status", "in", "(CANCELED,CANCELLED,REFUNDED,PAID)");
-      setPendingCount(count ?? 0);
+      // 장바구니 카운트 (서버 cart_drafts 기반)
+      const cartItems = await fetchCartItems();
+      setPendingCount(cartItems.length);
     } catch (e) {
       console.error("[결제내역] 예상치 못한 오류:", e);
       setError("결제 내역을 불러오는 중 오류가 발생했습니다.");

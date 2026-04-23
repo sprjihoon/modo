@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/payment_service.dart';
 import '../../../orders/providers/cart_provider.dart';
-import '../../../../services/order_service.dart';
 
 /// 결제내역 페이지
 class PaymentHistoryPage extends ConsumerStatefulWidget {
@@ -23,9 +22,7 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
   bool _isLoading = true;
   String? _errorMessage;
   List<Map<String, dynamic>> _allPayments = [];
-  int _pendingOrderCount = 0;
   final _paymentService = PaymentService();
-  final _orderService = OrderService();
 
   @override
   void initState() {
@@ -48,29 +45,8 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
         return;
       }
       final data = await _paymentService.getPaymentHistory();
-      // 결제 대기 주문 개수 (배너 표시용)
-      // 취소/환불/결제완료된 주문은 제외 — status 필드가 PENDING으로 잔존하는 케이스 방지
-      int pending = 0;
-      try {
-        final orders = await _orderService.getMyOrders();
-        pending = orders.where((o) {
-          final status = (o['status'] as String? ?? '').toUpperCase();
-          if (status != 'PENDING' && status != 'PENDING_PAYMENT') return false;
-          if (o['cancelled_at'] != null || o['canceled_at'] != null) {
-            return false;
-          }
-          final paymentStatus =
-              (o['payment_status'] as String? ?? '').toUpperCase();
-          const blocked = {'CANCELED', 'CANCELLED', 'REFUNDED', 'PAID'};
-          if (blocked.contains(paymentStatus)) return false;
-          return true;
-        }).length;
-      } catch (_) {
-        pending = 0;
-      }
       setState(() {
         _allPayments = data;
-        _pendingOrderCount = pending;
         _isLoading = false;
       });
     } catch (e) {
@@ -83,8 +59,7 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
 
   Widget _buildPaymentPendingBanner() {
     final cartCount = ref.watch(cartItemCountProvider);
-    final totalCount = cartCount + _pendingOrderCount;
-    if (totalCount == 0) return const SizedBox.shrink();
+    if (cartCount == 0) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -109,7 +84,7 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '장바구니에 결제할 건 $totalCount건이 있어요',
+                      '장바구니에 결제할 건 $cartCount건이 있어요',
                       style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.bold,

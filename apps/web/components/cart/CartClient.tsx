@@ -10,7 +10,11 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice } from "@/lib/utils";
-import { getCartItems, removeCartItem, CartDraftItem } from "@/lib/cart";
+import {
+  fetchCartItems,
+  removeCartItem,
+  CartDraftItem,
+} from "@/lib/cart";
 import { cn } from "@/lib/utils";
 
 // 폴백 — 실제 사용 시 GET /api/shipping-settings 로 교체됨
@@ -61,10 +65,19 @@ export function CartClient() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    restoreBatchSession().then(() => {
-      setDraftItems(getCartItems());
-      loadPendingOrders();
+    restoreBatchSession().then(async () => {
+      // 서버 우선, fallback: localStorage 캐시
+      const items = await fetchCartItems();
+      setDraftItems(items);
+      await loadPendingOrders();
     });
+
+    // 같은 탭 내 cart 변경 이벤트 수신
+    const onCartUpdate = () => {
+      fetchCartItems().then(setDraftItems);
+    };
+    window.addEventListener("modu_cart_update", onCartUpdate);
+    return () => window.removeEventListener("modu_cart_update", onCartUpdate);
   }, []);
 
   /** 결제 안 하고 돌아온 경우 대표 주문 total 원복 */
@@ -109,9 +122,10 @@ export function CartClient() {
     }
   }
 
-  function handleRemoveDraft(id: string) {
-    removeCartItem(id);
+  async function handleRemoveDraft(id: string) {
+    // 먼저 UI 에서 제거 (낙관적 업데이트)
     setDraftItems((prev) => prev.filter((i) => i.id !== id));
+    await removeCartItem(id);
   }
 
   function handleResumeDraft(item: CartDraftItem) {
