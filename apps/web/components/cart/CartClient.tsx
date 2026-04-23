@@ -427,7 +427,8 @@ export function CartClient() {
           <div className="space-y-3 px-4">
             {draftItems.map((item) => {
               const d = item.draft;
-              const repairTotal = d.repairItems.reduce(
+              const repairItems = d.repairItems ?? [];
+              const repairTotal = repairItems.reduce(
                 (s, r) => s + r.price * (r.quantity ?? 1),
                 0
               );
@@ -448,7 +449,7 @@ export function CartClient() {
                             : d.repairItems.map((r) => r.name).join(", ")}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {d.repairItems.length}개 수선 항목
+                          {repairItems.length}개 수선 항목
                           {repairTotal > 0 && (
                             <span className="ml-2 font-semibold text-[#00C896]">
                               수선비 {formatPrice(repairTotal)}~
@@ -468,7 +469,7 @@ export function CartClient() {
                     </div>
 
                     <div className="flex flex-wrap gap-1.5 mt-3">
-                      {d.repairItems.slice(0, 4).map((r, i) => (
+                      {repairItems.slice(0, 4).map((r, i) => (
                         <span
                           key={i}
                           className="text-[11px] bg-[#00C896]/8 text-[#00C896] px-2 py-0.5 rounded-full border border-[#00C896]/20"
@@ -476,9 +477,9 @@ export function CartClient() {
                           {r.name}
                         </span>
                       ))}
-                      {d.repairItems.length > 4 && (
+                      {repairItems.length > 4 && (
                         <span className="text-[11px] text-gray-400 px-2 py-0.5">
-                          +{d.repairItems.length - 4}개
+                          +{repairItems.length - 4}개
                         </span>
                       )}
                     </div>

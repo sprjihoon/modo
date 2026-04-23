@@ -27,10 +27,23 @@ function localLoad(): CartDraftItem[] {
   }
 }
 
+/**
+ * localStorage에 저장 + modu_cart_update 이벤트 발행.
+ * 쓰기 작업(add/remove/clear) 에서만 호출한다.
+ * fetchCartItems 의 서버→로컬 캐싱에는 localCache() 를 사용해
+ * 이벤트 무한 루프를 방지한다.
+ */
 function localSave(items: CartDraftItem[]) {
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(items));
     window.dispatchEvent(new CustomEvent("modu_cart_update"));
+  } catch { /* ignore */ }
+}
+
+/** 이벤트 없이 로컬 캐시만 갱신 (fetch 결과 캐싱 전용). */
+function localCache(items: CartDraftItem[]) {
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(items));
   } catch { /* ignore */ }
 }
 
@@ -72,8 +85,10 @@ export async function fetchCartItems(): Promise<CartDraftItem[]> {
     const items: CartDraftItem[] = (data ?? []).flatMap((row) => {
       try {
         const d = row.draft_data as Record<string, unknown>;
+        if (!d) return [];
+
         // 구형 앱 포맷(repairItem 단일 맵)은 OrderDraft 형식으로 변환한다.
-        if (d && !Array.isArray(d.repairItems) && d.repairItem) {
+        if (!Array.isArray(d.repairItems) && d.repairItem) {
           const ri = d.repairItem as Record<string, unknown>;
           const converted: OrderDraft = {
             clothingType: (d.clothingType as string) ?? "",
@@ -88,14 +103,20 @@ export async function fetchCartItems(): Promise<CartDraftItem[]> {
           };
           return [{ id: row.id as string, savedAt: row.created_at as string, draft: converted }];
         }
-        return [{ id: row.id as string, savedAt: row.created_at as string, draft: d as unknown as OrderDraft }];
+
+        // 통합 포맷: repairItems 가 없거나 배열이 아니면 빈 배열로 보정한다.
+        const draft = d as unknown as OrderDraft;
+        if (!Array.isArray(draft.repairItems)) draft.repairItems = [];
+        if (!Array.isArray(draft.imageUrls)) draft.imageUrls = [];
+        if (!Array.isArray(draft.imagesWithPins)) draft.imagesWithPins = [];
+        return [{ id: row.id as string, savedAt: row.created_at as string, draft }];
       } catch {
         return [];
       }
     });
 
-    // 서버 데이터를 로컬에도 캐싱
-    localSave(items);
+    // 서버 데이터를 로컬에 캐싱 (이벤트 발행 없이 — 무한 루프 방지)
+    localCache(items);
     return items;
   } catch {
     // 서버 오류 시 로컬 캐시 반환
