@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell, User, ChevronLeft, ShoppingCart, Home } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getCartCount } from "@/lib/cart";
+import { fetchCartItems } from "@/lib/cart";
 
 interface TopHeaderProps {
   title?: string;
@@ -24,21 +24,20 @@ export function TopHeader({
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
-  const [pendingOrderCount, setPendingOrderCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [brandName, setBrandName] = useState<string>(cachedBrandName ?? "모두의수선");
 
   useEffect(() => {
-    setCartCount(getCartCount());
+    const refresh = () => fetchCartItems().then((items) => setCartCount(items.length));
+    refresh();
 
-    const onCartUpdate = () => setCartCount(getCartCount());
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "modu_cart_drafts") onCartUpdate();
+      if (e.key === "modu_cart_drafts_v2") refresh();
     };
-    window.addEventListener("modu_cart_update", onCartUpdate);
+    window.addEventListener("modu_cart_update", refresh);
     window.addEventListener("storage", onStorage);
     return () => {
-      window.removeEventListener("modu_cart_update", onCartUpdate);
+      window.removeEventListener("modu_cart_update", refresh);
       window.removeEventListener("storage", onStorage);
     };
   }, []);
@@ -48,10 +47,7 @@ export function TopHeader({
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       setIsLoggedIn(!!user);
-      if (user) {
-        fetchUnreadCount(user.id);
-        fetchPendingOrderCount(supabase, user.id);
-      }
+      if (user) fetchUnreadCount(user.id);
     });
 
     // company_info에서 브랜드명 로드 (캐시 활용)
@@ -81,28 +77,6 @@ export function TopHeader({
     window.addEventListener("modu_notifications_read", onNotificationsRead);
     return () => window.removeEventListener("modu_notifications_read", onNotificationsRead);
   }, []);
-
-  async function fetchPendingOrderCount(
-    supabase: ReturnType<typeof createClient>,
-    authId: string
-  ) {
-    try {
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("id")
-        .eq("auth_id", authId)
-        .maybeSingle();
-      if (!userRow) return;
-      const { count } = await supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userRow.id)
-        .eq("status", "PENDING_PAYMENT");
-      setPendingOrderCount(count ?? 0);
-    } catch {
-      // 조회 실패 시 무시
-    }
-  }
 
   async function fetchUnreadCount(authId: string) {
     try {
@@ -185,9 +159,9 @@ export function TopHeader({
               aria-label="장바구니"
             >
               <ShoppingCart className="w-5 h-5 text-gray-700" />
-              {(cartCount + pendingOrderCount) > 0 && (
+              {cartCount > 0 && (
                 <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
-                  {(cartCount + pendingOrderCount) > 99 ? "99+" : (cartCount + pendingOrderCount)}
+                  {cartCount > 99 ? "99+" : cartCount}
                 </span>
               )}
             </Link>

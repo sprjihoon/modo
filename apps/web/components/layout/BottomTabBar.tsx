@@ -5,8 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, Package, Bell, User, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { getCartCount } from "@/lib/cart";
-import { createClient } from "@/lib/supabase/client";
+import { fetchCartItems } from "@/lib/cart";
 
 const tabs = [
   { href: "/", icon: Home, label: "홈" },
@@ -21,29 +20,8 @@ export function BottomTabBar() {
   const [cartBadge, setCartBadge] = useState(0);
 
   useEffect(() => {
-    async function updateBadge() {
-      let count = getCartCount();
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: userRow } = await supabase
-            .from("users")
-            .select("id")
-            .eq("auth_id", user.id)
-            .maybeSingle();
-          if (userRow) {
-            const { count: pendingCount } = await supabase
-              .from("orders")
-              .select("id", { count: "exact", head: true })
-              .eq("user_id", userRow.id)
-              .eq("status", "PENDING_PAYMENT");
-            count += pendingCount ?? 0;
-          }
-        }
-      } catch { /* ignore */ }
-      setCartBadge(count);
-    }
+    const updateBadge = () =>
+      fetchCartItems().then((items) => setCartBadge(items.length));
     updateBadge();
 
     window.addEventListener("modu_cart_update", updateBadge);
