@@ -595,7 +595,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
               : "bg-gray-200 text-gray-400 cursor-not-allowed"
           )}
         >
-          {isSubmitting ? "처리 중..." : "결제하기"}
+          {isSubmitting ? "처리 중..." : "수거 정보 완료"}
         </button>
       </div>
     </div>

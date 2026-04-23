@@ -107,19 +107,33 @@ export function TopHeader({
         {showBack ? (
           <>
             <button
-              onClick={() => router.back()}
+              onClick={() => {
+                const e = new CustomEvent("modu_before_navigate", {
+                  cancelable: true,
+                  detail: { type: "back" },
+                });
+                const cancelled = !window.dispatchEvent(e);
+                if (!cancelled) router.back();
+              }}
               className="p-1 -ml-1 active:opacity-60"
               aria-label="뒤로가기"
             >
               <ChevronLeft className="w-6 h-6 text-gray-800" />
             </button>
-            <Link
-              href="/"
+            <button
+              onClick={() => {
+                const e = new CustomEvent("modu_before_navigate", {
+                  cancelable: true,
+                  detail: { type: "home" },
+                });
+                const cancelled = !window.dispatchEvent(e);
+                if (!cancelled) router.push("/");
+              }}
               className="p-1 active:opacity-60"
               aria-label="홈으로"
             >
               <Home className="w-5 h-5 text-gray-500" />
-            </Link>
+            </button>
           </>
         ) : null}
 
