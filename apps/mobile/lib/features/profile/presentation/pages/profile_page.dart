@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../auth/data/providers/auth_provider.dart';
 
 /// 마이페이지 (프로필)
@@ -14,10 +15,8 @@ class ProfilePage extends ConsumerWidget {
     
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('마이페이지'),
-        elevation: 0,
-        backgroundColor: Colors.white,
+      appBar: const ModoAppBar(
+        title: Text('마이페이지'),
       ),
       body: Column(
         children: [

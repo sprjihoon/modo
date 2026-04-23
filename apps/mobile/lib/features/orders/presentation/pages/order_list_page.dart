@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/order_service.dart';
 
 /// 주문 목록 화면
@@ -87,35 +88,14 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
+      appBar: ModoAppBar(
         title: const Text('주문 내역'),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        toolbarHeight: 60, // 공간은 확보하되 기본에 가깝게
-        centerTitle: true,
-        leadingWidth: 56, // leading 영역 넓힘 (잘림 방지)
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: IconButton(
-            icon: const Icon(Icons.home_outlined, color: Colors.black, size: 24),
-            onPressed: () => context.go('/home'), // 홈 화면으로 직접 이동
-            tooltip: '홈으로',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-            splashRadius: 24,
-          ),
-        ),
+        toolbarHeight: 60,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.black, size: 24),
-              onPressed: _loadOrders,
-              tooltip: '새로고침',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              splashRadius: 24,
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black, size: 24),
+            onPressed: _loadOrders,
+            tooltip: '새로고침',
           ),
         ],
         bottom: PreferredSize(

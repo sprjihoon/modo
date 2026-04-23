@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/payment_service.dart';
 
 /// 결제내역 페이지
@@ -60,10 +61,8 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Colors.grey.shade50,
-        appBar: AppBar(
-          title: const Text('결제내역'),
-          elevation: 0,
-          backgroundColor: Colors.white,
+        appBar: const ModoAppBar(
+          title: Text('결제내역'),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -72,10 +71,8 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
     if (_errorMessage != null) {
       return Scaffold(
         backgroundColor: Colors.grey.shade50,
-        appBar: AppBar(
-          title: const Text('결제내역'),
-          elevation: 0,
-          backgroundColor: Colors.white,
+        appBar: const ModoAppBar(
+          title: Text('결제내역'),
         ),
         body: Center(
           child: Column(
@@ -114,10 +111,8 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('결제내역'),
-        elevation: 0,
-        backgroundColor: Colors.white,
+      appBar: const ModoAppBar(
+        title: Text('결제내역'),
       ),
       body: Column(
         children: [

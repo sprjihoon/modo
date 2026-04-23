@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 소셜 로그인 후 추가 정보 입력 페이지
 /// 이용약관 동의 + 전화번호 입력 (법적 필수사항)
@@ -153,11 +154,11 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
+      appBar: const ModoAppBar(
         automaticallyImplyLeading: false,
-        title: const Text(
+        showBack: false,
+        showHome: false,
+        title: Text(
           '추가 정보 입력',
           style: TextStyle(
             color: Colors.black,

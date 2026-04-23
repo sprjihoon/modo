@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../providers/repair_items_provider.dart';
 
 final supabase = Supabase.instance.client;
@@ -371,36 +372,14 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => context.pop(),
-        ),
-        title: const Text(
+      appBar: const ModoAppBar(
+        title: Text(
           '수선',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true,
-        actions: [
-          TextButton(
-            onPressed: () {
-              // 모든 페이지 닫고 홈으로
-              context.go('/home');
-            },
-            child: const Text(
-              '나가기',
-              style: TextStyle(
-                color: Colors.black54,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
       ),
       body: Column(
         children: [

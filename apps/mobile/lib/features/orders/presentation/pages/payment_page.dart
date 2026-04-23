@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/order_service.dart';
 import '../../domain/models/image_pin.dart';
 
@@ -218,9 +219,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     if (_orderData == null) {
       return Scaffold(
         backgroundColor: Colors.grey.shade50,
-        appBar: AppBar(
-          title: const Text('결제'),
-          elevation: 0,
+        appBar: const ModoAppBar(
+          title: Text('결제'),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -234,9 +234,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('결제'),
-        elevation: 0,
+      appBar: const ModoAppBar(
+        title: Text('결제'),
       ),
       body: Column(
         children: [

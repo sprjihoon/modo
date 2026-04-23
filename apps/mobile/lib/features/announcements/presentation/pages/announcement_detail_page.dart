@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 공지사항 상세 화면
 class AnnouncementDetailPage extends StatefulWidget {
@@ -127,10 +128,8 @@ class _AnnouncementDetailPageState extends State<AnnouncementDetailPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('공지사항'),
-        elevation: 0,
-        backgroundColor: Colors.white,
+      appBar: const ModoAppBar(
+        title: Text('공지사항'),
       ),
       body: SingleChildScrollView(
         child: Column(

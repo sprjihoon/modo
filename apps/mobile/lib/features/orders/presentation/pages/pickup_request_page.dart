@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/address_service.dart';
 import '../../../../services/island_area_service.dart';
 import '../../../../services/order_service.dart';
@@ -682,17 +683,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
       },
       child: Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () async {
-            final navigator = Navigator.of(context);
-            final canLeave = await _onWillPop();
-            if (canLeave && mounted) navigator.pop();
-          },
-        ),
+      appBar: ModoAppBar(
         title: const Text(
           '수거신청',
           style: TextStyle(
@@ -700,7 +691,11 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true,
+        onBack: () async {
+          final navigator = Navigator.of(context);
+          final canLeave = await _onWillPop();
+          if (canLeave && mounted) navigator.pop();
+        },
         actions: [
           IconButton(
             icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF00C896)),

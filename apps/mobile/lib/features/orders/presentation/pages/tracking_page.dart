@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/order_service.dart';
 
 /// 배송추적 페이지
@@ -55,9 +56,8 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('배송추적'),
-        elevation: 0,
+      appBar: const ModoAppBar(
+        title: Text('배송추적'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

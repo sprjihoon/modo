@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/repair_service.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
 import '../../domain/models/image_pin.dart';
@@ -541,35 +542,14 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => context.pop(),
-        ),
-        title: const Text(
+      appBar: const ModoAppBar(
+        title: Text(
           '수선',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true,
-        actions: [
-          TextButton(
-            onPressed: () {
-              context.pop();
-            },
-            child: const Text(
-              '나가기',
-              style: TextStyle(
-                color: Colors.black54,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
       ),
       body: Column(
         children: [

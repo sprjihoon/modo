@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/content_service.dart';
 
 class ContentViewPage extends StatefulWidget {
@@ -40,14 +41,11 @@ class _ContentViewPageState extends State<ContentViewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
+      appBar: ModoAppBar(
         title: Text(
           widget.title,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

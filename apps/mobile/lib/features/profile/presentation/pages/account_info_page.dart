@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../auth/data/providers/auth_provider.dart';
 
 /// 회원정보 페이지
@@ -139,10 +140,8 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
     
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
+      appBar: ModoAppBar(
         title: const Text('회원정보'),
-        elevation: 0,
-        backgroundColor: Colors.white,
         actions: [
           if (!_isEditing)
             TextButton(

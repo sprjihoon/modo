@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 통합 알림 센터
 /// 
@@ -181,9 +182,7 @@ class _NotificationsPageState extends State<NotificationsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
+      appBar: ModoAppBar(
         title: const Text(
           '알림',
           style: TextStyle(

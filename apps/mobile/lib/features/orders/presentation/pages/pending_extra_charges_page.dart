@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 관리자 승인 대기 화면 (미사용 - 관리자 앱용)
 /// 
@@ -10,8 +11,8 @@ class PendingExtraChargesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('추가 작업 승인 대기'),
+      appBar: const ModoAppBar(
+        title: Text('추가 작업 승인 대기'),
       ),
       body: const Center(
         child: Text('이 기능은 관리자 웹 앱에서 사용 가능합니다.'),

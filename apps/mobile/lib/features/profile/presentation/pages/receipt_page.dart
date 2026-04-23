@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 영수증 상세 페이지
 class ReceiptPage extends ConsumerWidget {
@@ -14,10 +15,8 @@ class ReceiptPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
+      appBar: ModoAppBar(
         title: const Text('영수증'),
-        elevation: 0,
-        backgroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined),

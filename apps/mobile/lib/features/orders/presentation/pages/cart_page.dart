@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../providers/cart_provider.dart';
 
 /// 장바구니 페이지
@@ -28,13 +29,7 @@ class _CartPageState extends ConsumerState<CartPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => context.pop(),
-        ),
+      appBar: ModoAppBar(
         title: const Text(
           '장바구니',
           style: TextStyle(
@@ -42,7 +37,6 @@ class _CartPageState extends ConsumerState<CartPage> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true,
         actions: [
           if (cartItems.isNotEmpty)
             TextButton(

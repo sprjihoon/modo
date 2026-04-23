@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/point_service.dart';
 
 /// 포인트 적립 내역 페이지
@@ -77,10 +78,8 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('포인트 내역'),
-          elevation: 0,
-          backgroundColor: Colors.white,
+        appBar: const ModoAppBar(
+          title: Text('포인트 내역'),
         ),
         body: const Center(
           child: CircularProgressIndicator(color: Color(0xFF00C896)),
@@ -105,10 +104,8 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('포인트 내역'),
-        elevation: 0,
-        backgroundColor: Colors.white,
+      appBar: const ModoAppBar(
+        title: Text('포인트 내역'),
       ),
       body: Column(
         children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 비밀번호 변경 페이지
 class ChangePasswordPage extends ConsumerStatefulWidget {
@@ -68,10 +69,8 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('비밀번호 변경'),
-        elevation: 0,
-        backgroundColor: Colors.white,
+      appBar: const ModoAppBar(
+        title: Text('비밀번호 변경'),
       ),
       body: Column(
         children: [

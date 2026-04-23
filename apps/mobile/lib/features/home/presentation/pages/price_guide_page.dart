@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/repair_service.dart';
 
 const Color _kBrand = Color(0xFF00C896);
@@ -121,11 +122,8 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
-        title: const Text(
+      appBar: const ModoAppBar(
+        title: Text(
           '가격 안내',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),

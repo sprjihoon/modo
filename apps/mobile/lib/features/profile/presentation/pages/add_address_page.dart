@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/address_service.dart';
 import '../widgets/daum_postcode_widget.dart';
 
@@ -130,10 +131,8 @@ class _AddAddressPageState extends ConsumerState<AddAddressPage> {
     
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
+      appBar: ModoAppBar(
         title: Text(isEditMode ? '배송지 수정' : '배송지 추가'),
-        elevation: 0,
-        backgroundColor: Colors.white,
       ),
       body: Form(
         key: _formKey,

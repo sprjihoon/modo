@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 수선 부위 선택 페이지
 class SelectRepairTypePage extends ConsumerStatefulWidget {
@@ -116,36 +117,14 @@ class _SelectRepairTypePageState extends ConsumerState<SelectRepairTypePage> {
     
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => context.pop(),
-        ),
-        title: const Text(
+      appBar: const ModoAppBar(
+        title: Text(
           '수선',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true,
-        actions: [
-          TextButton(
-            onPressed: () {
-              context.pop();
-              context.pop();
-            },
-            child: const Text(
-              '나가기',
-              style: TextStyle(
-                color: Colors.black54,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
       ),
       body: Column(
         children: [

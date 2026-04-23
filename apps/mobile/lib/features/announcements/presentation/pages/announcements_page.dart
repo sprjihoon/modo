@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import 'announcement_detail_page.dart';
 
 /// 공지사항 목록 화면
@@ -132,10 +133,8 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('공지사항'),
-        elevation: 0,
-        backgroundColor: Colors.white,
+      appBar: const ModoAppBar(
+        title: Text('공지사항'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

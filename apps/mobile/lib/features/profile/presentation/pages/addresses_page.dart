@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/address_service.dart';
 
 /// 배송지 설정 페이지
@@ -54,10 +55,8 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
+      appBar: ModoAppBar(
         title: Text(widget.isSelectionMode ? '배송지 변경' : '배송지 설정'),
-        elevation: 0,
-        backgroundColor: Colors.white,
       ),
       body: Column(
         children: [

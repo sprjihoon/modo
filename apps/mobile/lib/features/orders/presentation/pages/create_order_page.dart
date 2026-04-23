@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/permission_service.dart';
 import '../../providers/cart_provider.dart';
 
@@ -207,17 +208,12 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
       },
       child: Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () async {
-            final navigator = Navigator.of(context);
-            final canLeave = await _onWillPop();
-            if (canLeave && mounted) navigator.pop();
-          },
-        ),
+      appBar: ModoAppBar(
+        onBack: () async {
+          final navigator = Navigator.of(context);
+          final canLeave = await _onWillPop();
+          if (canLeave && mounted) navigator.pop();
+        },
         actions: [
           if (_repairItems.isNotEmpty)
             IconButton(

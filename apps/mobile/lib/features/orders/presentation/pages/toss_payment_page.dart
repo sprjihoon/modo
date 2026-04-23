@@ -8,6 +8,7 @@ import 'package:tosspayments_widget_sdk_flutter/model/tosspayments_result.dart';
 import 'package:tosspayments_widget_sdk_flutter/payment_widget.dart';
 import 'package:tosspayments_widget_sdk_flutter/widgets/agreement.dart';
 import 'package:tosspayments_widget_sdk_flutter/widgets/payment_method.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/payment_service.dart';
 
 /// 토스페이먼츠 결제 위젯 페이지
@@ -617,16 +618,9 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
     }
     
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('결제하기'),
-        centerTitle: true,
-        backgroundColor: Colors.white,
+      appBar: const ModoAppBar(
+        title: Text('결제하기'),
         foregroundColor: Colors.black87,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
-          onPressed: () => context.pop(),
-        ),
       ),
       body: _errorMessage != null
           ? Center(

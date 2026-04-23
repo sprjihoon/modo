@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/content_service.dart';
 
 /// 쉬운가이드(이용 방법) 페이지
@@ -66,14 +67,11 @@ class _EasyGuidePageState extends State<EasyGuidePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
+      appBar: const ModoAppBar(
+        title: Text(
           '이용 방법',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: _brand))

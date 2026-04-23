@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart' as provider;
 
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/image_service.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/shipping_settings_service.dart';
@@ -298,9 +299,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('주문 상세'),
-          elevation: 0,
+        appBar: const ModoAppBar(
+          title: Text('주문 상세'),
         ),
         body: Center(
           child: Column(
@@ -334,11 +334,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
+      appBar: ModoAppBar(
         title: const Text('주문 상세'),
-        elevation: 0,
         actions: [
-          // 새로고침 버튼
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '새로고침',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../domain/models/image_pin.dart';
 import '../widgets/image_pin_editor.dart';
 
@@ -154,7 +155,7 @@ class _ImageAnnotationPageState extends State<ImageAnnotationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false, // 키보드가 올라올 때 레이아웃 변경 방지
-      appBar: AppBar(
+      appBar: ModoAppBar(
         title: const Text('수선 부위 표시'),
         actions: [
           if (_imagePath != null)
@@ -163,7 +164,6 @@ class _ImageAnnotationPageState extends State<ImageAnnotationPage> {
               child: const Text(
                 '완료',
                 style: TextStyle(
-                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),

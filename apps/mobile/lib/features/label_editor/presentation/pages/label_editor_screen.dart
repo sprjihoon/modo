@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../domain/models/label_element_model.dart';
 import '../../utils/label_utils.dart';
 
@@ -160,7 +161,7 @@ class _LabelEditorScreenState extends State<LabelEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: ModoAppBar(
         title: const Text('우체국 송장 레이아웃 에디터'),
         actions: [
           IconButton(

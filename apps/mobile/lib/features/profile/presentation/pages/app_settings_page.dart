@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 앱 설정 페이지
 class AppSettingsPage extends ConsumerWidget {
@@ -10,10 +11,8 @@ class AppSettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('앱 설정'),
-        elevation: 0,
-        backgroundColor: Colors.white,
+      appBar: const ModoAppBar(
+        title: Text('앱 설정'),
       ),
       body: SingleChildScrollView(
         child: Column(

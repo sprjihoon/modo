@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../widgets/side_by_side_video_player.dart';
 import '../widgets/side_by_side_video_player_media_kit.dart';
 import '../widgets/sequential_comparison_player.dart';
@@ -31,11 +32,11 @@ class ComparisonVideoPlayerPage extends StatelessWidget {
     
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
+      appBar: ModoAppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: Text(
-          isMultipleItems 
+          isMultipleItems
               ? '전후 비교 영상 (${videoItems!.length}개 아이템)'
               : '전후 비교 영상',
         ),

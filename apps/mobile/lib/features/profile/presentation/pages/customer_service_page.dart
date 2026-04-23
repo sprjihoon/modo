@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/company_info_service.dart';
 
 /// 카카오톡 채널 ID (모두의수선)
@@ -96,10 +97,8 @@ class _CustomerServicePageState extends ConsumerState<CustomerServicePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('고객센터'),
-        elevation: 0,
-        backgroundColor: Colors.white,
+      appBar: const ModoAppBar(
+        title: Text('고객센터'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

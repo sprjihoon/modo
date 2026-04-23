@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 친구초대 페이지
 class InviteFriendsPage extends ConsumerWidget {
@@ -11,10 +12,8 @@ class InviteFriendsPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text('친구초대'),
-        elevation: 0,
-        backgroundColor: Colors.white,
+      appBar: const ModoAppBar(
+        title: Text('친구초대'),
       ),
       body: SingleChildScrollView(
         child: Column(

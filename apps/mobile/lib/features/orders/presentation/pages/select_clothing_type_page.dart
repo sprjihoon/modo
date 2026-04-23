@@ -7,6 +7,7 @@ import '../../../../services/repair_service.dart';
 import '../../../../services/image_service.dart';
 import '../../../../core/utils/snackbar_util.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
+import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 수선 의류 종류 선택 페이지
 class SelectClothingTypePage extends ConsumerStatefulWidget {
@@ -384,13 +385,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
         // 메인 화면
         Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: _isNavigating ? null : () => context.pop(),
-        ),
+      appBar: ModoAppBar(
         title: const Text(
           '수선',
           style: TextStyle(
@@ -398,7 +393,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true,
+        onBack: _isNavigating ? () {} : null,
       ),
       body: Column(
         children: [
