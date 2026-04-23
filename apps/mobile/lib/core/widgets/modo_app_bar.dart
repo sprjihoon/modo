@@ -50,16 +50,19 @@ class ModoAppBar extends StatelessWidget implements PreferredSizeWidget {
     return loc == _homeRoute || loc.startsWith('$_homeRoute?');
   }
 
-  void _handleBack(BuildContext context) {
+  Future<void> _handleBack(BuildContext context) async {
     if (onBack != null) {
       onBack!();
       return;
     }
     if (context.canPop()) {
       context.pop();
-    } else {
-      context.go(_homeRoute);
+      return;
     }
+    final popped = await Navigator.of(context).maybePop();
+    if (popped) return;
+    if (!context.mounted) return;
+    context.go(_homeRoute);
   }
 
   void _handleHome(BuildContext context) {
@@ -72,29 +75,49 @@ class ModoAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget? resolvedLeading = leading ??
-        (showBack && automaticallyImplyLeading
-            ? IconButton(
-                icon: Icon(Icons.arrow_back, color: foregroundColor),
-                tooltip: '뒤로',
-                onPressed: () => _handleBack(context),
-              )
-            : null);
-
+    final bool showBackButton = showBack && automaticallyImplyLeading;
     final bool showHomeButton = showHome && !_isOnHome(context);
-    final List<Widget> resolvedActions = [
-      ...?actions,
+
+    // 좌측 상단에 [뒤로가기, 홈] 버튼을 함께 배치하여 OS/테마와 무관하게 항상 노출
+    final List<Widget> leadingButtons = [
+      if (showBackButton)
+        SizedBox(
+          width: 44,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            icon: Icon(Icons.arrow_back, color: foregroundColor, size: 24),
+            tooltip: '뒤로',
+            onPressed: () => _handleBack(context),
+          ),
+        ),
       if (showHomeButton)
-        IconButton(
-          icon: Icon(Icons.home_outlined, color: foregroundColor),
-          tooltip: '홈으로',
-          onPressed: () => _handleHome(context),
+        SizedBox(
+          width: 44,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            icon: Icon(Icons.home_rounded, color: foregroundColor, size: 26),
+            tooltip: '홈으로',
+            onPressed: () => _handleHome(context),
+          ),
         ),
     ];
+
+    final Widget? resolvedLeading = leading ??
+        (leadingButtons.isEmpty
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: leadingButtons,
+              ));
+
+    final double computedLeadingWidth = leading != null
+        ? kToolbarHeight
+        : (leadingButtons.length * 44.0 + 8);
 
     return AppBar(
       title: title,
       leading: resolvedLeading,
+      leadingWidth: resolvedLeading == null ? null : computedLeadingWidth,
       automaticallyImplyLeading: false,
       centerTitle: centerTitle,
       backgroundColor: backgroundColor,
@@ -103,7 +126,9 @@ class ModoAppBar extends StatelessWidget implements PreferredSizeWidget {
       toolbarHeight: toolbarHeight,
       bottom: bottom,
       systemOverlayStyle: systemOverlayStyle,
-      actions: resolvedActions.isEmpty ? null : resolvedActions,
+      iconTheme: IconThemeData(color: foregroundColor),
+      actionsIconTheme: IconThemeData(color: foregroundColor),
+      actions: actions,
     );
   }
 

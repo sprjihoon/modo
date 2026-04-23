@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Receipt, CreditCard } from "lucide-react";
+import Link from "next/link";
+import { Receipt, CreditCard, ShoppingCart } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ const METHOD_LABEL: Record<string, string> = {
 
 export function PaymentHistoryClient() {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +75,19 @@ export function PaymentHistoryClient() {
       }
 
       setPayments(rows);
+
+      // 결제 대기 주문 개수 (배너 표시용)
+      // 취소/환불/결제완료된 주문은 제외 — status 필드가 PENDING으로 잔존하는 케이스 방지
+      const pendingUserId = userRow?.id ?? user.id;
+      const { count } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", pendingUserId)
+        .in("status", ["PENDING", "PENDING_PAYMENT"])
+        .is("cancelled_at", null)
+        .is("canceled_at", null)
+        .not("payment_status", "in", "(CANCELED,CANCELLED,REFUNDED,PAID)");
+      setPendingCount(count ?? 0);
     } catch (e) {
       console.error("[결제내역] 예상치 못한 오류:", e);
       setError("결제 내역을 불러오는 중 오류가 발생했습니다.");
@@ -80,6 +95,25 @@ export function PaymentHistoryClient() {
       setIsLoading(false);
     }
   }
+
+  const PendingBanner = () =>
+    pendingCount > 0 ? (
+      <Link
+        href="/cart"
+        className="flex items-center gap-3 mx-4 mt-3 p-3.5 bg-orange-50 border border-orange-200 rounded-2xl active:brightness-95"
+      >
+        <ShoppingCart className="w-5 h-5 text-orange-500 shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-bold text-orange-800">
+            장바구니에 결제할 건 {pendingCount}건이 있어요
+          </p>
+          <p className="text-xs text-orange-600 mt-0.5">
+            장바구니에서 결제를 완료해주세요
+          </p>
+        </div>
+        <span className="text-xs font-bold text-orange-500">보기 →</span>
+      </Link>
+    ) : null;
 
   if (isLoading) {
     return (
@@ -93,30 +127,38 @@ export function PaymentHistoryClient() {
 
   if (error) {
     return (
-      <div className="py-20 text-center">
-        <Receipt className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-        <p className="text-sm text-gray-400 mb-3">{error}</p>
-        <button
-          onClick={loadPayments}
-          className="text-sm font-semibold text-[#00C896] underline"
-        >
-          다시 시도
-        </button>
+      <div>
+        <PendingBanner />
+        <div className="py-20 text-center">
+          <Receipt className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+          <p className="text-sm text-gray-400 mb-3">{error}</p>
+          <button
+            onClick={loadPayments}
+            className="text-sm font-semibold text-[#00C896] underline"
+          >
+            다시 시도
+          </button>
+        </div>
       </div>
     );
   }
 
   if (payments.length === 0) {
     return (
-      <div className="py-20 text-center">
-        <Receipt className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-        <p className="text-sm text-gray-400">결제 내역이 없습니다</p>
+      <div>
+        <PendingBanner />
+        <div className="py-20 text-center">
+          <Receipt className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">결제 내역이 없습니다</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="px-4 py-3 space-y-3">
+    <div>
+      <PendingBanner />
+      <div className="px-4 py-3 space-y-3">
       {payments.map((p) => (
         <div
           key={p.id}
@@ -151,6 +193,7 @@ export function PaymentHistoryClient() {
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 }

@@ -143,7 +143,11 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage> {
         duration: Duration(seconds: 2),
       ),
     );
-    router.go('/cart');
+    router.go('/home');
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      router.push('/cart');
+    });
   }
 
   /// 뒤로가기 시 장바구니 저장 여부 확인

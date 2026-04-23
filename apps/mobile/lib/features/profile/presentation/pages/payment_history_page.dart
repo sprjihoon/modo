@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/payment_service.dart';
+import '../../../orders/providers/cart_provider.dart';
+import '../../../../services/order_service.dart';
 
 /// 결제내역 페이지
 class PaymentHistoryPage extends ConsumerStatefulWidget {
@@ -21,7 +23,9 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
   bool _isLoading = true;
   String? _errorMessage;
   List<Map<String, dynamic>> _allPayments = [];
+  int _pendingOrderCount = 0;
   final _paymentService = PaymentService();
+  final _orderService = OrderService();
 
   @override
   void initState() {
@@ -44,8 +48,29 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
         return;
       }
       final data = await _paymentService.getPaymentHistory();
+      // 결제 대기 주문 개수 (배너 표시용)
+      // 취소/환불/결제완료된 주문은 제외 — status 필드가 PENDING으로 잔존하는 케이스 방지
+      int pending = 0;
+      try {
+        final orders = await _orderService.getMyOrders();
+        pending = orders.where((o) {
+          final status = (o['status'] as String? ?? '').toUpperCase();
+          if (status != 'PENDING' && status != 'PENDING_PAYMENT') return false;
+          if (o['cancelled_at'] != null || o['canceled_at'] != null) {
+            return false;
+          }
+          final paymentStatus =
+              (o['payment_status'] as String? ?? '').toUpperCase();
+          const blocked = {'CANCELED', 'CANCELLED', 'REFUNDED', 'PAID'};
+          if (blocked.contains(paymentStatus)) return false;
+          return true;
+        }).length;
+      } catch (_) {
+        pending = 0;
+      }
       setState(() {
         _allPayments = data;
+        _pendingOrderCount = pending;
         _isLoading = false;
       });
     } catch (e) {
@@ -54,6 +79,67 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
         _isLoading = false;
       });
     }
+  }
+
+  Widget _buildPaymentPendingBanner() {
+    final cartCount = ref.watch(cartItemCountProvider);
+    final totalCount = cartCount + _pendingOrderCount;
+    if (totalCount == 0) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: InkWell(
+        onTap: () => context.push('/cart'),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF5E6),
+            border: Border.all(color: const Color(0xFFFFD9A0)),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.shopping_cart_outlined,
+                  color: Color(0xFFE07A00), size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '장바구니에 결제할 건 $totalCount건이 있어요',
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF8A4500),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      '장바구니에서 결제를 완료해주세요',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFB36500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Text(
+                '보기 →',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFE07A00),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -116,6 +202,7 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
       ),
       body: Column(
         children: [
+          _buildPaymentPendingBanner(),
           // 날짜 필터
           Container(
             color: Colors.white,

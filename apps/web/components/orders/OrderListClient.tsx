@@ -14,6 +14,25 @@ interface Order {
   total_price?: number;
   created_at?: string;
   pickup_date?: string;
+  payment_status?: string;
+  cancelled_at?: string | null;
+  canceled_at?: string | null;
+}
+
+const PENDING_STATUSES = new Set(["PENDING", "PENDING_PAYMENT"]);
+const BLOCKED_PAYMENT_STATUSES = new Set([
+  "CANCELED",
+  "CANCELLED",
+  "REFUNDED",
+  "PAID",
+]);
+
+function isOpenPendingPayment(order: Order): boolean {
+  if (!PENDING_STATUSES.has(order.status)) return false;
+  if (order.cancelled_at || order.canceled_at) return false;
+  const ps = (order.payment_status ?? "").toUpperCase();
+  if (BLOCKED_PAYMENT_STATUSES.has(ps)) return false;
+  return true;
 }
 
 const STATUS_TABS = [
@@ -35,8 +54,8 @@ export function OrderListClient() {
   }, []);
 
   useEffect(() => {
-    // PENDING_PAYMENT 주문은 장바구니에서 처리 → 주문목록에서 제외
-    const nonPending = orders.filter((o) => o.status !== "PENDING_PAYMENT");
+    // 결제 대기(미결제) 주문만 장바구니로 이동 처리 → 주문목록에서 제외 (취소된 건은 그대로 노출)
+    const nonPending = orders.filter((o) => !isOpenPendingPayment(o));
     if (activeTab === "") {
       setFiltered(nonPending);
     } else if (activeTab === "active") {
@@ -62,7 +81,7 @@ export function OrderListClient() {
     }
   }
 
-  const pendingCount = orders.filter((o) => o.status === "PENDING_PAYMENT").length;
+  const pendingCount = orders.filter(isOpenPendingPayment).length;
 
   if (hasError) {
     return (
@@ -90,7 +109,7 @@ export function OrderListClient() {
           <ShoppingCart className="w-5 h-5 text-orange-500 shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-bold text-orange-800">
-              결제 대기 {pendingCount}건이 있습니다
+              장바구니에 결제할 건 {pendingCount}건이 있어요
             </p>
             <p className="text-xs text-orange-600 mt-0.5">장바구니에서 결제를 완료해주세요</p>
           </div>

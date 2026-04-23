@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/order_service.dart';
+import '../../providers/cart_provider.dart';
 
 /// 주문 목록 화면
 class OrderListPage extends ConsumerStatefulWidget {
@@ -195,6 +196,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
       ),
       body: Column(
         children: [
+          _buildPaymentPendingBanner(),
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -214,6 +216,84 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
     );
   }
 
+  /// 미결제 상태인지 판별: status가 PENDING 계열이면서
+  /// 취소/환불 흔적이 없고 결제도 완료되지 않은 주문만 true 반환.
+  static bool _isOpenPendingPayment(Map<String, dynamic> o) {
+    final status = (o['status'] as String? ?? '').toUpperCase();
+    if (status != 'PENDING' && status != 'PENDING_PAYMENT') return false;
+    if (o['cancelled_at'] != null || o['canceled_at'] != null) return false;
+    final paymentStatus =
+        (o['payment_status'] as String? ?? '').toUpperCase();
+    const blocked = {'CANCELED', 'CANCELLED', 'REFUNDED', 'PAID'};
+    if (blocked.contains(paymentStatus)) return false;
+    return true;
+  }
+
+  /// 결제 대기 안내 배너 (장바구니 항목 + 결제 대기 주문이 있을 때 노출)
+  ///
+  /// 결제 대기 주문 카운트 시 취소/환불/이미 결제된 건은 제외한다.
+  Widget _buildPaymentPendingBanner() {
+    final cartCount = ref.watch(cartItemCountProvider);
+    final pendingOrderCount = _allOrders.where(_isOpenPendingPayment).length;
+    final totalCount = cartCount + pendingOrderCount;
+    if (totalCount == 0) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: InkWell(
+        onTap: () => context.push('/cart'),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF5E6),
+            border: Border.all(color: const Color(0xFFFFD9A0)),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.shopping_cart_outlined,
+                  color: Color(0xFFE07A00), size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '장바구니에 결제할 건 $totalCount건이 있어요',
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF8A4500),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      '장바구니에서 결제를 완료해주세요',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFB36500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Text(
+                '보기 →',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFE07A00),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildOrderList(BuildContext context, int? statusFilter) {
     if (_isLoading) {
       return const Center(
@@ -221,8 +301,10 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
       );
     }
 
-    // 상태 필터링
-    List<Map<String, dynamic>> filteredOrders = _allOrders;
+    // 결제 대기(미결제) 주문만 장바구니로 빼고, 취소된 주문은 그대로 노출.
+    List<Map<String, dynamic>> filteredOrders = _allOrders
+        .where((o) => !_isOpenPendingPayment(o))
+        .toList();
     
     if (statusFilter != null) {
       // statusFilter: 0=BOOKED, 1=INBOUND, 2=PROCESSING, 3=READY_TO_SHIP, 4=DELIVERED, 5=CANCELLED
