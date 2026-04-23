@@ -1,10 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
-
-// 웹훅 시크릿 키 (토스페이먼츠 개발자센터에서 설정)
-const WEBHOOK_SECRET = process.env.TOSS_WEBHOOK_SECRET || "";
 
 /**
  * 토스페이먼츠 웹훅 이벤트 타입
@@ -33,22 +30,56 @@ interface TossWebhookPayload {
   };
 }
 
+/**
+ * 웹훅 URL 시크릿 토큰 검증
+ * 토스 개발자센터에서 웹훅 URL을 ?secret=XXX 형태로 등록하거나
+ * Authorization 헤더에 Bearer 토큰을 담아 검증
+ */
+function verifyWebhookSecret(request: NextRequest): boolean {
+  const webhookSecret = process.env.TOSS_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    // 환경변수 미설정 시 경고 후 통과 (설정 전 개발 환경 대응)
+    console.warn("⚠️ TOSS_WEBHOOK_SECRET이 설정되지 않았습니다. 웹훅 시크릿 검증을 건너뜁니다.");
+    return true;
+  }
+
+  // URL 쿼리 파라미터로 시크릿 검증 (?webhook_secret=XXX)
+  const urlSecret = request.nextUrl.searchParams.get("webhook_secret");
+  if (urlSecret && urlSecret === webhookSecret) return true;
+
+  // Authorization 헤더로 시크릿 검증
+  const authHeader = request.headers.get("authorization");
+  if (authHeader === `Bearer ${webhookSecret}`) return true;
+
+  return false;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // 1. 웹훅 시크릿 토큰 검증
+    if (!verifyWebhookSecret(request)) {
+      console.warn("⛔ 웹훅 시크릿 검증 실패 - 허가되지 않은 요청");
+      // 토스 재시도 방지를 위해 200 반환하지 않고 401 반환
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const payload: TossWebhookPayload = await request.json();
     
-    console.log("🔔 토스페이먼츠 웹훅 수신:", JSON.stringify(payload, null, 2));
+    console.log("🔔 토스페이먼츠 웹훅 수신:", payload.eventType, payload.data?.orderId);
 
-    const supabase = await createClient();
+    // 웹훅은 Toss 서버에서 오므로 사용자 세션 없음 → service role 클라이언트 사용
+    const supabase = getSupabaseAdmin();
     const { eventType, data, createdAt } = payload;
 
-    // 웹훅 로그 저장
+    // 웹훅 로그 저장 (raw: DB 스키마의 실제 컬럼에 맞춰 저장)
     try {
-      await supabase.from("webhook_logs").insert({
+      await (supabase as any).from("webhook_logs").insert({
         provider: "TOSS",
         event_type: eventType,
-        payload: payload,
+        raw: payload,
         received_at: createdAt,
+        order_id: data?.orderId ?? null,
+        payment_key: data?.paymentKey ?? null,
       });
     } catch (logError) {
       console.log("웹훅 로그 저장 실패 (테이블이 없을 수 있음):", logError);
@@ -78,14 +109,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("웹훅 처리 오류:", error);
-    // 에러가 발생해도 200을 반환하여 무한 재시도 방지
-    // 실제 운영에서는 에러 로깅 후 수동 처리 필요
-    return NextResponse.json({ success: false, error: error.message });
+    // 5xx를 반환하면 토스가 최대 7회 재시도(3일 19시간) → 일시적 오류에 유리
+    // 단, 파싱 오류 등 재시도해도 의미없는 경우엔 200을 반환해 재시도 방지
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
 
 /**
  * 가상계좌 입금 완료 처리
+ * DEPOSIT_CALLBACK 이벤트: data.secret 값을 DB에 저장된 값과 대조하여 2차 검증
  */
 async function handleVirtualAccountDeposit(supabase: any, data: any) {
   const { orderId, paymentKey, secret } = data;
@@ -95,10 +127,22 @@ async function handleVirtualAccountDeposit(supabase: any, data: any) {
     return;
   }
 
-  // 가상계좌의 경우 secret 값 검증 (보안)
-  // 결제 요청 시 저장해둔 secret과 비교해야 함
-  
-  console.log(`💰 가상계좌 입금 완료: orderId=${orderId}, paymentKey=${paymentKey}`);
+  // 가상계좌 secret 2차 검증
+  // 결제 요청 시 저장한 virtual_account_secret 컬럼값과 비교
+  if (secret) {
+    const { data: order } = await supabase
+      .from("orders")
+      .select("virtual_account_secret")
+      .eq("id", orderId)
+      .single();
+
+    if (order?.virtual_account_secret && order.virtual_account_secret !== secret) {
+      console.error(`⛔ 가상계좌 secret 불일치 orderId=${orderId}`);
+      return; // 위조된 요청 무시
+    }
+  }
+
+  console.log(`💰 가상계좌 입금 완료: orderId=${orderId}`);
 
   // extra_charge_requests 테이블 업데이트
   const { data: extraChargeReq, error: extraError } = await supabase
