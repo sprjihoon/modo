@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
-import { Scissors, MapPin, CreditCard, AlertCircle, FlaskConical, Truck, CheckCircle2 } from "lucide-react";
+import { Scissors, MapPin, CreditCard, AlertCircle, FlaskConical, Truck } from "lucide-react";
 
 interface TossPaymentInstance {
   requestPayment: (params: {
@@ -62,14 +62,6 @@ const CLIENT_KEY = (() => {
   return "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq";
 })();
 
-type PaymentMethod = "CARD" | "TRANSFER" | "VIRTUAL_ACCOUNT";
-
-const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: string }[] = [
-  { id: "CARD", label: "신용·체크카드", icon: "💳" },
-  { id: "TRANSFER", label: "계좌이체", icon: "🏦" },
-  { id: "VIRTUAL_ACCOUNT", label: "가상계좌", icon: "📄" },
-];
-
 export function PaymentClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -81,7 +73,6 @@ export function PaymentClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("CARD");
   // TODO: 출시 전 false로 변경하거나 ops_center_settings DB 설정으로 제어
   const [showTestButtons, setShowTestButtons] = useState(true);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -166,7 +157,7 @@ export function PaymentClient() {
       const intAmount = Math.max(1, Math.round(order.total_price));
 
       await payment.requestPayment({
-        method: selectedMethod,
+        method: "CARD",
         amount: { currency: "KRW", value: intAmount },
         orderId: order.id,
         orderName: order.item_name ?? "모두의수선 수선 서비스",
@@ -402,35 +393,6 @@ export function PaymentClient() {
         {repairTotal == null && repairPartsSum > 0 && (
           <p className="text-xs text-gray-400 mt-1">왕복배송비 7,000원 포함 금액입니다.</p>
         )}
-      </div>
-
-      {/* 결제 수단 선택 */}
-      <div className="mx-4 mt-3">
-        <p className="text-sm font-bold text-gray-800 mb-2">결제 수단</p>
-        <div className="grid grid-cols-3 gap-2">
-          {PAYMENT_METHODS.map((m) => {
-            const selected = selectedMethod === m.id;
-            return (
-              <button
-                key={m.id}
-                onClick={() => setSelectedMethod(m.id)}
-                className={`relative flex flex-col items-center gap-1.5 py-3.5 rounded-xl border-2 transition-all ${
-                  selected
-                    ? "border-[#00C896] bg-[#00C896]/5"
-                    : "border-gray-100 bg-white"
-                }`}
-              >
-                {selected && (
-                  <CheckCircle2 className="absolute top-2 right-2 w-4 h-4 text-[#00C896]" />
-                )}
-                <span className="text-xl">{m.icon}</span>
-                <span className={`text-xs font-medium ${selected ? "text-[#00C896]" : "text-gray-600"}`}>
-                  {m.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* 결제하기 버튼 */}
