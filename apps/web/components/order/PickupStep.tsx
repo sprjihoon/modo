@@ -87,18 +87,30 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
   const minDate = getNextWeekday();
   const maxDate = getMaxDate();
 
-  const [address, setAddress] = useState("");
-  const [addressDetail, setAddressDetail] = useState("");
-  const [pickupZipcode, setPickupZipcode] = useState("");
-  const [pickupDate, setPickupDate] = useState(minDate);
-  const [notes, setNotes] = useState("");
+  // draft 에 저장된 값이 있으면 (장바구니 이어서 진행) 초기값으로 사용한다.
+  const [address, setAddress] = useState(draft.pickupAddress ?? "");
+  const [addressDetail, setAddressDetail] = useState(
+    draft.pickupAddressDetail ?? ""
+  );
+  const [pickupZipcode, setPickupZipcode] = useState(draft.pickupZipcode ?? "");
+  const [pickupDate, setPickupDate] = useState(draft.pickupDate ?? minDate);
+  const [notes, setNotes] = useState(draft.notes ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 배송지 = 수거지 여부
-  const [sameAsPickup, setSameAsPickup] = useState(true);
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [deliveryAddressDetail, setDeliveryAddressDetail] = useState("");
-  const [deliveryZipcode, setDeliveryZipcode] = useState("");
+  const initialSameAsPickup =
+    !draft.deliveryAddress ||
+    draft.deliveryAddress === draft.pickupAddress;
+  const [sameAsPickup, setSameAsPickup] = useState(initialSameAsPickup);
+  const [deliveryAddress, setDeliveryAddress] = useState(
+    initialSameAsPickup ? "" : (draft.deliveryAddress ?? "")
+  );
+  const [deliveryAddressDetail, setDeliveryAddressDetail] = useState(
+    initialSameAsPickup ? "" : (draft.deliveryAddressDetail ?? "")
+  );
+  const [deliveryZipcode, setDeliveryZipcode] = useState(
+    initialSameAsPickup ? "" : (draft.deliveryZipcode ?? "")
+  );
 
   // 필수 동의
   const [agreedToExtraCharge, setAgreedToExtraCharge] = useState(false);
@@ -180,8 +192,11 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
         .order("created_at", { ascending: false });
       if (data && data.length > 0) {
         setSavedAddresses(data);
-        const defaultAddr = data.find((a) => a.is_default) ?? data[0];
-        selectAddress(defaultAddr);
+        // draft 에서 이미 주소가 복원된 경우 자동 선택을 건너뛴다.
+        if (!draft.pickupAddress) {
+          const defaultAddr = data.find((a) => a.is_default) ?? data[0];
+          selectAddress(defaultAddr);
+        }
       }
     } catch { /* ignore */ }
   }

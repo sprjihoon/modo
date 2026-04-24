@@ -8,7 +8,7 @@ import { RepairTypeStep } from "./RepairTypeStep";
 import { ImagePinStep } from "./ImagePinStep";
 import { PickupStep } from "./PickupStep";
 import { ItemsListPanel } from "./ItemsListPanel";
-import { addCartItem } from "@/lib/cart";
+import { addCartItem, removeCartItem } from "@/lib/cart";
 
 export interface ImageWithPins {
   imageUrl: string;
@@ -90,6 +90,8 @@ export function OrderNewClient() {
 
   const [mode, setMode] = useState<Mode>("list");
   const [draft, setDraft] = useState<OrderDraft>({ items: [] });
+  // 장바구니에서 이어서 진행 중일 경우 원본 cart_drafts.id (완료시 삭제)
+  const [resumingCartId, setResumingCartId] = useState<string | null>(null);
 
   // 새 의류 추가 sub-flow: 단계별 임시 상태
   const [stagingClothingType, setStagingClothingType] = useState<string>("");
@@ -133,16 +135,15 @@ export function OrderNewClient() {
     if (searchParams.get("from") === "cart") {
       try {
         const saved = sessionStorage.getItem("cart_resume_draft");
+        const resumeId = sessionStorage.getItem("cart_resume_id");
         if (saved) {
           const restored = normalizeDraft(JSON.parse(saved));
           sessionStorage.removeItem("cart_resume_draft");
+          sessionStorage.removeItem("cart_resume_id");
           setDraft(restored);
-          // 픽업 주소까지 입력된 항목이면 수거 단계로 직접 이동
-          if (restored.pickupAddress && restored.items.length > 0) {
-            setMode("pickup");
-          } else {
-            setMode("list");
-          }
+          if (resumeId) setResumingCartId(resumeId);
+          // 사용자가 의류 목록을 다시 확인하고 추가/수정할 수 있도록 항상 list 모드로 진입.
+          setMode("list");
         }
       } catch {
         /* ignore */
@@ -209,6 +210,10 @@ export function OrderNewClient() {
     const d = draftRef.current;
     if (d.items.length > 0) {
       await addCartItem(d);
+      // 이어서 진행 중이던 cart 항목이 있으면 새 항목으로 대체 (중복 방지)
+      if (resumingCartId) {
+        try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
+      }
     }
     setShowExitDialog(false);
     pendingExitRef.current?.();
@@ -274,14 +279,23 @@ export function OrderNewClient() {
   }
 
   // ── 메인 → 담기 (수거정보 없이) ────────────────────────────────────────
+  const [isSavingToCart, setIsSavingToCart] = useState(false);
   async function handleSaveToCartFromList() {
-    if (draft.items.length === 0) return;
-    await addCartItem(draft);
-    if (popstateHandlerRef.current) {
-      window.removeEventListener("popstate", popstateHandlerRef.current);
-      popstateHandlerRef.current = null;
+    if (draft.items.length === 0 || isSavingToCart) return;
+    setIsSavingToCart(true);
+    try {
+      await addCartItem(draft);
+      if (resumingCartId) {
+        try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
+      }
+      if (popstateHandlerRef.current) {
+        window.removeEventListener("popstate", popstateHandlerRef.current);
+        popstateHandlerRef.current = null;
+      }
+      router.push("/cart");
+    } catch {
+      setIsSavingToCart(false);
     }
-    router.push("/cart");
   }
 
   // ── 수거정보 완료 → 결제/장바구니 선택 모달 ─────────────────────────────
@@ -303,6 +317,10 @@ export function OrderNewClient() {
       });
       if (res.ok) {
         const { orderId, totalPrice } = await res.json();
+        // 결제 진입 전, 이어서 진행하던 cart 항목 정리 (주문 확정시 중복 제거)
+        if (resumingCartId) {
+          try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
+        }
         if (popstateHandlerRef.current) {
           window.removeEventListener("popstate", popstateHandlerRef.current);
           popstateHandlerRef.current = null;
@@ -322,7 +340,7 @@ export function OrderNewClient() {
     } finally {
       setIsProcessing(false);
     }
-  }, [draft, pendingPickupData, router]);
+  }, [draft, pendingPickupData, router, resumingCartId]);
 
   // ── 장바구니에 담기 (수거정보 포함) ────────────────────────────────────
   const handleSaveToCartFromPickup = useCallback(async () => {
@@ -331,6 +349,9 @@ export function OrderNewClient() {
     try {
       const finalDraft: OrderDraft = { ...draft, ...pendingPickupData };
       await addCartItem(finalDraft);
+      if (resumingCartId) {
+        try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
+      }
       if (popstateHandlerRef.current) {
         window.removeEventListener("popstate", popstateHandlerRef.current);
         popstateHandlerRef.current = null;
@@ -339,14 +360,14 @@ export function OrderNewClient() {
     } finally {
       setIsProcessing(false);
     }
-  }, [draft, pendingPickupData, router]);
+  }, [draft, pendingPickupData, router, resumingCartId]);
 
-  // ── 헤더 표시 (sub-flow / pickup 인 경우) ──────────────────────────────
+  // ── 헤더 표시 (sub-flow 인 경우) ───────────────────────────────────────
+  // pickup 모드는 PickupStep 내부에 자체 헤더와 "이전" 버튼이 있어 별도 표시 안 함.
   const showSubHeader =
     mode === "addClothing" ||
     mode === "addRepair" ||
-    mode === "addPhoto" ||
-    mode === "pickup";
+    mode === "addPhoto";
 
   function subHeaderTitle(): string {
     switch (mode) {
@@ -356,8 +377,6 @@ export function OrderNewClient() {
         return `의류 ${draft.items.length + 1}벌째 · 수선 선택`;
       case "addPhoto":
         return `의류 ${draft.items.length + 1}벌째 · 사진 첨부`;
-      case "pickup":
-        return "수거 정보 입력";
       default:
         return "";
     }
@@ -370,8 +389,6 @@ export function OrderNewClient() {
       setMode("addClothing");
     } else if (mode === "addPhoto") {
       setMode("addRepair");
-    } else if (mode === "pickup") {
-      setMode("list");
     }
   }
 

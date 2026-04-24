@@ -113,9 +113,10 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
 
   /// 서버 데이터를 내려받아 로컬 state 를 덮어쓴다.
   ///
-  /// draft_data 는 두 가지 포맷이 혼재할 수 있다.
-  ///  - 통합 포맷 (웹/앱 공통 OrderDraft): repairItems 배열이 존재
-  ///  - 구형 앱 포맷: repairItem 단일 맵이 존재
+  /// draft_data 는 세 가지 포맷이 혼재할 수 있다.
+  ///  1. 신규 웹 멀티 포맷: items: [{ clothingType, repairItems, imagesWithPins }, ...]
+  ///  2. 통합 포맷 (옛 웹/앱 공통 OrderDraft): repairItems 배열 (최상위)
+  ///  3. 구형 앱 포맷: repairItem 단일 맵 (최상위)
   Future<void> _syncFromServer() async {
     try {
       final rows = await _svc.fetchAll();
@@ -126,12 +127,47 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
           final data = Map<String, dynamic>.from(row['draft_data'] as Map);
           final serverId = row['id'] as String;
 
-          // 통합 포맷: repairItems 배열에서 각 항목을 꺼낸다.
+          // 1. 신규 웹 멀티 포맷: items: ClothingItem[]
+          final itemsList = data['items'] as List?;
+          if (itemsList != null && itemsList.isNotEmpty) {
+            int globalIdx = 0;
+            for (final clothingRaw in itemsList) {
+              if (clothingRaw is! Map) continue;
+              final clothing = Map<String, dynamic>.from(clothingRaw);
+              final repairItemsList = (clothing['repairItems'] as List?) ?? [];
+              final imagesWithPins =
+                  (clothing['imagesWithPins'] as List?) ?? [];
+              final imageUrls = imagesWithPins
+                  .whereType<Map>()
+                  .map((m) => m['imageUrl'] as String?)
+                  .where((u) => u != null && u.isNotEmpty)
+                  .cast<String>()
+                  .toList();
+
+              for (final riRaw in repairItemsList) {
+                if (riRaw is! Map) continue;
+                final ri = Map<String, dynamic>.from(riRaw);
+                if (!ri.containsKey('repairPart') ||
+                    (ri['repairPart'] as String? ?? '').isEmpty) {
+                  ri['repairPart'] = ri['name'] ?? '';
+                }
+                items.add(CartItem(
+                  id: '${serverId}_$globalIdx',
+                  serverId: serverId,
+                  repairItem: ri,
+                  imageUrls: imageUrls,
+                ));
+                globalIdx++;
+              }
+            }
+            continue;
+          }
+
+          // 2. 통합 포맷: repairItems 배열에서 각 항목을 꺼낸다.
           final repairItemsList = data['repairItems'] as List?;
           if (repairItemsList != null && repairItemsList.isNotEmpty) {
             for (int idx = 0; idx < repairItemsList.length; idx++) {
               final ri = Map<String, dynamic>.from(repairItemsList[idx] as Map);
-              // repairPart 가 없으면 name 필드로 대체 (웹에서 저장한 항목)
               if (!ri.containsKey('repairPart') ||
                   (ri['repairPart'] as String? ?? '').isEmpty) {
                 ri['repairPart'] = ri['name'] ?? '';
@@ -145,10 +181,24 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
                 ),
               ));
             }
-          } else {
-            // 구형 앱 포맷: repairItem 단일 맵
-            data['serverId'] = serverId;
-            items.add(CartItem.fromJson(data));
+            continue;
+          }
+
+          // 3. 구형 앱 포맷: repairItem 단일 맵
+          if (data['repairItem'] is Map) {
+            final ri = Map<String, dynamic>.from(data['repairItem'] as Map);
+            if (!ri.containsKey('repairPart') ||
+                (ri['repairPart'] as String? ?? '').isEmpty) {
+              ri['repairPart'] = ri['name'] ?? '';
+            }
+            items.add(CartItem(
+              id: serverId,
+              serverId: serverId,
+              repairItem: ri,
+              imageUrls: List<String>.from(
+                (data['imageUrls'] as List?) ?? [],
+              ),
+            ));
           }
         } catch (e) {
           debugPrint('CartNotifier._syncFromServer item parse error: $e');

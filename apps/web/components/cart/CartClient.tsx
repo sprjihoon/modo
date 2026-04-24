@@ -39,6 +39,7 @@ export function CartClient() {
 
   function handleResumeDraft(item: CartDraftItem) {
     sessionStorage.setItem("cart_resume_draft", JSON.stringify(item.draft));
+    sessionStorage.setItem("cart_resume_id", item.id);
     router.push("/order/new?from=cart");
   }
 
