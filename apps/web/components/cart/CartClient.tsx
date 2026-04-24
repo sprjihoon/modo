@@ -88,11 +88,20 @@ export function CartClient() {
         <div className="space-y-3 px-4">
           {draftItems.map((item) => {
             const d = item.draft;
-            const repairItems = d.repairItems ?? [];
-            const repairTotal = repairItems.reduce(
-              (s, r) => s + r.price * (r.quantity ?? 1),
+            const items = d.items ?? [];
+            const allRepairItems = items.flatMap((it) => it.repairItems ?? []);
+            const repairTotal = allRepairItems.reduce(
+              (s, r) => s + (r.price ?? 0) * (r.quantity ?? 1),
               0
             );
+            const clothingCount = items.length;
+            const firstClothing = items[0]?.clothingType ?? "";
+            const titleText =
+              clothingCount === 0
+                ? "빈 신청"
+                : clothingCount === 1
+                  ? `${firstClothing || "의류"} · 수선 ${allRepairItems.length}개`
+                  : `${firstClothing || "의류"} 외 ${clothingCount - 1}벌 · 수선 ${allRepairItems.length}개`;
             return (
               <div
                 key={item.id}
@@ -105,12 +114,10 @@ export function CartClient() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-gray-900 truncate">
-                        {d.clothingType
-                          ? `${d.clothingType} · ${repairItems.map((r) => r.name).join(", ")}`
-                          : repairItems.map((r) => r.name).join(", ")}
+                        {titleText}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {repairItems.length}개 수선 항목
+                        의류 {clothingCount}벌 · 수선 {allRepairItems.length}개
                         {repairTotal > 0 && (
                           <span className="ml-2 font-semibold text-[#00C896]">
                             수선비 {formatPrice(repairTotal)}~
@@ -135,7 +142,7 @@ export function CartClient() {
                   </div>
 
                   <div className="flex flex-wrap gap-1.5 mt-3">
-                    {repairItems.slice(0, 4).map((r, i) => (
+                    {allRepairItems.slice(0, 4).map((r, i) => (
                       <span
                         key={i}
                         className="text-[11px] bg-[#00C896]/8 text-[#00C896] px-2 py-0.5 rounded-full border border-[#00C896]/20"
@@ -143,9 +150,9 @@ export function CartClient() {
                         {r.name}
                       </span>
                     ))}
-                    {repairItems.length > 4 && (
+                    {allRepairItems.length > 4 && (
                       <span className="text-[11px] text-gray-400 px-2 py-0.5">
-                        +{repairItems.length - 4}개
+                        +{allRepairItems.length - 4}개
                       </span>
                     )}
                   </div>

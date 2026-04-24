@@ -2,14 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronRight, Check, ShoppingCart, CreditCard, X, Plus, Scissors } from "lucide-react";
+import { ShoppingCart, CreditCard, X, ChevronLeft } from "lucide-react";
 import { ClothingTypeStep } from "./ClothingTypeStep";
 import { RepairTypeStep } from "./RepairTypeStep";
 import { ImagePinStep } from "./ImagePinStep";
 import { PickupStep } from "./PickupStep";
+import { ItemsListPanel } from "./ItemsListPanel";
 import { addCartItem } from "@/lib/cart";
-
-export type OrderStep = "clothing" | "repair" | "photo" | "pickup";
 
 export interface ImageWithPins {
   imageUrl: string;
@@ -21,18 +20,23 @@ export interface ImageWithPins {
   }>;
 }
 
-export interface OrderDraft {
+export interface RepairItem {
+  name: string;
+  price: number;
+  priceRange: string;
+  quantity: number;
+  detail?: string;
+}
+
+export interface ClothingItem {
   clothingType: string;
   clothingCategoryId?: string;
-  repairItems: Array<{
-    name: string;
-    price: number;
-    priceRange: string;
-    quantity: number;
-    detail?: string;
-  }>;
-  imageUrls: string[];
+  repairItems: RepairItem[];
   imagesWithPins: ImageWithPins[];
+}
+
+export interface OrderDraft {
+  items: ClothingItem[];
   pickupAddress?: string;
   pickupAddressDetail?: string;
   pickupZipcode?: string;
@@ -43,69 +47,86 @@ export interface OrderDraft {
   deliveryZipcode?: string;
   agreedToExtraCharge?: boolean;
   remoteAreaFee?: number;
-  // 프로모션 코드
-  promotionCodeId?: string;
-  promotionDiscountAmount?: number;
-  originalTotalPrice?: number;
 }
 
-/** 의류 단위 항목 (여러 벌을 한 수거신청에 묶을 때 사용) */
-interface ClothingItem {
-  clothingType: string;
-  clothingCategoryId?: string;
-  repairItems: OrderDraft["repairItems"];
-  imagesWithPins: ImageWithPins[];
+type Mode = "list" | "addClothing" | "addRepair" | "addPhoto" | "pickup";
+
+/** 옛 단일 형식 → 신규 items[] 형식 변환 */
+function normalizeDraft(raw: unknown): OrderDraft {
+  const d = (raw ?? {}) as Record<string, unknown>;
+  if (Array.isArray(d.items)) {
+    return d as unknown as OrderDraft;
+  }
+  // 옛 단일 형식: 최상위에 clothingType / repairItems / imagesWithPins
+  const single: ClothingItem = {
+    clothingType: (d.clothingType as string) ?? "",
+    clothingCategoryId: d.clothingCategoryId as string | undefined,
+    repairItems: Array.isArray(d.repairItems)
+      ? (d.repairItems as RepairItem[])
+      : [],
+    imagesWithPins: Array.isArray(d.imagesWithPins)
+      ? (d.imagesWithPins as ImageWithPins[])
+      : [],
+  };
+  const draft: OrderDraft = {
+    items: single.clothingType || single.repairItems.length > 0 ? [single] : [],
+    pickupAddress: d.pickupAddress as string | undefined,
+    pickupAddressDetail: d.pickupAddressDetail as string | undefined,
+    pickupZipcode: d.pickupZipcode as string | undefined,
+    pickupDate: d.pickupDate as string | undefined,
+    notes: d.notes as string | undefined,
+    deliveryAddress: d.deliveryAddress as string | undefined,
+    deliveryAddressDetail: d.deliveryAddressDetail as string | undefined,
+    deliveryZipcode: d.deliveryZipcode as string | undefined,
+    agreedToExtraCharge: d.agreedToExtraCharge as boolean | undefined,
+    remoteAreaFee: d.remoteAreaFee as number | undefined,
+  };
+  return draft;
 }
-
-const STEPS: { key: OrderStep; label: string }[] = [
-  { key: "clothing", label: "의류 선택" },
-  { key: "repair", label: "수선 선택" },
-  { key: "photo", label: "사진 첨부" },
-  { key: "pickup", label: "수거 신청" },
-];
-
-const emptyDraft = (): OrderDraft => ({
-  clothingType: "",
-  repairItems: [],
-  imageUrls: [],
-  imagesWithPins: [],
-});
 
 export function OrderNewClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [step, setStep] = useState<OrderStep>("clothing");
-  const [draft, setDraft] = useState<OrderDraft>(emptyDraft());
 
-  // 여러 의류를 한 수거신청에 묶기 위해 완료된 항목 저장
-  const [savedItems, setSavedItems] = useState<ClothingItem[]>([]);
+  const [mode, setMode] = useState<Mode>("list");
+  const [draft, setDraft] = useState<OrderDraft>({ items: [] });
 
-  // 사진 단계 완료 후 "의류 추가 or 수거 진행" 선택 모달
-  const [showAddMoreModal, setShowAddMoreModal] = useState(false);
-  const pendingPhotoDataRef = useRef<ImageWithPins[]>([]);
+  // 새 의류 추가 sub-flow: 단계별 임시 상태
+  const [stagingClothingType, setStagingClothingType] = useState<string>("");
+  const [stagingClothingCategoryId, setStagingClothingCategoryId] = useState<
+    string | undefined
+  >(undefined);
+  const [stagingRepairItems, setStagingRepairItems] = useState<RepairItem[]>(
+    []
+  );
 
   // 이탈 방지 다이얼로그
   const [showExitDialog, setShowExitDialog] = useState(false);
   const pendingExitRef = useRef<(() => void) | null>(null);
 
-  // 수거정보 완료 후 결제/장바구니 선택 모달
+  // 결제/장바구니 선택 모달
   const [showPaymentChoice, setShowPaymentChoice] = useState(false);
-  const [pendingPickupData, setPendingPickupData] = useState<Partial<OrderDraft> | null>(null);
+  const [pendingPickupData, setPendingPickupData] =
+    useState<Partial<OrderDraft> | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 최신 draft/savedItems를 ref로 유지 (이벤트 핸들러에서 사용)
   const draftRef = useRef(draft);
   draftRef.current = draft;
-  const savedItemsRef = useRef(savedItems);
-  savedItemsRef.current = savedItems;
+  const stagingRef = useRef({ stagingClothingType, stagingRepairItems });
+  stagingRef.current = { stagingClothingType, stagingRepairItems };
 
   const popstateHandlerRef = useRef<(() => void) | null>(null);
 
-  // 데이터가 있는지 여부 (이탈 방지 조건)
-  const hasData = useCallback(() => {
-    const { clothingType, repairItems } = draftRef.current;
-    return savedItemsRef.current.length > 0 || !!clothingType || repairItems.length > 0;
-  }, []);
+  // 작업 진행 중 여부 (이탈 가드 기준)
+  function hasUnsavedWork(): boolean {
+    const d = draftRef.current;
+    const s = stagingRef.current;
+    return (
+      d.items.length > 0 ||
+      !!s.stagingClothingType ||
+      s.stagingRepairItems.length > 0
+    );
+  }
 
   // ── 장바구니에서 이어서 신청 시 draft 복원 ──────────────────────────────
   useEffect(() => {
@@ -113,26 +134,27 @@ export function OrderNewClient() {
       try {
         const saved = sessionStorage.getItem("cart_resume_draft");
         if (saved) {
-          const restored = JSON.parse(saved) as OrderDraft;
+          const restored = normalizeDraft(JSON.parse(saved));
           sessionStorage.removeItem("cart_resume_draft");
           setDraft(restored);
-          if (restored.imagesWithPins?.length > 0) {
-            setStep("pickup");
-          } else if (restored.repairItems?.length > 0) {
-            setStep("photo");
-          } else if (restored.clothingType) {
-            setStep("repair");
+          // 픽업 주소까지 입력된 항목이면 수거 단계로 직접 이동
+          if (restored.pickupAddress && restored.items.length > 0) {
+            setMode("pickup");
+          } else {
+            setMode("list");
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 이탈 방지: modu_before_navigate 이벤트 (헤더 뒤로/홈 버튼) ──────────
+  // ── 이탈 방지: modu_before_navigate ─────────────────────────────────────
   useEffect(() => {
     const handler = (e: Event) => {
-      if (!hasData()) return;
+      if (!hasUnsavedWork()) return;
       e.preventDefault();
       const type = (e as CustomEvent).detail?.type as "back" | "home";
       pendingExitRef.current = () => {
@@ -143,13 +165,14 @@ export function OrderNewClient() {
     };
     window.addEventListener("modu_before_navigate", handler);
     return () => window.removeEventListener("modu_before_navigate", handler);
-  }, [router, hasData]);
+  }, [router]);
 
-  // ── 이탈 방지: 브라우저 네이티브 뒤로가기(popstate) ─────────────────────
+  // ── 이탈 방지: popstate ─────────────────────────────────────────────────
   useEffect(() => {
     window.history.pushState({ orderFlowGuard: true }, "");
+
     const handler = () => {
-      if (!hasData()) return;
+      if (!hasUnsavedWork()) return;
       window.history.pushState({ orderFlowGuard: true }, "");
       pendingExitRef.current = () => {
         if (popstateHandlerRef.current) {
@@ -160,6 +183,7 @@ export function OrderNewClient() {
       };
       setShowExitDialog(true);
     };
+
     popstateHandlerRef.current = handler;
     window.addEventListener("popstate", handler);
     return () => {
@@ -167,46 +191,24 @@ export function OrderNewClient() {
         window.removeEventListener("popstate", popstateHandlerRef.current);
       }
     };
-  }, [hasData]);
+  }, []);
 
-  // ── 이탈 방지: 브라우저 닫기/새로고침 ────────────────────────────────────
+  // ── 이탈 방지: beforeunload ─────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (!hasData()) return;
+      if (!hasUnsavedWork()) return;
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [hasData]);
+  }, []);
 
-  // ── 현재 진행 중인 draft + savedItems를 합쳐 저장 ────────────────────────
-  function buildFullDraft(extraPhoto?: ImageWithPins[]): OrderDraft {
-    const currentImagesWithPins = extraPhoto ?? draftRef.current.imagesWithPins;
-    const allItems: ClothingItem[] = [
-      ...savedItemsRef.current,
-      {
-        clothingType: draftRef.current.clothingType,
-        clothingCategoryId: draftRef.current.clothingCategoryId,
-        repairItems: draftRef.current.repairItems,
-        imagesWithPins: currentImagesWithPins,
-      },
-    ];
-    const allRepairItems = allItems.flatMap((i) => i.repairItems);
-    const allImagesWithPins = allItems.flatMap((i) => i.imagesWithPins);
-    return {
-      ...draftRef.current,
-      imagesWithPins: allImagesWithPins,
-      imageUrls: allImagesWithPins.map((i) => i.imageUrl),
-      repairItems: allRepairItems,
-      clothingType: allItems.map((i) => i.clothingType).filter(Boolean).join(", "),
-    };
-  }
-
-  // ── 이탈 다이얼로그 핸들러 ───────────────────────────────────────────────
+  // ── 이탈 다이얼로그 핸들러 ──────────────────────────────────────────────
   async function handleExitSaveToCart() {
-    if (hasData()) {
-      await addCartItem(buildFullDraft());
+    const d = draftRef.current;
+    if (d.items.length > 0) {
+      await addCartItem(d);
     }
     setShowExitDialog(false);
     pendingExitRef.current?.();
@@ -217,60 +219,82 @@ export function OrderNewClient() {
     pendingExitRef.current?.();
   }
 
-  // ── 사진 완료 → "의류 추가 or 수거 진행" 선택 ──────────────────────────
+  // ── 의류 추가 sub-flow ──────────────────────────────────────────────────
+  function startAddClothing() {
+    setStagingClothingType("");
+    setStagingClothingCategoryId(undefined);
+    setStagingRepairItems([]);
+    setMode("addClothing");
+  }
+
+  function handleClothingDone(type: string, categoryId?: string) {
+    setStagingClothingType(type);
+    setStagingClothingCategoryId(categoryId);
+    setMode("addRepair");
+  }
+
+  function handleRepairDone(items: RepairItem[]) {
+    setStagingRepairItems(items);
+    setMode("addPhoto");
+  }
+
   function handlePhotoDone(imagesWithPins: ImageWithPins[]) {
+    const newItem: ClothingItem = {
+      clothingType: stagingClothingType,
+      clothingCategoryId: stagingClothingCategoryId,
+      repairItems: stagingRepairItems,
+      imagesWithPins,
+    };
+    setDraft((prev) => ({ ...prev, items: [...prev.items, newItem] }));
+    setStagingClothingType("");
+    setStagingClothingCategoryId(undefined);
+    setStagingRepairItems([]);
+    setMode("list");
+  }
+
+  function cancelAddClothing() {
+    setStagingClothingType("");
+    setStagingClothingCategoryId(undefined);
+    setStagingRepairItems([]);
+    setMode("list");
+  }
+
+  // ── 의류 카드 삭제 ──────────────────────────────────────────────────────
+  function handleRemoveItem(index: number) {
     setDraft((prev) => ({
       ...prev,
-      imagesWithPins,
-      imageUrls: imagesWithPins.map((i) => i.imageUrl),
+      items: prev.items.filter((_, i) => i !== index),
     }));
-    pendingPhotoDataRef.current = imagesWithPins;
-    setShowAddMoreModal(true);
   }
 
-  // "의류 추가하기" → 현재 항목 저장 후 처음부터
-  function handleAddAnotherClothing() {
-    setSavedItems((prev) => [
-      ...prev,
-      {
-        clothingType: draft.clothingType,
-        clothingCategoryId: draft.clothingCategoryId,
-        repairItems: draft.repairItems,
-        imagesWithPins: pendingPhotoDataRef.current,
-      },
-    ]);
-    setDraft(emptyDraft());
-    setStep("clothing");
-    setShowAddMoreModal(false);
-  }
-
-  // "수거 신청으로 이동" → 모든 항목 병합 후 pickup 단계
+  // ── 메인 → 수거정보 ─────────────────────────────────────────────────────
   function handleProceedToPickup() {
-    const full = buildFullDraft(pendingPhotoDataRef.current);
-    setDraft(full);
-    setSavedItems([]);
-    setStep("pickup");
-    setShowAddMoreModal(false);
+    if (draft.items.length === 0) return;
+    setMode("pickup");
   }
 
-  // ── 수거정보 완료 → 결제/장바구니 선택 모달 ──────────────────────────────
+  // ── 메인 → 담기 (수거정보 없이) ────────────────────────────────────────
+  async function handleSaveToCartFromList() {
+    if (draft.items.length === 0) return;
+    await addCartItem(draft);
+    if (popstateHandlerRef.current) {
+      window.removeEventListener("popstate", popstateHandlerRef.current);
+      popstateHandlerRef.current = null;
+    }
+    router.push("/cart");
+  }
+
+  // ── 수거정보 완료 → 결제/장바구니 선택 모달 ─────────────────────────────
   async function handlePickupDone(pickupData: Partial<OrderDraft>) {
     setPendingPickupData(pickupData);
     setShowPaymentChoice(true);
   }
 
-  function clearGuard() {
-    if (popstateHandlerRef.current) {
-      window.removeEventListener("popstate", popstateHandlerRef.current);
-      popstateHandlerRef.current = null;
-    }
-  }
-
-  // ── 바로 결제하기 ────────────────────────────────────────────────────────
+  // ── 바로 결제 ──────────────────────────────────────────────────────────
   const handlePayNow = useCallback(async () => {
     if (!pendingPickupData) return;
     setIsProcessing(true);
-    const finalDraft = { ...draft, ...pendingPickupData };
+    const finalDraft: OrderDraft = { ...draft, ...pendingPickupData };
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -279,7 +303,10 @@ export function OrderNewClient() {
       });
       if (res.ok) {
         const { orderId, totalPrice } = await res.json();
-        clearGuard();
+        if (popstateHandlerRef.current) {
+          window.removeEventListener("popstate", popstateHandlerRef.current);
+          popstateHandlerRef.current = null;
+        }
         if (totalPrice > 0) {
           router.push(`/payment?orderId=${orderId}`);
         } else {
@@ -297,189 +324,114 @@ export function OrderNewClient() {
     }
   }, [draft, pendingPickupData, router]);
 
-  // ── 장바구니에 담기 (수거정보 포함) ─────────────────────────────────────
+  // ── 장바구니에 담기 (수거정보 포함) ────────────────────────────────────
   const handleSaveToCartFromPickup = useCallback(async () => {
     if (!pendingPickupData) return;
     setIsProcessing(true);
     try {
-      const finalDraft = { ...draft, ...pendingPickupData };
+      const finalDraft: OrderDraft = { ...draft, ...pendingPickupData };
       await addCartItem(finalDraft);
-      clearGuard();
+      if (popstateHandlerRef.current) {
+        window.removeEventListener("popstate", popstateHandlerRef.current);
+        popstateHandlerRef.current = null;
+      }
       router.push("/cart");
     } finally {
       setIsProcessing(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, pendingPickupData, router]);
 
-  // ── 스텝 내부 "담기" 버튼 ───────────────────────────────────────────────
-  const canSaveToCart =
-    step !== "clothing" &&
-    step !== "pickup" &&
-    (savedItems.length > 0 || (draft.clothingType !== "" && draft.repairItems.length > 0));
+  // ── 헤더 표시 (sub-flow / pickup 인 경우) ──────────────────────────────
+  const showSubHeader =
+    mode === "addClothing" ||
+    mode === "addRepair" ||
+    mode === "addPhoto" ||
+    mode === "pickup";
 
-  async function handleSaveToCart() {
-    if (!canSaveToCart) return;
-    await addCartItem(buildFullDraft());
-    clearGuard();
-    router.push("/cart");
+  function subHeaderTitle(): string {
+    switch (mode) {
+      case "addClothing":
+        return `의류 ${draft.items.length + 1}벌째 · 종류 선택`;
+      case "addRepair":
+        return `의류 ${draft.items.length + 1}벌째 · 수선 선택`;
+      case "addPhoto":
+        return `의류 ${draft.items.length + 1}벌째 · 사진 첨부`;
+      case "pickup":
+        return "수거 정보 입력";
+      default:
+        return "";
+    }
   }
 
-  const currentStepIndex = STEPS.findIndex((s) => s.key === step);
-
-  function handleClothingDone(type: string, categoryId?: string) {
-    setDraft((prev) => ({ ...prev, clothingType: type, clothingCategoryId: categoryId }));
-    setStep("repair");
+  function subHeaderBack() {
+    if (mode === "addClothing") {
+      cancelAddClothing();
+    } else if (mode === "addRepair") {
+      setMode("addClothing");
+    } else if (mode === "addPhoto") {
+      setMode("addRepair");
+    } else if (mode === "pickup") {
+      setMode("list");
+    }
   }
-
-  function handleRepairDone(items: OrderDraft["repairItems"], imageUrls: string[]) {
-    setDraft((prev) => ({ ...prev, repairItems: items, imageUrls }));
-    setStep("photo");
-  }
-
-  const totalItemCount = savedItems.length + (draft.repairItems.length > 0 || draft.clothingType ? 1 : 0);
 
   return (
     <div>
-      {/* 스텝 인디케이터 */}
-      <div className="flex items-center px-4 py-3 border-b border-gray-100 gap-2">
-        <div className="flex items-center flex-1">
-          {STEPS.map((s, idx) => {
-            const isDone = idx < currentStepIndex;
-            const isActive = idx === currentStepIndex;
-            return (
-              <div key={s.key} className="flex items-center flex-1">
-                <div className="flex flex-col items-center flex-1">
-                  <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                      isDone || isActive
-                        ? "bg-[#00C896] text-white"
-                        : "bg-gray-100 text-gray-400"
-                    }`}
-                  >
-                    {isDone ? <Check className="w-4 h-4" /> : idx + 1}
-                  </div>
-                  <p className={`text-[10px] mt-1 font-medium ${isActive ? "text-[#00C896]" : "text-gray-400"}`}>
-                    {s.label}
-                  </p>
-                </div>
-                {idx < STEPS.length - 1 && (
-                  <ChevronRight className="w-3.5 h-3.5 text-gray-300 shrink-0 mx-1" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 장바구니 담기 버튼 */}
-        {canSaveToCart && (
+      {showSubHeader && (
+        <div className="flex items-center px-3 py-2.5 border-b border-gray-100 gap-2">
           <button
-            onClick={handleSaveToCart}
-            className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 border border-[#00C896] text-[#00C896] rounded-lg text-xs font-semibold active:bg-[#00C896]/10 whitespace-nowrap"
+            type="button"
+            onClick={subHeaderBack}
+            className="p-1.5 text-gray-500 active:opacity-60"
+            aria-label="뒤로"
           >
-            <ShoppingCart className="w-3.5 h-3.5" />
-            담기
+            <ChevronLeft className="w-5 h-5" />
           </button>
-        )}
-      </div>
-
-      {/* 추가된 의류 항목 요약 배지 */}
-      {savedItems.length > 0 && step !== "pickup" && (
-        <div className="px-4 py-2 bg-[#00C896]/5 border-b border-[#00C896]/10 flex items-center gap-2 flex-wrap">
-          {savedItems.map((item, i) => (
-            <span
-              key={i}
-              className="inline-flex items-center gap-1 text-[11px] bg-[#00C896]/10 text-[#00C896] px-2 py-0.5 rounded-full font-medium"
-            >
-              <Scissors className="w-3 h-3" />
-              {item.clothingType || `의류 ${i + 1}`} · {item.repairItems.length}개
-            </span>
-          ))}
-          <span className="text-[11px] text-gray-400 ml-auto">
-            {totalItemCount}번째 의류 입력 중
-          </span>
+          <p className="text-sm font-bold text-gray-800">{subHeaderTitle()}</p>
         </div>
       )}
 
-      {/* 스텝 컨텐츠 */}
       <div>
-        {step === "clothing" && <ClothingTypeStep onNext={handleClothingDone} />}
-        {step === "repair" && (
+        {mode === "list" && (
+          <ItemsListPanel
+            items={draft.items}
+            onAddItem={startAddClothing}
+            onRemoveItem={handleRemoveItem}
+            onProceedToPickup={handleProceedToPickup}
+            onSaveToCart={handleSaveToCartFromList}
+          />
+        )}
+
+        {mode === "addClothing" && (
+          <ClothingTypeStep onNext={handleClothingDone} />
+        )}
+
+        {mode === "addRepair" && (
           <RepairTypeStep
-            clothingType={draft.clothingType}
-            clothingCategoryId={draft.clothingCategoryId}
-            onNext={handleRepairDone}
-            onBack={() => setStep("clothing")}
+            clothingType={stagingClothingType}
+            clothingCategoryId={stagingClothingCategoryId}
+            onNext={(items) => handleRepairDone(items)}
+            onBack={() => setMode("addClothing")}
           />
         )}
-        {step === "photo" && (
+
+        {mode === "addPhoto" && (
           <ImagePinStep
-            clothingType={draft.clothingType}
-            initialImages={draft.imagesWithPins}
+            clothingType={stagingClothingType}
+            initialImages={[]}
             onNext={handlePhotoDone}
-            onBack={() => setStep("repair")}
+            onBack={() => setMode("addRepair")}
           />
         )}
-        {step === "pickup" && (
+
+        {mode === "pickup" && (
           <PickupStep
             draft={draft}
             onNext={handlePickupDone}
-            onBack={() => setStep("photo")}
+            onBack={() => setMode("list")}
           />
         )}
       </div>
-
-      {/* ── 사진 완료 후: 의류 추가 or 수거 진행 선택 모달 ── */}
-      {showAddMoreModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="relative w-full max-w-[430px] bg-white rounded-t-2xl px-5 pt-5 pb-8 shadow-2xl">
-            <p className="text-base font-bold text-gray-900 mb-1">
-              {savedItems.length > 0
-                ? `의류 ${savedItems.length + 1}번째 등록 완료`
-                : "의류 등록 완료"}
-            </p>
-            <p className="text-sm text-gray-500 mb-5">
-              다른 의류를 추가하거나 수거 신청을 진행할 수 있습니다.
-            </p>
-
-            {/* 현재까지 추가된 항목 요약 */}
-            {savedItems.length > 0 && (
-              <div className="mb-4 p-3 bg-gray-50 rounded-xl space-y-1.5">
-                {savedItems.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-gray-600">
-                    <Scissors className="w-3.5 h-3.5 text-[#00C896] shrink-0" />
-                    <span className="font-medium">{item.clothingType || `의류 ${i + 1}`}</span>
-                    <span className="text-gray-400">· {item.repairItems.map((r) => r.name).join(", ")}</span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-2 text-xs text-[#00C896] font-medium pt-0.5 border-t border-gray-100">
-                  <Scissors className="w-3.5 h-3.5 shrink-0" />
-                  <span>{draft.clothingType || `의류 ${savedItems.length + 1}`}</span>
-                  <span className="text-[#00C896]/70">· {draft.repairItems.map((r) => r.name).join(", ")}</span>
-                  <span className="ml-auto text-[10px] bg-[#00C896]/10 px-1.5 py-0.5 rounded-full">방금 추가</span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={handleAddAnotherClothing}
-                className="w-full py-3.5 border border-[#00C896] text-[#00C896] text-sm font-bold rounded-xl active:bg-[#00C896]/5 flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                다른 의류 추가하기
-              </button>
-              <button
-                onClick={handleProceedToPickup}
-                className="w-full py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80"
-              >
-                수거 신청으로 이동 →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── 이탈 방지 다이얼로그 ── */}
       {showExitDialog && (
@@ -495,7 +447,9 @@ export function OrderNewClient() {
             >
               <X className="w-5 h-5" />
             </button>
-            <p className="text-base font-bold text-gray-900 mb-1">신청을 중단하시겠어요?</p>
+            <p className="text-base font-bold text-gray-900 mb-1">
+              신청을 중단하시겠어요?
+            </p>
             <p className="text-sm text-gray-500 mb-5">
               지금까지 입력한 내용을 장바구니에 저장할 수 있습니다.
             </p>
@@ -508,7 +462,8 @@ export function OrderNewClient() {
               </button>
               <button
                 onClick={handleExitSaveToCart}
-                className="w-full py-3.5 border border-[#00C896] text-[#00C896] text-sm font-bold rounded-xl active:bg-[#00C896]/5"
+                disabled={draft.items.length === 0}
+                className="w-full py-3.5 border border-[#00C896] text-[#00C896] text-sm font-bold rounded-xl active:bg-[#00C896]/5 disabled:opacity-40"
               >
                 장바구니에 담고 나가기
               </button>
@@ -523,7 +478,7 @@ export function OrderNewClient() {
         </div>
       )}
 
-      {/* ── 수거정보 완료 후 결제/장바구니 선택 모달 ── */}
+      {/* ── 결제/장바구니 선택 모달 ── */}
       {showPaymentChoice && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div
@@ -539,7 +494,9 @@ export function OrderNewClient() {
                 <X className="w-5 h-5" />
               </button>
             )}
-            <p className="text-base font-bold text-gray-900 mb-1">어떻게 하시겠어요?</p>
+            <p className="text-base font-bold text-gray-900 mb-1">
+              어떻게 하시겠어요?
+            </p>
             <p className="text-sm text-gray-500 mb-5">
               바로 결제하거나 장바구니에 담아두고 나중에 결제할 수 있습니다.
             </p>

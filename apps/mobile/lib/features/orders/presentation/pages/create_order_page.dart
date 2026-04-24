@@ -141,7 +141,6 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage>
   /// 장바구니에 담기 (수동 — 스낵바 + 장바구니로 이동)
   Future<void> _saveToCart() async {
     if (_repairItems.isEmpty) return;
-    _autoSaved = true; // 이후 lifecycle 저장 중복 방지
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
     await ref.read(cartProvider.notifier).addToCart(

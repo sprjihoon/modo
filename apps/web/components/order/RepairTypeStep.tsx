@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Scissors, X, Minus, Plus, Trash2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { OrderDraft } from "./OrderNewClient";
+import { RepairItem } from "./OrderNewClient";
 
 interface RepairType {
   id: string;
@@ -42,7 +42,7 @@ interface SelectedItem {
 interface RepairTypeStepProps {
   clothingType: string;
   clothingCategoryId?: string;
-  onNext: (items: OrderDraft["repairItems"], imageUrls: string[]) => void;
+  onNext: (items: RepairItem[]) => void;
   onBack: () => void;
 }
 
@@ -502,8 +502,7 @@ export function RepairTypeStep({
                 priceRange: i.priceRange,
                 quantity: i.quantity,
                 detail: i.detail,
-              })),
-              []
+              }))
             )
           }
           disabled={selectedItems.length === 0}

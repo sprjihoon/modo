@@ -5,7 +5,12 @@
  * 비로그인 / 서버 오류 시에는 localStorage 를 fallback 으로 유지한다.
  */
 import { createClient } from "@/lib/supabase/client";
-import { OrderDraft } from "@/components/order/OrderNewClient";
+import {
+  OrderDraft,
+  ClothingItem,
+  RepairItem,
+  ImageWithPins,
+} from "@/components/order/OrderNewClient";
 
 export interface CartDraftItem {
   id: string;          // cart_drafts.id (서버 UUID) 또는 로컬 임시 ID
@@ -49,6 +54,82 @@ function localCache(items: CartDraftItem[]) {
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────────────────
 
+/**
+ * Supabase 에 저장된 draft_data 를 신규 OrderDraft (items[]) 형태로 정규화한다.
+ *
+ * 지원하는 입력 포맷:
+ * 1. 신규: items: ClothingItem[] (그대로 사용)
+ * 2. 웹 단일: 최상위에 clothingType / repairItems / imagesWithPins
+ * 3. 옛 모바일: 최상위에 repairItem 단일 맵
+ */
+function normalizeStoredDraft(raw: Record<string, unknown>): OrderDraft {
+  const pickup: Partial<OrderDraft> = {
+    pickupAddress: raw.pickupAddress as string | undefined,
+    pickupAddressDetail: raw.pickupAddressDetail as string | undefined,
+    pickupZipcode: raw.pickupZipcode as string | undefined,
+    pickupDate: raw.pickupDate as string | undefined,
+    notes: raw.notes as string | undefined,
+    deliveryAddress: raw.deliveryAddress as string | undefined,
+    deliveryAddressDetail: raw.deliveryAddressDetail as string | undefined,
+    deliveryZipcode: raw.deliveryZipcode as string | undefined,
+    agreedToExtraCharge: raw.agreedToExtraCharge as boolean | undefined,
+    remoteAreaFee: raw.remoteAreaFee as number | undefined,
+  };
+
+  // 1. 신규 items[] 형식
+  if (Array.isArray(raw.items)) {
+    const items = (raw.items as unknown[]).map((it) => {
+      const o = (it ?? {}) as Record<string, unknown>;
+      const ci: ClothingItem = {
+        clothingType: (o.clothingType as string) ?? "",
+        clothingCategoryId: o.clothingCategoryId as string | undefined,
+        repairItems: Array.isArray(o.repairItems)
+          ? (o.repairItems as RepairItem[])
+          : [],
+        imagesWithPins: Array.isArray(o.imagesWithPins)
+          ? (o.imagesWithPins as ImageWithPins[])
+          : [],
+      };
+      return ci;
+    });
+    return { items, ...pickup };
+  }
+
+  // 2. 옛 모바일 단일 (repairItem)
+  if (!Array.isArray(raw.repairItems) && raw.repairItem) {
+    const ri = raw.repairItem as Record<string, unknown>;
+    const single: ClothingItem = {
+      clothingType: (raw.clothingType as string) ?? "",
+      repairItems: [{
+        name: (ri.repairPart as string) ?? (ri.name as string) ?? "",
+        price: 0,
+        priceRange: (ri.priceRange as string) ?? "",
+        quantity: 1,
+      }],
+      imagesWithPins: [],
+    };
+    return { items: [single], ...pickup };
+  }
+
+  // 3. 옛 웹 단일 (최상위 clothingType / repairItems / imagesWithPins)
+  const single: ClothingItem = {
+    clothingType: (raw.clothingType as string) ?? "",
+    clothingCategoryId: raw.clothingCategoryId as string | undefined,
+    repairItems: Array.isArray(raw.repairItems)
+      ? (raw.repairItems as RepairItem[])
+      : [],
+    imagesWithPins: Array.isArray(raw.imagesWithPins)
+      ? (raw.imagesWithPins as ImageWithPins[])
+      : [],
+  };
+  // 빈 단일이면 items: []
+  const hasContent =
+    single.clothingType ||
+    single.repairItems.length > 0 ||
+    single.imagesWithPins.length > 0;
+  return { items: hasContent ? [single] : [], ...pickup };
+}
+
 async function resolveUserId(): Promise<string | null> {
   try {
     const supabase = createClient();
@@ -86,29 +167,7 @@ export async function fetchCartItems(): Promise<CartDraftItem[]> {
       try {
         const d = row.draft_data as Record<string, unknown>;
         if (!d) return [];
-
-        // 구형 앱 포맷(repairItem 단일 맵)은 OrderDraft 형식으로 변환한다.
-        if (!Array.isArray(d.repairItems) && d.repairItem) {
-          const ri = d.repairItem as Record<string, unknown>;
-          const converted: OrderDraft = {
-            clothingType: (d.clothingType as string) ?? "",
-            repairItems: [{
-              name: (ri.repairPart as string) ?? (ri.name as string) ?? "",
-              price: 0,
-              priceRange: (ri.priceRange as string) ?? "",
-              quantity: 1,
-            }],
-            imageUrls: (d.imageUrls as string[]) ?? [],
-            imagesWithPins: [],
-          };
-          return [{ id: row.id as string, savedAt: row.created_at as string, draft: converted }];
-        }
-
-        // 통합 포맷: repairItems 가 없거나 배열이 아니면 빈 배열로 보정한다.
-        const draft = d as unknown as OrderDraft;
-        if (!Array.isArray(draft.repairItems)) draft.repairItems = [];
-        if (!Array.isArray(draft.imageUrls)) draft.imageUrls = [];
-        if (!Array.isArray(draft.imagesWithPins)) draft.imagesWithPins = [];
+        const draft = normalizeStoredDraft(d);
         return [{ id: row.id as string, savedAt: row.created_at as string, draft }];
       } catch {
         return [];

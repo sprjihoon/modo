@@ -74,9 +74,10 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      clothingType,
-      repairItems,
-      imagesWithPins,
+      items,
+      clothingType: legacyClothingType,
+      repairItems: legacyRepairItems,
+      imagesWithPins: legacyImagesWithPins,
       pickupAddress,
       pickupAddressDetail,
       pickupZipcode,
@@ -90,6 +91,24 @@ export async function POST(request: NextRequest) {
       promotionCodeId,
       promotionDiscountAmount: clientPromoDiscountAmount,
     } = body;
+
+    // 신규 items[] 형식 → 평탄화 (앱 단일 형식과 동일하게)
+    type ClothingItemPayload = {
+      clothingType?: string;
+      clothingCategoryId?: string;
+      repairItems?: Array<Record<string, unknown>>;
+      imagesWithPins?: Array<{ imageUrl: string; pins?: unknown[] }>;
+    };
+    const itemsArr: ClothingItemPayload[] = Array.isArray(items) ? items : [];
+
+    const clothingType: string =
+      itemsArr[0]?.clothingType ?? legacyClothingType ?? "";
+    const repairItems = itemsArr.length > 0
+      ? itemsArr.flatMap((it) => it.repairItems ?? [])
+      : (legacyRepairItems ?? []);
+    const imagesWithPins = itemsArr.length > 0
+      ? itemsArr.flatMap((it) => it.imagesWithPins ?? [])
+      : (legacyImagesWithPins ?? []);
 
     if (!agreedToExtraCharge) {
       return NextResponse.json({ error: "추가 결제 동의가 필요합니다." }, { status: 400 });
