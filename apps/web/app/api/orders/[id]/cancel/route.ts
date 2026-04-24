@@ -7,7 +7,13 @@ const PAID_STATUSES = new Set(["PAID", "COMPLETED", "DONE"]);
 // BOOKED: 수거 전 → 수거 취소 + 전액 환불
 // PICKED_UP / INBOUND: 의류가 이미 우리 손에 있음 → 우체국 수거 취소 불필요,
 //   왕복 배송비(returnShippingFee) 차감 후 부분 환불 + 반송 워크플로우 진입
-const PRE_PICKUP_STATUSES = new Set(["PENDING", "PAID", "BOOKED"]);
+// PENDING_PAYMENT: 폐지됐지만 옛 모바일 앱에서 만들어진 좀비 row 가 들어올 수 있어 받아준다.
+const PRE_PICKUP_STATUSES = new Set([
+  "PENDING",
+  "PAID",
+  "BOOKED",
+  "PENDING_PAYMENT",
+]);
 const POST_PICKUP_STATUSES = new Set(["PICKED_UP", "INBOUND"]);
 
 function getTossSecretKey(): string {
@@ -58,7 +64,7 @@ export async function POST(
     const { data: order, error: orderErr } = await admin
       .from("orders")
       .select(
-        "id, status, payment_status, payment_key, total_price, user_id, extra_charge_status, extra_charge_data, item_name, order_number"
+        "id, status, payment_status, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number, tracking_no"
       )
       .eq("id", orderId)
       .maybeSingle();
@@ -121,7 +127,15 @@ export async function POST(
         0,
         Number(settings.returnShippingFee ?? 0) || 0
       );
-      const refundAmount = Math.max(totalPrice - returnFee, 0);
+      // 도서산간 차감액: orders.remote_area_fee 컬럼은 결제 시 이미 왕복(편도×2)으로
+      // 저장된 값이므로, 별도 ×2 없이 그대로 더한다.
+      // (저장 위치: order-pricing.ts / orders-quote/index.ts 에서 ×2 처리)
+      const remoteAreaFee = Math.max(
+        0,
+        Number((order as { remote_area_fee: number | null }).remote_area_fee ?? 0) || 0
+      );
+      const totalDeduction = returnFee + remoteAreaFee;
+      const refundAmount = Math.max(totalPrice - totalDeduction, 0);
 
       let refundResult: Record<string, unknown> | null = null;
       let refundError: string | null = null;
@@ -142,7 +156,11 @@ export async function POST(
               body: JSON.stringify({
                 cancelReason:
                   reason ||
-                  `고객 요청 - 입고 후 취소 (왕복 배송비 ${returnFee.toLocaleString()}원 차감)`,
+                  `고객 요청 - 입고 후 취소 (왕복 배송비 ${returnFee.toLocaleString()}원${
+                    remoteAreaFee > 0
+                      ? ` + 도서산간 ${remoteAreaFee.toLocaleString()}원`
+                      : ""
+                  } 차감)`,
                 cancelAmount: refundAmount,
               }),
             }
@@ -183,6 +201,9 @@ export async function POST(
           ...existingExtraData,
           customerAction: "USER_CANCEL_AFTER_PICKUP",
           returnFee,
+          remoteAreaFee,
+          totalDeduction,
+          refundAmount,
           cancelRequestedAt: new Date().toISOString(),
           cancelReason: reason || "고객 요청 - 입고 후 취소",
         };
@@ -197,7 +218,9 @@ export async function POST(
             canceled_at: new Date().toISOString(),
             cancellation_reason:
               reason ||
-              `고객 요청 - 입고 후 취소 (왕복 배송비 ${returnFee}원 차감)`,
+              `고객 요청 - 입고 후 취소 (왕복 배송비 ${returnFee}원${
+                remoteAreaFee > 0 ? ` + 도서산간 ${remoteAreaFee}원` : ""
+              } 차감)`,
           })
           .eq("id", orderId);
 
@@ -226,6 +249,8 @@ export async function POST(
                 orderId,
                 orderNumber,
                 returnFee,
+                remoteAreaFee,
+                totalDeduction,
                 refundAmount,
                 customer_user_id: (order as { user_id: string }).user_id,
               },
@@ -237,17 +262,25 @@ export async function POST(
         }
       }
 
+      const deductionDescParts = [`왕복 배송비 ${returnFee.toLocaleString()}원`];
+      if (remoteAreaFee > 0) {
+        deductionDescParts.push(`도서산간 ${remoteAreaFee.toLocaleString()}원`);
+      }
+      const deductionDesc = deductionDescParts.join(" + ");
+
       return NextResponse.json({
         success: true,
         flow: "POST_PICKUP_RETURN",
         message: refundResult
-          ? `취소 요청이 접수되었습니다. 왕복 배송비 ${returnFee.toLocaleString()}원을 차감한 ${refundAmount.toLocaleString()}원이 환불됩니다.`
+          ? `취소 요청이 접수되었습니다. ${deductionDesc} 을(를) 차감한 ${refundAmount.toLocaleString()}원이 환불됩니다.`
           : refundAmount === 0
             ? "취소 요청이 접수되었습니다."
             : `취소 요청이 접수되었으나 환불 처리에 실패했습니다.${
                 refundError ? ` (${refundError})` : ""
               } 고객센터로 문의해 주세요.`,
         returnFee,
+        remoteAreaFee,
+        totalDeduction,
         refundAmount,
         refundProcessed: !!refundResult,
         refundError,
@@ -260,28 +293,58 @@ export async function POST(
     }
 
     // ───────────────────────────────────────────────
-    // ② 수거 전 취소 (PENDING / PAID / BOOKED): 우체국 수거 취소 + 전액 환불
+    // ② 수거 전 취소 (PENDING / PAID / BOOKED / PENDING_PAYMENT): 우체국 수거 취소 + 전액 환불
     // ───────────────────────────────────────────────
 
-    // 1) 우체국 수거 취소
-    const shipmentRes = await fetch(`${supabaseUrl}/functions/v1/shipments-cancel`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${supabaseAnonKey}`,
-      },
-      body: JSON.stringify({ order_id: orderId, delete_after_cancel: false }),
-    });
-    const shipmentResult = await shipmentRes.json().catch(() => ({}));
+    // 1) 우체국 수거 취소 — tracking_no 가 있을 때만 시도
+    //    송장 자체가 없는 경우(좀비 PENDING_PAYMENT, 결제 전 PENDING 등)는 호출 자체를 스킵.
+    //    호출하더라도 shipments-cancel 이 404 (SHIPMENT_NOT_FOUND) 를 주면 "취소할 게 없음 = 정상"
+    //    으로 간주하고 다음 단계로 진행한다.
+    const orderTrackingNo = (order as { tracking_no: string | null }).tracking_no;
+    let shipmentResult: Record<string, unknown> = {};
+    let shipmentCanceled = false;
 
-    if (!shipmentRes.ok) {
-      return NextResponse.json(
+    if (orderTrackingNo) {
+      const shipmentRes = await fetch(
+        `${supabaseUrl}/functions/v1/shipments-cancel`,
         {
-          success: false,
-          error: shipmentResult?.error || "수거 취소에 실패했습니다.",
-          step: "shipment",
-        },
-        { status: 500 }
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({ order_id: orderId, delete_after_cancel: false }),
+        }
+      );
+      shipmentResult = await shipmentRes.json().catch(() => ({}));
+
+      if (shipmentRes.ok) {
+        shipmentCanceled = true;
+      } else {
+        const code = (shipmentResult as { code?: string })?.code;
+        const errMsg = (shipmentResult as { error?: string })?.error ?? "";
+        const isNoShipment =
+          code === "SHIPMENT_NOT_FOUND" ||
+          shipmentRes.status === 404 ||
+          /Shipment not found/i.test(errMsg);
+        if (!isNoShipment) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: errMsg || "수거 취소에 실패했습니다.",
+              step: "shipment",
+            },
+            { status: 500 }
+          );
+        }
+        // 송장 없음 → 정상 진행 (취소할 게 없는 좀비 주문)
+        console.log(
+          `[orders/cancel] shipment 없음 — 우체국 취소 스킵 (orderId=${orderId})`
+        );
+      }
+    } else {
+      console.log(
+        `[orders/cancel] tracking_no 없음 — 우체국 취소 스킵 (orderId=${orderId})`
       );
     }
 
@@ -352,12 +415,14 @@ export async function POST(
     return NextResponse.json({
       success: true,
       flow: "PRE_PICKUP_CANCEL",
-      message: shipmentResult?.message || "수거 예약이 취소되었습니다.",
-      shipmentCanceled: true,
+      message:
+        (shipmentResult as { message?: string })?.message ||
+        "수거 예약이 취소되었습니다.",
+      shipmentCanceled,
       paymentCanceled: !!paymentCancelResult,
       paymentCancelError,
       hasValidPayment,
-      epost_result: shipmentResult?.epost_result,
+      epost_result: (shipmentResult as { epost_result?: unknown })?.epost_result,
     });
   } catch (e) {
     console.error("주문 취소 오류:", e);

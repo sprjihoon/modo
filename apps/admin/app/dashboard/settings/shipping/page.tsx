@@ -357,7 +357,7 @@ export default function ShippingSettingsPage() {
               </div>
             </div>
             <div>
-              <Label className="text-xs">도서산간 추가배송비</Label>
+              <Label className="text-xs">도서산간 추가배송비 (편도 단가)</Label>
               <div className="flex items-center gap-1 mt-1">
                 <Input
                   type="number"
@@ -370,6 +370,11 @@ export default function ShippingSettingsPage() {
                 />
                 <span className="text-sm text-gray-500 shrink-0">원</span>
               </div>
+              <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                우체국 편도 기준 단가를 입력하세요. 시스템은 항상 왕복(× 2)으로 부과/차감합니다.
+                <br />
+                예: 400원 입력 → 결제 시 800원 추가, 취소 시 800원 차감.
+              </p>
             </div>
             <div>
               <Label className="text-xs">반송 차감 배송비</Label>
@@ -410,7 +415,11 @@ export default function ShippingSettingsPage() {
             <span className="text-lg">💡</span>
             <p className="text-sm text-gray-600 leading-relaxed">
               왕복배송비({baseShippingFee.toLocaleString()}원)는 수량과 관계없이 1회 동일하게 부과됩니다.
-              <strong> 도서산간({settingsForm.remote_area_fee.toLocaleString()}원 추가)은 우체국 지정 우편번호일 때 자동 합산됩니다.</strong>
+              <strong>
+                {" "}도서산간(편도 {settingsForm.remote_area_fee.toLocaleString()}원
+                → 왕복 {(settingsForm.remote_area_fee * 2).toLocaleString()}원
+                추가)은 우체국 지정 우편번호일 때 자동 합산됩니다.
+              </strong>
             </p>
           </div>
           <div className="bg-blue-100 rounded-lg px-3 py-2">

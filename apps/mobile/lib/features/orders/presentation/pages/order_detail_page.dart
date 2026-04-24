@@ -3073,6 +3073,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   Widget _buildPostPickupCancelButtons(BuildContext context) {
     final returnFee =
         ShippingSettingsService().current.returnShippingFee;
+    final remoteAreaFee =
+        (_orderData?['remote_area_fee'] as num?)?.toInt() ?? 0;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -3123,7 +3125,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
-            '입고된 상태에서 취소 시 왕복 배송비 ${_formatPrice(returnFee)}원이 차감되고 나머지 금액이 환불됩니다.',
+            remoteAreaFee > 0
+                ? '입고된 상태에서 취소 시 왕복 배송비 ${_formatPrice(returnFee)}원 + 도서산간 ${_formatPrice(remoteAreaFee)}원이 차감되고 나머지 금액이 환불됩니다.'
+                : '입고된 상태에서 취소 시 왕복 배송비 ${_formatPrice(returnFee)}원이 차감되고 나머지 금액이 환불됩니다.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,
@@ -3607,7 +3611,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
 
     final returnFee = settings.returnShippingFee;
     final totalPrice = (_orderData?['total_price'] as num?)?.toInt() ?? 0;
-    final refundAmount = (totalPrice - returnFee).clamp(0, totalPrice);
+    // 도서산간 차감액: orders.remote_area_fee 컬럼은 결제 시 이미 왕복(편도×2)으로
+    // 저장된 값이므로 별도 ×2 없이 그대로 더한다.
+    // (저장 위치: web/lib/order-pricing.ts, edge/orders-quote/index.ts 에서 ×2 처리)
+    final remoteAreaFee = (_orderData?['remote_area_fee'] as num?)?.toInt() ?? 0;
+    final totalDeduction = returnFee + (remoteAreaFee > 0 ? remoteAreaFee : 0);
+    final refundAmount = (totalPrice - totalDeduction).clamp(0, totalPrice);
     final paymentStatus = _orderData?['payment_status'] as String?;
     final isPaid = paymentStatus == 'PAID' ||
         paymentStatus == 'COMPLETED' ||
@@ -3652,6 +3661,14 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                     '- ${_formatPrice(returnFee)}원',
                     valueColor: Colors.red.shade600,
                   ),
+                  if (remoteAreaFee > 0) ...[
+                    const SizedBox(height: 6),
+                    _buildCancelInfoRow(
+                      '🏝 도서산간 배송비 차감 (왕복)',
+                      '- ${_formatPrice(remoteAreaFee)}원',
+                      valueColor: Colors.orange.shade700,
+                    ),
+                  ],
                   if (isPaid) ...[
                     const Divider(height: 16),
                     _buildCancelInfoRow(
@@ -3672,6 +3689,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                 height: 1.4,
               ),
             ),
+            if (remoteAreaFee > 0) ...[
+              const SizedBox(height: 4),
+              Text(
+                '도서산간 배송비는 편도 단가 × 2 (왕복) 기준입니다.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.orange.shade700,
+                  height: 1.4,
+                ),
+              ),
+            ],
           ],
         ),
         actions: [

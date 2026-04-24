@@ -69,7 +69,7 @@ serve(async (req) => {
     const { data: order, error: orderErr } = await admin
       .from('orders')
       .select(
-        'id, status, payment_status, payment_key, total_price, user_id, extra_charge_status, extra_charge_data, item_name, order_number',
+        'id, status, payment_status, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number',
       )
       .eq('id', orderId)
       .maybeSingle()
@@ -123,7 +123,12 @@ serve(async (req) => {
       } catch {
         /* 폴백 */
       }
-      const refundAmount = Math.max(totalPrice - returnFee, 0)
+      // 도서산간 차감액: orders.remote_area_fee 컬럼은 결제 시 이미 왕복(편도×2)으로
+      // 저장된 값이므로 별도 ×2 없이 그대로 더한다.
+      // (저장 위치: web/lib/order-pricing.ts, edge/orders-quote/index.ts 에서 ×2 처리)
+      const remoteAreaFee = Math.max(0, Number(order.remote_area_fee ?? 0) || 0)
+      const totalDeduction = returnFee + remoteAreaFee
+      const refundAmount = Math.max(totalPrice - totalDeduction, 0)
 
       let refundResult: Record<string, unknown> | null = null
       let refundError: string | null = null
@@ -144,7 +149,11 @@ serve(async (req) => {
                 body: JSON.stringify({
                   cancelReason:
                     reason ||
-                    `고객 요청 - 입고 후 취소 (왕복 배송비 ${returnFee.toLocaleString()}원 차감)`,
+                    `고객 요청 - 입고 후 취소 (왕복 배송비 ${returnFee.toLocaleString()}원${
+                      remoteAreaFee > 0
+                        ? ` + 도서산간 ${remoteAreaFee.toLocaleString()}원`
+                        : ''
+                    } 차감)`,
                   cancelAmount: refundAmount,
                 }),
               },
@@ -184,6 +193,9 @@ serve(async (req) => {
           ...existingExtraData,
           customerAction: 'USER_CANCEL_AFTER_PICKUP',
           returnFee,
+          remoteAreaFee,
+          totalDeduction,
+          refundAmount,
           cancelRequestedAt: new Date().toISOString(),
           cancelReason: reason || '고객 요청 - 입고 후 취소',
         }
@@ -198,7 +210,9 @@ serve(async (req) => {
             canceled_at: new Date().toISOString(),
             cancellation_reason:
               reason ||
-              `고객 요청 - 입고 후 취소 (왕복 배송비 ${returnFee}원 차감)`,
+              `고객 요청 - 입고 후 취소 (왕복 배송비 ${returnFee}원${
+                remoteAreaFee > 0 ? ` + 도서산간 ${remoteAreaFee}원` : ''
+              } 차감)`,
           })
           .eq('id', orderId)
 
@@ -222,6 +236,8 @@ serve(async (req) => {
                 orderId,
                 orderNumber: order.order_number ?? null,
                 returnFee,
+                remoteAreaFee,
+                totalDeduction,
                 refundAmount,
                 customer_user_id: order.user_id,
               },
@@ -233,17 +249,25 @@ serve(async (req) => {
         }
       }
 
+      const deductionDescParts = [`왕복 배송비 ${returnFee.toLocaleString()}원`]
+      if (remoteAreaFee > 0) {
+        deductionDescParts.push(`도서산간 ${remoteAreaFee.toLocaleString()}원`)
+      }
+      const deductionDesc = deductionDescParts.join(' + ')
+
       return json({
         success: true,
         flow: 'POST_PICKUP_RETURN',
         message: refundResult
-          ? `취소 요청이 접수되었습니다. 왕복 배송비 ${returnFee.toLocaleString()}원을 차감한 ${refundAmount.toLocaleString()}원이 환불됩니다.`
+          ? `취소 요청이 접수되었습니다. ${deductionDesc} 을(를) 차감한 ${refundAmount.toLocaleString()}원이 환불됩니다.`
           : refundAmount === 0
             ? '취소 요청이 접수되었습니다.'
             : `취소 요청이 접수되었으나 환불 처리에 실패했습니다.${
                 refundError ? ` (${refundError})` : ''
               } 고객센터로 문의해 주세요.`,
         returnFee,
+        remoteAreaFee,
+        totalDeduction,
         refundAmount,
         refundProcessed: !!refundResult,
         refundError,

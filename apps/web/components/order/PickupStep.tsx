@@ -123,8 +123,11 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
 
   const SHIPPING_FEE = shippingSettings.baseShippingFee;
 
-  // 도서산간 여부 (수거지 기준) — 추가 금액은 관리자 설정값
-  const remoteAreaFee = isRemoteArea(pickupZipcode, address) ? shippingSettings.remoteAreaFee : 0;
+  // 도서산간 여부 (수거지 기준) — 왕복 = 편도 단가 × 2.
+  // 정책: 의류는 들어오고 반드시 나가야 하므로 모든 배송비는 왕복 기준.
+  const remoteAreaFee = isRemoteArea(pickupZipcode, address)
+    ? shippingSettings.remoteAreaFee * 2
+    : 0;
 
   // items[] 기반 집계
   const allRepairItems = draft.items.flatMap((it) => it.repairItems);

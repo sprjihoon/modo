@@ -34,6 +34,7 @@ interface OrderData {
   clothing_type?: string;
   repair_type?: string;
   total_price?: number;
+  remote_area_fee?: number;
   payment_method?: string;
   created_at?: string;
   pickup_address?: string;
@@ -133,6 +134,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [returnShippingFee, setReturnShippingFee] = useState<number | null>(null);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inboundVideoUrl, setInboundVideoUrl] = useState<string | null>(null);
   const [outboundVideoUrl, setOutboundVideoUrl] = useState<string | null>(null);
@@ -333,30 +335,16 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     }
   }
 
+  // 취소 버튼 클릭 시: 커스텀 확인 모달을 띄운다.
+  // (네이티브 confirm() 은 모바일 앱과 톤이 안 맞아 폐지)
+  function openCancelDialog() {
+    setIsCancelDialogOpen(true);
+  }
+
   async function handleCancel() {
-    // 결제 완료된 주문이면 환불 안내를 함께 노출
-    const isPaid = order?.payment_status === "PAID";
+    setIsCancelDialogOpen(false);
     const isPostPickup =
       order?.status === "PICKED_UP" || order?.status === "INBOUND";
-
-    let confirmMsg: string;
-    if (isPostPickup) {
-      const totalPrice = Number(order?.total_price ?? 0);
-      const fee = returnShippingFee ?? 7000; // 폴백: 기본 왕복 배송비
-      const refund = Math.max(totalPrice - fee, 0);
-      confirmMsg =
-        `주문을 취소하고 의류를 반송하시겠습니까?\n\n` +
-        `· 왕복 배송비 ${fee.toLocaleString()}원이 차감됩니다.\n` +
-        (isPaid
-          ? `· 결제 금액 ${totalPrice.toLocaleString()}원 중 ${refund.toLocaleString()}원이 환불됩니다.\n`
-          : "") +
-        `· 의류는 등록하신 주소로 반송됩니다.`;
-    } else {
-      confirmMsg = isPaid
-        ? "수거 예약을 취소하시겠습니까?\n결제하신 금액은 카드사를 통해 자동으로 환불됩니다."
-        : "수거 예약을 취소하시겠습니까?\n취소 후에는 다시 예약하셔야 합니다.";
-    }
-    if (!confirm(confirmMsg)) return;
     setIsCancelling(true);
     try {
       // /api/orders/{id}/cancel : 수거 취소 + 결제 환불을 한 트랜잭션으로 처리
@@ -1260,11 +1248,12 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         {/* 주문 취소 */}
         {canCancel && (() => {
           const fee = returnShippingFee ?? 7000;
+          const remoteFee = Math.max(0, Number(order?.remote_area_fee ?? 0) || 0);
           const buttonLabel = cancelIsPostPickup ? "주문 취소 / 반송 요청" : "수거 예약 취소";
           return (
             <div className="space-y-1">
               <button
-                onClick={handleCancel}
+                onClick={openCancelDialog}
                 disabled={isCancelling}
                 className="w-full py-3.5 border border-red-200 text-red-500 text-sm font-medium rounded-xl active:bg-red-50 disabled:opacity-50"
               >
@@ -1277,12 +1266,144 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                   <span className="font-semibold text-gray-500">
                     {fee.toLocaleString()}원
                   </span>
+                  {remoteFee > 0 && (
+                    <>
+                      {" + 도서산간 "}
+                      <span className="font-semibold text-orange-500">
+                        {remoteFee.toLocaleString()}원
+                      </span>
+                    </>
+                  )}
                   이 차감되고 나머지 금액이 환불됩니다.
                 </p>
               )}
             </div>
           );
         })()}
+      </div>
+
+      {/* ── 주문 취소 확인 모달 ── */}
+      {isCancelDialogOpen && order && (
+        <CancelConfirmDialog
+          status={order.status}
+          isPaid={order.payment_status === "PAID"}
+          totalPrice={Number(order.total_price ?? 0)}
+          returnFee={returnShippingFee ?? 7000}
+          remoteAreaFee={Math.max(0, Number(order.remote_area_fee ?? 0) || 0)}
+          onCancel={() => setIsCancelDialogOpen(false)}
+          onConfirm={handleCancel}
+          isProcessing={isCancelling}
+        />
+      )}
+    </div>
+  );
+}
+
+function CancelConfirmDialog({
+  status,
+  isPaid,
+  totalPrice,
+  returnFee,
+  remoteAreaFee,
+  onCancel,
+  onConfirm,
+  isProcessing,
+}: {
+  status: string;
+  isPaid: boolean;
+  totalPrice: number;
+  returnFee: number;
+  remoteAreaFee: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+  isProcessing: boolean;
+}) {
+  const isPostPickup = status === "PICKED_UP" || status === "INBOUND";
+  const totalDeduction = isPostPickup ? returnFee + remoteAreaFee : 0;
+  const refund = Math.max(totalPrice - totalDeduction, 0);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+        <div className="px-5 pt-5 pb-3 border-b border-gray-100">
+          <h2 className="text-base font-bold text-gray-900">
+            {isPostPickup ? "주문을 취소하시겠습니까?" : "수거 예약을 취소하시겠습니까?"}
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">
+            {isPostPickup
+              ? "의류가 이미 입고된 상태이므로 반송이 진행됩니다."
+              : "취소 후에는 다시 예약하셔야 합니다."}
+          </p>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          {isPostPickup ? (
+            <>
+              <div className="bg-gray-50 rounded-xl p-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">결제 금액</span>
+                  <span className="font-semibold text-gray-900">
+                    {totalPrice.toLocaleString()}원
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-red-600">
+                  <span>왕복 배송비 차감</span>
+                  <span className="font-semibold">
+                    -{returnFee.toLocaleString()}원
+                  </span>
+                </div>
+                {remoteAreaFee > 0 && (
+                  <div className="flex items-center justify-between text-orange-600">
+                    <span>🏝 도서산간 배송비 차감 (왕복)</span>
+                    <span className="font-semibold">
+                      -{remoteAreaFee.toLocaleString()}원
+                    </span>
+                  </div>
+                )}
+                <div className="border-t border-gray-200 pt-2 flex items-center justify-between">
+                  <span className="text-gray-700 font-semibold">
+                    {isPaid ? "환불 예정 금액" : "차감 후 잔액"}
+                  </span>
+                  <span className="text-base font-bold text-[#00C896]">
+                    {refund.toLocaleString()}원
+                  </span>
+                </div>
+              </div>
+              <ul className="text-xs text-gray-500 space-y-1 pl-1">
+                <li>· 의류는 등록하신 주소로 반송됩니다.</li>
+                {isPaid && <li>· 환불은 카드사를 통해 자동 처리됩니다.</li>}
+                {remoteAreaFee > 0 && (
+                  <li>· 도서산간 배송비는 편도 단가 × 2 (왕복) 기준입니다.</li>
+                )}
+              </ul>
+            </>
+          ) : (
+            <p className="text-sm text-gray-600 leading-relaxed">
+              {isPaid
+                ? "결제하신 금액은 카드사를 통해 자동으로 환불됩니다."
+                : "취소 후 다시 수거를 신청하시려면 새로 주문해 주셔야 합니다."}
+            </p>
+          )}
+        </div>
+
+        <div className="flex gap-2 px-5 pb-5">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isProcessing}
+            className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 active:bg-gray-50 disabled:opacity-50"
+          >
+            계속 진행
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isProcessing}
+            className="flex-1 py-3 rounded-xl bg-red-500 text-sm font-bold text-white active:bg-red-600 disabled:opacity-50"
+          >
+            {isProcessing ? "처리 중..." : "취소하기"}
+          </button>
+        </div>
       </div>
     </div>
   );

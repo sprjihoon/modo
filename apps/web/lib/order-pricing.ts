@@ -189,12 +189,16 @@ export async function quoteOrder(
     console.warn("배송비 프로모션 확인 실패 (기본 배송비 적용):", e);
   }
 
-  // 도서산간 추가비
-  const remoteAreaFee = getRemoteAreaFee(
+  // 도서산간 추가비 (왕복 = 편도 단가 × 2).
+  // 정책: 의류는 들어오고 반드시 나가야 하므로 모든 배송비는 왕복 기준이다.
+  // shipping_settings.remote_area_fee 는 우체국 편도 단가(예: 400) 로 저장되며,
+  // 결제/취소 차감 시 모두 왕복(800) 기준으로 사용한다.
+  const remoteAreaOneWay = getRemoteAreaFee(
     input.pickupZipcode || "",
     input.pickupAddress || "",
     shippingSettings.remoteAreaFee
   );
+  const remoteAreaFee = remoteAreaOneWay * 2;
 
   // 프로모션 코드 할인 검증
   let promotionDiscountAmount = 0;

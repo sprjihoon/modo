@@ -167,6 +167,59 @@ check('edge: shipping_settings 에서 returnFee 동적 조회', edgeFn, /from\('
 check('edge: post-pickup → RETURN_PENDING 전이', edgeFn, /status:\s*'RETURN_PENDING'/);
 check('edge: 같은 알림 타입 ORDER_CANCEL_AFTER_PICKUP', edgeFn, /ORDER_CANCEL_AFTER_PICKUP/);
 
+console.log('\n[3.5] 도서산간 왕복(× 2) 정책 코드 검증');
+
+// 결제/가격 계산 시 ×2 로 저장
+const webPricing = readFileSync(resolve(REPO, 'apps/web/lib/order-pricing.ts'), 'utf8');
+check('web order-pricing: remoteAreaOneWay * 2', webPricing, /remoteAreaOneWay\s*\*\s*2/);
+
+const edgeQuote = readFileSync(
+  resolve(REPO, 'apps/edge/supabase/functions/orders-quote/index.ts'),
+  'utf8',
+);
+check('edge orders-quote: remoteAreaOneWay * 2', edgeQuote, /remoteAreaOneWay\s*\*\s*2/);
+
+const islandSvc = readFileSync(
+  resolve(REPO, 'apps/mobile/lib/services/island_area_service.dart'),
+  'utf8',
+);
+check('mobile island_area_service: feeAmount * 2', islandSvc, /feeAmount\s*\*\s*2/);
+
+// 취소 시 orders.remote_area_fee 합산
+check('web cancel: remote_area_fee select 포함', cancelRoute, /select\([^)]*remote_area_fee/);
+check('web cancel: totalDeduction 에 remoteAreaFee 합산', cancelRoute, /totalDeduction\s*=\s*returnFee\s*\+\s*remoteAreaFee/);
+check('edge cancel: remote_area_fee select 포함', edgeFn, /select\([^)]*remote_area_fee/);
+check('edge cancel: totalDeduction 에 remoteAreaFee 합산', edgeFn, /totalDeduction\s*=\s*returnFee\s*\+\s*remoteAreaFee/);
+
+// UI: 다이얼로그에 도서산간 차감 라벨 노출
+const orderDetailWeb = readFileSync(
+  resolve(REPO, 'apps/web/components/orders/OrderDetailClient.tsx'),
+  'utf8',
+);
+check('web OrderDetailClient: 커스텀 CancelConfirmDialog 사용', orderDetailWeb, /function CancelConfirmDialog/);
+check('web OrderDetailClient: 도서산간 차감 라벨 노출', orderDetailWeb, /도서산간 배송비 차감 \(왕복\)/);
+
+const orderDetailMobile = readFileSync(
+  resolve(REPO, 'apps/mobile/lib/features/orders/presentation/pages/order_detail_page.dart'),
+  'utf8',
+);
+check('mobile order_detail_page: 도서산간 차감 라벨 노출', orderDetailMobile, /🏝 도서산간 배송비 차감 \(왕복\)/);
+
+console.log('\n[3.6] 실주문에 ×2 정책이 즉시 반영되는지 (이미 결제된 주문은 영향 없음)');
+{
+  const { data: rows, error } = await admin
+    .from('orders')
+    .select('id, remote_area_fee')
+    .gt('remote_area_fee', 0)
+    .limit(10);
+  if (error) bad('remote_area_fee > 0 조회', error.message);
+  else {
+    const cnt = rows?.length ?? 0;
+    console.log(`  INFO  현재 remote_area_fee > 0 인 기존 주문 ${cnt}건 (배포 이전 생성분)`);
+    ok('실주문 remote_area_fee 분포 조회');
+  }
+}
+
 console.log('\n[4] 실데이터 분포 검증 (현재 운영 상태 스냅샷)');
 
 // 4-1) 현재 상태별 주문 수
