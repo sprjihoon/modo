@@ -202,21 +202,34 @@ serve(async (req) => {
           })
           .eq('id', orderId)
 
+        // 관리자(MANAGER/ADMIN)들에게 알림 fan-out
         try {
-          await admin.from('notifications').insert({
-            user_id: order.user_id,
-            type: 'ORDER_CANCEL_AFTER_PICKUP',
-            title: '입고 후 취소 요청',
-            body: `'${order.item_name ?? '주문'}' 상품의 취소가 요청되었습니다. 반송 송장을 발급해 주세요.`,
-            metadata: {
-              orderId,
-              orderNumber: order.order_number ?? null,
-              returnFee,
-              refundAmount,
-            },
-          })
-        } catch {
-          /* notifications 미설정 시 무시 */
+          const { data: managers } = await admin
+            .from('users')
+            .select('id')
+            .in('role', ['ADMIN', 'MANAGER'])
+
+          if (managers && managers.length > 0) {
+            const rows = managers.map((m: { id: string }) => ({
+              user_id: m.id,
+              type: 'ORDER_CANCEL_AFTER_PICKUP',
+              title: '입고 후 취소 요청',
+              body: `'${order.item_name ?? '주문'}' (${
+                order.order_number ?? orderId.slice(0, 8)
+              }) 의 취소가 요청되었습니다. 반송 송장을 발급해 주세요.`,
+              order_id: orderId,
+              metadata: {
+                orderId,
+                orderNumber: order.order_number ?? null,
+                returnFee,
+                refundAmount,
+                customer_user_id: order.user_id,
+              },
+            }))
+            await admin.from('notifications').insert(rows)
+          }
+        } catch (notifyErr) {
+          console.warn('admin 알림 fan-out 실패 (무시):', notifyErr)
         }
       }
 
