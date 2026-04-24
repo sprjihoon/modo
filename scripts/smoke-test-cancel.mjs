@@ -129,11 +129,23 @@ async function call(fn, body, headers = {}) {
   else bad('orders-cancel 잘못된 order_id 처리', `status=${status} body=${JSON.stringify(json)}`);
 }
 
-// 2-3) orders-quote / orders-free / payments-confirm-toss 가용성 (200/4xx 면 ok, 500 이면 fail)
-for (const fn of ['orders-quote', 'orders-free', 'payments-confirm-toss']) {
+// 2-3) orders-quote / orders-free / payments-confirm-toss / orders-return-and-refund 가용성
+for (const fn of [
+  'orders-quote',
+  'orders-free',
+  'payments-confirm-toss',
+  'orders-return-and-refund',
+]) {
   const { status } = await call(fn, {});
   if (status >= 500) bad(`${fn} 가용성`, `status=${status}`);
   else ok(`${fn} 응답 OK (status=${status}, 4xx는 정상 - 입력 검증)`);
+}
+
+// 2-4) orders-return-and-refund: 인증 없음 → 401
+{
+  const { status, json } = await call('orders-return-and-refund', { order_id: 'x' });
+  if (status === 401) ok(`orders-return-and-refund: 인증 없음 → 401 (${json?.error ?? ''})`);
+  else bad('orders-return-and-refund 비인증 거부', `status=${status} body=${JSON.stringify(json)}`);
 }
 
 console.log('\n[3] 코드 정책 / 상태 머신 검증');
@@ -161,7 +173,7 @@ check('web: post-pickup → extra_charge_status RETURN_REQUESTED', cancelRoute, 
 check('web: cancelAmount = totalPrice - returnFee', cancelRoute, /cancelAmount:\s*refundAmount/);
 check('web: 알림 ORDER_CANCEL_AFTER_PICKUP 전송', cancelRoute, /ORDER_CANCEL_AFTER_PICKUP/);
 
-check('edge: PRE_PICKUP_STATUSES 정의', edgeFn, /PRE_PICKUP_STATUSES[^=]*=\s*new Set\(\['PENDING',\s*'PAID',\s*'BOOKED'\]\)/);
+check('edge: PRE_PICKUP_STATUSES 정의', edgeFn, /PRE_PICKUP_STATUSES[^=]*=\s*new Set\(\[[^\]]*'PENDING'[^\]]*'PAID'[^\]]*'BOOKED'[^\]]*\]\)/);
 check('edge: POST_PICKUP_STATUSES 정의', edgeFn, /POST_PICKUP_STATUSES[^=]*=\s*new Set\(\['PICKED_UP',\s*'INBOUND'\]\)/);
 check('edge: shipping_settings 에서 returnFee 동적 조회', edgeFn, /from\('shipping_settings'\)[\s\S]*?return_shipping_fee/);
 check('edge: post-pickup → RETURN_PENDING 전이', edgeFn, /status:\s*'RETURN_PENDING'/);
@@ -204,6 +216,30 @@ const orderDetailMobile = readFileSync(
   'utf8',
 );
 check('mobile order_detail_page: 도서산간 차감 라벨 노출', orderDetailMobile, /🏝 도서산간 배송비 차감 \(왕복\)/);
+
+// 추가요금 거절 → 반송 경로
+const returnRefundWeb = readFileSync(
+  resolve(REPO, 'apps/web/app/api/orders/[id]/return-and-refund/route.ts'),
+  'utf8',
+);
+check('web return-and-refund: remote_area_fee select 포함', returnRefundWeb, /select\([\s\S]*?remote_area_fee/);
+check('web return-and-refund: totalDeduction = returnFee + remoteAreaFee', returnRefundWeb, /totalDeduction\s*=\s*returnFee\s*\+\s*remoteAreaFee/);
+
+const edgeReturnRefund = readFileSync(
+  resolve(REPO, 'apps/edge/supabase/functions/orders-return-and-refund/index.ts'),
+  'utf8',
+);
+check('edge orders-return-and-refund: remote_area_fee select 포함', edgeReturnRefund, /select\([\s\S]*?remote_area_fee/);
+check('edge orders-return-and-refund: totalDeduction 계산 일관', edgeReturnRefund, /totalDeduction\s*=\s*returnFee\s*\+\s*remoteAreaFee/);
+check('edge orders-return-and-refund: process_customer_decision 호출', edgeReturnRefund, /process_customer_decision/);
+check('edge orders-return-and-refund: Toss 부분환불 호출', edgeReturnRefund, /api\.tosspayments\.com\/v1\/payments\//);
+
+// 모바일 측 RETURN 액션이 새 Edge Function 으로 통일되었는지
+const mobileExtraSvc = readFileSync(
+  resolve(REPO, 'apps/mobile/lib/services/extra_charge_service.dart'),
+  'utf8',
+);
+check('mobile extra_charge_service: RETURN → orders-return-and-refund 호출', mobileExtraSvc, /orders-return-and-refund/);
 
 console.log('\n[3.6] 실주문에 ×2 정책이 즉시 반영되는지 (이미 결제된 주문은 영향 없음)');
 {

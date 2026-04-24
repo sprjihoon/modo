@@ -209,13 +209,26 @@ class ExtraChargeRequestCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      '• 그냥 진행: 추가 작업 없이 원안대로 진행합니다\n• 반송: 왕복 배송비 ${NumberFormat('#,###').format(ShippingSettingsService().current.returnShippingFee)}원이 차감됩니다',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[700],
-                      ),
-                    ),
+                    child: Builder(builder: (_) {
+                      final returnFee =
+                          ShippingSettingsService().current.returnShippingFee;
+                      final remoteAreaFee = (orderData['remote_area_fee'] is num)
+                          ? (orderData['remote_area_fee'] as num).toInt()
+                          : 0;
+                      final f = NumberFormat('#,###');
+                      final base =
+                          '• 그냥 진행: 추가 작업 없이 원안대로 진행합니다\n• 반송: 왕복 배송비 ${f.format(returnFee)}원';
+                      final extra = remoteAreaFee > 0
+                          ? ' + 도서산간 ${f.format(remoteAreaFee)}원'
+                          : '';
+                      return Text(
+                        '$base$extra이 차감됩니다',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[700],
+                        ),
+                      );
+                    }),
                   ),
                 ],
               ),
@@ -377,16 +390,40 @@ class ExtraChargeRequestCard extends StatelessWidget {
   /// 반송하기
   Future<void> _handleReturn(BuildContext context) async {
     final returnFee = ShippingSettingsService().current.returnShippingFee;
-    final formattedFee = NumberFormat('#,###').format(returnFee);
+    final remoteAreaFee = (orderData['remote_area_fee'] is num)
+        ? (orderData['remote_area_fee'] as num).toInt()
+        : 0;
+    final totalPrice = (orderData['total_price'] is num)
+        ? (orderData['total_price'] as num).toInt()
+        : 0;
+    final totalDeduction = returnFee + remoteAreaFee;
+    final refundAmount =
+        (totalPrice - totalDeduction) > 0 ? totalPrice - totalDeduction : 0;
+    final f = NumberFormat('#,###');
+
+    final breakdown = StringBuffer()
+      ..writeln('반송을 요청하시겠습니까?')
+      ..writeln()
+      ..writeln('• 결제 금액: ${f.format(totalPrice)}원')
+      ..writeln('• 왕복 배송비 차감: -${f.format(returnFee)}원');
+    if (remoteAreaFee > 0) {
+      breakdown.writeln(
+        '• 🏝 도서산간 차감 (왕복): -${f.format(remoteAreaFee)}원',
+      );
+    }
+    breakdown
+      ..writeln('───────────────')
+      ..writeln('환불 예정: ${f.format(refundAmount)}원')
+      ..writeln()
+      ..write(
+        '도서산간 비용은 결제 시 이미 왕복(편도×2) 으로 부과된 금액 그대로 차감됩니다.',
+      );
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('반송 요청'),
-        content: Text(
-          '반송을 요청하시겠습니까?\n\n'
-          '⚠️ 왕복 배송비 ${formattedFee}원이 차감됩니다.\n'
-          '이 금액은 환불 시 공제됩니다.',
-        ),
+        content: Text(breakdown.toString()),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -426,10 +463,16 @@ class ExtraChargeRequestCard extends StatelessWidget {
       Navigator.of(context).pop(); // 로딩 닫기
 
       if (success) {
+        final extraStr = remoteAreaFee > 0
+            ? ' + 도서산간 ${f.format(remoteAreaFee)}원'
+            : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('반송 요청 완료. 배송비 ${formattedFee}원이 차감됩니다'),
+            content: Text(
+              '반송 요청 완료. 왕복 배송비 ${f.format(returnFee)}원$extraStr 차감 후 ${f.format(refundAmount)}원이 환불됩니다.',
+            ),
             backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 6),
           ),
         );
         onActionCompleted?.call();

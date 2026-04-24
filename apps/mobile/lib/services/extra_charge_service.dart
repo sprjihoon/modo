@@ -152,9 +152,17 @@ class ExtraChargeService {
   }
 
   /// [고객 결정 기능] 고객의 선택 처리
-  /// 
+  ///
   /// 대상: PENDING_CUSTOMER 상태인 주문
-  /// 액션: PAY (결제), SKIP (거절), RETURN (반송)
+  /// 액션:
+  ///   - PAY    → RPC `process_customer_decision` (결제 페이지로 진행)
+  ///   - SKIP   → RPC `process_customer_decision` (그냥 진행)
+  ///   - RETURN → Edge Function `orders-return-and-refund` 호출
+  ///              (RPC 상태 전이 + Toss 부분환불을 한 트랜잭션처럼 처리.
+  ///               환불액 = total_price - returnFee - orders.remote_area_fee)
+  ///
+  /// "들어온 건 나가야 한다"는 정책으로 도서산간 비용은 결제 시 이미 왕복(편도×2)
+  /// 으로 저장되어 있고, 반송 시에도 동일한 왕복 금액이 차감된다.
   Future<Map<String, dynamic>> processCustomerDecision({
     required String orderId,
     required CustomerDecisionAction action,
@@ -183,15 +191,39 @@ class ExtraChargeService {
       final customerId = userResponse['id'] as String;
       debugPrint('✅ Customer ID: $customerId');
 
-      // RPC 함수 호출
-      final response = await _supabase.rpc('process_customer_decision', params: {
-        'p_order_id': orderId,
-        'p_action': action.toShortString(),
-        'p_customer_id': customerId,
-      });
+      Map<String, dynamic> result;
 
-      debugPrint('✅ 고객 결정 처리 성공: $response');
-      
+      if (action == CustomerDecisionAction.RETURN) {
+        // 반송 → 부분환불까지 함께 처리하는 Edge Function 호출.
+        // (웹의 /api/orders/[id]/return-and-refund 와 동일한 로직 미러링)
+        debugPrint('🔁 orders-return-and-refund Edge Function 호출');
+        final response = await _supabase.functions.invoke(
+          'orders-return-and-refund',
+          body: {'order_id': orderId},
+        );
+
+        if (response.data == null) {
+          throw Exception('반송 처리 응답이 비어있습니다');
+        }
+        final data = Map<String, dynamic>.from(response.data as Map);
+        if (data['success'] != true) {
+          throw Exception(
+            (data['error'] as String?) ?? '반송 처리 실패',
+          );
+        }
+        result = data;
+      } else {
+        // PAY / SKIP → 기존처럼 RPC 만 호출
+        final response = await _supabase.rpc('process_customer_decision', params: {
+          'p_order_id': orderId,
+          'p_action': action.toShortString(),
+          'p_customer_id': customerId,
+        });
+        result = Map<String, dynamic>.from(response as Map);
+      }
+
+      debugPrint('✅ 고객 결정 처리 성공: $result');
+
       // 📊 고객 결정 액션 로그 기록 (거부 시 REJECT_EXTRA)
       if (action == CustomerDecisionAction.SKIP || action == CustomerDecisionAction.RETURN) {
         await _logService.log(
@@ -200,11 +232,18 @@ class ExtraChargeService {
           metadata: {
             'action': action.toShortString(),
             'customerId': customerId,
+            if (action == CustomerDecisionAction.RETURN) ...{
+              'returnFee': result['returnFee'],
+              'remoteAreaFee': result['remoteAreaFee'],
+              'totalDeduction': result['totalDeduction'],
+              'refundAmount': result['refundAmount'],
+              'refundProcessed': result['refundProcessed'],
+            },
           },
         );
       }
-      
-      return Map<String, dynamic>.from(response as Map);
+
+      return result;
     } on PostgrestException catch (e) {
       debugPrint('❌ PostgrestException: ${e.message}');
       throw Exception('처리 실패: ${e.message}');

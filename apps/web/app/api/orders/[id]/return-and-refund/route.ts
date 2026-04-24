@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-// 정책: 추가요금 거절 → 반송(RETURN) 시 자동 부분환불
-// 환불액 = total_price - returnFee (왕복 배송비, 기본 6,000원)
-const DEFAULT_RETURN_FEE = 6000;
+// 정책: 추가요금 거절 → 반송(RETURN) 시 자동 부분환불.
+// 환불액 = total_price - returnFee - orders.remote_area_fee
+//
+// - returnFee: 관리자 페이지의 반송 차감 배송비 (왕복).
+//              extra_charge_data.returnFee 가 있으면 우선, 없으면
+//              shipping_settings.return_shipping_fee 폴백.
+// - remote_area_fee: 결제 시 이미 왕복(편도×2) 으로 저장된 도서산간 비용.
+//                    "들어온 건 나가야 하니 무조건 왕복" 정책.
+const DEFAULT_RETURN_FEE = 7000;
 
 function getTossSecretKey(): string {
   const key = process.env.TOSS_SECRET_KEY;
@@ -58,7 +64,9 @@ export async function POST(
     const admin = getSupabaseAdmin();
     const { data: order, error: orderErr } = await admin
       .from("orders")
-      .select("id, status, payment_status, payment_key, total_price, user_id, extra_charge_status, extra_charge_data")
+      .select(
+        "id, status, payment_status, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data",
+      )
       .eq("id", orderId)
       .maybeSingle();
 
@@ -88,12 +96,36 @@ export async function POST(
     }
 
     const totalPrice = Number(order.total_price ?? 0);
-    const returnFee =
+    let returnFee =
       Number(
         (order.extra_charge_data as { returnFee?: number } | null)?.returnFee ??
-          DEFAULT_RETURN_FEE
-      ) || DEFAULT_RETURN_FEE;
-    const refundAmount = Math.max(totalPrice - returnFee, 0);
+          0,
+      ) || 0;
+    if (returnFee <= 0) {
+      // shipping_settings 에서 동적 조회 (관리자 페이지 설정값과 동기화)
+      try {
+        const { data: settings } = await admin
+          .from("shipping_settings")
+          .select("return_shipping_fee")
+          .eq("id", 1)
+          .maybeSingle();
+        const v = Number(
+          (settings as { return_shipping_fee?: number } | null)?.return_shipping_fee,
+        );
+        if (Number.isFinite(v) && v > 0) returnFee = v;
+      } catch {
+        /* 폴백 */
+      }
+    }
+    if (!Number.isFinite(returnFee) || returnFee <= 0) returnFee = DEFAULT_RETURN_FEE;
+    // 도서산간 차감액: orders.remote_area_fee 컬럼은 결제 시 이미 왕복(편도×2)으로
+    // 저장된 값이므로 별도 ×2 없이 그대로 더한다.
+    const remoteAreaFee = Math.max(
+      0,
+      Number((order as { remote_area_fee: number | null }).remote_area_fee ?? 0) || 0,
+    );
+    const totalDeduction = returnFee + remoteAreaFee;
+    const refundAmount = Math.max(totalPrice - totalDeduction, 0);
 
     // 1) RPC로 상태 전이 (process_customer_decision)
     const { error: rpcErr } = await admin.rpc("process_customer_decision", {
@@ -126,7 +158,11 @@ export async function POST(
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              cancelReason: `반송 처리 - 왕복 배송비 ${returnFee.toLocaleString()}원 차감`,
+              cancelReason: `반송 처리 - 왕복 배송비 ${returnFee.toLocaleString()}원${
+                remoteAreaFee > 0
+                  ? ` + 도서산간 ${remoteAreaFee.toLocaleString()}원`
+                  : ""
+              } 차감`,
               cancelAmount: refundAmount,
             }),
           }
@@ -143,7 +179,9 @@ export async function POST(
             .update({
               payment_status: "PARTIAL_CANCELED",
               canceled_at: new Date().toISOString(),
-              cancellation_reason: `반송 - 왕복 배송비 ${returnFee}원 차감`,
+              cancellation_reason: `반송 - 왕복 배송비 ${returnFee}원${
+                remoteAreaFee > 0 ? ` + 도서산간 ${remoteAreaFee}원` : ""
+              } 차감`,
             })
             .eq("id", orderId);
 
@@ -167,12 +205,20 @@ export async function POST(
       refundError = "결제 정보(payment_key)가 없어 환불 처리되지 않았습니다.";
     }
 
+    const deductionDescParts = [`왕복 배송비 ${returnFee.toLocaleString()}원`];
+    if (remoteAreaFee > 0) {
+      deductionDescParts.push(`도서산간 ${remoteAreaFee.toLocaleString()}원`);
+    }
+    const deductionDesc = deductionDescParts.join(" + ");
+
     return NextResponse.json({
       success: true,
       message: refundResult
-        ? `반송 요청 완료. 왕복 배송비 ${returnFee.toLocaleString()}원을 차감하고 ${refundAmount.toLocaleString()}원이 환불됩니다.`
+        ? `반송 요청 완료. ${deductionDesc} 을(를) 차감하고 ${refundAmount.toLocaleString()}원이 환불됩니다.`
         : `반송 요청 완료. 환불 금액(${refundAmount.toLocaleString()}원)은 별도 처리됩니다.`,
       returnFee,
+      remoteAreaFee,
+      totalDeduction,
       refundAmount,
       refundProcessed: !!refundResult,
       refundError,
