@@ -39,7 +39,7 @@
 | 송장번호 표시 | ✅ | `shipments` 또는 `orders.tracking_no` |
 | 입고/출고 영상 | ✅ | Cloudflare Stream 임베드 |
 | 추가 결제 (extra charge) | ✅ | PENDING_CUSTOMER 상태 배너 |
-| 주문 취소 | ✅ | BOOKED 또는 PENDING_PAYMENT 상태에서 가능 |
+| 주문 취소 | ✅ | BOOKED 까지: 전액 환불 / PICKED_UP·INBOUND: 왕복 배송비 차감 후 부분 환불 + 반송 워크플로우 |
 
 #### 프로필
 | 기능 | 상태 | 비고 |

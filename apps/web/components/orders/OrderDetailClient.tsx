@@ -132,6 +132,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [returnShippingFee, setReturnShippingFee] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [inboundVideoUrl, setInboundVideoUrl] = useState<string | null>(null);
   const [outboundVideoUrl, setOutboundVideoUrl] = useState<string | null>(null);
@@ -151,6 +152,20 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const scriptLoadedRef = useRef(false);
 
   useEffect(() => { loadOrder(); }, [orderId]);
+
+  // 입고 후 취소 안내용 — 관리자 페이지에 설정된 왕복 배송비
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/shipping-settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const fee = Number(data?.returnShippingFee);
+        if (Number.isFinite(fee)) setReturnShippingFee(fee);
+      })
+      .catch(() => { /* 폴백: confirm 시 기본 안내 */ });
+    return () => { cancelled = true; };
+  }, []);
 
   // Daum 우편번호 스크립트 로드
   useEffect(() => {
@@ -321,64 +336,105 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   async function handleCancel() {
     // 결제 완료된 주문이면 환불 안내를 함께 노출
     const isPaid = order?.payment_status === "PAID";
-    const confirmMsg = isPaid
-      ? "수거 예약을 취소하시겠습니까?\n결제하신 금액은 카드사를 통해 자동으로 환불됩니다."
-      : "수거 예약을 취소하시겠습니까?\n취소 후에는 다시 예약하셔야 합니다.";
+    const isPostPickup =
+      order?.status === "PICKED_UP" || order?.status === "INBOUND";
+
+    let confirmMsg: string;
+    if (isPostPickup) {
+      const totalPrice = Number(order?.total_price ?? 0);
+      const fee = returnShippingFee ?? 7000; // 폴백: 기본 왕복 배송비
+      const refund = Math.max(totalPrice - fee, 0);
+      confirmMsg =
+        `주문을 취소하고 의류를 반송하시겠습니까?\n\n` +
+        `· 왕복 배송비 ${fee.toLocaleString()}원이 차감됩니다.\n` +
+        (isPaid
+          ? `· 결제 금액 ${totalPrice.toLocaleString()}원 중 ${refund.toLocaleString()}원이 환불됩니다.\n`
+          : "") +
+        `· 의류는 등록하신 주소로 반송됩니다.`;
+    } else {
+      confirmMsg = isPaid
+        ? "수거 예약을 취소하시겠습니까?\n결제하신 금액은 카드사를 통해 자동으로 환불됩니다."
+        : "수거 예약을 취소하시겠습니까?\n취소 후에는 다시 예약하셔야 합니다.";
+    }
     if (!confirm(confirmMsg)) return;
     setIsCancelling(true);
     try {
       // /api/orders/{id}/cancel : 수거 취소 + 결제 환불을 한 트랜잭션으로 처리
+      const cancelReason = isPostPickup
+        ? "고객 요청 - 입고 후 취소"
+        : "고객 요청 - 수거 예약 취소";
       const res = await fetch(`/api/orders/${orderId}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "고객 요청 - 수거 예약 취소" }),
+        body: JSON.stringify({ reason: cancelReason }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.success === false) {
         throw new Error(data?.error || "취소 처리에 실패했습니다.");
       }
 
-      // 응답 파싱
-      const epostResult = data?.epost_result as Record<string, string> | undefined;
-      const canceledYn = epostResult?.canceledYn;
-      const cancelDate = epostResult?.cancelDate;
-      const notCancelReason = epostResult?.notCancelReason;
+      let msg = data?.message ?? "취소가 처리되었습니다.";
 
-      let msg = data?.message ?? "수거 예약이 취소되었습니다.";
-
-      if (canceledYn === "Y") {
-        msg += "\n✅ 우체국 전산에도 취소되었습니다.";
-        if (cancelDate && cancelDate.length >= 12) {
-          const y = cancelDate.slice(0, 4), mo = cancelDate.slice(4, 6);
-          const d = cancelDate.slice(6, 8), h = cancelDate.slice(8, 10), mi = cancelDate.slice(10, 12);
-          msg += `\n취소 일시: ${y}.${mo}.${d} ${h}:${mi}`;
+      // 입고 후 취소(부분환불 + 반송)
+      if (data?.flow === "POST_PICKUP_RETURN") {
+        if (data?.refundProcessed) {
+          msg += "\n💳 환불 금액이 카드사를 통해 처리됩니다.";
+        } else if (data?.refundError) {
+          msg += `\n⚠️ 환불 실패: ${data.refundError}\n고객센터로 문의해 주세요.`;
         }
-      } else if (canceledYn === "N") {
-        msg += "\n⚠️ 우체국 전산 취소는 실패했습니다.";
-        if (notCancelReason) msg += `\n사유: ${notCancelReason}`;
-      } else if (canceledYn === "D") {
-        msg += "\n🗑️ 우체국 전산에서 삭제되었습니다.";
-      }
+        if (data?.refundProcessed || data?.refundAmount === 0) {
+          setOrder((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: "RETURN_PENDING",
+                  payment_status: data?.refundProcessed
+                    ? "PARTIAL_CANCELED"
+                    : prev.payment_status,
+                }
+              : prev,
+          );
+        }
+      } else {
+        // 수거 전 취소(우체국 + 전액 환불)
+        const epostResult = data?.epost_result as Record<string, string> | undefined;
+        const canceledYn = epostResult?.canceledYn;
+        const cancelDate = epostResult?.cancelDate;
+        const notCancelReason = epostResult?.notCancelReason;
 
-      // 결제 환불 결과 안내
-      if (data?.hasValidPayment) {
-        if (data?.paymentCanceled) {
-          msg += "\n💳 결제 금액이 자동으로 환불되었습니다.";
-        } else if (data?.paymentCancelError) {
-          msg += `\n⚠️ 결제 환불에 실패했습니다: ${data.paymentCancelError}\n고객센터로 문의해 주세요.`;
+        if (canceledYn === "Y") {
+          msg += "\n✅ 우체국 전산에도 취소되었습니다.";
+          if (cancelDate && cancelDate.length >= 12) {
+            const y = cancelDate.slice(0, 4), mo = cancelDate.slice(4, 6);
+            const d = cancelDate.slice(6, 8), h = cancelDate.slice(8, 10), mi = cancelDate.slice(10, 12);
+            msg += `\n취소 일시: ${y}.${mo}.${d} ${h}:${mi}`;
+          }
+        } else if (canceledYn === "N") {
+          msg += "\n⚠️ 우체국 전산 취소는 실패했습니다.";
+          if (notCancelReason) msg += `\n사유: ${notCancelReason}`;
+        } else if (canceledYn === "D") {
+          msg += "\n🗑️ 우체국 전산에서 삭제되었습니다.";
+        }
+
+        if (data?.hasValidPayment) {
+          if (data?.paymentCanceled) {
+            msg += "\n💳 결제 금액이 자동으로 환불되었습니다.";
+          } else if (data?.paymentCancelError) {
+            msg += `\n⚠️ 결제 환불에 실패했습니다: ${data.paymentCancelError}\n고객센터로 문의해 주세요.`;
+          }
+        }
+
+        const dbActuallyCancelled = !data?.hasValidPayment || data?.paymentCanceled;
+        if (dbActuallyCancelled) {
+          setOrder((prev) => prev ? {
+            ...prev,
+            status: "CANCELLED",
+            payment_status: data?.paymentCanceled ? "CANCELED" : prev.payment_status,
+          } : prev);
         }
       }
 
       alert(msg);
-      // 결제 환불 실패 시 DB가 CANCELLED로 업데이트되지 않으므로 UI 낙관적 업데이트 생략
-      const dbActuallyCancelled = !data?.hasValidPayment || data?.paymentCanceled;
-      if (dbActuallyCancelled) {
-        setOrder((prev) => prev ? {
-          ...prev,
-          status: "CANCELLED",
-          payment_status: data?.paymentCanceled ? "CANCELED" : prev.payment_status,
-        } : prev);
-      }
       await loadOrder(true);
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
@@ -494,9 +550,14 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const statusInfo = ORDER_STATUS_MAP[order.status] ?? ORDER_STATUS_MAP["BOOKED"];
   const currentStep = DB_STATUS_STEP[order.status] ?? 0;
   const isCancelled = order.status === "CANCELLED";
+  // PENDING_PAYMENT 는 폐지됨. 레거시 row 방어용으로만 남김.
   const isPendingPayment = order.status === "PENDING_PAYMENT";
   const isPendingCharge = order.extra_charge_status === "PENDING_CUSTOMER";
-  const canCancel = order.status === "BOOKED" || order.status === "PENDING_PAYMENT";
+  // 수거 전(BOOKED) 또는 수거 후/입고 후(PICKED_UP, INBOUND)에는 고객이 직접 취소 가능.
+  // - BOOKED         : 우체국 수거 취소 + 전액 환불
+  // - PICKED_UP/INBOUND : 왕복 배송비 차감 후 부분 환불 + 의류 반송
+  const canCancel = ["BOOKED", "PICKED_UP", "INBOUND"].includes(order.status);
+  const cancelIsPostPickup = order.status === "PICKED_UP" || order.status === "INBOUND";
   const canEditDelivery = !["READY_TO_SHIP", "DELIVERED", "CANCELLED"].includes(order.status);
   // 카카오 문의용: 발송 송장 우선 → 회수 송장 → legacy
   const trackingNo =
@@ -1197,15 +1258,31 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         </button>
 
         {/* 주문 취소 */}
-        {canCancel && (
-          <button
-            onClick={handleCancel}
-            disabled={isCancelling}
-            className="w-full py-3.5 border border-red-200 text-red-500 text-sm font-medium rounded-xl active:bg-red-50 disabled:opacity-50"
-          >
-            {isCancelling ? "취소 중..." : "수거 예약 취소"}
-          </button>
-        )}
+        {canCancel && (() => {
+          const fee = returnShippingFee ?? 7000;
+          const buttonLabel = cancelIsPostPickup ? "주문 취소 / 반송 요청" : "수거 예약 취소";
+          return (
+            <div className="space-y-1">
+              <button
+                onClick={handleCancel}
+                disabled={isCancelling}
+                className="w-full py-3.5 border border-red-200 text-red-500 text-sm font-medium rounded-xl active:bg-red-50 disabled:opacity-50"
+              >
+                {isCancelling ? "취소 중..." : buttonLabel}
+              </button>
+              {cancelIsPostPickup && (
+                <p className="text-[11px] text-gray-400 text-center px-2">
+                  의류가 이미 입고된 상태입니다. 취소 시 왕복 배송비
+                  {" "}
+                  <span className="font-semibold text-gray-500">
+                    {fee.toLocaleString()}원
+                  </span>
+                  이 차감되고 나머지 금액이 환불됩니다.
+                </p>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

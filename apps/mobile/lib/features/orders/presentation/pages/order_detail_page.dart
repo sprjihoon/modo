@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,11 +43,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   // 실제 사진 데이터 (State로 관리)
   List<Map<String, dynamic>> _images = [];
 
-  // Mock 주문 상태 (테스트용 - 변경 가능)
-  // BOOKED: 수거예약 - 수정 O, 취소 O
-  // INBOUND: 입고완료 - 수정 O, 취소 X
-  // PROCESSING: 수선중 - 수정 X, 취소 X
-  // READY_TO_SHIP: 출고완료 - 수정 X, 취소 X
+  // 주문 상태 (서버에서 로드)
+  // BOOKED: 수거예약 - 수정 O, 취소 O (전액 환불 + 우체국 취소)
+  // PICKED_UP: 수거완료 - 수정 X, 취소 O (왕복 배송비 차감 후 부분환불 + 반송)
+  // INBOUND: 입고완료 - 수정 O, 취소 O (왕복 배송비 차감 후 부분환불 + 반송)
+  // PROCESSING: 수선중 - 수정 X, 취소 X (고객센터 문의)
+  // READY_TO_SHIP: 출고완료 - 수정 X, 취소 X (고객센터 문의)
   String _currentStatus = 'BOOKED';
 
   // 우체국 API 취소 응답 정보 저장
@@ -3012,7 +3015,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                 ? (_isPickupCancellable
                     ? _buildBookedButtons(context)
                     : _buildDefaultButtons(context))
-                : _buildDefaultButtons(context),
+                : (_currentStatus == 'PICKED_UP' || _currentStatus == 'INBOUND')
+                    ? _buildPostPickupCancelButtons(context)
+                    : _buildDefaultButtons(context),
       ),
     );
   }
@@ -3055,6 +3060,75 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                 borderRadius: BorderRadius.circular(12),
               ),
               elevation: 0,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 수거완료(PICKED_UP) / 입고완료(INBOUND) 상태 버튼.
+  /// 의류가 이미 우리 손에 있으므로 우체국 수거 취소가 아니라
+  /// "주문 취소 → 부분환불 + 반송 워크플로우" 로 처리한다.
+  Widget _buildPostPickupCancelButtons(BuildContext context) {
+    final returnFee =
+        ShippingSettingsService().current.returnShippingFee;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: _isCancelling
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.red),
+                      )
+                    : const Icon(Icons.cancel_outlined, size: 20),
+                label: Text(_isCancelling ? '취소 중...' : '주문 취소'),
+                onPressed: _isCancelling
+                    ? null
+                    : () => _showPostPickupCancelDialog(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.headset_mic_outlined, size: 20),
+                label: const Text('문의하기'),
+                onPressed: () => _openCustomerService(context),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            '입고된 상태에서 취소 시 왕복 배송비 ${_formatPrice(returnFee)}원이 차감되고 나머지 금액이 환불됩니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade500,
+              height: 1.4,
             ),
           ),
         ),
@@ -3521,6 +3595,223 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         ],
       ),
     );
+  }
+
+  /// 입고 후(PICKED_UP / INBOUND) 취소 확인 다이얼로그.
+  /// 왕복 배송비가 차감되고 부분환불 + 의류 반송이 진행됨을 명확히 안내.
+  Future<void> _showPostPickupCancelDialog(BuildContext context) async {
+    // 배송비 설정은 캐시값 우선 표시하고 백그라운드로 갱신.
+    final settings = ShippingSettingsService().current;
+    // 백그라운드 새로고침 (다이얼로그 안 데이터가 약간 오래된 경우 대비)
+    unawaited(ShippingSettingsService().get());
+
+    final returnFee = settings.returnShippingFee;
+    final totalPrice = (_orderData?['total_price'] as num?)?.toInt() ?? 0;
+    final refundAmount = (totalPrice - returnFee).clamp(0, totalPrice);
+    final paymentStatus = _orderData?['payment_status'] as String?;
+    final isPaid = paymentStatus == 'PAID' ||
+        paymentStatus == 'COMPLETED' ||
+        paymentStatus == 'DONE';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          '주문 취소 / 반송',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '의류가 이미 입고된 상태입니다. 취소를 진행하면 의류는 반송되고 일부 금액만 환불됩니다.',
+              style: TextStyle(height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  if (isPaid) ...[
+                    _buildCancelInfoRow(
+                      '결제 금액',
+                      '${_formatPrice(totalPrice)}원',
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  _buildCancelInfoRow(
+                    '왕복 배송비 차감',
+                    '- ${_formatPrice(returnFee)}원',
+                    valueColor: Colors.red.shade600,
+                  ),
+                  if (isPaid) ...[
+                    const Divider(height: 16),
+                    _buildCancelInfoRow(
+                      '환불 금액',
+                      '${_formatPrice(refundAmount)}원',
+                      isHighlight: true,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '의류는 등록하신 배송 주소로 반송됩니다.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              '닫기',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('취소하고 반송'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _handlePostPickupCancel(context);
+    }
+  }
+
+  Widget _buildCancelInfoRow(
+    String label,
+    String value, {
+    Color? valueColor,
+    bool isHighlight = false,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isHighlight ? 14 : 13,
+            color: isHighlight ? Colors.black87 : Colors.grey.shade700,
+            fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isHighlight ? 15 : 13,
+            color: valueColor ??
+                (isHighlight ? const Color(0xFF00C896) : Colors.black87),
+            fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 입고 후 취소 처리 (orders-cancel Edge Function 호출).
+  Future<void> _handlePostPickupCancel(BuildContext context) async {
+    try {
+      if (!mounted) return;
+      setState(() => _isCancelling = true);
+
+      final result = await _orderService.cancelOrder(
+        widget.orderId,
+        reason: '고객 요청 - 입고 후 취소',
+      );
+
+      if (!mounted) return;
+
+      final message = result['message'] as String? ?? '취소가 처리되었습니다';
+      final refundProcessed = result['refundProcessed'] == true;
+      final refundError = result['refundError'] as String?;
+
+      Color messageColor = Colors.green;
+      if (refundError != null && refundError.isNotEmpty && !refundProcessed) {
+        messageColor = Colors.orange;
+      }
+
+      try {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: messageColor,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: '확인',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      } catch (snackError) {
+        debugPrint('⚠️ ScaffoldMessenger 접근 실패: $snackError');
+      }
+
+      // 취소 성공 시 상태 즉시 업데이트 (서버 새로고침 전 빠른 반영)
+      if (mounted) {
+        setState(() {
+          if (refundProcessed || refundError == null) {
+            _currentStatus = 'RETURN_PENDING';
+          }
+          _isCancelling = false;
+        });
+      }
+
+      try {
+        await _loadOrderData(showLoading: false);
+      } catch (e) {
+        debugPrint('⚠️ 주문 데이터 새로고침 실패: $e');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isCancelling = false);
+      }
+      if (!mounted) return;
+
+      try {
+        final errorMessage = e.toString().replaceAll('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('주문 취소 실패: $errorMessage'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: '확인',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      } catch (snackError) {
+        debugPrint('⚠️ ScaffoldMessenger 접근 실패 (에러 표시 중): $snackError');
+      }
+    }
   }
 
   /// 주문 취소 처리 (다이얼로그 없이 버튼 상태로 표시)

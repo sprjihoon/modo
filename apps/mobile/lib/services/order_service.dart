@@ -120,7 +120,11 @@ class OrderService {
     }
   }
 
-  /// 주문 생성
+  /// [DEPRECATED] 결제 전 주문 생성.
+  /// PENDING_PAYMENT 상태가 폐지되어 더 이상 사용되지 않음.
+  /// 결제가 필요한 경우 [createPaymentIntent], 0원 주문은 [createFreeOrder] 사용.
+  /// (기존 호출부 호환을 위해 시그니처는 남겨두었으나 직접 사용하지 말 것.)
+  @Deprecated('PENDING_PAYMENT 폐지: createPaymentIntent / createFreeOrder 사용')
   Future<Map<String, dynamic>> createOrder({
     required String itemName,
     required String itemDescription,
@@ -273,6 +277,54 @@ class OrderService {
       return order;
     } catch (e) {
       throw Exception('주문 생성 실패: $e');
+    }
+  }
+
+  /// 결제 인텐트 생성 (신규 흐름)
+  ///
+  /// 서버가 권위적 가격을 계산해 [payment_intents] 테이블에 임시 저장하고
+  /// `intentId` 를 돌려준다. 이후 결제 위젯에서 이 `intentId` 를 Toss `orderId` 로 사용.
+  /// 결제 성공 시 [payments-confirm-toss] Edge Function 이 인텐트를 소비하고
+  /// `orders` 를 PAID 상태로 INSERT 한다.
+  ///
+  /// 입력 형식은 web `/api/orders/quote` 와 동일.
+  Future<Map<String, dynamic>> createPaymentIntent(
+    Map<String, dynamic> draft,
+  ) async {
+    try {
+      final response = await _supabase.functions.invoke(
+        'orders-quote',
+        body: draft,
+      );
+      final data = response.data;
+      if (data is! Map) throw Exception('잘못된 응답 형식');
+      final map = Map<String, dynamic>.from(data as Map);
+      if (map['error'] != null) throw Exception(map['error'].toString());
+      return map;
+    } catch (e) {
+      throw Exception('결제 준비 실패: $e');
+    }
+  }
+
+  /// 0원 주문 즉시 생성 (신규 흐름)
+  ///
+  /// 결제 게이트웨이를 거치지 않고 바로 PAID 상태의 [orders] 행을 만들고
+  /// 수거 예약까지 진행한다. 응답: `{ orderId }`.
+  Future<Map<String, dynamic>> createFreeOrder(
+    Map<String, dynamic> draft,
+  ) async {
+    try {
+      final response = await _supabase.functions.invoke(
+        'orders-free',
+        body: draft,
+      );
+      final data = response.data;
+      if (data is! Map) throw Exception('잘못된 응답 형식');
+      final map = Map<String, dynamic>.from(data as Map);
+      if (map['error'] != null) throw Exception(map['error'].toString());
+      return map;
+    } catch (e) {
+      throw Exception('0원 주문 생성 실패: $e');
     }
   }
 
@@ -458,6 +510,73 @@ class OrderService {
     } catch (e) {
       debugPrint('❌ 배송추적 조회 오류: $e');
       throw Exception('배송추적 조회 실패: $e');
+    }
+  }
+
+  /// 주문 취소 (Edge Function `orders-cancel` 호출)
+  ///
+  /// 정책:
+  /// - PENDING/PAID/BOOKED  → 우체국 수거 취소 + 전액 환불
+  /// - PICKED_UP/INBOUND    → 부분 환불(왕복 배송비 차감) + 반송 워크플로우
+  /// - 그 외                 → 직접 취소 불가
+  ///
+  /// 응답 구조:
+  /// ```
+  /// {
+  ///   success: bool,
+  ///   flow: 'PRE_PICKUP_CANCEL' | 'POST_PICKUP_RETURN',
+  ///   message: String,
+  ///   ...
+  /// }
+  /// ```
+  Future<Map<String, dynamic>> cancelOrder(
+    String orderId, {
+    String? reason,
+  }) async {
+    try {
+      debugPrint('🚫 주문 취소 시작: $orderId');
+
+      final response = await _supabase.functions.invoke(
+        'orders-cancel',
+        body: {
+          'order_id': orderId,
+          if (reason != null) 'reason': reason,
+        },
+      );
+
+      debugPrint('✅ 주문 취소 응답: ${response.data}');
+
+      if (response.data == null) {
+        throw Exception('주문 취소 응답이 비어있습니다');
+      }
+
+      final data = Map<String, dynamic>.from(response.data as Map);
+      if (data['success'] != true) {
+        throw Exception(data['error'] as String? ?? '주문 취소 실패');
+      }
+      return data;
+    } on FunctionException catch (e) {
+      debugPrint('❌ FunctionException: ${e.status} - ${e.toString()}');
+      // 422: 응답 본문이 있어도 status가 비2xx면 FunctionException 으로 잡힘.
+      // details 에 서버 본문이 들어옴.
+      String? serverMessage;
+      try {
+        final details = e.details;
+        if (details is Map) {
+          final m = details['error'] ?? details['message'];
+          if (m != null) serverMessage = m.toString();
+        } else if (details is String) {
+          serverMessage = details;
+        }
+      } catch (_) { /* ignore */ }
+
+      if (e.status == 404) {
+        throw Exception('주문 취소 기능이 아직 배포되지 않았습니다. 관리자에게 문의하세요.');
+      }
+      throw Exception(serverMessage ?? '주문 취소 실패');
+    } catch (e) {
+      debugPrint('❌ 주문 취소 오류: $e');
+      rethrow;
     }
   }
 
