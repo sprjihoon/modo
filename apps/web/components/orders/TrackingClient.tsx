@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Package, Truck, CheckCircle, Clock, Copy, Check,
   RefreshCw, ExternalLink, AlertCircle, MapPin, Info,
@@ -119,9 +119,7 @@ export function TrackingClient({
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => { loadTracking(); }, [trackingNo]);
-
-  async function loadTracking(silent = false) {
+  const loadTracking = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
     else setIsRefreshing(true);
     setError(null);
@@ -139,7 +137,9 @@ export function TrackingClient({
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }
+  }, [trackingNo]);
+
+  useEffect(() => { loadTracking(); }, [loadTracking]);
 
   async function copyTrackingNo() {
     await navigator.clipboard.writeText(trackingNo).catch(() => {});

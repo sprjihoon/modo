@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   MapPin, Calendar, MessageSquare, ChevronDown, CheckCircle,
   Plus, Info, Truck,
@@ -149,13 +149,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
   // 총 예상 금액 = 수선비 + 왕복배송비 + 도서산간추가비
   const estimatedPrice = estimatedRepairPrice + SHIPPING_FEE + remoteAreaFee;
 
-  useEffect(() => {
-    loadSavedAddresses();
-    loadShippingPromo();
-    loadShippingSettings();
-  }, []);
-
-  async function loadShippingSettings() {
+  const loadShippingSettings = useCallback(async () => {
     try {
       const res = await fetch("/api/shipping-settings");
       if (res.ok) {
@@ -167,19 +161,19 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
         });
       }
     } catch { /* 폴백값 사용 */ }
-  }
+  }, []);
 
-  async function loadShippingPromo() {
+  const loadShippingPromo = useCallback(async (repairAmount: number) => {
     try {
-      const res = await fetch(`/api/shipping-promotion?repairAmount=${estimatedRepairPrice}`);
+      const res = await fetch(`/api/shipping-promotion?repairAmount=${repairAmount}`);
       if (res.ok) {
         const data = await res.json();
         setShippingPromo(data);
       }
     } catch { /* 오류 시 기본 배송비 표시 */ }
-  }
+  }, []);
 
-  async function loadSavedAddresses() {
+  const loadSavedAddresses = useCallback(async () => {
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -198,11 +192,24 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
         // draft 에서 이미 주소가 복원된 경우 자동 선택을 건너뛴다.
         if (!draft.pickupAddress) {
           const defaultAddr = data.find((a) => a.is_default) ?? data[0];
-          selectAddress(defaultAddr);
+          setSelectedAddressId(defaultAddr.id);
+          setAddress(defaultAddr.address);
+          setAddressDetail(defaultAddr.address_detail ?? "");
+          setPickupZipcode(defaultAddr.zipcode ?? "");
         }
       }
     } catch { /* ignore */ }
-  }
+  }, [draft.pickupAddress]);
+
+  useEffect(() => {
+    loadSavedAddresses();
+    loadShippingSettings();
+  }, [loadSavedAddresses, loadShippingSettings]);
+
+  // 수선 금액이 변하면 배송비 프로모션도 다시 평가하여 정확한 표시.
+  useEffect(() => {
+    loadShippingPromo(estimatedRepairPrice);
+  }, [estimatedRepairPrice, loadShippingPromo]);
 
   function selectAddress(addr: Address) {
     setSelectedAddressId(addr.id);

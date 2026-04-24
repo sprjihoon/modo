@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Gift, Copy, Share2, Users, Coins } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -11,11 +11,7 @@ export function InviteClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    loadInviteInfo();
-  }, []);
-
-  async function loadInviteInfo() {
+  const loadInviteInfo = useCallback(async () => {
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -37,7 +33,11 @@ export function InviteClient() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadInviteInfo();
+  }, [loadInviteInfo]);
 
   function generateCode(uid: string) {
     return "MODO" + uid.slice(0, 6).toUpperCase();

@@ -1,4 +1,8 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
@@ -25,6 +29,9 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // 상위 디렉토리(`%USERPROFILE%/Documents/package-lock.json`)에서
+  // lockfile 이 잘못 탐지되어 워크스페이스 루트가 잘못 추론되는 문제 방지.
+  outputFileTracingRoot: __dirname,
   async headers() {
     return [
       {
@@ -63,6 +70,9 @@ export default withSentryConfig(nextConfig, {
   silent: true,
   widenClientFileUpload: true,
   hideSourceMaps: true,
-  disableLogger: true,
-  automaticVercelMonitors: true,
+  webpack: {
+    // 신규 권장 위치 — disableLogger / automaticVercelMonitors deprecation 대응.
+    treeshake: { removeDebugLogging: true },
+    automaticVercelMonitors: true,
+  },
 });

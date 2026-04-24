@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -153,7 +153,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const addressContainerRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
 
-  useEffect(() => { loadOrder(); }, [orderId]);
+  // loadOrder 는 아래에서 useCallback 으로 선언되며, useEffect 는 그 직후에 등록한다.
 
   // 입고 후 취소 안내용 — 관리자 페이지에 설정된 왕복 배송비
   useEffect(() => {
@@ -208,34 +208,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
     tryEmbed();
   }, [isAddressSearchOpen]);
 
-  async function loadOrder(silent = false) {
-    if (!silent) setIsLoading(true);
-    else setIsRefreshing(true);
-    try {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("id", orderId)
-        .single();
-
-      if (data) {
-        setOrder(data);
-      const { data: s } = await supabase
-        .from("shipments")
-        .select("tracking_no, pickup_tracking_no, delivery_tracking_no, carrier, status")
-        .eq("order_id", orderId)
-        .maybeSingle();
-        setShipment(s);
-        await loadVideoUrls(s, data);
-      }
-    } catch { /* ignore */ } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }
-
-  async function loadVideoUrls(s: ShipmentData | null, orderData: OrderData) {
+  const loadVideoUrls = useCallback(async (s: ShipmentData | null, orderData: OrderData) => {
     try {
       const candidates = [
         s?.pickup_tracking_no,
@@ -293,7 +266,36 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
       setOutboundVideoUrl(firstOutbound);
       setVideoItems(items);
     } catch { /* ignore */ }
-  }
+  }, []);
+
+  const loadOrder = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
+    else setIsRefreshing(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("id", orderId)
+        .single();
+
+      if (data) {
+        setOrder(data);
+        const { data: s } = await supabase
+          .from("shipments")
+          .select("tracking_no, pickup_tracking_no, delivery_tracking_no, carrier, status")
+          .eq("order_id", orderId)
+          .maybeSingle();
+        setShipment(s);
+        await loadVideoUrls(s, data);
+      }
+    } catch { /* ignore */ } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [orderId, loadVideoUrls]);
+
+  useEffect(() => { loadOrder(); }, [loadOrder]);
 
   function openDeliveryEdit() {
     setEditZipcode(order?.delivery_zipcode ?? "");
@@ -433,10 +435,26 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   }
 
   async function handleExtraChargeDecision(action: "SKIP" | "RETURN") {
-    const msg =
-      action === "SKIP"
-        ? "추가 작업 없이 원안대로 진행하시겠습니까?"
-        : "반송 처리하시겠습니까?\n왕복 배송비 6,000원이 차감되고 나머지 금액은 자동 환불됩니다.";
+    let msg: string;
+    if (action === "SKIP") {
+      msg = "추가 작업 없이 원안대로 진행하시겠습니까?";
+    } else {
+      // 반송 안내 — 실제 차감 금액(서버 설정 반송비 + 도서산간 왕복) 으로 표시.
+      // 백엔드(api/orders/[id]/return-and-refund) 와 동일한 산식.
+      const fee = returnShippingFee ?? 7000;
+      const remoteFee = Math.max(0, Number(order?.remote_area_fee ?? 0) || 0);
+      const totalDeduction = fee + remoteFee;
+      const total = Number(order?.total_price ?? 0);
+      const refund = Math.max(total - totalDeduction, 0);
+      const remotePart =
+        remoteFee > 0
+          ? ` + 도서산간 ${remoteFee.toLocaleString()}원`
+          : "";
+      msg =
+        `반송 처리하시겠습니까?\n` +
+        `왕복 배송비 ${fee.toLocaleString()}원${remotePart}이 차감되고 ` +
+        `나머지 금액(${refund.toLocaleString()}원)은 자동 환불됩니다.`;
+    }
     if (!confirm(msg)) return;
     setIsExtraActionLoading(true);
     try {
@@ -661,7 +679,12 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             <div className="mt-3 p-2.5 bg-gray-100 rounded-lg">
               <p className="text-xs text-gray-500 leading-relaxed">
                 • 그냥 진행: 추가 작업 없이 원안대로 진행합니다{"\n"}
-                • 반송: 왕복 배송비 6,000원이 차감됩니다
+                • 반송: 왕복 배송비 {(returnShippingFee ?? 7000).toLocaleString()}원
+                {(() => {
+                  const rf = Math.max(0, Number(order?.remote_area_fee ?? 0) || 0);
+                  return rf > 0 ? ` + 도서산간 ${rf.toLocaleString()}원` : "";
+                })()}
+                이 차감됩니다
               </p>
             </div>
           </div>

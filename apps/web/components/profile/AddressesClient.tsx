@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MapPin, Plus, Star, Trash2, CheckCircle } from "lucide-react";
@@ -25,26 +25,19 @@ export function AddressesClient() {
   const [userId, setUserId] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
 
-  useEffect(() => { loadAddresses(); }, []);
-
-  async function getUserId(supabase: ReturnType<typeof createClient>) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-    const { data } = await supabase
-      .from("users")
-      .select("id")
-      .eq("auth_id", user.id)
-      .maybeSingle();
-    return data?.id ?? null;
-  }
-
-  async function loadAddresses() {
+  const loadAddresses = useCallback(async () => {
     setIsLoading(true);
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
-      const uid = await getUserId(supabase);
+
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("id")
+        .eq("auth_id", user.id)
+        .maybeSingle();
+      const uid = userRow?.id ?? null;
       if (!uid) { setIsLoading(false); return; } // users 레코드 없으면 빈 목록
       setUserId(uid);
 
@@ -58,7 +51,9 @@ export function AddressesClient() {
       setAddresses(data ?? []);
     } catch { /* ignore */ }
     finally { setIsLoading(false); }
-  }
+  }, [router]);
+
+  useEffect(() => { loadAddresses(); }, [loadAddresses]);
 
   async function setDefault(id: string) {
     if (!userId) return;
