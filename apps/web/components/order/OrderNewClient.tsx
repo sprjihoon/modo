@@ -354,8 +354,10 @@ export function OrderNewClient() {
       }
 
       router.push(`/payment?intentId=${quote.intentId}`);
-    } catch {
-      alert("주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[결제] handlePayNow 오류:", e);
+      alert(`주문 처리 중 오류가 발생했습니다.\n${msg}`);
       setShowPaymentChoice(false);
     } finally {
       setIsProcessing(false);
