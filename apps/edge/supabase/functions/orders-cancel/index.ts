@@ -25,7 +25,9 @@ const corsHeaders = {
 }
 
 const PAID_STATUSES = new Set(['PAID', 'COMPLETED', 'DONE'])
-const PRE_PICKUP_STATUSES = new Set(['PENDING', 'PAID', 'BOOKED'])
+// PENDING_PAYMENT 는 폐지된 상태이지만, 옛 모바일 빌드가 만든 좀비 row 가 들어오면
+// 사용자가 직접 정리할 수 있게 PRE_PICKUP 으로 받아준다.
+const PRE_PICKUP_STATUSES = new Set(['PENDING', 'PAID', 'BOOKED', 'PENDING_PAYMENT'])
 const POST_PICKUP_STATUSES = new Set(['PICKED_UP', 'INBOUND'])
 
 const DEFAULT_RETURN_SHIPPING_FEE = 7000
@@ -69,7 +71,7 @@ serve(async (req) => {
     const { data: order, error: orderErr } = await admin
       .from('orders')
       .select(
-        'id, status, payment_status, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number',
+        'id, status, payment_status, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number, tracking_no',
       )
       .eq('id', orderId)
       .maybeSingle()
@@ -279,30 +281,52 @@ serve(async (req) => {
     }
 
     // ───────────────────────────────────────────────
-    // ② 수거 전 취소 (PENDING / PAID / BOOKED)
+    // ② 수거 전 취소 (PENDING / PAID / BOOKED / PENDING_PAYMENT)
     // ───────────────────────────────────────────────
 
-    // 1) 우체국 수거 취소
-    const shipmentRes = await fetch(`${SUPABASE_URL}/functions/v1/shipments-cancel`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: authHeader,
-        apikey: SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ order_id: orderId, delete_after_cancel: false }),
-    })
-    const shipmentResult = await shipmentRes.json().catch(() => ({}))
+    // 1) 우체국 수거 취소 — tracking_no 가 있을 때만 시도.
+    //    송장 자체가 없는 경우(좀비 PENDING_PAYMENT, 결제 전 PENDING 등)는 호출 자체를 스킵.
+    //    호출하더라도 shipments-cancel 이 404 (SHIPMENT_NOT_FOUND) 를 주면
+    //    "취소할 게 없음 = 정상" 으로 간주하고 다음 단계로 진행한다.
+    const orderTrackingNo = (order as { tracking_no: string | null }).tracking_no
+    let shipmentResult: Record<string, unknown> = {}
+    let shipmentCanceled = false
 
-    if (!shipmentRes.ok) {
-      return json(
-        {
-          success: false,
-          error: shipmentResult?.error || '수거 취소에 실패했습니다.',
-          step: 'shipment',
+    if (orderTrackingNo) {
+      const shipmentRes = await fetch(`${SUPABASE_URL}/functions/v1/shipments-cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader,
+          apikey: SUPABASE_ANON_KEY,
         },
-        500,
-      )
+        body: JSON.stringify({ order_id: orderId, delete_after_cancel: false }),
+      })
+      shipmentResult = await shipmentRes.json().catch(() => ({}))
+
+      if (shipmentRes.ok) {
+        shipmentCanceled = true
+      } else {
+        const code = (shipmentResult as { code?: string })?.code
+        const errMsg = (shipmentResult as { error?: string })?.error ?? ''
+        const isNoShipment =
+          code === 'SHIPMENT_NOT_FOUND' ||
+          shipmentRes.status === 404 ||
+          /Shipment not found/i.test(errMsg)
+        if (!isNoShipment) {
+          return json(
+            {
+              success: false,
+              error: errMsg || '수거 취소에 실패했습니다.',
+              step: 'shipment',
+            },
+            500,
+          )
+        }
+        console.log(`[orders-cancel] shipment 없음 — 우체국 취소 스킵 (orderId=${orderId})`)
+      }
+    } else {
+      console.log(`[orders-cancel] tracking_no 없음 — 우체국 취소 스킵 (orderId=${orderId})`)
     }
 
     // 2) 카드 결제 취소 (있을 때만)
@@ -373,12 +397,13 @@ serve(async (req) => {
     return json({
       success: true,
       flow: 'PRE_PICKUP_CANCEL',
-      message: shipmentResult?.message || '수거 예약이 취소되었습니다.',
-      shipmentCanceled: true,
+      message:
+        (shipmentResult as { message?: string })?.message || '수거 예약이 취소되었습니다.',
+      shipmentCanceled,
       paymentCanceled: !!paymentCancelResult,
       paymentCancelError,
       hasValidPayment,
-      epost_result: shipmentResult?.epost_result,
+      epost_result: (shipmentResult as { epost_result?: unknown })?.epost_result,
     })
   } catch (e) {
     console.error('orders-cancel 오류:', e)
