@@ -27,6 +27,11 @@ serve(async (req) => {
       amount,
       is_extra_charge = false,
       original_order_id, // 추가 결제 시 원본 주문 ID
+      // 신규 흐름: 결제 성공 시점에 주문 생성 (PENDING_PAYMENT 폐지)
+      //   pickup_payload 가 있으면 결제 승인 후 orders insert.
+      //   user_auth_id 는 어떤 사용자의 주문인지 식별용 (서비스롤로 매핑 처리).
+      pickup_payload,
+      user_auth_id,
     } = await req.json()
 
     // 필수 파라미터 검증
@@ -39,6 +44,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+
+    // 신규 흐름 여부: pickup_payload 가 동봉되었는지로 판단
+    const isCreateOrderFlow = !is_extra_charge && pickup_payload && typeof pickup_payload === 'object'
 
     // 주문 정보 조회 및 금액 검증
     let originalAmount: number | null = null
@@ -83,8 +91,53 @@ serve(async (req) => {
       }
       originalAmount = data.amount
       orderData = data
+    } else if (isCreateOrderFlow) {
+      // 🆕 신규 흐름: 결제 성공 시점에 orders insert
+      //   - order_id 는 payment_intents.id (UUID) — 클라이언트가 quote 결과로 받은 intent_id.
+      //   - 인텐트의 권위적 가격(total_price)과 amount 가 일치해야 위변조 없음.
+      const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+      const m = (typeof order_id === 'string' ? order_id : '').match(UUID_RE)
+      const intentId = m ? m[0] : null
+      if (!intentId) {
+        throw new Error('order_id 가 UUID(intent_id) 형식이어야 합니다.')
+      }
+
+      const { data: intent, error: intentErr } = await supabaseClient
+        .from('payment_intents')
+        .select('id, user_id, total_price, payload, expires_at, consumed_at, consumed_order_id')
+        .eq('id', intentId)
+        .maybeSingle()
+      if (intentErr || !intent) {
+        throw new Error('결제 인텐트를 찾을 수 없습니다.')
+      }
+      if (intent.consumed_at && intent.consumed_order_id) {
+        // 멱등성: 이미 처리된 인텐트는 성공으로 간주
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              orderId: intent.consumed_order_id,
+              paymentKey: payment_key,
+              totalAmount: amount,
+              idempotent: true,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      if (new Date(intent.expires_at).getTime() < Date.now()) {
+        throw new Error('결제 인텐트가 만료되었습니다. 다시 시도해주세요.')
+      }
+
+      originalAmount = intent.total_price
+      orderData = {
+        _pending_insert: true,
+        _intent_id: intentId,
+        _intent_user_id: intent.user_id,
+        _pickup: intent.payload,
+      }
     } else {
-      // 일반 결제인 경우 orders에서 조회
+      // 일반 결제인 경우 orders에서 조회 (레거시 PENDING_PAYMENT 흐름)
       // 우선순위:
       //   1) original_order_id (모바일은 Toss orderId가 'MODO_<uuid>_<rand>' 형태라
       //      orders.id로 직접 매칭 불가 → 클라이언트가 보낸 원본 UUID 사용)
@@ -236,8 +289,106 @@ serve(async (req) => {
           },
         })
       }
+    } else if (isCreateOrderFlow) {
+      // 🆕 신규 흐름: 결제 성공 → orders insert (PAID 상태로 바로 생성)
+      const pickup = (orderData as any)._pickup as Record<string, any>
+      const internalUserId = (orderData as any)._intent_user_id as string
+      const intentId = (orderData as any)._intent_id as string
+
+      const orderNumber = `ORD${Date.now()}`
+      const insertData: Record<string, any> = {
+        user_id: internalUserId,
+        status: 'PAID',
+        payment_status: 'PAID',
+        payment_key: payment_key,
+        paid_at: tossData.approvedAt || new Date().toISOString(),
+        order_number: orderNumber,
+        item_name: pickup.itemName,
+        clothing_type: pickup.clothingType || '기타',
+        repair_type: pickup.repairType || '기타',
+        pickup_address: pickup.pickupAddress,
+        pickup_address_detail: pickup.pickupAddressDetail || null,
+        pickup_zipcode: pickup.pickupZipcode || null,
+        pickup_phone: pickup.pickupPhone || '010-0000-0000',
+        pickup_date: pickup.pickupDate || null,
+        delivery_address: pickup.deliveryAddress || pickup.pickupAddress,
+        delivery_address_detail: pickup.deliveryAddressDetail || pickup.pickupAddressDetail || null,
+        delivery_zipcode: pickup.deliveryZipcode || pickup.pickupZipcode || null,
+        delivery_phone: pickup.deliveryPhone || pickup.pickupPhone || '010-0000-0000',
+        customer_name: pickup.customerName || '고객',
+        customer_phone: pickup.customerPhone || pickup.pickupPhone || '010-0000-0000',
+        customer_email: pickup.customerEmail || null,
+        notes: pickup.notes || null,
+        base_price: pickup.basePrice ?? null,
+        total_price: amount,
+        shipping_fee: pickup.shippingFee ?? null,
+        shipping_discount_amount: pickup.shippingDiscountAmount ?? 0,
+        shipping_promotion_id: pickup.shippingPromotionId || null,
+        remote_area_fee: pickup.remoteAreaFee ?? 0,
+        promotion_code_id: pickup.promotionCodeId || null,
+        promotion_discount_amount: pickup.promotionDiscountAmount ?? null,
+        original_total_price: pickup.originalTotalPrice ?? null,
+        repair_parts: Array.isArray(pickup.repairParts) && pickup.repairParts.length > 0 ? pickup.repairParts : null,
+        images_with_pins: Array.isArray(pickup.imagesWithPins) && pickup.imagesWithPins.length > 0 ? pickup.imagesWithPins : null,
+        images: Array.isArray(pickup.imageUrls) && pickup.imageUrls.length > 0 ? { urls: pickup.imageUrls } : null,
+      }
+
+      // 선택적 컬럼이 DB에 없을 수 있으니 재시도 로직 적용
+      let attempt = 0
+      let inserted: any = null
+      let lastErr: any = null
+      while (attempt < 12) {
+        const r = await supabaseClient.from('orders').insert(insertData).select('id').single()
+        if (!r.error) { inserted = r.data; break }
+        lastErr = r.error
+        const msg = r.error.message || ''
+        const cm = msg.match(/Could not find the '(.+?)' column/) || msg.match(/column "(.+?)" of relation/)
+        if (r.error.code === 'PGRST204' && cm?.[1]) {
+          delete insertData[cm[1]]
+          attempt++
+          continue
+        }
+        break
+      }
+      if (!inserted) {
+        console.error('주문 insert 실패:', lastErr)
+        throw new Error('결제는 승인되었으나 주문 저장에 실패했습니다. 관리자에게 문의해주세요.')
+      }
+
+      const newOrderId = (inserted as any).id as string
+
+      // payment_intent consume 마킹
+      try {
+        await supabaseClient
+          .from('payment_intents')
+          .update({
+            consumed_at: new Date().toISOString(),
+            consumed_order_id: newOrderId,
+          })
+          .eq('id', intentId)
+      } catch (e) {
+        console.log('intent consume 마킹 실패(무시):', e)
+      }
+
+      // 고객 알림
+      try {
+        await supabaseClient.from('notifications').insert({
+          user_id: internalUserId,
+          type: 'PAYMENT_COMPLETED',
+          title: '결제 완료',
+          body: `${amount.toLocaleString()}원 결제가 완료되었습니다.`,
+          order_id: newOrderId,
+        })
+      } catch (e) {
+        console.log('알림 전송 실패(무시):', e)
+      }
+
+      // 응답에 사용
+      orderData._resolved_id = newOrderId
+      orderData.user_id = internalUserId
+      console.log('✅ 신규 흐름: 결제 후 주문 생성 완료', newOrderId)
     } else {
-      // 일반 주문 결제인 경우
+      // 레거시 흐름: 기존 PENDING_PAYMENT 주문 → PAID 업데이트 (모바일 호환용)
       // orders.id 매칭은 위에서 결정된 _resolved_id 사용 (모바일 MODO_* 대응)
       const ordersId = orderData?._resolved_id || order_id
       await supabaseClient
@@ -289,11 +440,16 @@ serve(async (req) => {
       console.log('결제 로그 저장 실패:', logError)
     }
 
+    // 응답 orderId 우선순위:
+    //   1) 신규 흐름: 방금 생성된 orders.id (orderData._resolved_id)
+    //   2) 레거시:    Toss orderId
+    const responseOrderId = (orderData && (orderData as any)._resolved_id) || tossData.orderId
+
     return new Response(
       JSON.stringify({
         success: true,
         data: {
-          orderId: tossData.orderId,
+          orderId: responseOrderId,
           paymentKey: tossData.paymentKey,
           method: tossData.method,
           totalAmount: tossData.totalAmount,

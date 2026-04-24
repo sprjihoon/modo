@@ -23,6 +23,10 @@ class TossPaymentPage extends StatefulWidget {
   final String? customerPhone;
   final bool isExtraCharge; // 추가 결제 여부
   final String? originalOrderId; // 원본 주문 ID (수거예약 등에 사용)
+  /// 신규 흐름: orderId 가 payment_intents.id 인 경우.
+  /// confirmTossPayment 시 pickup_payload 트리거를 동봉해 edge function 이
+  /// 신규 흐름으로 분기하도록 한다.
+  final bool isIntentFlow;
 
   const TossPaymentPage({
     super.key,
@@ -34,6 +38,7 @@ class TossPaymentPage extends StatefulWidget {
     this.customerPhone,
     this.isExtraCharge = false,
     this.originalOrderId,
+    this.isIntentFlow = false,
   });
 
   @override
@@ -207,12 +212,17 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
       final paymentService = PaymentService();
       
       // 서버에 결제 승인 요청
+      //   - 신규 흐름(isIntentFlow): payment_intents.id 를 orderId 로 보내고
+      //     pickup_payload 트리거를 동봉 → edge function 이 orders insert (PAID)
+      //   - 추가 결제: originalOrderId 동봉 → 기존 추가결제 흐름
+      //   - 그 외 (레거시): 기존 PENDING_PAYMENT 주문 PAID 업데이트 흐름
       final result = await paymentService.confirmTossPayment(
         paymentKey: success.paymentKey,
         orderId: success.orderId,
         amount: success.amount.toInt(),
         isExtraCharge: widget.isExtraCharge,
-        originalOrderId: widget.originalOrderId, // 추가 결제 시 원본 주문 ID 전달
+        originalOrderId: widget.originalOrderId,
+        triggerIntentFlow: widget.isIntentFlow,
       );
 
       if (mounted) {

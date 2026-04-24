@@ -397,6 +397,7 @@ class PaymentService {
     required int amount,
     bool isExtraCharge = false,
     String? originalOrderId, // 추가 결제 시 원본 주문 ID
+    bool triggerIntentFlow = false, // 신규 흐름: payment_intents 기반
   }) async {
     try {
       final response = await _supabase.functions.invoke(
@@ -407,6 +408,9 @@ class PaymentService {
           'amount': amount,
           'is_extra_charge': isExtraCharge,
           if (originalOrderId != null) 'original_order_id': originalOrderId,
+          // pickup_payload 가 있으면 edge function 이 신규 흐름으로 분기.
+          // 실제 픽업 정보는 인텐트에 이미 저장되어 있으므로 트리거만 보낸다.
+          if (triggerIntentFlow) 'pickup_payload': {'__from_intent': true},
         },
       );
 

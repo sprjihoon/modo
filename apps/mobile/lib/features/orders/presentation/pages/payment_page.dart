@@ -28,6 +28,12 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Map<String, dynamic>? _orderData;
   bool _showTestButtons = false;
 
+  // 신규 흐름: payment_intent 기반 결제
+  //   widget.orderId 가 payment_intents.id 인 경우 _isIntentFlow = true.
+  //   _orderData 는 intent.payload 로부터 구성된 가상 주문 데이터.
+  bool _isIntentFlow = false;
+  String? _intentId;
+
   @override
   void initState() {
     super.initState();
@@ -54,15 +60,78 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   }
 
   Future<void> _loadOrder() async {
+    // 1) 먼저 orders 에서 조회 (레거시/이미 결제된 흐름)
     try {
       final order = await _supabase
           .from('orders')
           .select('*')
           .eq('id', widget.orderId)
-          .single();
-          
+          .maybeSingle();
+      if (order != null) {
+        setState(() {
+          _orderData = Map<String, dynamic>.from(order as Map);
+          _isIntentFlow = false;
+        });
+        return;
+      }
+    } catch (_) {/* fallthrough → intent 조회 */}
+
+    // 2) payment_intents 에서 조회 (신규 흐름)
+    try {
+      final intent = await _supabase
+          .from('payment_intents')
+          .select('id, total_price, payload, expires_at, consumed_at')
+          .eq('id', widget.orderId)
+          .maybeSingle();
+
+      if (intent == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('결제 정보를 찾을 수 없습니다.')),
+          );
+        }
+        return;
+      }
+      if (intent['consumed_at'] != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('이미 결제가 완료된 주문입니다.')),
+          );
+        }
+        return;
+      }
+
+      final payload = Map<String, dynamic>.from(
+        (intent['payload'] as Map?) ?? const {},
+      );
+
+      // intent.payload 를 _orderData 와 호환되는 형태로 매핑
+      final virtual = <String, dynamic>{
+        'id': intent['id'],
+        'total_price': intent['total_price'],
+        'item_name': payload['itemName'] ?? '수선',
+        'customer_name': payload['customerName'] ?? '고객',
+        'pickup_address': payload['pickupAddress'] ?? '',
+        'pickup_address_detail': payload['pickupAddressDetail'],
+        'pickup_zipcode': payload['pickupZipcode'],
+        'pickup_phone': payload['pickupPhone'],
+        'delivery_address': payload['deliveryAddress'] ?? payload['pickupAddress'] ?? '',
+        'delivery_address_detail': payload['deliveryAddressDetail'],
+        'delivery_zipcode': payload['deliveryZipcode'],
+        'delivery_phone': payload['deliveryPhone'],
+        'images_with_pins': payload['imagesWithPins'],
+        'notes': payload['notes'],
+        'shipping_fee': payload['shippingFee'],
+        'shipping_discount_amount': payload['shippingDiscountAmount'],
+        'remote_area_fee': payload['remoteAreaFee'],
+        'promotion_discount_amount': payload['promotionDiscountAmount'],
+        'original_total_price': payload['originalTotalPrice'],
+      };
+
       setState(() {
-        _orderData = order;
+        _orderData = virtual;
+        _isIntentFlow = true;
+        _intentId = intent['id'] as String;
       });
     } catch (e) {
       if (mounted) {
@@ -76,13 +145,18 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   /// 토스페이먼츠 결제 페이지로 이동
   Future<void> _goToTossPayment() async {
     if (_orderData == null) return;
-    
+
     final amount = _orderData!['total_price'] as int;
     final orderName = _orderData!['item_name'] as String;
     final customerName = _orderData!['customer_name'] as String? ?? '고객';
-    final tossOrderId = 'MODO_${widget.orderId}_${const Uuid().v4().substring(0, 8)}';
-    
-    // 토스페이먼츠 결제 페이지로 이동
+
+    // 신규 흐름: payment_intents.id 를 그대로 Toss orderId 로 사용
+    //   payments-confirm-toss 가 intentId 로 인텐트 조회 → orders insert (PAID)
+    // 레거시 흐름: 'MODO_<orderUuid>_<rand>' 형태 (extra-charge 등 호환용)
+    final tossOrderId = _isIntentFlow
+        ? _intentId!
+        : 'MODO_${widget.orderId}_${const Uuid().v4().substring(0, 8)}';
+
     final result = await context.push<bool>(
       '/toss-payment',
       extra: {
@@ -91,11 +165,12 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         'orderName': orderName,
         'customerName': customerName,
         'isExtraCharge': false,
-        'originalOrderId': widget.orderId, // 원본 주문 ID
+        // intent 흐름이면 originalOrderId 를 보내지 않아 신규 흐름이 트리거됨
+        if (!_isIntentFlow) 'originalOrderId': widget.orderId,
+        'isIntentFlow': _isIntentFlow,
       },
     );
-    
-    // 결제 성공 시 수거예약 진행
+
     if (result == true && mounted) {
       await _processAfterPayment();
     }
@@ -104,17 +179,41 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   /// 결제 후 수거예약 처리
   Future<void> _processAfterPayment() async {
     setState(() => _isLoading = true);
-    
+
     try {
+      String targetOrderId = widget.orderId;
+
+      if (_isIntentFlow && _intentId != null) {
+        // 신규 흐름: payment_intent 가 consumed_order_id 를 가지고 있어야 함.
+        //   payments-confirm-toss 가 성공한 직후 update 됨.
+        for (var i = 0; i < 10; i++) {
+          final row = await _supabase
+              .from('payment_intents')
+              .select('consumed_order_id')
+              .eq('id', _intentId!)
+              .maybeSingle();
+          final consumed = row?['consumed_order_id'] as String?;
+          if (consumed != null) {
+            targetOrderId = consumed;
+            break;
+          }
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+
+        // edge function 이 이미 수거예약을 호출하지 않으므로 여기서 호출
+        // intent 결제 흐름은 _orderData 가 intent.payload 기반 가상 데이터지만,
+        // shipments-book 호출에 필요한 모든 필드를 포함.
+      }
+
       final shipment = await _orderService.bookShipment(
-        orderId: widget.orderId,
-        pickupAddress: _orderData!['pickup_address'],
+        orderId: targetOrderId,
+        pickupAddress: _orderData!['pickup_address'] ?? '',
         pickupPhone: _orderData!['pickup_phone'] ?? '010-1234-5678',
         pickupZipcode: _orderData!['pickup_zipcode'] as String?,
-        deliveryAddress: _orderData!['delivery_address'],
+        deliveryAddress: _orderData!['delivery_address'] ?? '',
         deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
         deliveryZipcode: _orderData!['delivery_zipcode'] as String?,
-        customerName: _orderData!['customer_name'],
+        customerName: _orderData!['customer_name'] ?? '고객',
         deliveryMessage: _orderData!['notes'] as String?,
       );
 
@@ -128,7 +227,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         ),
       );
 
-      context.go('/orders/${widget.orderId}');
+      context.go('/orders/$targetOrderId');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -61,6 +61,9 @@ export function PaymentSuccessClient() {
   async function confirmPayment() {
     try {
       const supabase = createClient();
+      // 신규 흐름: 일반 결제는 tossOrderId === payment_intents.id
+      //   payments-confirm-toss 가 intent_id 로 인텐트 조회 → orders insert (PAID)
+      //   추가결제는 기존과 동일 (extra_charge_data 업데이트)
       const body: Record<string, unknown> = {
         payment_key: paymentKey,
         order_id: tossOrderId,
@@ -69,6 +72,10 @@ export function PaymentSuccessClient() {
       };
       if (isExtraCharge && originalOrderId) {
         body.original_order_id = originalOrderId;
+      } else {
+        // 신규 흐름 트리거 — edge function 이 isCreateOrderFlow 분기 타도록
+        // (pickup_payload 가 있으면 신규 흐름으로 인식)
+        body.pickup_payload = { __from_intent: true };
       }
 
       const { data, error: fnError } = await supabase.functions.invoke(
@@ -82,49 +89,23 @@ export function PaymentSuccessClient() {
       setPaymentInfo(data.data);
       setStatus("success");
 
-      // 합포장 후처리 + 수거 예약 (순차 실행, 오류 무시)
-      if (!isExtraCharge) {
-        await finalizeBatchOrders(supabase, dbOrderId);
-        if (dbOrderId) await bookShipmentAfterPayment(supabase, dbOrderId);
+      // 신설된 주문 id 는 응답의 orderId (edge function 이 신규 흐름에서 반환)
+      const newOrderId = (data.data?.orderId as string | undefined) ?? dbOrderId;
+
+      // 결제 후 수거 예약 (오류 무시)
+      if (!isExtraCharge && newOrderId) {
+        await bookShipmentAfterPayment(supabase, newOrderId);
       }
 
       // 3초 후 주문 상세로 이동
       redirectTimerRef.current = setTimeout(() => {
-        router.replace(`/orders/${dbOrderId}${isExtraCharge ? "" : "?paid=true"}`);
+        const target = isExtraCharge ? dbOrderId : newOrderId;
+        router.replace(`/orders/${target}${isExtraCharge ? "" : "?paid=true"}`);
       }, 3000);
     } catch (e) {
       setError(e instanceof Error ? e.message : "결제 승인 중 오류가 발생했습니다.");
       setStatus("error");
     }
-  }
-
-  /** 합포장 결제 성공 → 나머지 주문 CANCELLED 처리 + 세션 클리어 */
-  async function finalizeBatchOrders(
-    supabase: ReturnType<typeof createClient>,
-    _primaryOrderId: string
-  ) {
-    try {
-      const raw = typeof window !== "undefined"
-        ? sessionStorage.getItem("batch_checkout_session")
-        : null;
-      if (!raw) return;
-      const session = JSON.parse(raw) as {
-        primaryOrderId: string;
-        otherOrderIds: string[];
-      };
-      sessionStorage.removeItem("batch_checkout_session");
-
-      if (session.otherOrderIds?.length > 0) {
-        await supabase
-          .from("orders")
-          .update({ status: "CANCELLED" })
-          .in("id", session.otherOrderIds);
-        console.log("✅ 합포장 결제 완료: 나머지 주문 취소됨", session.otherOrderIds);
-      }
-    } catch (e) {
-      console.error("합포장 후처리 오류 (무시):", e);
-    }
-    void _primaryOrderId;
   }
 
   async function bookShipmentAfterPayment(
@@ -197,9 +178,9 @@ export function PaymentSuccessClient() {
               주문 확인
             </button>
           )}
-          {!isExtraCharge && dbOrderId && (
+          {!isExtraCharge && tossOrderId && (
             <button
-              onClick={() => router.replace(`/payment?orderId=${dbOrderId}`)}
+              onClick={() => router.replace(`/payment?intentId=${tossOrderId}`)}
               className="px-5 py-2.5 bg-[#00C896] text-white rounded-xl text-sm font-bold"
             >
               다시 결제

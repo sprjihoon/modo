@@ -305,37 +305,57 @@ export function OrderNewClient() {
   }
 
   // ── 바로 결제 ──────────────────────────────────────────────────────────
+  // 흐름:
+  //   1) /api/orders/quote 호출 → 서버 권위적 가격 + intent_id
+  //   2) 0원이면 /api/orders/free 로 바로 PAID 주문 생성 + 수거 예약
+  //   3) 그 외에는 /payment?intentId=... 로 이동 (PaymentClient 가 결제 진행)
+  //   ※ DB 에는 결제 성공 전까지 orders row 가 절대 만들어지지 않음 (PENDING_PAYMENT 폐지)
   const handlePayNow = useCallback(async () => {
     if (!pendingPickupData) return;
     setIsProcessing(true);
     const finalDraft: OrderDraft = { ...draft, ...pendingPickupData };
     try {
-      const res = await fetch("/api/orders", {
+      const quoteRes = await fetch("/api/orders/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(finalDraft),
       });
-      if (res.ok) {
-        const { orderId, totalPrice } = await res.json();
-        // 결제 진입 전, 이어서 진행하던 cart 항목 정리 (주문 확정시 중복 제거)
-        if (resumingCartId) {
-          try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
-        }
-        if (popstateHandlerRef.current) {
-          window.removeEventListener("popstate", popstateHandlerRef.current);
-          popstateHandlerRef.current = null;
-        }
-        if (totalPrice > 0) {
-          router.push(`/payment?orderId=${orderId}`);
-        } else {
-          router.push(`/orders/${orderId}?new=true`);
-        }
-      } else {
-        alert("주문 생성 중 오류가 발생했습니다. 다시 시도해주세요.");
+      if (!quoteRes.ok) {
+        const err = await quoteRes.json().catch(() => ({}));
+        alert((err as { error?: string }).error || "주문 가격 계산에 실패했습니다.");
         setShowPaymentChoice(false);
+        return;
       }
+      const quote = await quoteRes.json() as { intentId: string; totalPrice: number };
+
+      if (resumingCartId) {
+        try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
+      }
+      if (popstateHandlerRef.current) {
+        window.removeEventListener("popstate", popstateHandlerRef.current);
+        popstateHandlerRef.current = null;
+      }
+
+      if (quote.totalPrice === 0) {
+        const freeRes = await fetch("/api/orders/free", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(finalDraft),
+        });
+        if (!freeRes.ok) {
+          const err = await freeRes.json().catch(() => ({}));
+          alert((err as { error?: string }).error || "0원 주문 생성에 실패했습니다.");
+          setShowPaymentChoice(false);
+          return;
+        }
+        const { orderId } = await freeRes.json() as { orderId: string };
+        router.push(`/orders/${orderId}?new=true`);
+        return;
+      }
+
+      router.push(`/payment?intentId=${quote.intentId}`);
     } catch {
-      alert("주문 생성 중 오류가 발생했습니다. 다시 시도해주세요.");
+      alert("주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.");
       setShowPaymentChoice(false);
     } finally {
       setIsProcessing(false);

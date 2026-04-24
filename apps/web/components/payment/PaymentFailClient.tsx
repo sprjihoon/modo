@@ -7,7 +7,9 @@ export function PaymentFailClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const orderId = searchParams.get("orderId") ?? "";
+  // Toss 가 failUrl 에 자동으로 붙여주는 orderId 는 우리가 결제 시 보낸 값
+  // = payment_intents.id (extra-charge 흐름에서는 별도 orderId 가 query 로 들어옴)
+  const intentOrOrderId = searchParams.get("orderId") ?? "";
   const errorCode = searchParams.get("code") ?? "";
   const errorMessage = searchParams.get("message") ?? "결제가 취소되었거나 오류가 발생했습니다.";
 
@@ -36,9 +38,9 @@ export function PaymentFailClient() {
         >
           주문 목록
         </button>
-        {orderId && (
+        {intentOrOrderId && (
           <button
-            onClick={() => router.replace(`/payment?orderId=${orderId}`)}
+            onClick={() => router.replace(`/payment?intentId=${intentOrOrderId}`)}
             className="flex-1 py-3.5 bg-[#00C896] text-white rounded-xl text-sm font-bold"
           >
             다시 결제

@@ -3,13 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/address_service.dart';
 import '../../../../services/island_area_service.dart';
 import '../../../../services/order_service.dart';
-import '../../../../services/payment_service.dart';
 import '../../../../services/promotion_service.dart';
 import '../../../../services/shipping_settings_service.dart';
 import '../../providers/repair_items_provider.dart';
@@ -715,17 +713,12 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
         }
       }
       
-      debugPrint('📦 주문 생성 중...');
+      debugPrint('📦 결제 견적 준비 중...');
 
-      // 배송비 프로모션이 적용된 실제 배송비
+      // 클라이언트 추정값 (서버 가격과 비교용 — 실제 결제는 서버가 권위적으로 계산)
       final baseShippingFee = _shippingSettings.baseShippingFee;
       final actualShippingFee =
           (_shippingPromo?['finalShippingFee'] as int?) ?? baseShippingFee;
-      final shippingDiscountAmount =
-          (_shippingPromo?['discountAmount'] as int?) ?? 0;
-      final shippingPromotionId = _shippingPromo?['promotionId'] as String?;
-
-      // 도서산간 추가 배송비 (관리자 설정값 적용)
       final pickupZip = _zipcodeController.text;
       final deliveryZip = _isDeliveryAddressSame
           ? _zipcodeController.text
@@ -735,82 +728,110 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
         deliveryZipcode: deliveryZip,
         feeAmount: _shippingSettings.remoteAreaFee,
       );
-
-      // 수선 프로모션은 수선비에만 적용, 배송비는 별도 청구 (배송비 프로모션 적용)
       final repairFinalPrice = _appliedPromotion != null
           ? (_appliedPromotion!['final_amount'] as int)
           : repairItemsTotal;
       final finalTotalPrice = repairFinalPrice + actualShippingFee + remoteAreaFee;
 
-      // 주문 생성
-      final order = await _orderService.createOrder(
-        itemName: itemNames,
-        itemDescription: itemDescription,
-        basePrice: repairItemsTotal,
-        totalPrice: finalTotalPrice,
-        shippingFee: baseShippingFee,
-        shippingDiscountAmount: shippingDiscountAmount,
-        shippingPromotionId: shippingPromotionId,
-        remoteAreaFee: remoteAreaFee,
-        
-        // 수거지 정보
-        pickupAddress: _addressController.text,
-        pickupAddressDetail: _addressDetailController.text,
-        pickupZipcode: _zipcodeController.text,
-        // recipientName, recipientPhone은 아래에서 배송지 기준으로 설정됨
-        
-        // 배송지 정보 (조건부 설정)
-        deliveryAddress: _isDeliveryAddressSame ? _addressController.text : _deliveryAddressController.text,
-        deliveryAddressDetail: _isDeliveryAddressSame ? _addressDetailController.text : _deliveryAddressDetailController.text,
-        deliveryZipcode: _isDeliveryAddressSame ? _zipcodeController.text : _deliveryZipcodeController.text,
-        // TODO: API에 deliveryRecipientName, deliveryRecipientPhone 필드가 있다면 추가해야 함
-        // 현재는 recipientName, recipientPhone을 공통으로 사용하는 구조일 수 있음
-        
-        imageUrls: widget.imageUrls,
-        imagesWithPins: allImagesWithPins, // 모든 의류의 핀 정보
-        notes: _requestController.text,
-        clothingType: clothingType, // 의류 타입
-        repairType: repairType, // 수선 타입
-        repairParts: repairParts, // 수선 부위들
-        promotionCodeId: _appliedPromotion?['id'] as String?, // 프로모션 코드 ID
-        promotionDiscountAmount: _appliedPromotion?['discount_amount'] as int?, // 할인 금액
-        originalTotalPrice: _appliedPromotion != null ? (repairItemsTotal + actualShippingFee) : null,
-        
-        // 수취인 정보 (배송지 기준)
-        recipientName: _isDeliveryAddressSame ? _recipientNameController.text : _deliveryRecipientNameController.text,
-        recipientPhone: _isDeliveryAddressSame ? _recipientPhoneController.text : _deliveryRecipientPhoneController.text,
+      // 🆕 신규 흐름: PENDING_PAYMENT 폐지.
+      //   1) orders-quote Edge Function 으로 권위적 가격 + payment_intent 생성
+      //   2) totalPrice == 0 → orders-free 로 즉시 PAID 주문 생성
+      //   3) totalPrice > 0  → /payment 페이지로 intentId 전달, 결제 후 orders insert
+      final pickupAddr = _addressController.text;
+      final pickupAddrDetail = _addressDetailController.text;
+      final deliveryAddr = _isDeliveryAddressSame
+          ? _addressController.text
+          : _deliveryAddressController.text;
+      final deliveryAddrDetail = _isDeliveryAddressSame
+          ? _addressDetailController.text
+          : _deliveryAddressDetailController.text;
+      final recipientName = _isDeliveryAddressSame
+          ? _recipientNameController.text
+          : _deliveryRecipientNameController.text;
+      final recipientPhone = _isDeliveryAddressSame
+          ? _recipientPhoneController.text
+          : _deliveryRecipientPhoneController.text;
 
-        // 수거 희망일 (DB 저장, 우체국 API는 자동 배정)
-        pickupDate: _selectedPickupDate,
-      );
+      // 견적 입력 — Edge Function 의 입력 형식에 맞춤
+      final draft = <String, dynamic>{
+        'clothingType': clothingType,
+        'repairType': repairType,
+        'repairItems': widget.repairItems.map((it) {
+          return <String, dynamic>{
+            'name': it['repairPart'],
+            'price': (it['price'] is int)
+                ? it['price']
+                : int.tryParse(it['price']?.toString() ?? '') ?? 0,
+            'quantity': 1,
+          };
+        }).toList(),
+        'imagesWithPins': allImagesWithPins,
+        'imageUrls': widget.imageUrls,
+        'pickupAddress': pickupAddr,
+        'pickupAddressDetail': pickupAddrDetail,
+        'pickupZipcode': pickupZip,
+        'pickupPhone': recipientPhone,
+        'pickupDate': _selectedPickupDate?.toIso8601String().split('T').first,
+        'deliveryAddress': deliveryAddr,
+        'deliveryAddressDetail': deliveryAddrDetail,
+        'deliveryZipcode': deliveryZip,
+        'deliveryPhone': recipientPhone,
+        'customerName': recipientName,
+        'customerPhone': recipientPhone,
+        'notes': _requestController.text,
+        if (_appliedPromotion != null)
+          'promotionCodeId': _appliedPromotion!['id'] as String,
+      };
 
-      debugPrint('✅ 주문 생성 완료: ${order['id']}');
-      
-      // 프로모션 코드 사용 기록
-      if (_appliedPromotion != null) {
-        try {
-          await _promotionService.recordPromotionCodeUsage(
-            promotionCodeId: _appliedPromotion!['id'] as String,
-            orderId: order['id'] as String,
-            discountAmount: _appliedPromotion!['discount_amount'] as int,
-            originalAmount: _appliedPromotion!['original_amount'] as int,
-            finalAmount: _appliedPromotion!['final_amount'] as int,
-          );
-          debugPrint('✅ 프로모션 코드 사용 기록 완료');
-        } catch (e) {
-          debugPrint('⚠️ 프로모션 코드 사용 기록 실패 (주문은 생성됨): $e');
-          // 주문은 이미 생성되었으므로 에러를 무시하고 계속 진행
-        }
+      debugPrint('🧾 결제 견적 요청...');
+      final quote = await _orderService.createPaymentIntent(draft);
+      final intentId = quote['intentId'] as String;
+      final totalPrice = (quote['totalPrice'] as num).toInt();
+      debugPrint('✅ payment_intent 생성: $intentId (₩$totalPrice)');
+
+      // 클라이언트 계산값과 서버 계산값이 다르면 서버 값을 우선
+      if (totalPrice != finalTotalPrice) {
+        debugPrint(
+          '⚠️ 클라이언트 가격($finalTotalPrice) ≠ 서버 가격($totalPrice). 서버 값 사용.',
+        );
       }
-      
+
       if (mounted) {
-        // 주문 생성 성공 - Provider 초기화
         ref.read(repairItemsProvider.notifier).clear();
-        
-        debugPrint('🔄 결제 페이지로 이동: ${order['id']}');
-        
-        // 결제 페이지로 이동
-        context.push('/payment/${order['id']}');
+      }
+
+      if (totalPrice == 0) {
+        // 0원 주문 — 결제 게이트웨이 우회
+        debugPrint('🆓 0원 주문 — orders-free 호출');
+        final freeRes = await _orderService.createFreeOrder(draft);
+        final newOrderId = freeRes['orderId'] as String;
+        debugPrint('✅ 0원 주문 생성: $newOrderId');
+
+        if (_appliedPromotion != null) {
+          try {
+            await _promotionService.recordPromotionCodeUsage(
+              promotionCodeId: _appliedPromotion!['id'] as String,
+              orderId: newOrderId,
+              discountAmount: _appliedPromotion!['discount_amount'] as int,
+              originalAmount: _appliedPromotion!['original_amount'] as int,
+              finalAmount: _appliedPromotion!['final_amount'] as int,
+            );
+          } catch (e) {
+            debugPrint('⚠️ 프로모션 코드 사용 기록 실패 (무시): $e');
+          }
+        }
+
+        if (mounted) {
+          context.go('/orders/$newOrderId');
+        }
+        return;
+      }
+
+      // 결제 페이지로 이동 — intent_id 를 사용
+      // PaymentPage 는 orders 가 아직 없으므로 payment_intents 에서 데이터 조회
+      if (mounted) {
+        debugPrint('🔄 결제 페이지로 이동 (intentId: $intentId)');
+        context.push('/payment/$intentId?intent=true');
       }
     } catch (e) {
       debugPrint('❌ 주문 생성 실패: $e');

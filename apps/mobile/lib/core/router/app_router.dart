@@ -364,6 +364,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             customerPhone: data['customerPhone'] as String?,
             isExtraCharge: data['isExtraCharge'] as bool? ?? false,
             originalOrderId: data['originalOrderId'] as String?,
+            isIntentFlow: data['isIntentFlow'] as bool? ?? false,
           );
         },
       ),

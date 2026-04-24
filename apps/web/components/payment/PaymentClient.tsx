@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
-import { Scissors, MapPin, CreditCard, AlertCircle, FlaskConical, Truck } from "lucide-react";
+import { Scissors, MapPin, CreditCard, AlertCircle, X } from "lucide-react";
 
 interface TossPaymentInstance {
   requestPayment: (params: {
@@ -27,30 +27,34 @@ interface TossPaymentsConstructor {
   };
 }
 
-interface OrderInfo {
-  id: string;
-  item_name?: string;
-  clothing_type?: string;
-  total_price: number;
-  shipping_fee?: number;
-  shipping_discount_amount?: number;
-  remote_area_fee?: number;
-  pickup_address?: string;
-  pickup_phone?: string;
-  pickup_zipcode?: string;
-  delivery_address?: string;
-  delivery_phone?: string;
-  delivery_zipcode?: string;
-  notes?: string;
-  repair_parts?: Array<{ name: string; price: number; quantity: number }>;
-  customer_name?: string;
-  customer_email?: string;
-  customer_phone?: string;
+interface IntentPayload {
+  itemName: string;
+  clothingType: string;
+  pickupAddress: string;
+  pickupAddressDetail?: string | null;
+  pickupPhone?: string | null;
+
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+
+  basePrice: number;
+  shippingFee: number;
+  shippingDiscountAmount: number;
+  remoteAreaFee: number;
+  promotionDiscountAmount: number;
+
+  repairParts: Array<{ name: string; price?: number; quantity?: number }> | null;
 }
 
-// 토스페이먼츠 클라이언트 키
-// - 운영(production)에서는 환경변수가 반드시 설정되어 있어야 함 (없으면 throw)
-// - 개발 환경에서는 환경변수 미설정 시 토스 공개 테스트 키 사용
+interface PaymentIntent {
+  id: string;
+  total_price: number;
+  payload: IntentPayload;
+  expires_at: string;
+  consumed_at: string | null;
+}
+
 const CLIENT_KEY = (() => {
   const fromEnv = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY?.trim();
   if (fromEnv) return fromEnv;
@@ -65,68 +69,104 @@ const CLIENT_KEY = (() => {
 export function PaymentClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const orderId = searchParams.get("orderId") ?? "";
-  const batchIds = searchParams.get("batchIds")?.split(",").filter(Boolean) ?? [];
-  const isBatchPayment = batchIds.length > 0;
+  // 신규 흐름: intentId 만 사용 (PENDING_PAYMENT 폐지)
+  const intentId = searchParams.get("intentId") ?? "";
 
-  const [order, setOrder] = useState<OrderInfo | null>(null);
+  const [intent, setIntent] = useState<PaymentIntent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // TODO: 출시 전 false로 변경하거나 ops_center_settings DB 설정으로 제어
-  const [showTestButtons, setShowTestButtons] = useState(true);
-  const [testResult, setTestResult] = useState<string | null>(null);
-  const [isTestLoading, setIsTestLoading] = useState(false);
+
+  // 이탈 가드: 결제 직전 → "결제 안 끝내고 나가실래요?" 확인
+  const [showExitDialog, setShowExitDialog] = useState(false);
+  const pendingExitRef = useRef<(() => void) | null>(null);
+  const popstateHandlerRef = useRef<(() => void) | null>(null);
+  const isPaymentInProgressRef = useRef(false);
 
   useEffect(() => {
-    if (!orderId) {
-      setError("주문 정보를 찾을 수 없습니다.");
+    if (!intentId) {
+      setError("결제 정보가 올바르지 않습니다. 주문을 다시 시작해주세요.");
       setIsLoading(false);
       return;
     }
-    loadOrder();
-    loadTestButtonsSetting();
-  }, [orderId]);
+    loadIntent();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intentId]);
 
-  async function loadTestButtonsSetting() {
-    try {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("ops_center_settings")
-        .select("show_test_buttons")
-        .limit(1)
-        .maybeSingle();
-      if (data) setShowTestButtons(data.show_test_buttons ?? false);
-    } catch {
-      // 설정 로드 실패 시 테스트 버튼 미표시
-    }
-  }
+  // ── 이탈 방지 ──────────────────────────────────────────────────────────
+  // OrderNewClient 와 동일한 패턴: modu_before_navigate / popstate / beforeunload
+  // 결제 위젯 호출 직전에 isPaymentInProgressRef = true 로 두어 가드 비활성화.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if (isPaymentInProgressRef.current) return;
+      if (!intent) return;
+      e.preventDefault();
+      const type = (e as CustomEvent).detail?.type as "back" | "home";
+      pendingExitRef.current = () => {
+        if (type === "home") router.push("/");
+        else router.back();
+      };
+      setShowExitDialog(true);
+    };
+    window.addEventListener("modu_before_navigate", handler);
+    return () => window.removeEventListener("modu_before_navigate", handler);
+  }, [intent, router]);
 
-  async function loadOrder() {
-    try {
-      const supabase = createClient();
-      // shipping_fee, shipping_discount_amount 포함 조회 시도
-      const { data: d1, error: e1 } = await supabase
-        .from("orders")
-        .select(
-          "id, item_name, clothing_type, total_price, shipping_fee, shipping_discount_amount, remote_area_fee, pickup_address, pickup_phone, pickup_zipcode, delivery_address, delivery_phone, delivery_zipcode, notes, repair_parts, customer_name, customer_email, customer_phone"
-        )
-        .eq("id", orderId)
-        .single();
+  useEffect(() => {
+    if (!intent) return;
+    window.history.pushState({ paymentFlowGuard: true }, "");
 
-      if (e1) {
-        // 컬럼 없는 구버전 fallback
-        const { data: d2 } = await supabase
-          .from("orders")
-          .select("id, item_name, clothing_type, total_price, pickup_address, customer_name, repair_parts")
-          .eq("id", orderId)
-          .single();
-        if (!d2) throw new Error("주문 정보를 찾을 수 없습니다.");
-        setOrder(d2 as OrderInfo);
-      } else {
-        if (!d1) throw new Error("주문 정보를 찾을 수 없습니다.");
-        setOrder(d1 as OrderInfo);
+    const handler = () => {
+      if (isPaymentInProgressRef.current) return;
+      window.history.pushState({ paymentFlowGuard: true }, "");
+      pendingExitRef.current = () => {
+        if (popstateHandlerRef.current) {
+          window.removeEventListener("popstate", popstateHandlerRef.current);
+          popstateHandlerRef.current = null;
+        }
+        window.history.back();
+      };
+      setShowExitDialog(true);
+    };
+    popstateHandlerRef.current = handler;
+    window.addEventListener("popstate", handler);
+    return () => {
+      if (popstateHandlerRef.current) {
+        window.removeEventListener("popstate", popstateHandlerRef.current);
       }
+    };
+  }, [intent]);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isPaymentInProgressRef.current) return;
+      if (!intent) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [intent]);
+
+  async function loadIntent() {
+    try {
+      const supabase = createClient();
+      const { data, error: e1 } = await supabase
+        .from("payment_intents")
+        .select("id, total_price, payload, expires_at, consumed_at")
+        .eq("id", intentId)
+        .maybeSingle();
+
+      if (e1 || !data) {
+        throw new Error("결제 정보를 찾을 수 없습니다. 주문을 다시 시작해주세요.");
+      }
+      if (data.consumed_at) {
+        throw new Error("이미 결제가 완료된 요청입니다.");
+      }
+      if (new Date(data.expires_at).getTime() < Date.now()) {
+        throw new Error("결제 시간이 만료되었습니다. 주문을 다시 시작해주세요.");
+      }
+      setIntent(data as PaymentIntent);
     } catch (e) {
       setError(e instanceof Error ? e.message : "주문 정보를 불러올 수 없습니다.");
     } finally {
@@ -135,7 +175,7 @@ export function PaymentClient() {
   }
 
   async function handlePayment() {
-    if (!order) return;
+    if (!intent) return;
     setIsRequesting(true);
     setError(null);
     try {
@@ -154,18 +194,22 @@ export function PaymentClient() {
       const tossPayments = TossPayments(CLIENT_KEY);
 
       const payment = tossPayments.payment({ customerKey });
-      const intAmount = Math.max(1, Math.round(order.total_price));
+      const intAmount = Math.max(1, Math.round(intent.total_price));
 
+      // Toss 위젯 호출 직전 — 이탈 가드 비활성화 (Toss 가 자체 navigate 함)
+      isPaymentInProgressRef.current = true;
+
+      const p = intent.payload;
       await payment.requestPayment({
         method: "CARD",
         amount: { currency: "KRW", value: intAmount },
-        orderId: order.id,
-        orderName: order.item_name ?? "모두의수선 수선 서비스",
+        orderId: intent.id, // intent_id 를 Toss orderId 로 사용
+        orderName: p.itemName ?? "모두의수선 수선 서비스",
         successUrl: `${window.location.origin}/payment/success`,
         failUrl: `${window.location.origin}/payment/fail`,
-        ...(order.customer_name && { customerName: order.customer_name }),
-        ...(order.customer_email && { customerEmail: order.customer_email }),
-        ...(order.customer_phone && { customerMobilePhone: order.customer_phone.replace(/-/g, "") }),
+        ...(p.customerName ? { customerName: p.customerName } : {}),
+        ...(p.customerEmail ? { customerEmail: p.customerEmail } : {}),
+        ...(p.customerPhone ? { customerMobilePhone: p.customerPhone.replace(/-/g, "") } : {}),
       });
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };
@@ -173,52 +217,14 @@ export function PaymentClient() {
         console.error("[결제] 오류:", err?.code, err?.message);
         setError(err?.message ?? "결제 요청 중 오류가 발생했습니다.");
       }
+      isPaymentInProgressRef.current = false;
       setIsRequesting(false);
     }
   }
 
-  async function handleTestShipment(testMode: boolean) {
-    if (!order) return;
-    setIsTestLoading(true);
-    setTestResult(null);
-    try {
-      const supabase = createClient();
-      await supabase
-        .from("orders")
-        .update({ payment_status: "PAID" })
-        .eq("id", order.id);
-
-      setTestResult(testMode ? "🧪 Mock 모드로 수거예약 시작..." : "🚚 실제 우체국 API로 수거예약 시작...");
-
-      const body: Record<string, unknown> = {
-        order_id: order.id,
-        pickup_address: order.pickup_address ?? "테스트 주소",
-        pickup_phone: order.pickup_phone ?? "010-1234-5678",
-        delivery_address: order.delivery_address ?? order.pickup_address ?? "테스트 주소",
-        delivery_phone: order.delivery_phone ?? order.pickup_phone ?? "010-1234-5678",
-        customer_name: order.customer_name ?? "테스트 고객",
-        test_mode: testMode,
-      };
-      if (order.pickup_zipcode) body.pickup_zipcode = order.pickup_zipcode;
-      if (order.delivery_zipcode) body.delivery_zipcode = order.delivery_zipcode;
-      if (order.notes) body.delivery_message = order.notes;
-
-      const { data, error: fnError } = await supabase.functions.invoke("shipments-book", { body });
-      if (fnError) throw new Error(fnError.message);
-      if (!data?.success) throw new Error(data?.error ?? "수거예약 실패");
-
-      const trackingNo = data.data?.tracking_no ?? data.data?.pickup_tracking_no;
-      setTestResult(
-        testMode
-          ? `✅ Mock 수거예약 완료!\n송장번호: ${trackingNo}`
-          : `🎉 실제 우체국 수거예약 완료!\n송장번호: ${trackingNo}`
-      );
-      setTimeout(() => router.push("/orders"), 3000);
-    } catch (e) {
-      setTestResult(`❌ 오류: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setIsTestLoading(false);
-    }
+  function handleExitConfirm() {
+    setShowExitDialog(false);
+    pendingExitRef.current?.();
   }
 
   if (isLoading) {
@@ -231,127 +237,84 @@ export function PaymentClient() {
     );
   }
 
-  if (error) {
+  if (error || !intent) {
     return (
       <div className="m-4 p-6 bg-white border border-gray-100 rounded-2xl text-center shadow-sm">
         <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-        <p className="text-sm font-bold text-gray-800 mb-1">결제 오류가 발생했습니다</p>
+        <p className="text-sm font-bold text-gray-800 mb-1">결제 정보를 불러올 수 없습니다</p>
         <p className="text-xs text-gray-500 mb-4 whitespace-pre-line">{error}</p>
         <div className="flex gap-3 justify-center">
           <button
-            onClick={() => { setError(null); }}
+            onClick={() => router.push("/order/new")}
             className="text-sm text-white bg-[#00C896] font-semibold px-4 py-2 rounded-lg"
           >
-            다시 시도
+            주문 다시 시작
           </button>
-          <button onClick={() => router.back()} className="text-sm text-gray-500 font-semibold px-4 py-2 rounded-lg border border-gray-200">
-            돌아가기
+          <button
+            onClick={() => router.push("/")}
+            className="text-sm text-gray-500 font-semibold px-4 py-2 rounded-lg border border-gray-200"
+          >
+            홈으로
           </button>
         </div>
       </div>
     );
   }
 
-  // repair_parts는 TEXT[] 또는 JSONB[]일 수 있음 (TEXT[]이면 각 element가 JSON 문자열)
-  const repairItems: Array<{ name: string; price: number; quantity: number }> = (() => {
-    const raw = order?.repair_parts;
-    if (!Array.isArray(raw)) return [];
-    return (raw as unknown[]).map((item) => {
-      if (typeof item === "string") {
-        try { return JSON.parse(item); } catch { return null; }
-      }
-      return item;
-    }).filter(Boolean) as Array<{ name: string; price: number; quantity: number }>;
-  })();
-
-  // 실제 배송비 = shipping_fee - discount
-  const BASE_SHIPPING = 7000;
-  const shippingFeeDisplay = order?.shipping_fee ?? BASE_SHIPPING;
-  const shippingDiscount = order?.shipping_discount_amount ?? 0;
+  const p = intent.payload;
+  const repairItems = Array.isArray(p.repairParts) ? p.repairParts : [];
+  const shippingFeeDisplay = p.shippingFee ?? 7000;
+  const shippingDiscount = p.shippingDiscountAmount ?? 0;
   const actualShipping = shippingFeeDisplay - shippingDiscount;
-  const remoteAreaFee = order?.remote_area_fee ?? 0;
-
-  // repair_parts 합산으로 수선비 직접 계산
-  const repairPartsSum = repairItems.reduce(
-    (sum, item) => sum + (item.price ?? 0) * (item.quantity ?? 1),
-    0
-  );
-
-  // 배송비 포함 여부 판단:
-  //  - repair_parts가 있으면: total ≈ repairPartsSum + actualShipping + remoteAreaFee 인지 확인
-  //  - repair_parts가 없으면: shipping_fee 컬럼이 있고 total > actualShipping 이면 포함으로 간주
-  const expectedTotal = repairPartsSum + actualShipping + remoteAreaFee;
-  const hasShippingInfo: boolean = (() => {
-    if (order?.shipping_fee == null) return false;
-    if (repairPartsSum > 0) {
-      // repair_parts 합산 기준: total이 수선비+배송비와 가까우면 포함
-      return Math.abs(order!.total_price - expectedTotal) <= 500;
-    }
-    // repair_parts 없는 구버전: total이 배송비보다 확실히 크면 포함
-    return order!.total_price > actualShipping + 500;
-  })();
-
-  const repairTotal = hasShippingInfo
-    ? order!.total_price - actualShipping - remoteAreaFee
-    : repairPartsSum > 0
-      ? repairPartsSum
-      : null;
+  const remoteAreaFee = p.remoteAreaFee ?? 0;
+  const repairTotal = (p.basePrice ?? 0) - (p.promotionDiscountAmount ?? 0);
 
   return (
     <>
-    <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
-    <div className="pb-36">
-      {/* 주문 요약 */}
-      <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
-        <div className="flex items-center gap-2 mb-3">
-          <Scissors className="w-4 h-4 text-[#00C896]" />
-          <p className="text-sm font-bold text-gray-800">주문 정보</p>
-          {isBatchPayment && (
-            <span className="text-[10px] font-bold text-white bg-orange-500 px-1.5 py-0.5 rounded">
-              {batchIds.length + 1}건 합포장
-            </span>
+      <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
+      <div className="pb-36">
+        <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <Scissors className="w-4 h-4 text-[#00C896]" />
+            <p className="text-sm font-bold text-gray-800">주문 정보</p>
+          </div>
+          {p.clothingType && (
+            <p className="text-xs text-gray-400 mb-2">{p.clothingType}</p>
+          )}
+          {repairItems.length > 0 ? (
+            <div className="space-y-1.5">
+              {repairItems.map((item, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700">
+                    {item.name}
+                    {(item.quantity ?? 1) > 1 && (
+                      <span className="text-gray-400 ml-1">×{item.quantity}</span>
+                    )}
+                  </span>
+                  {(item.price ?? 0) > 0 && (
+                    <span className="text-gray-600 font-medium">
+                      {formatPrice((item.price ?? 0) * (item.quantity ?? 1))}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-700">{p.itemName}</p>
+          )}
+          {p.pickupAddress && (
+            <div className="mt-3 pt-3 border-t border-gray-100 flex items-start gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-gray-500">{p.pickupAddress}</p>
+            </div>
           )}
         </div>
-        {order?.clothing_type && (
-          <p className="text-xs text-gray-400 mb-2">{order.clothing_type}</p>
-        )}
-        {repairItems.length > 0 ? (
-          <div className="space-y-1.5">
-            {repairItems.map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">
-                  {item.name}
-                  {(item.quantity ?? 1) > 1 && (
-                    <span className="text-gray-400 ml-1">×{item.quantity}</span>
-                  )}
-                </span>
-                {item.price > 0 && (
-                  <span className="text-gray-600 font-medium">
-                    {formatPrice(item.price * (item.quantity ?? 1))}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-700">{order?.item_name}</p>
-        )}
-        {order?.pickup_address && (
-          <div className="mt-3 pt-3 border-t border-gray-100 flex items-start gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
-            <p className="text-xs text-gray-500">{order.pickup_address}</p>
-          </div>
-        )}
-      </div>
 
-      {/* 결제 금액 */}
-      <div className="mx-4 mt-3 p-5 bg-[#00C896]/5 border border-[#00C896]/20 rounded-2xl">
-        <div className="flex items-center gap-2 mb-3">
-          <CreditCard className="w-4 h-4 text-[#00C896]" />
-          <p className="text-sm font-bold text-[#00C896]">결제 금액</p>
-        </div>
-        {/* 배송비 컬럼이 있는 신규 주문 — 항목별 상세 표시 */}
-        {repairTotal != null && (
+        <div className="mx-4 mt-3 p-5 bg-[#00C896]/5 border border-[#00C896]/20 rounded-2xl">
+          <div className="flex items-center gap-2 mb-3">
+            <CreditCard className="w-4 h-4 text-[#00C896]" />
+            <p className="text-sm font-bold text-[#00C896]">결제 금액</p>
+          </div>
           <div className="space-y-1.5 mb-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500">수선비</span>
@@ -386,60 +349,57 @@ export function PaymentClient() {
             )}
             <div className="border-t border-[#00C896]/20 pt-2 mt-1" />
           </div>
-        )}
-        <p className="text-2xl font-bold text-gray-900">
-          {formatPrice(order?.total_price ?? 0)}
-        </p>
-        {repairTotal == null && repairPartsSum > 0 && (
-          <p className="text-xs text-gray-400 mt-1">왕복배송비 7,000원 포함 금액입니다.</p>
-        )}
+          <p className="text-2xl font-bold text-gray-900">
+            {formatPrice(intent.total_price)}
+          </p>
+        </div>
+
+        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 pb-6 pt-3 bg-white border-t border-gray-100">
+          <button
+            onClick={handlePayment}
+            disabled={isRequesting}
+            className="w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-xl disabled:opacity-50 active:brightness-95 transition-all"
+          >
+            {isRequesting ? "결제 진행 중..." : `${formatPrice(intent.total_price)} 결제하기`}
+          </button>
+        </div>
       </div>
 
-      {/* 결제하기 버튼 */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 pb-6 pt-3 bg-white border-t border-gray-100 space-y-2">
-        {/* 우체국 테스트 버튼 - 결제하기 버튼 바로 위 */}
-        {showTestButtons && (
-          <div className="rounded-xl border border-dashed border-orange-300 bg-orange-50 p-3 space-y-2">
-            <p className="text-[11px] font-bold text-orange-400 text-center tracking-wide">🔧 우체국 API 테스트 (출시 전 제거)</p>
-            <div className="flex gap-2">
+      {showExitDialog && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowExitDialog(false)}
+          />
+          <div className="relative w-full max-w-[430px] bg-white rounded-t-2xl px-5 pt-5 pb-8 shadow-2xl">
+            <button
+              onClick={() => setShowExitDialog(false)}
+              className="absolute top-4 right-4 p-1 text-gray-400 active:opacity-60"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <p className="text-base font-bold text-gray-900 mb-1">결제를 중단하시겠어요?</p>
+            <p className="text-sm text-gray-500 mb-5">
+              결제를 완료하지 않으면 주문이 생성되지 않습니다.
+              <br />계속 결제할지, 그냥 나갈지 선택해주세요.
+            </p>
+            <div className="flex flex-col gap-2">
               <button
-                onClick={() => handleTestShipment(true)}
-                disabled={isTestLoading || isRequesting}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-orange-600 bg-white border border-orange-200 rounded-lg disabled:opacity-50 active:brightness-95 transition-all"
+                onClick={() => setShowExitDialog(false)}
+                className="w-full py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80"
               >
-                <FlaskConical className="w-4 h-4" />
-                Mock 수거예약
+                계속 결제하기
               </button>
               <button
-                onClick={() => handleTestShipment(false)}
-                disabled={isTestLoading || isRequesting}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-green-700 bg-white border border-green-300 rounded-lg disabled:opacity-50 active:brightness-95 transition-all"
+                onClick={handleExitConfirm}
+                className="w-full py-3.5 border border-gray-200 text-gray-500 text-sm font-bold rounded-xl active:bg-gray-50"
               >
-                <Truck className="w-4 h-4" />
-                실제 우체국 API
+                나가기
               </button>
             </div>
-            {isTestLoading && (
-              <p className="text-xs text-center text-orange-400 animate-pulse">처리 중...</p>
-            )}
-            {testResult && (
-              <p className="text-xs text-center whitespace-pre-line font-medium text-gray-700 bg-white rounded-lg px-3 py-2 border border-gray-100">
-                {testResult}
-              </p>
-            )}
           </div>
-        )}
-        <button
-          onClick={handlePayment}
-          disabled={isRequesting}
-          className="w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-xl disabled:opacity-50 active:brightness-95 transition-all"
-        >
-          {isRequesting
-            ? "결제 진행 중..."
-            : `${formatPrice(order?.total_price ?? 0)} 결제하기`}
-        </button>
-      </div>
-    </div>
+        </div>
+      )}
     </>
   );
 }

@@ -19,9 +19,12 @@ export const ORDER_STATUS_MAP: Record<
   { label: string; color: string; bgColor: string }
 > = {
   PENDING_PAYMENT: {
-    label: "결제대기",
-    color: "text-orange-600",
-    bgColor: "bg-orange-50",
+    // ⚠️ 신규 흐름에서는 더 이상 생성되지 않는 레거시 상태.
+    //    잔존 row 는 마이그레이션으로 모두 CANCELLED 처리됨.
+    //    혹시 모를 데이터 호환을 위해 라벨만 남겨둠.
+    label: "결제 미완료",
+    color: "text-gray-500",
+    bgColor: "bg-gray-50",
   },
   BOOKED: {
     label: "수거예약",
