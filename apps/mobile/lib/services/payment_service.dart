@@ -214,7 +214,7 @@ class PaymentService {
             .from('orders')
             .select('*')
             .eq('user_id', userId)
-            .or('payment_status.eq.PAID,payment_status.eq.paid,payment_status.eq.CANCELED,payment_status.eq.PARTIAL_CANCELED')
+            .or('payment_status.eq.PAID,payment_status.eq.CANCELED,payment_status.eq.PARTIAL_CANCELED,payment_status.eq.REFUNDED')
             .order('created_at', ascending: false);
         rows = (data as List<dynamic>)
             .map((e) => e as Map<String, dynamic>)
@@ -227,7 +227,7 @@ class PaymentService {
             .from('orders')
             .select('*')
             .eq('user_id', authId)
-            .or('payment_status.eq.PAID,payment_status.eq.paid,payment_status.eq.CANCELED,payment_status.eq.PARTIAL_CANCELED')
+            .or('payment_status.eq.PAID,payment_status.eq.CANCELED,payment_status.eq.PARTIAL_CANCELED,payment_status.eq.REFUNDED')
             .order('created_at', ascending: false);
         rows = (data2 as List<dynamic>)
             .map((e) => e as Map<String, dynamic>)

@@ -495,8 +495,18 @@ class _KakaoAddressSearchWebState extends State<_KakaoAddressSearchWeb> {
       addressName = (address['address_name'] ?? '') as String;
     }
 
-    if (addressName.isEmpty || zipcode.isEmpty || zipcode.trim().isEmpty) {
+    if (addressName.isEmpty) {
       return null;
+    }
+
+    // 우편번호가 없으면 선택 시 별도 조회 (keyword 타입으로 처리)
+    if (zipcode.trim().isEmpty) {
+      return {
+        'zipcode': '',
+        'address': addressName,
+        'detail': detail,
+        'type': 'keyword',
+      };
     }
 
     return {
