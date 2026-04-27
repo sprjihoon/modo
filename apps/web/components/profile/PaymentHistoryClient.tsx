@@ -47,7 +47,7 @@ export function PaymentHistoryClient() {
 
       let rows: Payment[] = [];
 
-      const PAID_STATUSES = ["PAID", "paid", "CANCELED", "PARTIAL_CANCELED"];
+      const PAID_STATUSES = ["PAID", "CANCELED", "PARTIAL_CANCELED"];
 
       // 1차: 내부 user_id (결제완료 + 취소/환불 주문)
       if (userRow?.id) {
