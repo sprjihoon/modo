@@ -61,33 +61,16 @@ export function HomePageClient() {
         setProfile({ name: userRow.name, point_balance: userRow.point_balance });
       }
 
-      // 주문 조회: 내부 user_id → auth.uid() 순으로 시도
-      let orderData: Order[] = [];
-      const cols = "id, status, extra_charge_status, item_name, total_price, created_at";
-
-      if (userRow?.id) {
-        const { data } = await supabase
-          .from("orders")
-          .select(cols)
-          .eq("user_id", userRow.id)
-          .neq("status", "CANCELLED")
-          .order("created_at", { ascending: false })
-          .limit(5);
-        orderData = data ?? [];
+      // 주문 조회: 서버 API 사용 (클라이언트 RLS 이슈 우회)
+      const ordersRes = await fetch("/api/orders");
+      if (ordersRes.ok) {
+        const json = await ordersRes.json();
+        const allOrders: Order[] = json.orders ?? [];
+        const activeOrders = allOrders
+          .filter((o) => o.status !== "CANCELLED")
+          .slice(0, 5);
+        setOrders(activeOrders);
       }
-
-      if (orderData.length === 0) {
-        const { data: data2 } = await supabase
-          .from("orders")
-          .select(cols)
-          .eq("user_id", user.id)
-          .neq("status", "CANCELLED")
-          .order("created_at", { ascending: false })
-          .limit(5);
-        orderData = data2 ?? [];
-      }
-
-      setOrders(orderData);
     } catch {
       // 에러 무시
     } finally {
