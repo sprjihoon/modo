@@ -364,100 +364,142 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
 
   /// 결제 카드 (포인트 내역 스타일)
   Widget _buildPaymentCard(BuildContext context, Map<String, dynamic> payment) {
+    final paymentStatus = (payment['payment_status'] as String? ?? '').toUpperCase();
+    final isCanceled = paymentStatus == 'CANCELED';
+    final isPartialCanceled = paymentStatus == 'PARTIAL_CANCELED';
+    final isCanceledAny = isCanceled || isPartialCanceled;
+
     final createdAt = payment['created_at'] as String? ?? payment['approved_at'] as String? ?? '';
+    final canceledAt = payment['canceled_at'] as String?;
+
     String dateStr = '';
-    if (createdAt.isNotEmpty) {
+    final dateSource = (isCanceledAny && canceledAt != null) ? canceledAt : createdAt;
+    if (dateSource.isNotEmpty) {
       try {
-        final dt = DateTime.parse(createdAt);
+        final dt = DateTime.parse(dateSource);
         dateStr =
             '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
       } catch (_) {}
     }
-    final order = payment['orders'] as Map<String, dynamic>?;
-    final itemName = order?['item_name'] as String? ?? payment['order_name'] as String? ?? '주문';
-    final amountNum = (payment['amount'] as num?) ??
+
+    final itemName = payment['item_name'] as String? ?? payment['order_name'] as String? ?? '주문';
+    final amountNum = (payment['total_price'] as num?) ??
+        (payment['amount'] as num?) ??
         (payment['approved_amount'] as num?) ??
-        (payment['total_price'] as num?) ??
         0;
 
-    final displayPayment = {
-      'item': itemName,
-      'date': dateStr,
-      'amount': amountNum.toInt(),
-    };
+    // 상태 배지
+    Color badgeColor;
+    String badgeLabel;
+    if (isCanceled) {
+      badgeColor = Colors.red;
+      badgeLabel = '환불완료';
+    } else if (isPartialCanceled) {
+      badgeColor = Colors.orange;
+      badgeLabel = '부분환불';
+    } else {
+      badgeColor = const Color(0xFF00C896);
+      badgeLabel = '결제완료';
+    }
 
     return InkWell(
       onTap: () {
-        // 주문 상세 페이지로 이동
         final orderId = payment['id'] as String?;
         if (orderId != null) {
           context.push('/orders/$orderId');
         }
       },
       borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Row(
-          children: [
-            // 아이콘
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: const Color(0xFF00C896).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.receipt_long,
-                color: Color(0xFF00C896),
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            
-            // 내용
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: Opacity(
+        opacity: isCanceledAny ? 0.75 : 1.0,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Text(
-                    displayPayment['item'] as String,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: badgeColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isCanceledAny ? Icons.cancel_outlined : Icons.receipt_long,
+                      color: badgeColor,
+                      size: 20,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    displayPayment['date'] as String? ?? '',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          itemName,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: isCanceledAny ? Colors.grey.shade500 : Colors.black87,
+                            decoration: isCanceledAny ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isCanceledAny ? '취소: $dateStr' : dateStr,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          badgeLabel,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: badgeColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '₩${amountNum.toInt().toString().replaceAllMapped(
+                          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                          (Match m) => '${m[1]},',
+                        )}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isCanceledAny ? Colors.grey.shade400 : Colors.black87,
+                          decoration: isCanceledAny ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ),
-            
-            // 금액
-            Text(
-              '₩${(displayPayment['amount'] as int).toString().replaceAllMapped(
-                RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                (Match m) => '${m[1]},',
-              )}',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

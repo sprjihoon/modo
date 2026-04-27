@@ -14,6 +14,8 @@ interface Payment {
   total_price?: number;
   payment_method?: string;
   payment_status?: string;
+  status?: string;
+  canceled_at?: string;
   created_at?: string;
 }
 
@@ -41,7 +43,7 @@ export function PaymentHistoryClient() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) { setIsLoading(false); return; }
 
-      const cols = "id, item_name, clothing_type, total_price, payment_method, payment_status, created_at";
+      const cols = "id, item_name, clothing_type, total_price, payment_method, payment_status, status, canceled_at, created_at";
 
       const { data: userRow } = await supabase
         .from("users")
@@ -51,13 +53,15 @@ export function PaymentHistoryClient() {
 
       let rows: Payment[] = [];
 
-      // 1차: 내부 user_id (결제완료 주문)
+      const PAID_STATUSES = ["PAID", "paid", "CANCELED", "PARTIAL_CANCELED"];
+
+      // 1차: 내부 user_id (결제완료 + 취소/환불 주문)
       if (userRow?.id) {
         const { data, error: e } = await supabase
           .from("orders")
           .select(cols)
           .eq("user_id", userRow.id)
-          .eq("payment_status", "PAID")
+          .in("payment_status", PAID_STATUSES)
           .order("created_at", { ascending: false });
         if (e) console.error("[결제내역] 1차 조회 오류:", e.message);
         rows = data ?? [];
@@ -69,7 +73,7 @@ export function PaymentHistoryClient() {
           .from("orders")
           .select(cols)
           .eq("user_id", user.id)
-          .eq("payment_status", "PAID")
+          .in("payment_status", PAID_STATUSES)
           .order("created_at", { ascending: false });
         if (e2) console.error("[결제내역] 2차 조회 오류:", e2.message);
         rows = data2 ?? [];
@@ -147,44 +151,58 @@ export function PaymentHistoryClient() {
     );
   }
 
+  function getStatusBadge(p: Payment) {
+    const ps = p.payment_status?.toUpperCase();
+    if (ps === "CANCELED") return { label: "환불완료", cls: "text-red-600 bg-red-50" };
+    if (ps === "PARTIAL_CANCELED") return { label: "부분환불", cls: "text-orange-600 bg-orange-50" };
+    return { label: "결제완료", cls: "text-green-600 bg-green-50" };
+  }
+
   return (
     <div>
       <PendingBanner />
       <div className="px-4 py-3 space-y-3">
-      {payments.map((p) => (
-        <div
-          key={p.id}
-          className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-gray-400" />
-              <span className="text-xs text-gray-400">
-                {p.payment_method
-                  ? METHOD_LABEL[p.payment_method.toUpperCase()] ?? p.payment_method
-                  : "카드"}
+      {payments.map((p) => {
+        const badge = getStatusBadge(p);
+        const isCancelled = p.payment_status === "CANCELED" || p.payment_status === "PARTIAL_CANCELED";
+        return (
+          <Link key={p.id} href={`/orders/${p.id}`}>
+          <div
+            className={`bg-white border rounded-2xl p-4 shadow-sm ${isCancelled ? "border-gray-200 opacity-80" : "border-gray-100"}`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <CreditCard className={`w-4 h-4 ${isCancelled ? "text-gray-300" : "text-gray-400"}`} />
+                <span className="text-xs text-gray-400">
+                  {p.payment_method
+                    ? METHOD_LABEL[p.payment_method.toUpperCase()] ?? p.payment_method
+                    : "카드"}
+                </span>
+              </div>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>
+                {badge.label}
               </span>
             </div>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full text-green-600 bg-green-50">
-              결제완료
-            </span>
-          </div>
-          <p className="text-sm font-bold text-gray-900">
-            {p.item_name || "수선 주문"}
-          </p>
-          {p.clothing_type && (
-            <p className="text-xs text-gray-400 mt-0.5">{p.clothing_type}</p>
-          )}
-          <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-gray-400">
-                {p.created_at ? formatDate(p.created_at) : ""}
-              </p>
-            <p className="text-base font-extrabold text-[#00C896]">
-              {formatPrice(p.total_price ?? 0)}
+            <p className={`text-sm font-bold ${isCancelled ? "text-gray-400 line-through" : "text-gray-900"}`}>
+              {p.item_name || "수선 주문"}
             </p>
+            {p.clothing_type && (
+              <p className="text-xs text-gray-400 mt-0.5">{p.clothing_type}</p>
+            )}
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-gray-400">
+                {isCancelled && p.canceled_at
+                  ? `취소: ${formatDate(p.canceled_at)}`
+                  : p.created_at ? formatDate(p.created_at) : ""}
+              </p>
+              <p className={`text-base font-extrabold ${isCancelled ? "text-gray-400 line-through" : "text-[#00C896]"}`}>
+                {formatPrice(p.total_price ?? 0)}
+              </p>
+            </div>
           </div>
-        </div>
-      ))}
+          </Link>
+        );
+      })}
       </div>
     </div>
   );
