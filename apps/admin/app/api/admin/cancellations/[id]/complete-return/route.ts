@@ -38,7 +38,8 @@ export async function POST(
     const note: string | undefined = body?.note;
 
     // 1) RPC 호출 → status = RETURN_DONE
-    const { data: rpcResult, error: rpcErr } = await supabaseAdmin.rpc(
+    // (Supabase 자동 생성 타입에 신규 RPC 가 아직 반영되지 않아 any 캐스팅으로 우회)
+    const { data: rpcResult, error: rpcErr } = await (supabaseAdmin.rpc as any)(
       "mark_return_completed",
       {
         p_order_id: orderId,
