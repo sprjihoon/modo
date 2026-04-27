@@ -94,10 +94,14 @@ export function OrderNewClient() {
   const [resumingCartId, setResumingCartId] = useState<string | null>(null);
 
   // 새 의류 추가 sub-flow: 단계별 임시 상태
+  // 신규 흐름(앱과 동일): 의류 종류 → 사진+핀+메모 → 수선 항목 → 목록 합류
   const [stagingClothingType, setStagingClothingType] = useState<string>("");
   const [stagingClothingCategoryId, setStagingClothingCategoryId] = useState<
     string | undefined
   >(undefined);
+  const [stagingImagesWithPins, setStagingImagesWithPins] = useState<
+    ImageWithPins[]
+  >([]);
   const [stagingRepairItems, setStagingRepairItems] = useState<RepairItem[]>(
     []
   );
@@ -114,8 +118,16 @@ export function OrderNewClient() {
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
-  const stagingRef = useRef({ stagingClothingType, stagingRepairItems });
-  stagingRef.current = { stagingClothingType, stagingRepairItems };
+  const stagingRef = useRef({
+    stagingClothingType,
+    stagingRepairItems,
+    stagingImagesWithPins,
+  });
+  stagingRef.current = {
+    stagingClothingType,
+    stagingRepairItems,
+    stagingImagesWithPins,
+  };
 
   const popstateHandlerRef = useRef<(() => void) | null>(null);
 
@@ -126,6 +138,7 @@ export function OrderNewClient() {
     return (
       d.items.length > 0 ||
       !!s.stagingClothingType ||
+      s.stagingImagesWithPins.length > 0 ||
       s.stagingRepairItems.length > 0
     );
   }
@@ -225,9 +238,11 @@ export function OrderNewClient() {
   }
 
   // ── 의류 추가 sub-flow ──────────────────────────────────────────────────
+  // 앱과 동일한 순서: 의류 종류 → 사진+핀+메모 → 수선 항목(주문 입력값)
   function startAddClothing() {
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
+    setStagingImagesWithPins([]);
     setStagingRepairItems([]);
     setMode("addClothing");
   }
@@ -235,24 +250,27 @@ export function OrderNewClient() {
   function handleClothingDone(type: string, categoryId?: string) {
     setStagingClothingType(type);
     setStagingClothingCategoryId(categoryId);
-    setMode("addRepair");
-  }
-
-  function handleRepairDone(items: RepairItem[]) {
-    setStagingRepairItems(items);
+    // 사진/핀/메모 단계로 진입
     setMode("addPhoto");
   }
 
   function handlePhotoDone(imagesWithPins: ImageWithPins[]) {
+    setStagingImagesWithPins(imagesWithPins);
+    // 사진/핀/메모 다음에 수선 항목(=주문 입력값) 단계로 진입
+    setMode("addRepair");
+  }
+
+  function handleRepairDone(items: RepairItem[]) {
     const newItem: ClothingItem = {
       clothingType: stagingClothingType,
       clothingCategoryId: stagingClothingCategoryId,
-      repairItems: stagingRepairItems,
-      imagesWithPins,
+      repairItems: items,
+      imagesWithPins: stagingImagesWithPins,
     };
     setDraft((prev) => ({ ...prev, items: [...prev.items, newItem] }));
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
+    setStagingImagesWithPins([]);
     setStagingRepairItems([]);
     setMode("list");
   }
@@ -260,6 +278,7 @@ export function OrderNewClient() {
   function cancelAddClothing() {
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
+    setStagingImagesWithPins([]);
     setStagingRepairItems([]);
     setMode("list");
   }
@@ -395,10 +414,10 @@ export function OrderNewClient() {
     switch (mode) {
       case "addClothing":
         return `의류 ${draft.items.length + 1}벌째 · 종류 선택`;
+      case "addPhoto":
+        return `의류 ${draft.items.length + 1}벌째 · 사진·핀·메모`;
       case "addRepair":
         return `의류 ${draft.items.length + 1}벌째 · 수선 선택`;
-      case "addPhoto":
-        return `의류 ${draft.items.length + 1}벌째 · 사진 첨부`;
       default:
         return "";
     }
@@ -407,10 +426,10 @@ export function OrderNewClient() {
   function subHeaderBack() {
     if (mode === "addClothing") {
       cancelAddClothing();
-    } else if (mode === "addRepair") {
-      setMode("addClothing");
     } else if (mode === "addPhoto") {
-      setMode("addRepair");
+      setMode("addClothing");
+    } else if (mode === "addRepair") {
+      setMode("addPhoto");
     }
   }
 
@@ -445,21 +464,21 @@ export function OrderNewClient() {
           <ClothingTypeStep onNext={handleClothingDone} />
         )}
 
+        {mode === "addPhoto" && (
+          <ImagePinStep
+            clothingType={stagingClothingType}
+            initialImages={stagingImagesWithPins}
+            onNext={handlePhotoDone}
+            onBack={() => setMode("addClothing")}
+          />
+        )}
+
         {mode === "addRepair" && (
           <RepairTypeStep
             clothingType={stagingClothingType}
             clothingCategoryId={stagingClothingCategoryId}
             onNext={(items) => handleRepairDone(items)}
-            onBack={() => setMode("addClothing")}
-          />
-        )}
-
-        {mode === "addPhoto" && (
-          <ImagePinStep
-            clothingType={stagingClothingType}
-            initialImages={[]}
-            onNext={handlePhotoDone}
-            onBack={() => setMode("addRepair")}
+            onBack={() => setMode("addPhoto")}
           />
         )}
 
