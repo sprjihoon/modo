@@ -75,7 +75,7 @@ export async function POST(
       .from("orders")
       .update({
         extra_charge_data: updatedExtraChargeData,
-        status: "RETURN_SHIPPING", // 반송 배송중 상태로 변경
+        status: "RETURN_SHIPPING" as any, // 반송 배송중 상태로 변경 (DB enum: 마이그레이션 후 유효)
         updated_at: new Date().toISOString(),
       })
       .eq("id", orderId);
