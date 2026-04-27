@@ -21,7 +21,7 @@ const securityHeaders = [
       "img-src 'self' blob: data: https://*.supabase.co https://imagedelivery.net https://customer.cloudflarestream.com https://*.daumcdn.net https://*.kakao.com https://k.kakaocdn.net",
       "media-src 'self' https://customer.cloudflarestream.com https://*.supabase.co",
       "connect-src 'self' https://*.supabase.co https://*.tosspayments.com https://*.daumcdn.net https://*.daum.net https://*.kakao.com https://va.vercel-scripts.com wss://*.supabase.co",
-      "frame-src https://*.tosspayments.com https://*.daum.net https://*.daumcdn.net https://*.kakao.com",
+      "frame-src 'self' https://*.tosspayments.com https://*.daum.net https://*.daumcdn.net https://*.kakao.com",
       "font-src 'self' data:",
       "worker-src blob: 'self'",
     ].join('; '),
