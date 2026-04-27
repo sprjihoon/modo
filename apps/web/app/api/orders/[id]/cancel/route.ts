@@ -139,6 +139,9 @@ export async function POST(
 
       let refundResult: Record<string, unknown> | null = null;
       let refundError: string | null = null;
+      // paymentKey 가 없는(프로모션/무료) 주문이거나, 차감액이 결제액보다 커서
+      // 환불 대상 금액이 0 이면 "환불 불필요 정상 케이스" 로 본다.
+      const noRefundRequired = refundAmount === 0 || !hasValidPayment;
 
       if (hasValidPayment && refundAmount > 0) {
         try {
@@ -186,7 +189,9 @@ export async function POST(
         } catch (e) {
           refundError = e instanceof Error ? e.message : String(e);
         }
-      } else if (!hasValidPayment) {
+      } else if (!hasValidPayment && refundAmount > 0) {
+        // 결제는 없는데 환불 대상 금액이 있는 비정상 상황만 에러 처리.
+        // (프로모션/무료 주문은 hasValidPayment=false 가 정상이므로 조용히 통과)
         refundError = "결제 정보가 없어 환불 처리되지 않았습니다.";
       }
 
@@ -268,22 +273,25 @@ export async function POST(
       }
       const deductionDesc = deductionDescParts.join(" + ");
 
+      const postPickupMessage = refundResult
+        ? `취소 요청이 접수되었습니다. ${deductionDesc} 을(를) 차감한 ${refundAmount.toLocaleString()}원이 환불됩니다.`
+        : noRefundRequired
+          ? "취소 요청이 정상 접수되었습니다. (환불 대상 결제 금액이 없습니다)"
+          : `취소 요청이 접수되었으나 환불 처리에 실패했습니다.${
+              refundError ? ` (${refundError})` : ""
+            } 고객센터로 문의해 주세요.`;
+
       return NextResponse.json({
         success: true,
         flow: "POST_PICKUP_RETURN",
-        message: refundResult
-          ? `취소 요청이 접수되었습니다. ${deductionDesc} 을(를) 차감한 ${refundAmount.toLocaleString()}원이 환불됩니다.`
-          : refundAmount === 0
-            ? "취소 요청이 접수되었습니다."
-            : `취소 요청이 접수되었으나 환불 처리에 실패했습니다.${
-                refundError ? ` (${refundError})` : ""
-              } 고객센터로 문의해 주세요.`,
+        message: postPickupMessage,
         returnFee,
         remoteAreaFee,
         totalDeduction,
         refundAmount,
         refundProcessed: !!refundResult,
         refundError,
+        noRefundRequired,
         hasValidPayment,
         // 호환을 위한 필드 (웹 UI 가 기존 키를 참조)
         shipmentCanceled: false,
@@ -412,6 +420,45 @@ export async function POST(
         .eq("id", orderId);
     }
 
+    // ───────────────────────────────────────────────
+    // ③ 관리자/매니저들에게 알림 fan-out (수거 전 취소도 모니터링 필요)
+    // ───────────────────────────────────────────────
+    try {
+      const { data: managers } = await admin
+        .from("users")
+        .select("id")
+        .in("role", ["ADMIN", "MANAGER", "SUPER_ADMIN"]);
+      if (managers && managers.length > 0) {
+        const orderNumber =
+          (order as { order_number: string | null }).order_number ?? null;
+        const itemName =
+          (order as { item_name: string | null }).item_name ?? "수선 의류";
+        const rows = managers.map((m: { id: string }) => ({
+          user_id: m.id,
+          type: "ORDER_PRE_PICKUP_CANCEL",
+          title: "수거 전 주문 취소",
+          body: `'${itemName}' (${
+            orderNumber ?? orderId.slice(0, 8)
+          }) 가 고객 요청으로 취소되었습니다.${
+            paymentCancelResult ? " (결제 환불 완료)" : ""
+          }${paymentCancelError ? ` ⚠️ 환불 실패: ${paymentCancelError}` : ""}`,
+          order_id: orderId,
+          metadata: {
+            orderId,
+            orderNumber,
+            shipmentCanceled,
+            paymentCanceled: !!paymentCancelResult,
+            paymentCancelError,
+            hasValidPayment,
+            customer_user_id: (order as { user_id: string }).user_id,
+          },
+        }));
+        await admin.from("notifications").insert(rows);
+      }
+    } catch (notifyErr) {
+      console.warn("admin 알림 fan-out 실패 (무시):", notifyErr);
+    }
+
     return NextResponse.json({
       success: true,
       flow: "PRE_PICKUP_CANCEL",
@@ -422,6 +469,8 @@ export async function POST(
       paymentCanceled: !!paymentCancelResult,
       paymentCancelError,
       hasValidPayment,
+      // 무료 프로모션 등 결제 자체가 없었던 주문 (환불 절차 불필요)
+      noRefundRequired: !hasValidPayment,
       epost_result: (shipmentResult as { epost_result?: unknown })?.epost_result,
     });
   } catch (e) {

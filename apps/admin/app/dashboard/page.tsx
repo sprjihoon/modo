@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, ShoppingCart, TrendingUp, Users, AlertCircle, Clock, CreditCard, Calendar } from "lucide-react";
+import { Package, ShoppingCart, TrendingUp, Users, AlertCircle, Clock, CreditCard, Calendar, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -56,6 +56,16 @@ interface CustomerStats {
   totalSales: number;
 }
 
+interface CancellationStats {
+  total: number;
+  preCancel: number;
+  returnPending: number;
+  returnShipping: number;
+  returnDone: number;
+  returnRequestedOnly: number;
+  pending: number;
+}
+
 // 오늘 날짜 (YYYY-MM-DD 형식)
 const getToday = () => {
   const today = new Date();
@@ -72,6 +82,7 @@ const getDaysAgo = (days: number) => {
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [customerStats, setCustomerStats] = useState<CustomerStats | null>(null);
+  const [cancelStats, setCancelStats] = useState<CancellationStats | null>(null);
   const [monthlyRevenue, setMonthlyRevenue] = useState<number>(0);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -122,6 +133,16 @@ export default function DashboardPage() {
         setCustomerStats(customerResult.stats);
       }
 
+      // 4. 취소/반송 카운트 (전체 - 날짜 필터와 무관)
+      try {
+        const cancelRes = await fetch('/api/admin/cancellations?countOnly=true');
+        const cancelResult = await cancelRes.json();
+        if (cancelResult?.success && cancelResult.stats) {
+          setCancelStats(cancelResult.stats);
+        }
+      } catch (e) {
+        console.warn('취소/반송 카운트 로드 실패 (무시):', e);
+      }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -367,6 +388,44 @@ export default function DashboardPage() {
                 <Link href="/dashboard/orders?status=READY_TO_SHIP">
                   <Button size="sm" variant="outline">
                     확인
+                  </Button>
+                </Link>
+              </div>
+
+              {/* 취소/반송 처리 대기 — 새로 추가 */}
+              <div
+                className={`flex items-center justify-between p-3 border rounded-lg ${
+                  (cancelStats?.pending ?? 0) > 0
+                    ? "border-red-200 bg-red-50/50 dark:bg-red-900/10"
+                    : ""
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <RotateCcw
+                    className={`h-5 w-5 ${
+                      (cancelStats?.pending ?? 0) > 0 ? "text-red-600" : "text-gray-400"
+                    }`}
+                  />
+                  <div>
+                    <p className="font-medium">취소/반송 처리 대기</p>
+                    <p className="text-sm text-muted-foreground">
+                      {cancelStats?.pending ?? 0}건
+                      {cancelStats && cancelStats.pending > 0 && (
+                        <>
+                          {" "}
+                          (반송 송장 발급 대기 {cancelStats.returnPending}, 배송중{" "}
+                          {cancelStats.returnShipping})
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <Link href="/dashboard/orders?cancelView=PENDING">
+                  <Button
+                    size="sm"
+                    variant={(cancelStats?.pending ?? 0) > 0 ? "destructive" : "outline"}
+                  >
+                    바로 처리
                   </Button>
                 </Link>
               </div>

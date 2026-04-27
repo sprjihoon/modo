@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, RefreshCw, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import {
+  Search,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  RotateCcw,
+  Package,
+  CheckCircle2,
+  Truck,
+  Settings as SettingsIcon,
+} from "lucide-react";
 
 const statusMap = {
   ALL: { label: "전체", color: "bg-gray-100 text-gray-800" },
@@ -25,6 +37,27 @@ const statusMap = {
   READY_TO_SHIP: { label: "출고완료", color: "bg-green-100 text-green-800" },
   DELIVERED: { label: "배송완료", color: "bg-gray-100 text-gray-800" },
   CANCELLED: { label: "취소", color: "bg-red-100 text-red-800" },
+  RETURN_PENDING: { label: "반송 대기", color: "bg-amber-100 text-amber-800" },
+  RETURN_SHIPPING: { label: "반송 배송중", color: "bg-orange-100 text-orange-800" },
+  RETURN_DONE: { label: "반송 완료", color: "bg-stone-200 text-stone-800" },
+};
+
+// 취소/반송 보기 모드 분류
+type CancelView =
+  | "OFF"
+  | "ALL"
+  | "PENDING" // 처리 대기 (PRE_PICKUP_CANCEL 제외, 송장발급/배송중)
+  | "PRE_PICKUP_CANCEL"
+  | "RETURN_PENDING"
+  | "RETURN_SHIPPING"
+  | "RETURN_DONE";
+
+const cancelKindLabel: Record<string, { label: string; color: string }> = {
+  PRE_PICKUP_CANCEL: { label: "수거 전 취소", color: "bg-red-100 text-red-700" },
+  RETURN_REQUESTED: { label: "반송 요청", color: "bg-rose-100 text-rose-700" },
+  RETURN_PENDING: { label: "송장 발급 대기", color: "bg-amber-100 text-amber-800" },
+  RETURN_SHIPPING: { label: "반송 배송중", color: "bg-orange-100 text-orange-800" },
+  RETURN_DONE: { label: "반송 완료", color: "bg-stone-200 text-stone-800" },
 };
 
 interface Order {
@@ -54,7 +87,22 @@ interface Order {
   extra_charge_data: {
     managerPrice?: number;
     customerAction?: string;
+    returnTrackingNo?: string;
   } | null;
+  // 취소/반송 보기 모드에서 표시되는 큐 종류
+  queue_kind?: string;
+  cancellation_reason?: string | null;
+  canceled_at?: string | null;
+}
+
+interface CancellationStats {
+  total: number;
+  preCancel: number;
+  returnPending: number;
+  returnShipping: number;
+  returnDone: number;
+  returnRequestedOnly: number;
+  pending: number;
 }
 
 // 추가 결제 상태 맵
@@ -94,35 +142,59 @@ const getDaysAgo = (days: number) => {
 };
 
 export default function OrdersPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<string>("date");
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
+  // 취소/반송 통합 보기
+  const initialCancelView = (searchParams.get("cancelView") || "OFF").toUpperCase() as CancelView;
+  const [cancelView, setCancelView] = useState<CancelView>(initialCancelView);
+  const [cancelStats, setCancelStats] = useState<CancellationStats | null>(null);
+  const [completingId, setCompletingId] = useState<string | null>(null);
+
   // 날짜 필터 (기본값: 최근 30일)
   const [startDate, setStartDate] = useState<string>(getDaysAgo(30));
   const [endDate, setEndDate] = useState<string>(getToday());
   const [datePreset, setDatePreset] = useState<string>("30days");
-  
+
   // 프로모션 필터 추가
   const [promotionFilter, setPromotionFilter] = useState<string>("ALL"); // ALL, USED, NOT_USED
-  
+
   // 페이징
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
 
+  // 취소/반송 보기 모드일 때 카운트만 따로 가져옴 (탭 카운트 표시)
+  const loadCancelStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/cancellations?countOnly=true");
+      const data = await res.json();
+      if (data?.success && data.stats) setCancelStats(data.stats);
+    } catch (e) {
+      console.warn("취소/반송 카운트 로드 실패", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCancelStats();
+  }, [loadCancelStats]);
+
   useEffect(() => {
     loadOrders();
-  }, [statusFilter, startDate, endDate, currentPage, pageSize, promotionFilter]);
-  
+  }, [statusFilter, startDate, endDate, currentPage, pageSize, promotionFilter, cancelView]);
+
   // 필터 변경 시 페이지 1로 리셋
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, startDate, endDate, search, promotionFilter]);
+  }, [statusFilter, startDate, endDate, search, promotionFilter, cancelView]);
 
   // 검색어 변경 시 debounce 적용
   useEffect(() => {
@@ -168,6 +240,29 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     setIsLoading(true);
     try {
+      // === 취소/반송 보기 모드 ===
+      if (cancelView !== "OFF") {
+        const params = new URLSearchParams();
+        params.append("kind", cancelView); // ALL | PENDING | PRE_PICKUP_CANCEL | RETURN_PENDING | RETURN_SHIPPING | RETURN_DONE
+        if (search) params.append("search", search);
+        if (startDate) params.append("startDate", startDate);
+        if (endDate) params.append("endDate", endDate);
+        params.append("page", String(currentPage));
+        params.append("pageSize", String(pageSize));
+
+        const res = await fetch(`/api/admin/cancellations?${params.toString()}`);
+        const result = await res.json();
+        if (!res.ok || !result.success) throw new Error(result.error || "조회 실패");
+
+        setOrders(result.data || []);
+        setTotalCount(result.totalCount || 0);
+        setTotalPages(result.totalPages || 1);
+        if (result.stats) setCancelStats(result.stats);
+        // 취소/반송 모드는 별도 통계 카드 사용 — 주문 stats 는 유지하지 않음
+        return;
+      }
+
+      // === 일반 주문 보기 ===
       const params = new URLSearchParams();
       if (statusFilter !== "ALL") params.append('status', statusFilter);
       if (search) params.append('search', search);
@@ -196,6 +291,38 @@ export default function OrdersPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // 반송 완료 처리 (목록에서 바로)
+  const handleCompleteReturn = async (orderId: string, orderNumber: string) => {
+    if (!confirm(`주문 ${orderNumber} 의 반송을 완료 처리하시겠습니까?\n고객과 다른 관리자들에게 알림이 발송됩니다.`)) {
+      return;
+    }
+    setCompletingId(orderId);
+    try {
+      const res = await fetch(`/api/admin/cancellations/${orderId}/complete-return`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: "" }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "처리 실패");
+      alert("반송 완료 처리되었습니다.");
+      await Promise.all([loadOrders(), loadCancelStats()]);
+    } catch (e: any) {
+      alert(e?.message || "반송 완료 처리에 실패했습니다.");
+    } finally {
+      setCompletingId(null);
+    }
+  };
+
+  // 취소/반송 보기 토글
+  const handleCancelViewChange = (next: CancelView) => {
+    setCancelView(next);
+    const url = new URL(window.location.href);
+    if (next === "OFF") url.searchParams.delete("cancelView");
+    else url.searchParams.set("cancelView", next);
+    router.replace(`${url.pathname}?${url.searchParams.toString()}`);
   };
 
   // 클라이언트 사이드 정렬 (금액순)
@@ -227,19 +354,74 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold">주문 관리</h1>
-          <p className="text-muted-foreground">전체 수선 주문을 관리합니다</p>
+          <p className="text-muted-foreground">
+            {cancelView !== "OFF"
+              ? "취소·반송 요청을 확인하고 반송 완료까지 한 화면에서 처리합니다"
+              : "전체 수선 주문을 관리합니다"}
+          </p>
         </div>
-        <Button onClick={loadOrders} variant="outline">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          새로고침
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={cancelView === "OFF" ? "outline" : "default"}
+            onClick={() => handleCancelViewChange(cancelView === "OFF" ? "PENDING" : "OFF")}
+            className={cancelView !== "OFF" ? "bg-rose-600 hover:bg-rose-700" : ""}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            {cancelView === "OFF" ? "취소·반송 보기" : "일반 보기로 돌아가기"}
+            {cancelView === "OFF" && (cancelStats?.pending ?? 0) > 0 && (
+              <Badge className="ml-2 bg-red-600 text-white border-0">
+                {cancelStats?.pending}
+              </Badge>
+            )}
+          </Button>
+          <Button onClick={loadOrders} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            새로고침
+          </Button>
+        </div>
       </div>
 
-      {/* Stats */}
-      {stats && (
+      {/* === 취소/반송 보기 — 전용 탭 카드 === */}
+      {cancelView !== "OFF" && cancelStats && (
+        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+          {([
+            { id: "ALL", label: "전체", value: cancelStats.total, icon: Package, color: "text-gray-700" },
+            { id: "PENDING", label: "처리 대기", value: cancelStats.pending, icon: RotateCcw, color: "text-red-600" },
+            { id: "PRE_PICKUP_CANCEL", label: "수거 전 취소", value: cancelStats.preCancel, icon: RotateCcw, color: "text-red-500" },
+            { id: "RETURN_PENDING", label: "송장 발급 대기", value: cancelStats.returnPending, icon: SettingsIcon, color: "text-amber-600" },
+            { id: "RETURN_SHIPPING", label: "반송 배송중", value: cancelStats.returnShipping, icon: Truck, color: "text-orange-600" },
+            { id: "RETURN_DONE", label: "반송 완료", value: cancelStats.returnDone, icon: CheckCircle2, color: "text-green-600" },
+          ] as const).map((t) => {
+            const Icon = t.icon;
+            const active = cancelView === t.id;
+            return (
+              <Card
+                key={t.id}
+                className={`cursor-pointer transition-all hover:shadow-md ${
+                  active ? "ring-2 ring-primary" : ""
+                }`}
+                onClick={() => handleCancelViewChange(t.id as CancelView)}
+              >
+                <CardHeader className="pb-2">
+                  <CardDescription className="flex items-center gap-2">
+                    <Icon className={`h-4 w-4 ${t.color}`} />
+                    {t.label}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{t.value}</div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Stats — 일반 보기에서만 노출 */}
+      {cancelView === "OFF" && stats && (
         <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-6">
           <Card 
             className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'ALL' ? 'ring-2 ring-primary' : ''}`}
@@ -403,28 +585,32 @@ export default function OrdersPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="상태 필터" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(statusMap).map(([key, value]) => (
-                  <SelectItem key={key} value={key}>
-                    {value.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={promotionFilter} onValueChange={setPromotionFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="프로모션 필터" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">전체</SelectItem>
-                <SelectItem value="USED">프로모션 사용</SelectItem>
-                <SelectItem value="NOT_USED">프로모션 미사용</SelectItem>
-              </SelectContent>
-            </Select>
+            {cancelView === "OFF" && (
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="상태 필터" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(statusMap).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>
+                      {value.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {cancelView === "OFF" && (
+              <Select value={promotionFilter} onValueChange={setPromotionFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="프로모션 필터" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">전체</SelectItem>
+                  <SelectItem value="USED">프로모션 사용</SelectItem>
+                  <SelectItem value="NOT_USED">프로모션 미사용</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger>
                 <SelectValue placeholder="정렬 기준" />
@@ -469,64 +655,97 @@ export default function OrdersPage() {
                   주문이 없습니다.
                 </div>
               ) : (
-                sortedOrders.map((order) => (
-                  <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
-                    <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <div className="flex items-center space-x-4 flex-1">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium">
-                              {order.item_name || `${order.clothing_type} - ${order.repair_type}`}
+                sortedOrders.map((order) => {
+                  const canCompleteReturn =
+                    cancelView !== "OFF" &&
+                    (order.queue_kind === "RETURN_PENDING" ||
+                      order.queue_kind === "RETURN_SHIPPING" ||
+                      order.status === "RETURN_PENDING" ||
+                      order.status === "RETURN_SHIPPING");
+                  return (
+                    <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
+                      <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <div className="flex items-center space-x-4 flex-1">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium">
+                                {order.item_name || `${order.clothing_type} - ${order.repair_type}`}
+                              </p>
+                              {order.promotion_codes && (
+                                <Badge className="bg-green-100 text-green-800 text-xs">
+                                  🎟️ {order.promotion_codes.code}
+                                </Badge>
+                              )}
+                              {/* 취소/반송 보기 — 큐 종류 배지 */}
+                              {cancelView !== "OFF" && order.queue_kind && cancelKindLabel[order.queue_kind] && (
+                                <Badge className={`${cancelKindLabel[order.queue_kind].color} border-0 text-xs`}>
+                                  {cancelKindLabel[order.queue_kind].label}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {order.order_number} • {order.customer_name || order.customer_email || '고객'}
                             </p>
-                            {order.promotion_codes && (
-                              <Badge className="bg-green-100 text-green-800 text-xs">
-                                🎟️ {order.promotion_codes.code}
-                              </Badge>
-                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {order.tracking_no ? `송장: ${order.tracking_no}` : '송장 미발급'}
+                              {cancelView !== "OFF" && order.cancellation_reason ? (
+                                <span className="ml-2 text-rose-600">사유: {order.cancellation_reason}</span>
+                              ) : null}
+                            </p>
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            {order.order_number} • {order.customer_name || order.customer_email || '고객'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {order.tracking_no ? `송장: ${order.tracking_no}` : '송장 미발급'}
-                          </p>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        {/* 추가 결제 상태 배지 */}
-                        {order.extra_charge_status && extraChargeStatusMap[order.extra_charge_status] && (
-                          <Badge 
-                            variant="outline" 
-                            className={`${extraChargeStatusMap[order.extra_charge_status].color} border`}
-                          >
-                            {extraChargeStatusMap[order.extra_charge_status].icon} {extraChargeStatusMap[order.extra_charge_status].label}
-                          </Badge>
-                        )}
-                        <Badge className={statusMap[order.status as keyof typeof statusMap]?.color || statusMap.PENDING.color}>
-                          {statusMap[order.status as keyof typeof statusMap]?.label || order.status}
-                        </Badge>
-                        <div className="text-right min-w-[120px]">
-                          {order.promotion_discount_amount && order.promotion_discount_amount > 0 ? (
-                            <>
-                              <p className="text-xs text-gray-400 line-through">
-                                ₩{(order.original_total_price || order.total_price).toLocaleString()}
-                              </p>
-                              <p className="font-medium text-green-600">
-                                ₩{order.total_price.toLocaleString()}
-                                <span className="text-xs text-red-500 ml-1">
-                                  (-{order.promotion_discount_amount.toLocaleString()})
-                                </span>
-                              </p>
-                            </>
-                          ) : (
-                            <p className="font-medium">₩{order.total_price.toLocaleString()}</p>
+                        <div className="flex items-center space-x-4">
+                          {/* 추가 결제 상태 배지 */}
+                          {order.extra_charge_status && extraChargeStatusMap[order.extra_charge_status] && (
+                            <Badge 
+                              variant="outline" 
+                              className={`${extraChargeStatusMap[order.extra_charge_status].color} border`}
+                            >
+                              {extraChargeStatusMap[order.extra_charge_status].icon} {extraChargeStatusMap[order.extra_charge_status].label}
+                            </Badge>
                           )}
-                          <p className="text-xs text-muted-foreground">{formatDate(order.created_at)}</p>
+                          <Badge className={statusMap[order.status as keyof typeof statusMap]?.color || statusMap.PENDING.color}>
+                            {statusMap[order.status as keyof typeof statusMap]?.label || order.status}
+                          </Badge>
+                          <div className="text-right min-w-[120px]">
+                            {order.promotion_discount_amount && order.promotion_discount_amount > 0 ? (
+                              <>
+                                <p className="text-xs text-gray-400 line-through">
+                                  ₩{(order.original_total_price || order.total_price).toLocaleString()}
+                                </p>
+                                <p className="font-medium text-green-600">
+                                  ₩{order.total_price.toLocaleString()}
+                                  <span className="text-xs text-red-500 ml-1">
+                                    (-{order.promotion_discount_amount.toLocaleString()})
+                                  </span>
+                                </p>
+                              </>
+                            ) : (
+                              <p className="font-medium">₩{order.total_price.toLocaleString()}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground">{formatDate(order.created_at)}</p>
+                          </div>
+                          {canCompleteReturn && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="bg-green-600 hover:bg-green-700"
+                              disabled={completingId === order.id}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleCompleteReturn(order.id, order.order_number);
+                              }}
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                              {completingId === order.id ? "처리중..." : "반송 완료"}
+                            </Button>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  </Link>
-                ))
+                    </Link>
+                  );
+                })
               )}
             </div>
           )}

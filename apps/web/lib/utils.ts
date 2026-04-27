@@ -61,6 +61,21 @@ export const ORDER_STATUS_MAP: Record<
     color: "text-red-600",
     bgColor: "bg-red-50",
   },
+  RETURN_PENDING: {
+    label: "반송 대기",
+    color: "text-amber-600",
+    bgColor: "bg-amber-50",
+  },
+  RETURN_SHIPPING: {
+    label: "반송 배송중",
+    color: "text-orange-600",
+    bgColor: "bg-orange-50",
+  },
+  RETURN_DONE: {
+    label: "반송 완료",
+    color: "text-stone-700",
+    bgColor: "bg-stone-100",
+  },
 };
 
 export function getAppStoreUrl(): string {

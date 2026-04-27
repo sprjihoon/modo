@@ -369,6 +369,8 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
       if (data?.flow === "POST_PICKUP_RETURN") {
         if (data?.refundProcessed) {
           msg += "\n💳 환불 금액이 카드사를 통해 처리됩니다.";
+        } else if (data?.noRefundRequired) {
+          // 무료 프로모션 등으로 환불 대상 결제가 없는 정상 케이스
         } else if (data?.refundError) {
           msg += `\n⚠️ 환불 실패: ${data.refundError}\n고객센터로 문의해 주세요.`;
         }
@@ -412,6 +414,9 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           } else if (data?.paymentCancelError) {
             msg += `\n⚠️ 결제 환불에 실패했습니다: ${data.paymentCancelError}\n고객센터로 문의해 주세요.`;
           }
+        } else if (data?.noRefundRequired) {
+          // 무료 프로모션 등 결제 자체가 없었던 주문 — 환불 절차 불필요
+          msg += "\nℹ️ 결제하지 않은 주문이라 환불 절차는 없습니다.";
         }
 
         const dbActuallyCancelled = !data?.hasValidPayment || data?.paymentCanceled;
@@ -469,7 +474,8 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           throw new Error(data?.error || "반송 처리에 실패했습니다.");
         }
         let resultMsg = data?.message || "반송 요청이 접수되었습니다.";
-        if (data?.refundError) {
+        // 무료 프로모션 등 환불 절차 자체가 필요 없는 케이스는 경고 톤 표시 X
+        if (data?.refundError && !data?.noRefundRequired) {
           resultMsg += `\n⚠️ 환불 처리 오류: ${data.refundError}\n고객센터로 문의해 주세요.`;
         }
         alert(resultMsg);

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Package, Wrench, Send, Cpu, FileText, ClipboardList, LayoutDashboard } from "lucide-react";
+import { Package, Wrench, Send, Cpu, FileText, ClipboardList, LayoutDashboard, RotateCcw } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,6 +12,7 @@ const navigation = [
   { name: "입고", href: "/ops/inbound", icon: Package },
   { name: "작업", href: "/ops/work", icon: Wrench },
   { name: "출고", href: "/ops/outbound", icon: Send },
+  { name: "반송 처리", href: "/ops/returns", icon: RotateCcw },
   { name: "작업 내역", href: "/ops/work-history", icon: ClipboardList },
   { name: "장비", href: "/ops/devices", icon: Cpu },
   { name: "송장 레이아웃", href: "/ops/label-editor", icon: FileText },
@@ -105,11 +106,12 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
         console.log("👷 작업자 메뉴:", workerMenu.map((m) => m.name));
         return workerMenu;
       case "MANAGER":
-        // 입출고관리자: 입고, 출고, 작업내역 메뉴
+        // 입출고관리자: 입고, 출고, 반송, 작업내역 메뉴
         const managerMenu = navigation.filter(
           (item) =>
             item.href === "/ops/inbound" ||
             item.href === "/ops/outbound" ||
+            item.href === "/ops/returns" ||
             item.href === "/ops/my-dashboard" ||
             item.href === "/ops/work-history"
         );

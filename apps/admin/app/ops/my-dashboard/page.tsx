@@ -73,6 +73,9 @@ interface OverallStats {
   // 작업 관련
   workInProgress: number;
   workComplete: number;
+
+  // 반송 처리 대기 (RETURN_PENDING/RETURN_SHIPPING/RETURN_REQUESTED)
+  returnPending: number;
 }
 
 interface DailyPerformance {
@@ -103,6 +106,7 @@ export default function MyDashboardPage() {
     outboundComplete: 0,
     workInProgress: 0,
     workComplete: 0,
+    returnPending: 0,
   });
   const [weeklyPerformance, setWeeklyPerformance] = useState<DailyPerformance[]>([]);
 
@@ -291,6 +295,18 @@ export default function MyDashboardPage() {
 
       const { count: workCompleteCount } = await workCompleteQuery;
 
+      // 반송 처리 대기 카운트 (공용 API 사용)
+      let returnPending = 0;
+      try {
+        const cancelRes = await fetch("/api/admin/cancellations?countOnly=true");
+        const cancelData = await cancelRes.json();
+        if (cancelData?.success && cancelData.stats) {
+          returnPending = cancelData.stats.pending || 0;
+        }
+      } catch (e) {
+        console.warn("반송 카운트 로드 실패", e);
+      }
+
       setOverallStats({
         inboundToday,
         inboundPending,
@@ -299,6 +315,7 @@ export default function MyDashboardPage() {
         outboundComplete,
         workInProgress,
         workComplete: workCompleteCount || 0,
+        returnPending,
       });
     } catch (error) {
       console.error("전체 현황 로드 실패:", error);
@@ -677,6 +694,36 @@ export default function MyDashboardPage() {
                   <span className="text-sm">배송 완료</span>
                   <span className="text-xl font-bold text-teal-600">{overallStats.outboundComplete}</span>
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 반송 처리 대기 */}
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            overallStats.returnPending > 0 ? "border-rose-300 bg-rose-50/40" : ""
+          }`}
+          onClick={() => (window.location.href = "/ops/returns")}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Package className="h-5 w-5 text-rose-600" />
+              반송 처리 대기
+            </CardTitle>
+            <CardDescription>고객 반송 요청을 빠르게 마무리하세요</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-3 bg-rose-50 rounded-lg">
+                <span className="text-sm">처리 대기 건수</span>
+                <span className="text-2xl font-bold text-rose-600">
+                  {overallStats.returnPending}
+                </span>
               </div>
             )}
           </CardContent>

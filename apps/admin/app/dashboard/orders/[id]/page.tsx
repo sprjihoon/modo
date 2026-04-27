@@ -39,6 +39,30 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
   const [isLoadingOrder, setIsLoadingOrder] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<MediaVideo | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isCompletingReturn, setIsCompletingReturn] = useState(false);
+
+  const handleCompleteReturn = async () => {
+    if (!order?.id) return;
+    if (!confirm("반송을 완료 처리하시겠습니까?\n\n고객과 다른 관리자에게 알림이 발송되며, 주문은 '반송 완료' 상태로 전환됩니다.")) {
+      return;
+    }
+    setIsCompletingReturn(true);
+    try {
+      const res = await fetch(`/api/admin/cancellations/${order.id}/complete-return`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: "" }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "처리 실패");
+      alert("반송 완료 처리되었습니다.");
+      await loadOrder();
+    } catch (e: any) {
+      alert(e?.message || "반송 완료 처리에 실패했습니다.");
+    } finally {
+      setIsCompletingReturn(false);
+    }
+  };
   const [pointDialogOpen, setPointDialogOpen] = useState(false);
   const [userData, setUserData] = useState<any>(null);
   const [extraCharges, setExtraCharges] = useState<any[]>([]);
@@ -389,6 +413,46 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
 
       {/* Timeline */}
       <OrderTimeline status={displayOrder.status} />
+
+      {/* 반송 처리 배너 — RETURN_PENDING / RETURN_SHIPPING / RETURN_REQUESTED 상태에서 노출 */}
+      {(order?.status === "RETURN_PENDING" ||
+        order?.status === "RETURN_SHIPPING" ||
+        (order?.extra_charge_status === "RETURN_REQUESTED" && order?.status !== "RETURN_DONE")) && (
+        <Card className="border-rose-300 bg-rose-50/40 dark:bg-rose-950/20">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-start gap-3">
+                <Package className="h-5 w-5 text-rose-600 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-rose-700">반송 진행 중</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {order?.status === "RETURN_PENDING" && "반송 송장을 발급해 주세요. 송장 발급 후 고객에게 자동 안내됩니다."}
+                    {order?.status === "RETURN_SHIPPING" && "반송 송장이 발급되어 배송 중입니다. 도착 확인 후 '반송 완료 처리' 를 눌러 마무리하세요."}
+                    {order?.status !== "RETURN_PENDING" && order?.status !== "RETURN_SHIPPING" &&
+                      order?.extra_charge_status === "RETURN_REQUESTED" &&
+                      "고객이 반송을 요청했습니다. 반송 송장 발급 → 도착 확인 → 반송 완료 처리 순으로 진행해 주세요."}
+                  </p>
+                  {order?.cancellation_reason && (
+                    <p className="text-xs text-rose-600 mt-1">사유: {order.cancellation_reason}</p>
+                  )}
+                </div>
+              </div>
+              <Button
+                onClick={handleCompleteReturn}
+                disabled={isCompletingReturn}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isCompletingReturn ? "처리중..." : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    반송 완료 처리
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 추가 결제 현황 카드 */}
       {order?.extra_charge_status && (

@@ -65,7 +65,7 @@ export async function POST(
     const { data: order, error: orderErr } = await admin
       .from("orders")
       .select(
-        "id, status, payment_status, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data",
+        "id, status, payment_status, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number",
       )
       .eq("id", orderId)
       .maybeSingle();
@@ -142,9 +142,13 @@ export async function POST(
     }
 
     // 2) Toss 부분환불 (결제 정보가 유효할 때만)
+    // - paymentKey 가 없거나 (프로모션/무료 이용 등) refundAmount 가 0 이면
+    //   환불할 게 없는 "정상 케이스" → noRefundRequired 플래그로 구분.
+    // - paymentKey 가 없는데 refundAmount > 0 이면 그것은 진짜 이상 상황.
     const paymentKey = order.payment_key as string | null;
     let refundResult: Record<string, unknown> | null = null;
     let refundError: string | null = null;
+    const noRefundRequired = refundAmount === 0 || !paymentKey;
 
     if (paymentKey && refundAmount > 0) {
       try {
@@ -201,7 +205,9 @@ export async function POST(
       } catch (e) {
         refundError = e instanceof Error ? e.message : String(e);
       }
-    } else if (!paymentKey) {
+    } else if (!paymentKey && refundAmount > 0) {
+      // 결제는 없는데 환불 대상 금액이 있는 비정상 상황만 에러 처리.
+      // (프로모션/무료 주문은 paymentKey 자체가 없는 게 정상 → 조용히 통과)
       refundError = "결제 정보(payment_key)가 없어 환불 처리되지 않았습니다.";
     }
 
@@ -211,17 +217,59 @@ export async function POST(
     }
     const deductionDesc = deductionDescParts.join(" + ");
 
+    // 관리자/매니저들에게 알림 fan-out
+    // (notifications.user_id 는 받는 사람 기준이므로 admin user_id 별로 1행씩 insert)
+    try {
+      const { data: managers } = await admin
+        .from("users")
+        .select("id")
+        .in("role", ["ADMIN", "MANAGER", "SUPER_ADMIN"]);
+      if (managers && managers.length > 0) {
+        const itemName =
+          (order as { item_name: string | null }).item_name ?? "수선 의류";
+        const orderNumber =
+          (order as { order_number: string | null }).order_number ?? null;
+        const rows = managers.map((m: { id: string }) => ({
+          user_id: m.id,
+          type: "ORDER_RETURN_REQUESTED",
+          title: "반송 요청 접수",
+          body: `'${itemName}' (${
+            orderNumber ?? orderId.slice(0, 8)
+          }) 의 반송이 요청되었습니다. 송장 발급 후 반송 완료 처리를 해주세요.`,
+          order_id: orderId,
+          metadata: {
+            orderId,
+            orderNumber,
+            returnFee,
+            remoteAreaFee,
+            totalDeduction,
+            refundAmount,
+            refundProcessed: !!refundResult,
+            customer_user_id: (order as { user_id: string }).user_id,
+          },
+        }));
+        await admin.from("notifications").insert(rows);
+      }
+    } catch (notifyErr) {
+      console.warn("admin 알림 fan-out 실패 (무시):", notifyErr);
+    }
+
+    const successMessage = refundResult
+      ? `반송 요청 완료. ${deductionDesc} 을(를) 차감하고 ${refundAmount.toLocaleString()}원이 환불됩니다.`
+      : noRefundRequired
+        ? "반송 요청이 정상 접수되었습니다. (환불 대상 결제 금액이 없습니다)"
+        : `반송 요청 완료. 환불 금액(${refundAmount.toLocaleString()}원)은 별도 처리됩니다.`;
+
     return NextResponse.json({
       success: true,
-      message: refundResult
-        ? `반송 요청 완료. ${deductionDesc} 을(를) 차감하고 ${refundAmount.toLocaleString()}원이 환불됩니다.`
-        : `반송 요청 완료. 환불 금액(${refundAmount.toLocaleString()}원)은 별도 처리됩니다.`,
+      message: successMessage,
       returnFee,
       remoteAreaFee,
       totalDeduction,
       refundAmount,
       refundProcessed: !!refundResult,
       refundError,
+      noRefundRequired,
     });
   } catch (e) {
     console.error("반송 + 환불 처리 오류:", e);
