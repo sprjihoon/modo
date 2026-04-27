@@ -22,9 +22,24 @@ class PickupRequestPage extends ConsumerStatefulWidget {
   /// 결제 완료/장바구니에 다시 담기/이탈 시 이 행들을 정리해 중복을 막는다.
   final List<String>? sourceCartItemIds;
 
+  /// 묶음 결제용 의류별 그룹 (= 서버 quote 의 items[] 와 동일 형태).
+  /// 카트에서 여러 의류를 선택해 한 번에 결제할 때 원본 의류별 사진/핀/clothingType
+  /// 을 보존하기 위해 사용한다. null/empty 이면 단일 결제로 간주.
+  ///
+  /// 형태:
+  /// ```dart
+  /// [{
+  ///   'clothingType': '셔츠',
+  ///   'repairItems': [{...}, ...],
+  ///   'imagesWithPins': [{ 'imageUrl': ..., 'pins': [...] }, ...],
+  /// }, ...]
+  /// ```
+  final List<Map<String, dynamic>>? bundleItems;
+
   const PickupRequestPage({
     required this.repairItems, required this.imageUrls, this.imagesWithPins,
     this.sourceCartItemIds,
+    this.bundleItems,
     super.key,
   });
 
@@ -256,16 +271,17 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
 
-    // 웹과 동일한 OrderDraft 포맷으로 변환
-    final repairItemsForDraft = widget.repairItems.map((item) {
+    // 단일 repairItem 을 web 의 RepairItem 포맷으로 변환
+    Map<String, dynamic> toDraftRepair(Map<String, dynamic> item) {
       final priceRange = (item['priceRange'] as String?) ?? '';
       int minPrice = 0;
       if (priceRange.isNotEmpty) {
-        final cleaned = priceRange.split('~').first
+        final cleaned = priceRange
+            .split('~')
+            .first
             .replaceAll(RegExp(r'[^0-9]'), '');
         minPrice = int.tryParse(cleaned) ?? 0;
       }
-      // price 가 명시적으로 들어와 있으면 그것을 우선 사용한다.
       final priceField = item['price'];
       if (priceField is int) {
         minPrice = priceField;
@@ -283,9 +299,34 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
         'scope': item['scope'] ?? '',
         'measurement': item['measurement'] ?? '',
       };
-    }).toList();
+    }
+
+    // 묶음 결제 흐름이면 의류별 그룹을 그대로 items[] 로 저장하고,
+    // 그 외에는 평탄형(repairItems) 으로 저장한다 — 둘 다 web 의 OrderDraft 와 호환.
+    final bundle = widget.bundleItems ?? const <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> draftItems = bundle.isNotEmpty
+        ? bundle.map((g) {
+            final repairs = ((g['repairItems'] as List?) ?? [])
+                .whereType<Map>()
+                .map((it) => toDraftRepair(Map<String, dynamic>.from(it)))
+                .toList();
+            final pins = ((g['imagesWithPins'] as List?) ?? [])
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+            return <String, dynamic>{
+              'clothingType': (g['clothingType'] as String?) ?? '',
+              'repairItems': repairs,
+              'imagesWithPins': pins,
+            };
+          }).toList()
+        : const [];
+
+    final repairItemsForDraft =
+        widget.repairItems.map(toDraftRepair).toList();
 
     final orderDraft = <String, dynamic>{
+      if (draftItems.isNotEmpty) 'items': draftItems,
       'clothingType': '',
       'repairItems': repairItemsForDraft,
       'imageUrls': List<String>.from(widget.imageUrls),
@@ -791,10 +832,38 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
           ? _recipientPhoneController.text
           : _deliveryRecipientPhoneController.text;
 
-      // 견적 입력 — Edge Function 의 입력 형식에 맞춤
+      // 견적 입력 — Edge Function 의 입력 형식에 맞춤.
+      // 묶음 결제(bundleItems)가 있으면 items[] 로 보내서 의류별 사진/핀/종류
+      // 가 그대로 보존되도록 한다. 그 외(=단일 의류) 는 평탄형으로 보낸다.
       final draft = <String, dynamic>{
         'clothingType': clothingType,
         'repairType': repairType,
+        if (widget.bundleItems != null && widget.bundleItems!.isNotEmpty)
+          'items': widget.bundleItems!.map((g) {
+            final repairs =
+                ((g['repairItems'] as List?) ?? []).whereType<Map>().map((it) {
+              final m = Map<String, dynamic>.from(it);
+              return <String, dynamic>{
+                'name': (m['repairPart'] as String?) ??
+                    (m['name'] as String?) ??
+                    '수선',
+                'price': (m['price'] is int)
+                    ? m['price']
+                    : int.tryParse(m['price']?.toString() ?? '') ?? 0,
+                'quantity': 1,
+              };
+            }).toList();
+            final pins = ((g['imagesWithPins'] as List?) ?? [])
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+            return <String, dynamic>{
+              'clothingType': (g['clothingType'] as String?) ?? '',
+              'repairItems': repairs,
+              'imagesWithPins': pins,
+            };
+          }).toList(),
+        // 평탄형도 같이 보내서 옛 서버/관리자 도구 호환을 유지한다.
         'repairItems': widget.repairItems.map((it) {
           return <String, dynamic>{
             'name': (it['repairPart'] as String?) ??
@@ -806,7 +875,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
             'quantity': 1,
           };
         }).toList(),
-        'imagesWithPins': allImagesWithPins,
+        'imagesWithPins': widget.imagesWithPins ?? allImagesWithPins,
         'imageUrls': widget.imageUrls,
         'pickupAddress': pickupAddr,
         'pickupAddressDetail': pickupAddrDetail,

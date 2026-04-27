@@ -5,20 +5,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../services/cart_service.dart';
 
 /// 장바구니 항목 모델 (개별 수선 항목)
+///
+/// 묶음 결제(여러 CartItem 을 한번에 quote/intent 로 보내는 흐름) 를 위해
+/// 한 의류(=clothing item) 안에 들어 있던 핀/사진/clothingType 도 같이 들고 다닌다.
+/// 같은 의류에서 떨어져 나온 CartItem 들은 [groupKey] 가 동일하다.
 class CartItem {
   final String id;         // 로컬 임시 ID (서버와 연결되면 serverId 로 교체됨)
   final String? serverId;  // cart_drafts.id (서버 UUID) — null 이면 아직 미업로드
   final Map<String, dynamic> repairItem;
   final List<String> imageUrls;
+  /// 핀까지 포함된 원본 이미지 정보. (서버 quote/intent 에 그대로 전달)
+  final List<Map<String, dynamic>> imagesWithPins;
+  /// 같은 의류에서 떨어져 나온 CartItem 들이 공유하는 키.
+  /// (보통 `${serverId}#c${clothingIdx}` 형태. fallback 으로 serverId 만 쓰기도 한다.)
+  final String groupKey;
+  /// 이 묶음(의류)의 종류 표기. (없으면 빈 문자열)
+  final String clothingType;
   final DateTime addedAt;
 
   CartItem({
     required this.id,
     required this.repairItem,
     required this.imageUrls,
+    this.imagesWithPins = const [],
     this.serverId,
+    String? groupKey,
+    this.clothingType = '',
     DateTime? addedAt,
-  }) : addedAt = addedAt ?? DateTime.now();
+  })  : groupKey = groupKey ?? (serverId ?? id),
+        addedAt = addedAt ?? DateTime.now();
 
   int get price {
     final priceRange = repairItem['priceRange'] as String? ?? '0';
@@ -39,14 +54,23 @@ class CartItem {
         'serverId': serverId,
         'repairItem': repairItem,
         'imageUrls': imageUrls,
+        'imagesWithPins': imagesWithPins,
+        'groupKey': groupKey,
+        'clothingType': clothingType,
         'addedAt': addedAt.toIso8601String(),
       };
 
   factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
         id: json['id'] as String,
         serverId: json['serverId'] as String?,
-        repairItem: json['repairItem'] as Map<String, dynamic>,
+        repairItem: Map<String, dynamic>.from(json['repairItem'] as Map),
         imageUrls: List<String>.from(json['imageUrls'] as List),
+        imagesWithPins: ((json['imagesWithPins'] as List?) ?? [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList(),
+        groupKey: json['groupKey'] as String?,
+        clothingType: (json['clothingType'] as String?) ?? '',
         addedAt: DateTime.parse(json['addedAt'] as String),
       );
 
@@ -55,6 +79,9 @@ class CartItem {
         serverId: serverId ?? this.serverId,
         repairItem: repairItem,
         imageUrls: imageUrls,
+        imagesWithPins: imagesWithPins,
+        groupKey: groupKey,
+        clothingType: clothingType,
         addedAt: addedAt,
       );
 }
@@ -128,34 +155,46 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
           final serverId = row['id'] as String;
 
           // 1. 신규 웹 멀티 포맷: items: ClothingItem[]
+          //    각 의류(clothing)는 groupKey 로 묶어서 묶음 결제 시 복원할 수 있게 한다.
           final itemsList = data['items'] as List?;
           if (itemsList != null && itemsList.isNotEmpty) {
             int globalIdx = 0;
-            for (final clothingRaw in itemsList) {
+            for (int clothingIdx = 0;
+                clothingIdx < itemsList.length;
+                clothingIdx++) {
+              final clothingRaw = itemsList[clothingIdx];
               if (clothingRaw is! Map) continue;
               final clothing = Map<String, dynamic>.from(clothingRaw);
               final repairItemsList = (clothing['repairItems'] as List?) ?? [];
-              final imagesWithPins =
+              final imagesWithPinsRaw =
                   (clothing['imagesWithPins'] as List?) ?? [];
-              final imageUrls = imagesWithPins
+              final imagesWithPins = imagesWithPinsRaw
                   .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList();
+              final imageUrls = imagesWithPins
                   .map((m) => m['imageUrl'] as String?)
                   .where((u) => u != null && u.isNotEmpty)
                   .cast<String>()
                   .toList();
+              final clothingType =
+                  (clothing['clothingType'] as String?) ?? '';
+              final groupKey = '${serverId}#c$clothingIdx';
 
               for (final riRaw in repairItemsList) {
                 if (riRaw is! Map) continue;
                 final ri = _normalizeRepairItem(
                   Map<String, dynamic>.from(riRaw),
-                  fallbackClothingType:
-                      (clothing['clothingType'] as String?) ?? '',
+                  fallbackClothingType: clothingType,
                 );
                 items.add(CartItem(
                   id: '${serverId}_$globalIdx',
                   serverId: serverId,
                   repairItem: ri,
                   imageUrls: imageUrls,
+                  imagesWithPins: imagesWithPins,
+                  groupKey: groupKey,
+                  clothingType: clothingType,
                 ));
                 globalIdx++;
               }
@@ -163,21 +202,35 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
             continue;
           }
 
-          // 2. 통합 포맷: repairItems 배열에서 각 항목을 꺼낸다.
+          // 2. 통합 포맷: repairItems 배열 (한 row 가 곧 한 의류로 간주)
           final repairItemsList = data['repairItems'] as List?;
           if (repairItemsList != null && repairItemsList.isNotEmpty) {
+            final clothingType = (data['clothingType'] as String?) ?? '';
+            final imagesWithPinsRaw = (data['imagesWithPins'] as List?) ?? [];
+            final imagesWithPins = imagesWithPinsRaw
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+            final imageUrls = imagesWithPins.isNotEmpty
+                ? imagesWithPins
+                    .map((m) => m['imageUrl'] as String?)
+                    .where((u) => u != null && u.isNotEmpty)
+                    .cast<String>()
+                    .toList()
+                : List<String>.from((data['imageUrls'] as List?) ?? []);
             for (int idx = 0; idx < repairItemsList.length; idx++) {
               final ri = _normalizeRepairItem(
                 Map<String, dynamic>.from(repairItemsList[idx] as Map),
-                fallbackClothingType: (data['clothingType'] as String?) ?? '',
+                fallbackClothingType: clothingType,
               );
               items.add(CartItem(
                 id: '${serverId}_$idx',
                 serverId: serverId,
                 repairItem: ri,
-                imageUrls: List<String>.from(
-                  (data['imageUrls'] as List?) ?? [],
-                ),
+                imageUrls: imageUrls,
+                imagesWithPins: imagesWithPins,
+                groupKey: serverId,
+                clothingType: clothingType,
               ));
             }
             continue;
@@ -185,17 +238,31 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
 
           // 3. 구형 앱 포맷: repairItem 단일 맵
           if (data['repairItem'] is Map) {
+            final clothingType = (data['clothingType'] as String?) ?? '';
+            final imagesWithPinsRaw = (data['imagesWithPins'] as List?) ?? [];
+            final imagesWithPins = imagesWithPinsRaw
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+            final imageUrls = imagesWithPins.isNotEmpty
+                ? imagesWithPins
+                    .map((m) => m['imageUrl'] as String?)
+                    .where((u) => u != null && u.isNotEmpty)
+                    .cast<String>()
+                    .toList()
+                : List<String>.from((data['imageUrls'] as List?) ?? []);
             final ri = _normalizeRepairItem(
               Map<String, dynamic>.from(data['repairItem'] as Map),
-              fallbackClothingType: (data['clothingType'] as String?) ?? '',
+              fallbackClothingType: clothingType,
             );
             items.add(CartItem(
               id: serverId,
               serverId: serverId,
               repairItem: ri,
-              imageUrls: List<String>.from(
-                (data['imageUrls'] as List?) ?? [],
-              ),
+              imageUrls: imageUrls,
+              imagesWithPins: imagesWithPins,
+              groupKey: serverId,
+              clothingType: clothingType,
             ));
           }
         } catch (e) {

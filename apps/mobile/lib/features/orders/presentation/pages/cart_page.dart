@@ -510,25 +510,79 @@ class _CartPageState extends ConsumerState<CartPage> {
   }
   
   /// 결제 확정
+  ///
+  /// 같은 의류(=같은 groupKey)에서 떨어져 나온 CartItem 들은 묶어서
+  /// 하나의 ClothingItem 으로 만든다. 그래야 quote/intent 시 의류별
+  /// 사진/핀/clothingType 이 보존되고, 주문이 생성될 때 images_with_pins /
+  /// repair_parts 가 의미있게 저장된다.
   void _confirmCheckout(BuildContext context, List<CartItem> selectedItems) {
-    // 선택된 항목들을 하나로 합침
-    final allRepairItems = <Map<String, dynamic>>[];
-    final allImageUrls = <String>[];
-    
-    for (var item in selectedItems) {
-      allRepairItems.add(item.repairItem); // 각 repairItem에 itemImages가 포함됨
-      allImageUrls.addAll(item.imageUrls);
+    if (selectedItems.isEmpty) return;
+
+    // groupKey 별로 누적 — 입력 순서를 유지해야 사용자가 본 순서와 동일하다.
+    final groupOrder = <String>[];
+    final repairItemsByGroup = <String, List<Map<String, dynamic>>>{};
+    final imagesWithPinsByGroup = <String, List<Map<String, dynamic>>>{};
+    final imageUrlsByGroup = <String, List<String>>{};
+    final clothingTypeByGroup = <String, String>{};
+    final seenImageUrlPerGroup = <String, Set<String>>{};
+
+    for (final item in selectedItems) {
+      final key = item.groupKey;
+      if (!groupOrder.contains(key)) {
+        groupOrder.add(key);
+        repairItemsByGroup[key] = [];
+        imagesWithPinsByGroup[key] = [];
+        imageUrlsByGroup[key] = [];
+        clothingTypeByGroup[key] = item.clothingType;
+        seenImageUrlPerGroup[key] = <String>{};
+      }
+      repairItemsByGroup[key]!.add(item.repairItem);
+
+      final seen = seenImageUrlPerGroup[key]!;
+      for (final pin in item.imagesWithPins) {
+        final url = pin['imageUrl'] as String?;
+        if (url == null || url.isEmpty || seen.contains(url)) continue;
+        seen.add(url);
+        imagesWithPinsByGroup[key]!.add(pin);
+        imageUrlsByGroup[key]!.add(url);
+      }
+      // imagesWithPins 가 비어있는 옛날 항목은 imageUrls 만으로라도 채운다.
+      for (final url in item.imageUrls) {
+        if (url.isEmpty || seen.contains(url)) continue;
+        seen.add(url);
+        imageUrlsByGroup[key]!.add(url);
+      }
     }
-    
-    // 중복 제거
-    final uniqueImageUrls = allImageUrls.toSet().toList();
-    
-    // 수거신청 페이지로 이동 (itemImages는 각 repairItem에 포함되어 있음)
+
+    // 서버 quote 가 받는 items[] 형태 (= ClothingItem[])
+    final bundleItems = <Map<String, dynamic>>[
+      for (final key in groupOrder)
+        {
+          'clothingType': clothingTypeByGroup[key] ?? '',
+          'repairItems': repairItemsByGroup[key],
+          'imagesWithPins': imagesWithPinsByGroup[key],
+        },
+    ];
+
+    // 하위 호환을 위한 평탄화 결과도 같이 넘긴다.
+    // (PickupRequestPage 의 build/요약 UI 가 아직 평탄형을 쓰고 있다.)
+    final allRepairItems = <Map<String, dynamic>>[];
+    final allImageUrls = <String>{};
+    final allImagesWithPins = <Map<String, dynamic>>[];
+    for (final key in groupOrder) {
+      allRepairItems.addAll(repairItemsByGroup[key]!);
+      allImageUrls.addAll(imageUrlsByGroup[key]!);
+      allImagesWithPins.addAll(imagesWithPinsByGroup[key]!);
+    }
+
     context.push('/pickup-request', extra: {
       'repairItems': allRepairItems,
-      'imageUrls': uniqueImageUrls,
-      'cartItemIds': selectedItems.map((item) => item.id).toList(), // 결제 완료 후 제거용
-    },);
+      'imageUrls': allImageUrls.toList(),
+      'imagesWithPins': allImagesWithPins,
+      // 신규: 묶음 결제용 의류별 그룹핑
+      'bundleItems': bundleItems,
+      'cartItemIds': selectedItems.map((item) => item.id).toList(),
+    });
   }
 }
 
