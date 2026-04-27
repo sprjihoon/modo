@@ -12,18 +12,12 @@ interface Payment {
   item_name?: string;
   clothing_type?: string;
   total_price?: number;
-  payment_method?: string;
   payment_status?: string;
   status?: string;
   canceled_at?: string;
   created_at?: string;
 }
 
-const METHOD_LABEL: Record<string, string> = {
-  CARD: "신용카드", VIRTUAL_ACCOUNT: "가상계좌", TRANSFER: "계좌이체",
-  MOBILE: "휴대폰결제", TOSS: "토스페이", NAVERPAY: "네이버페이",
-  KAKAOPAY: "카카오페이", BILLING: "정기결제",
-};
 
 export function PaymentHistoryClient() {
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -43,7 +37,7 @@ export function PaymentHistoryClient() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) { setIsLoading(false); return; }
 
-      const cols = "id, item_name, clothing_type, total_price, payment_method, payment_status, status, canceled_at, created_at";
+      const cols = "id, item_name, clothing_type, total_price, payment_status, status, canceled_at, created_at";
 
       const { data: userRow } = await supabase
         .from("users")
@@ -173,11 +167,7 @@ export function PaymentHistoryClient() {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <CreditCard className={`w-4 h-4 ${isCancelled ? "text-gray-300" : "text-gray-400"}`} />
-                <span className="text-xs text-gray-400">
-                  {p.payment_method
-                    ? METHOD_LABEL[p.payment_method.toUpperCase()] ?? p.payment_method
-                    : "카드"}
-                </span>
+                <span className="text-xs text-gray-400">결제내역</span>
               </div>
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>
                 {badge.label}
