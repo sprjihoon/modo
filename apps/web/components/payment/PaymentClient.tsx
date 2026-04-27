@@ -55,7 +55,7 @@ interface PaymentIntent {
   consumed_at: string | null;
 }
 
-const CLIENT_KEY = (() => {
+function getClientKey(): string {
   const fromEnv = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY?.trim();
   if (fromEnv) return fromEnv;
   if (process.env.NODE_ENV === "production") {
@@ -64,7 +64,7 @@ const CLIENT_KEY = (() => {
     );
   }
   return "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq";
-})();
+}
 
 export function PaymentClient() {
   const searchParams = useSearchParams();
@@ -239,7 +239,7 @@ export function PaymentClient() {
       const { data: { user } } = await supabase.auth.getUser();
       const customerKey = user?.id ?? `anon_${Date.now()}`;
 
-      const tossPayments = TossPayments(CLIENT_KEY);
+      const tossPayments = TossPayments(getClientKey());
 
       const payment = tossPayments.payment({ customerKey });
       const intAmount = Math.max(1, Math.round(intent.total_price));

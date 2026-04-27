@@ -43,10 +43,7 @@ interface OrderData {
   extra_charge_data?: ExtraChargeData;
 }
 
-// 토스페이먼츠 클라이언트 키
-// - 운영(production)에서는 환경변수가 반드시 설정되어 있어야 함 (없으면 throw)
-// - 개발 환경에서는 환경변수 미설정 시 토스 공개 테스트 키 사용
-const CLIENT_KEY = (() => {
+function getClientKey(): string {
   const fromEnv = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY?.trim();
   if (fromEnv) return fromEnv;
   if (process.env.NODE_ENV === "production") {
@@ -55,7 +52,7 @@ const CLIENT_KEY = (() => {
     );
   }
   return "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq";
-})();
+}
 
 export default function ExtraChargePage() {
   const router = useRouter();
@@ -123,7 +120,7 @@ export default function ExtraChargePage() {
       const { data: { user } } = await supabase.auth.getUser();
       const customerKey = user?.id ?? `anon_${Date.now()}`;
 
-      const tossPayments = TossPayments(CLIENT_KEY);
+      const tossPayments = TossPayments(getClientKey());
       const payment = tossPayments.payment({ customerKey });
       const extraData = order.extra_charge_data as ExtraChargeData | undefined;
       const amount = Math.max(1, Math.round(extraData?.managerPrice ?? 0));
