@@ -11,20 +11,6 @@ const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-  {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.tosspayments.com https://*.daumcdn.net https://va.vercel-scripts.com",
-      "script-src-elem 'self' 'unsafe-inline' https://*.tosspayments.com https://*.daumcdn.net https://va.vercel-scripts.com",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https://*.supabase.co https://imagedelivery.net https://customer.cloudflarestream.com https://*.daumcdn.net https://*.kakao.com",
-      "media-src 'self' https://customer.cloudflarestream.com https://*.supabase.co",
-      "connect-src 'self' https://*.supabase.co https://rzrwediccbamxluegnex.supabase.co https://*.tosspayments.com https://*.daumcdn.net https://*.daum.net https://*.kakao.com https://va.vercel-scripts.com wss://*.supabase.co",
-      "frame-src https://*.tosspayments.com https://*.daum.net https://*.daumcdn.net https://*.kakao.com",
-      "font-src 'self' data:",
-    ].join('; '),
-  },
 ];
 
 /** @type {import('next').NextConfig} */

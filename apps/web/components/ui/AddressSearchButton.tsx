@@ -35,16 +35,27 @@ export function AddressSearchButton({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
+  const onSelectRef = useRef(onSelect);
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
 
   useEffect(() => {
     if (scriptLoadedRef.current) return;
-    if (document.getElementById("kakao-postcode-script")) {
-      scriptLoadedRef.current = true;
+    const existing = document.getElementById("kakao-postcode-script");
+    if (existing) {
+      // 스크립트 태그가 있지만 아직 로드 중일 수 있으므로 load 이벤트로 확인
+      if (window.daum?.Postcode) {
+        scriptLoadedRef.current = true;
+      } else {
+        existing.addEventListener("load", () => { scriptLoadedRef.current = true; }, { once: true });
+      }
       return;
     }
     const script = document.createElement("script");
     script.id = "kakao-postcode-script";
-    script.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+    script.src = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
     script.async = true;
     script.onload = () => { scriptLoadedRef.current = true; };
     document.head.appendChild(script);
@@ -53,18 +64,21 @@ export function AddressSearchButton({
   useEffect(() => {
     if (!open || !containerRef.current) return;
 
+    let cancelled = false;
+
     function tryEmbed(attempts = 0) {
+      if (cancelled) return;
       if (typeof window === "undefined" || !window.daum?.Postcode) {
-        if (attempts < 20) setTimeout(() => tryEmbed(attempts + 1), 150);
+        if (attempts < 40) setTimeout(() => tryEmbed(attempts + 1), 150);
         return;
       }
-      if (!containerRef.current) return;
+      if (!containerRef.current || cancelled) return;
       containerRef.current.innerHTML = "";
       new window.daum.Postcode({
         oncomplete: (data) => {
           const addr =
             data.addressType === "R" ? data.roadAddress : data.jibunAddress;
-          onSelect(data.zonecode, addr);
+          onSelectRef.current(data.zonecode, addr);
           setOpen(false);
         },
         width: "100%",
@@ -73,7 +87,9 @@ export function AddressSearchButton({
     }
 
     tryEmbed();
-  }, [open, onSelect]);
+
+    return () => { cancelled = true; };
+  }, [open]);
 
   return (
     <>
