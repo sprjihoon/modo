@@ -343,7 +343,11 @@ class _CartPageState extends ConsumerState<CartPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      cartItem.repairItem['repairPart'] as String,
+                      (cartItem.repairItem['repairPart'] as String?)
+                              ?.trim()
+                              .isNotEmpty == true
+                          ? cartItem.repairItem['repairPart'] as String
+                          : (cartItem.repairItem['name'] as String?) ?? '수선 항목',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -353,15 +357,29 @@ class _CartPageState extends ConsumerState<CartPage> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '${cartItem.repairItem['scope']} · ${cartItem.repairItem['measurement']}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    Builder(builder: (_) {
+                      final scope = (cartItem.repairItem['scope'] as String?) ?? '';
+                      final measurement =
+                          (cartItem.repairItem['measurement'] as String?) ?? '';
+                      final priceRange =
+                          (cartItem.repairItem['priceRange'] as String?) ?? '';
+                      final parts = <String>[
+                        if (scope.isNotEmpty) scope,
+                        if (measurement.isNotEmpty && measurement != '{}') measurement,
+                      ];
+                      final subtitle = parts.isEmpty
+                          ? (priceRange.isNotEmpty ? priceRange : '상세정보 없음')
+                          : parts.join(' · ');
+                      return Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    }),
                   ],
                 ),
               ),

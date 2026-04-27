@@ -146,11 +146,11 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
 
               for (final riRaw in repairItemsList) {
                 if (riRaw is! Map) continue;
-                final ri = Map<String, dynamic>.from(riRaw);
-                if (!ri.containsKey('repairPart') ||
-                    (ri['repairPart'] as String? ?? '').isEmpty) {
-                  ri['repairPart'] = ri['name'] ?? '';
-                }
+                final ri = _normalizeRepairItem(
+                  Map<String, dynamic>.from(riRaw),
+                  fallbackClothingType:
+                      (clothing['clothingType'] as String?) ?? '',
+                );
                 items.add(CartItem(
                   id: '${serverId}_$globalIdx',
                   serverId: serverId,
@@ -167,11 +167,10 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
           final repairItemsList = data['repairItems'] as List?;
           if (repairItemsList != null && repairItemsList.isNotEmpty) {
             for (int idx = 0; idx < repairItemsList.length; idx++) {
-              final ri = Map<String, dynamic>.from(repairItemsList[idx] as Map);
-              if (!ri.containsKey('repairPart') ||
-                  (ri['repairPart'] as String? ?? '').isEmpty) {
-                ri['repairPart'] = ri['name'] ?? '';
-              }
+              final ri = _normalizeRepairItem(
+                Map<String, dynamic>.from(repairItemsList[idx] as Map),
+                fallbackClothingType: (data['clothingType'] as String?) ?? '',
+              );
               items.add(CartItem(
                 id: '${serverId}_$idx',
                 serverId: serverId,
@@ -186,11 +185,10 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
 
           // 3. 구형 앱 포맷: repairItem 단일 맵
           if (data['repairItem'] is Map) {
-            final ri = Map<String, dynamic>.from(data['repairItem'] as Map);
-            if (!ri.containsKey('repairPart') ||
-                (ri['repairPart'] as String? ?? '').isEmpty) {
-              ri['repairPart'] = ri['name'] ?? '';
-            }
+            final ri = _normalizeRepairItem(
+              Map<String, dynamic>.from(data['repairItem'] as Map),
+              fallbackClothingType: (data['clothingType'] as String?) ?? '',
+            );
             items.add(CartItem(
               id: serverId,
               serverId: serverId,
@@ -213,7 +211,66 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
     }
   }
 
+  // ── 내부 헬퍼 ──────────────────────────────────────────────────────────
+
+  /// 어떤 포맷에서 들어오든 cart_page / pickup_request_page 에서 안전하게
+  /// String 으로 다룰 수 있도록 주요 필드를 모두 채워준다.
+  /// (웹은 RepairItem.{name,price,priceRange,quantity} 만 저장하므로
+  ///  repairPart/scope/measurement 가 비어 들어오는 경우가 많다.)
+  Map<String, dynamic> _normalizeRepairItem(
+    Map<String, dynamic> ri, {
+    String fallbackClothingType = '',
+  }) {
+    final name = (ri['name'] as String?) ?? '';
+    final repairPart = (ri['repairPart'] as String?)?.trim();
+    if (repairPart == null || repairPart.isEmpty) {
+      ri['repairPart'] = name.isNotEmpty ? name : '수선 항목';
+    }
+    if (ri['name'] == null || (ri['name'] as String).isEmpty) {
+      ri['name'] = ri['repairPart'];
+    }
+    ri['scope'] = (ri['scope'] as String?) ?? '';
+    ri['measurement'] = (ri['measurement'] as String?) ?? '';
+    ri['priceRange'] = (ri['priceRange'] as String?) ?? '';
+    if (ri['price'] is! int) {
+      final p = ri['price'];
+      if (p is num) {
+        ri['price'] = p.toInt();
+      } else if (p is String) {
+        ri['price'] = int.tryParse(p) ?? 0;
+      } else {
+        ri['price'] = 0;
+      }
+    }
+    if (ri['quantity'] is! int) {
+      ri['quantity'] = 1;
+    }
+    if (fallbackClothingType.isNotEmpty &&
+        (ri['clothingType'] as String?)?.isEmpty != false) {
+      ri['clothingType'] = fallbackClothingType;
+    }
+    return ri;
+  }
+
   // ── 공개 API ────────────────────────────────────────────────────────────
+
+  /// 로컬 id 로 CartItem 을 찾는다 (UI 에서 server id 추출용).
+  CartItem? findById(String id) {
+    for (final i in state) {
+      if (i.id == id) return i;
+    }
+    return null;
+  }
+
+  /// 서버에 저장된 cart_drafts 행을 server id 로 직접 지운다.
+  /// (장바구니에서 이어 작성 → 다시 담기 시 원본 중복 방지용)
+  Future<void> removeServerCartRow(String serverId) async {
+    if (_svc.isLoggedIn) {
+      await _svc.removeItem(serverId);
+    }
+    state = state.where((i) => i.serverId != serverId).toList();
+    await _saveLocalCache();
+  }
 
   /// 서버에서 최신 장바구니를 다시 불러온다 (pull-to-refresh 등에서 호출).
   Future<void> refresh() async {

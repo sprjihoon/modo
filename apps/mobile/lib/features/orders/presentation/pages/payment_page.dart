@@ -106,10 +106,39 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       );
 
       // intent.payload 를 _orderData 와 호환되는 형태로 매핑
+      // 누락된 필드는 build() 에서 null cast 로 터지지 않도록 안전 기본값을 채워둔다.
+      final repairParts = (payload['repairParts'] as List?) ?? const [];
+      final itemDescriptionFallback = repairParts.isEmpty
+          ? '수선 서비스'
+          : repairParts.map((e) {
+              if (e is Map) {
+                final name = e['name']?.toString() ?? '수선';
+                final qty = (e['quantity'] as num?)?.toInt() ?? 1;
+                return qty > 1 ? '$name x$qty' : name;
+              }
+              return e.toString();
+            }).join(', ');
+      // base_price 는 결제 인텐트 페이로드의 basePrice (수선비 합) 우선,
+      // 없으면 total_price 에서 배송비/도서산간 차감.
+      final shippingFee = (payload['shippingFee'] as num?)?.toInt() ?? 0;
+      final remoteAreaFee = (payload['remoteAreaFee'] as num?)?.toInt() ?? 0;
+      final shippingDiscount =
+          (payload['shippingDiscountAmount'] as num?)?.toInt() ?? 0;
+      final basePriceFromPayload = (payload['basePrice'] as num?)?.toInt();
+      final totalPriceVal = (intent['total_price'] as num?)?.toInt() ?? 0;
+      final basePrice = basePriceFromPayload ??
+          (totalPriceVal -
+              (shippingFee - shippingDiscount).clamp(0, 1 << 31) -
+              remoteAreaFee);
+
       final virtual = <String, dynamic>{
         'id': intent['id'],
-        'total_price': intent['total_price'],
-        'item_name': payload['itemName'] ?? '수선',
+        'total_price': totalPriceVal,
+        'item_name': (payload['itemName'] as String?)?.trim().isNotEmpty == true
+            ? payload['itemName']
+            : '수선',
+        'item_description': itemDescriptionFallback,
+        'base_price': basePrice,
         'customer_name': payload['customerName'] ?? '고객',
         'pickup_address': payload['pickupAddress'] ?? '',
         'pickup_address_detail': payload['pickupAddressDetail'],
@@ -121,10 +150,11 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         'delivery_phone': payload['deliveryPhone'],
         'images_with_pins': payload['imagesWithPins'],
         'notes': payload['notes'],
-        'shipping_fee': payload['shippingFee'],
-        'shipping_discount_amount': payload['shippingDiscountAmount'],
-        'remote_area_fee': payload['remoteAreaFee'],
-        'promotion_discount_amount': payload['promotionDiscountAmount'],
+        'shipping_fee': shippingFee,
+        'shipping_discount_amount': shippingDiscount,
+        'remote_area_fee': remoteAreaFee,
+        'promotion_discount_amount':
+            (payload['promotionDiscountAmount'] as num?)?.toInt() ?? 0,
         'original_total_price': payload['originalTotalPrice'],
       };
 
@@ -146,9 +176,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   Future<void> _goToTossPayment() async {
     if (_orderData == null) return;
 
-    final amount = _orderData!['total_price'] as int;
-    final orderName = _orderData!['item_name'] as String;
-    final customerName = _orderData!['customer_name'] as String? ?? '고객';
+    final amount = (_orderData!['total_price'] as num?)?.toInt() ?? 0;
+    final orderName = (_orderData!['item_name'] as String?) ?? '수선';
+    final customerName = (_orderData!['customer_name'] as String?) ?? '고객';
 
     // 신규 흐름: payment_intents.id 를 그대로 Toss orderId 로 사용
     //   payments-confirm-toss 가 intentId 로 인텐트 조회 → orders insert (PAID)
@@ -325,7 +355,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       );
     }
 
-    final amount = _orderData!['total_price'] as int;
+    final amount = (_orderData!['total_price'] as num?)?.toInt() ?? 0;
     final formattedAmount = amount.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]},',
@@ -401,10 +431,13 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             ],
           ),
           const SizedBox(height: 16),
-          _buildInfoRow('수선 항목', _orderData!['item_name']),
-          _buildInfoRow('상세 설명', _orderData!['item_description']),
-          if (_orderData!['notes'] != null)
-            _buildInfoRow('요청사항', _orderData!['notes']),
+          _buildInfoRow('수선 항목', (_orderData!['item_name'] as String?) ?? '수선'),
+          _buildInfoRow(
+            '상세 설명',
+            (_orderData!['item_description'] as String?) ?? '-',
+          ),
+          if ((_orderData!['notes'] as String?)?.isNotEmpty == true)
+            _buildInfoRow('요청사항', _orderData!['notes'] as String),
         ],
       ),
     );
@@ -442,10 +475,12 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           const SizedBox(height: 16),
           _buildInfoRow(
             '기본 금액',
-            '₩${_orderData!['base_price'].toString().replaceAllMapped(
-              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-              (Match m) => '${m[1]},',
-            )}',
+            '₩${((_orderData!['base_price'] as num?)?.toInt() ?? 0)
+                .toString()
+                .replaceAllMapped(
+                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                  (Match m) => '${m[1]},',
+                )}',
           ),
           if (_orderData!['promotion_discount_amount'] != null && 
               (_orderData!['promotion_discount_amount'] as int) > 0) ...[

@@ -335,6 +335,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             repairItems: data['repairItems'] as List<Map<String, dynamic>>? ?? [],
             imageUrls: data['imageUrls'] as List<String>? ?? [],
             imagesWithPins: data['imagesWithPins'] as List<Map<String, dynamic>>?,
+            sourceCartItemIds:
+                (data['cartItemIds'] as List?)?.map((e) => e.toString()).toList(),
           );
         },
       ),

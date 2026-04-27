@@ -76,6 +76,11 @@ export function PaymentClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 관리자 설정 — 켜져 있을 때만 결제 우회 테스트 버튼 노출
+  const [showTestButtons, setShowTestButtons] = useState(false);
+  const [testRequesting, setTestRequesting] = useState<"mock" | "real" | null>(
+    null
+  );
 
   // 이탈 가드: 결제 직전 → "결제 안 끝내고 나가실래요?" 확인
   const [showExitDialog, setShowExitDialog] = useState(false);
@@ -90,8 +95,51 @@ export function PaymentClient() {
       return;
     }
     loadIntent();
+    loadTestButtonsFlag();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intentId]);
+
+  async function loadTestButtonsFlag() {
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("ops_center_settings")
+        .select("show_test_buttons")
+        .limit(1)
+        .maybeSingle();
+      setShowTestButtons(!!data?.show_test_buttons);
+    } catch {
+      setShowTestButtons(false);
+    }
+  }
+
+  async function handleTestSkipPayment(testMode: boolean) {
+    if (!intent) return;
+    setTestRequesting(testMode ? "mock" : "real");
+    setError(null);
+    try {
+      isPaymentInProgressRef.current = true; // 이탈 가드 비활성화
+      const res = await fetch("/api/admin/test/skip-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intentId: intent.id, testMode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error ?? "테스트 결제 처리 실패");
+      }
+      // 일반 결제와 동일하게 success 페이지로 보낸다 (orderId 만 알면 됨)
+      router.replace(
+        `/payment/success?orderId=${encodeURIComponent(data.orderId)}&test=1`
+      );
+    } catch (e) {
+      isPaymentInProgressRef.current = false;
+      setError(
+        e instanceof Error ? e.message : "테스트 결제 처리 중 오류가 발생했습니다."
+      );
+      setTestRequesting(null);
+    }
+  }
 
   // ── 이탈 방지 ──────────────────────────────────────────────────────────
   // OrderNewClient 와 동일한 패턴: modu_before_navigate / popstate / beforeunload
@@ -354,10 +402,42 @@ export function PaymentClient() {
           </p>
         </div>
 
+        {showTestButtons && (
+          <div className="mx-4 mt-3 p-4 bg-yellow-50 border border-yellow-300 rounded-2xl">
+            <p className="text-xs font-bold text-yellow-800 mb-2">
+              🧪 테스트 모드 (관리자 설정 ON)
+            </p>
+            <p className="text-[11px] text-yellow-700 mb-3 leading-snug">
+              결제 게이트웨이를 우회해서 주문 생성 + 우체국 수거예약을
+              호출합니다. 운영 환경에서는 끄세요.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleTestSkipPayment(true)}
+                disabled={testRequesting !== null || isRequesting}
+                className="flex-1 py-2.5 text-xs font-bold rounded-lg border border-yellow-400 bg-white text-yellow-800 disabled:opacity-50 active:bg-yellow-100"
+              >
+                {testRequesting === "mock"
+                  ? "처리 중..."
+                  : "Mock 수거예약 (test_mode=true)"}
+              </button>
+              <button
+                onClick={() => handleTestSkipPayment(false)}
+                disabled={testRequesting !== null || isRequesting}
+                className="flex-1 py-2.5 text-xs font-bold rounded-lg bg-yellow-500 text-white disabled:opacity-50 active:brightness-95"
+              >
+                {testRequesting === "real"
+                  ? "처리 중..."
+                  : "실제 우체국 API"}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 pb-6 pt-3 bg-white border-t border-gray-100">
           <button
             onClick={handlePayment}
-            disabled={isRequesting}
+            disabled={isRequesting || testRequesting !== null}
             className="w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-xl disabled:opacity-50 active:brightness-95 transition-all"
           >
             {isRequesting ? "결제 진행 중..." : `${formatPrice(intent.total_price)} 결제하기`}

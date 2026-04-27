@@ -18,9 +18,14 @@ class PickupRequestPage extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>> repairItems;
   final List<String> imageUrls;
   final List<Map<String, dynamic>>? imagesWithPins; // 핀 정보 추가
-  
+  /// 장바구니에서 이어 진행할 때 원본 cart_drafts.id 목록.
+  /// 결제 완료/장바구니에 다시 담기/이탈 시 이 행들을 정리해 중복을 막는다.
+  final List<String>? sourceCartItemIds;
+
   const PickupRequestPage({
-    required this.repairItems, required this.imageUrls, this.imagesWithPins, super.key,
+    required this.repairItems, required this.imageUrls, this.imagesWithPins,
+    this.sourceCartItemIds,
+    super.key,
   });
 
   @override
@@ -253,19 +258,28 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
 
     // 웹과 동일한 OrderDraft 포맷으로 변환
     final repairItemsForDraft = widget.repairItems.map((item) {
-      final priceRange = item['priceRange'] as String? ?? '';
-      final prices = priceRange.split('~');
+      final priceRange = (item['priceRange'] as String?) ?? '';
       int minPrice = 0;
-      if (prices.isNotEmpty) {
-        final cleaned = prices[0].replaceAll(RegExp(r'[^0-9]'), '');
+      if (priceRange.isNotEmpty) {
+        final cleaned = priceRange.split('~').first
+            .replaceAll(RegExp(r'[^0-9]'), '');
         minPrice = int.tryParse(cleaned) ?? 0;
+      }
+      // price 가 명시적으로 들어와 있으면 그것을 우선 사용한다.
+      final priceField = item['price'];
+      if (priceField is int) {
+        minPrice = priceField;
+      } else if (priceField is num) {
+        minPrice = priceField.toInt();
+      } else if (priceField is String) {
+        minPrice = int.tryParse(priceField) ?? minPrice;
       }
       return {
         'name': item['repairPart'] ?? item['name'] ?? '',
         'price': minPrice,
         'priceRange': priceRange,
         'quantity': 1,
-        'repairPart': item['repairPart'] ?? '',
+        'repairPart': item['repairPart'] ?? item['name'] ?? '',
         'scope': item['scope'] ?? '',
         'measurement': item['measurement'] ?? '',
       };
@@ -293,7 +307,23 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
           : _deliveryZipcodeController.text,
     };
 
-    await ref.read(cartProvider.notifier).addOrderDraftToCart(orderDraft);
+    // 장바구니에서 이어 진행하다가 다시 담는 경우, 원본 행을 먼저 정리한다.
+    // 그렇지 않으면 같은 내용이 두 번 들어가 중복이 발생한다.
+    final cartNotifier = ref.read(cartProvider.notifier);
+    final sourceIds = widget.sourceCartItemIds ?? const <String>[];
+    if (sourceIds.isNotEmpty) {
+      // 동일한 server cart_drafts.id 가 여러 CartItem 에 매핑될 수 있으므로 중복 제거.
+      final uniqueServerIds = <String>{};
+      for (final localId in sourceIds) {
+        final item = cartNotifier.findById(localId);
+        if (item?.serverId != null) uniqueServerIds.add(item!.serverId!);
+      }
+      for (final serverId in uniqueServerIds) {
+        await cartNotifier.removeServerCartRow(serverId);
+      }
+    }
+
+    await cartNotifier.addOrderDraftToCart(orderDraft);
 
     if (!mounted) return;
     messenger.showSnackBar(
@@ -640,13 +670,17 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       debugPrint('배송지 동일 여부: $_isDeliveryAddressSame');
       
       // 주문 정보 구성
-      final itemNames = widget.repairItems
-          .map((item) => item['repairPart'] as String)
-          .join(', ');
-      
-      final itemDescription = widget.repairItems
-          .map((item) => '${item['repairPart']}: ${item['scope']} - ${item['measurement']}')
-          .join('\n');
+      String _displayName(Map<String, dynamic> item) =>
+          (item['repairPart'] as String?) ??
+          (item['name'] as String?) ??
+          '수선';
+      final itemNames = widget.repairItems.map(_displayName).join(', ');
+
+      final itemDescription = widget.repairItems.map((item) {
+        final scope = (item['scope'] as String?) ?? '';
+        final measurement = (item['measurement'] as String?) ?? '';
+        return '${_displayName(item)}: $scope - $measurement';
+      }).join('\n');
       
       // clothing_type 추출 (한글 그대로 사용)
       String clothingType = '기타';
@@ -660,13 +694,18 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       // repair_type 추출 (첫 번째 수선 항목에서)
       String repairType = '기타';
       if (widget.repairItems.isNotEmpty) {
-        repairType = widget.repairItems[0]['repairPart'] ?? '기타';
+        final r = widget.repairItems[0];
+        repairType = (r['repairPart'] as String?) ??
+            (r['name'] as String?) ??
+            '기타';
       }
       
       // repair_parts 배열 생성 (웹과 동일한 구조: {name, price, quantity, detail}을 JSON 직렬화)
       // text[] 컬럼이라 객체를 직접 넣지 못하므로 jsonEncode로 직렬화한다.
       final List<String> repairParts = widget.repairItems.map((item) {
-        final name = (item['repairPart'] as String?) ?? '';
+        final name = (item['repairPart'] as String?) ??
+            (item['name'] as String?) ??
+            '';
         final price = item['price'] is int
             ? item['price'] as int
             : int.tryParse(item['price']?.toString() ?? '') ?? 0;
@@ -758,7 +797,9 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
         'repairType': repairType,
         'repairItems': widget.repairItems.map((it) {
           return <String, dynamic>{
-            'name': it['repairPart'],
+            'name': (it['repairPart'] as String?) ??
+                (it['name'] as String?) ??
+                '수선',
             'price': (it['price'] is int)
                 ? it['price']
                 : int.tryParse(it['price']?.toString() ?? '') ?? 0,
@@ -868,16 +909,26 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   int _calculateRepairItemsTotal() {
     int total = 0;
     for (var item in widget.repairItems) {
-      final priceRange = item['priceRange'] as String;
-      final prices = priceRange.split('~');
-      if (prices.isNotEmpty) {
-        final minPrice = prices[0]
-            .replaceAll('원', '')
-            .replaceAll(',', '')
-            .replaceAll('부위당', '')
-            .trim();
-        total += int.tryParse(minPrice) ?? 0;
+      // 1) price 가 직접 들어 있으면 우선 사용
+      final priceField = item['price'];
+      int? direct;
+      if (priceField is int) {
+        direct = priceField;
+      } else if (priceField is num) {
+        direct = priceField.toInt();
+      } else if (priceField is String) {
+        direct = int.tryParse(priceField);
       }
+      if (direct != null && direct > 0) {
+        total += direct;
+        continue;
+      }
+      // 2) priceRange 문자열에서 최솟값 추출
+      final priceRange = (item['priceRange'] as String?) ?? '';
+      if (priceRange.isEmpty) continue;
+      final cleaned = priceRange.split('~').first
+          .replaceAll(RegExp(r'[^0-9]'), '');
+      total += int.tryParse(cleaned) ?? 0;
     }
     return total;
   }
