@@ -81,8 +81,9 @@ export function AddressSearchButton({
         type="button"
         onClick={() => setOpen(true)}
         className={
-          className ??
-          "flex items-center gap-1.5 px-4 py-3 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 transition-opacity whitespace-nowrap"
+          className
+            ? `flex items-center gap-1.5 ${className}`
+            : "flex items-center gap-1.5 px-4 py-3 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 transition-opacity whitespace-nowrap"
         }
       >
         <MapPin className="w-4 h-4" />
