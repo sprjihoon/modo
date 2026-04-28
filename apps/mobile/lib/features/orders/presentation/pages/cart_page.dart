@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../providers/cart_provider.dart';
+import '../../../../services/customer_event_service.dart';
 
 /// 장바구니 페이지
 class CartPage extends ConsumerStatefulWidget {
@@ -15,6 +16,12 @@ class CartPage extends ConsumerStatefulWidget {
 
 class _CartPageState extends ConsumerState<CartPage> {
   final Set<String> _selectedItemIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    CustomerEventService.trackPageView(pageTitle: '장바구니', pageUrl: '/cart');
+  }
 
   @override
   Widget build(BuildContext context) {

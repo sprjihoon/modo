@@ -13,6 +13,7 @@ import 'package:provider/provider.dart' as provider;
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/image_service.dart';
 import '../../../../services/order_service.dart';
+import '../../../../services/customer_event_service.dart';
 import '../../../../services/shipping_settings_service.dart';
 import '../../../../core/enums/extra_charge_status.dart';
 import '../../providers/extra_charge_provider.dart';
@@ -76,6 +77,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    CustomerEventService.trackProductView(
+      productName: '주문 상세',
+      productId: widget.orderId,
+    );
     _loadOrderData();
     // 배송비 설정을 백그라운드로 갱신 (화면 빌드 시점에는 캐시값 사용)
     ShippingSettingsService().get();
@@ -185,6 +190,17 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
           _pickupTreatStusCd = null;
         }
       });
+
+      // 추가금 안내 화면 노출 추적
+      final extraChargeStatus = order['extra_charge_status'] as String?;
+      if (extraChargeStatus == 'PENDING_CUSTOMER') {
+        final extraData = order['extra_charge_data'] as Map<String, dynamic>?;
+        final amount = (extraData?['managerPrice'] as num?)?.toInt() ?? 0;
+        CustomerEventService.trackExtraChargeView(
+          orderId: widget.orderId,
+          amount: amount,
+        );
+      }
       
       debugPrint('🔘 취소 가능 여부: $_isPickupCancellable (treatStusCd: $_pickupTreatStusCd)');
 

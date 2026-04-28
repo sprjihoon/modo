@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/enums/extra_charge_status.dart';
 import '../../../../services/shipping_settings_service.dart';
+import '../../../../services/customer_event_service.dart';
 import '../../providers/extra_charge_provider.dart';
 import '../../domain/models/extra_charge_data.dart';
 
@@ -266,6 +267,8 @@ class ExtraChargeRequestCard extends StatelessWidget {
 
     if (confirmed != true) return;
 
+    CustomerEventService.trackExtraChargeAccept(orderId: orderId, amount: price);
+
     // 로딩 표시
     if (!context.mounted) return;
     showDialog(
@@ -339,6 +342,10 @@ class ExtraChargeRequestCard extends StatelessWidget {
     );
 
     if (confirmed != true) return;
+
+    final extraDataSkip = orderData['extra_charge_data'] as Map<String, dynamic>?;
+    final amountSkip = (extraDataSkip?['managerPrice'] as num?)?.toInt() ?? 0;
+    CustomerEventService.trackExtraChargeReject(orderId: orderId, amount: amountSkip);
 
     if (!context.mounted) return;
     showDialog(
@@ -442,6 +449,10 @@ class ExtraChargeRequestCard extends StatelessWidget {
     );
 
     if (confirmed != true) return;
+
+    final extraDataReturn = orderData['extra_charge_data'] as Map<String, dynamic>?;
+    final amountReturn = (extraDataReturn?['managerPrice'] as num?)?.toInt() ?? 0;
+    CustomerEventService.trackExtraChargeReject(orderId: orderId, amount: amountReturn);
 
     if (!context.mounted) return;
     showDialog(

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/order_service.dart';
+import '../../../../services/customer_event_service.dart';
 import '../../providers/cart_provider.dart';
 
 /// 주문 목록 화면
@@ -30,6 +31,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    CustomerEventService.trackPageView(pageTitle: '주문 목록', pageUrl: '/orders');
     _tabController = TabController(length: 6, vsync: this);
     
     // 탭 변경 시 페이지 리셋

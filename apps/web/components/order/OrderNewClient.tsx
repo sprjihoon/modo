@@ -9,6 +9,7 @@ import { ImagePinStep } from "./ImagePinStep";
 import { PickupStep } from "./PickupStep";
 import { ItemsListPanel } from "./ItemsListPanel";
 import { addCartItem, removeCartItem } from "@/lib/cart";
+import { Analytics } from "@/lib/analytics";
 
 export interface ImageWithPins {
   imageUrl: string;
@@ -142,6 +143,12 @@ export function OrderNewClient() {
       s.stagingRepairItems.length > 0
     );
   }
+
+  // ── 주문 시작 추적 ───────────────────────────────────────────────────────
+  useEffect(() => {
+    Analytics.orderStart();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── 장바구니에서 이어서 신청 시 draft 복원 ──────────────────────────────
   useEffect(() => {

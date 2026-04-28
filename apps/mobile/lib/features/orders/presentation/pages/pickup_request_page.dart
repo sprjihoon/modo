@@ -12,6 +12,7 @@ import '../../../../services/promotion_service.dart';
 import '../../../../services/shipping_settings_service.dart';
 import '../../providers/repair_items_provider.dart';
 import '../../providers/cart_provider.dart';
+import '../../../../services/customer_event_service.dart';
 
 /// 수거신청 페이지
 class PickupRequestPage extends ConsumerStatefulWidget {
@@ -92,6 +93,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    CustomerEventService.trackPickupRequestStart();
     _loadDefaultAddress();
     _loadShippingSettings();
     _loadShippingPromotion();
@@ -931,6 +933,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
           }
         }
 
+        CustomerEventService.trackPickupRequestComplete(orderId: newOrderId);
         if (mounted) {
           context.go('/orders/$newOrderId');
         }

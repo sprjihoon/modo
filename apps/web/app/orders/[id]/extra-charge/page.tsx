@@ -10,6 +10,7 @@ import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { Analytics } from "@/lib/analytics";
 
 interface TossPaymentInstance {
   requestPayment: (params: {
@@ -113,6 +114,8 @@ export default function ExtraChargePage() {
       }
 
       setOrder(data);
+      const extraAmt = (data.extra_charge_data as ExtraChargeData | undefined)?.managerPrice ?? 0;
+      Analytics.extraChargeView(orderId, extraAmt);
     } catch (e) {
       setError(e instanceof Error ? e.message : "주문 정보를 불러올 수 없습니다.");
     } finally {
@@ -122,6 +125,7 @@ export default function ExtraChargePage() {
 
   async function handlePayment() {
     if (!order) return;
+    Analytics.extraChargeAccept(orderId, amount);
     setIsRequesting(true);
     setError(null);
     try {
@@ -164,6 +168,7 @@ export default function ExtraChargePage() {
   }
 
   async function handleDecision(action: "SKIP" | "RETURN") {
+    Analytics.extraChargeReject(orderId, amount);
     let msg: string;
     if (action === "SKIP") {
       msg = "추가 작업 없이 원안대로 진행하시겠습니까?";
