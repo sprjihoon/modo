@@ -26,8 +26,19 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, srk);
 
+    // auth.users.id → public.users.id 변환
+    let publicUserId: string | null = null;
+    if (user?.id) {
+      const { data: userRow } = await admin
+        .from("users")
+        .select("id")
+        .eq("auth_id", user.id)
+        .maybeSingle();
+      publicUserId = userRow?.id ?? null;
+    }
+
     await admin.from("customer_events").insert({
-      user_id: user?.id ?? null,
+      user_id: publicUserId,
       session_id: sessionId ?? null,
       event_type: eventType,
       event_name: eventName ?? null,

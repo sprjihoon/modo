@@ -77,6 +77,10 @@ class CustomerEventService {
   static String? _deviceOs;
   static String? _appVersion;
 
+  // auth.users.id → public.users.id 캐시
+  static String? _cachedAuthId;
+  static String? _cachedPublicUserId;
+
   /// 세션 ID 생성 또는 가져오기
   static String get sessionId {
     if (_sessionId == null) {
@@ -130,9 +134,23 @@ class CustomerEventService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      // 현재 사용자 ID 가져오기
+      // auth.users.id → public.users.id 변환 (캐시 활용)
       final user = _supabase.auth.currentUser;
-      final userId = user?.id;
+      String? publicUserId;
+      if (user != null) {
+        if (_cachedAuthId == user.id && _cachedPublicUserId != null) {
+          publicUserId = _cachedPublicUserId;
+        } else {
+          final res = await _supabase
+              .from('users')
+              .select('id')
+              .eq('auth_id', user.id)
+              .maybeSingle();
+          publicUserId = res?['id'] as String?;
+          _cachedAuthId = user.id;
+          _cachedPublicUserId = publicUserId;
+        }
+      }
 
       // 디바이스 타입 감지
       String deviceType;
@@ -146,7 +164,7 @@ class CustomerEventService {
 
       // 이벤트 데이터 생성
       final eventData = {
-        'user_id': userId,
+        'user_id': publicUserId,
         'session_id': sessionId,
         'event_type': eventType.name,
         'event_name': eventName,
