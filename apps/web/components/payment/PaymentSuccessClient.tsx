@@ -16,6 +16,9 @@ export function PaymentSuccessClient() {
   const amountRaw = searchParams.get("amount") ?? "0";
   const amount = Number(amountRaw);
 
+  // 테스트 우회 결제 여부 (skip-payment API 경유)
+  const isTest = searchParams.get("test") === "1";
+
   // 추가결제 여부 및 실제 DB 주문 UUID
   const isExtraCharge = searchParams.get("isExtraCharge") === "true";
   const originalOrderId = searchParams.get("originalOrderId") ?? "";
@@ -26,6 +29,7 @@ export function PaymentSuccessClient() {
 
   const [status, setStatus] = useState<"confirming" | "success" | "error">("confirming");
   const [error, setError] = useState<string | null>(null);
+  const [isCouponOrder, setIsCouponOrder] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<{
     method?: string;
     totalAmount?: number;
@@ -39,6 +43,17 @@ export function PaymentSuccessClient() {
   useEffect(() => {
     if (confirmCalledRef.current) return;
     confirmCalledRef.current = true;
+
+    // 테스트 우회 결제: Toss 파라미터 없이 orderId만 있음
+    if (isTest) {
+      if (!tossOrderId) {
+        setError("주문 정보가 올바르지 않습니다.");
+        setStatus("error");
+        return;
+      }
+      handleTestSuccess();
+      return;
+    }
 
     if (!paymentKey || !tossOrderId || isNaN(amount) || amount <= 0) {
       setError("결제 정보가 올바르지 않습니다.");
@@ -57,6 +72,34 @@ export function PaymentSuccessClient() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleTestSuccess() {
+    try {
+      const supabase = createClient();
+      const { data: order } = await supabase
+        .from("orders")
+        .select("id, total_price, promotion_code_id, promotion_discount_amount")
+        .eq("id", tossOrderId)
+        .single();
+
+      const hasCoupon =
+        !!order?.promotion_code_id || (order?.promotion_discount_amount ?? 0) > 0;
+      setIsCouponOrder(hasCoupon);
+
+      setPaymentInfo({
+        method: hasCoupon ? "쿠폰 할인" : "테스트 결제",
+        totalAmount: order?.total_price ?? 0,
+      });
+      setStatus("success");
+
+      redirectTimerRef.current = setTimeout(() => {
+        router.replace(`/orders/${tossOrderId}?paid=true`);
+      }, 3000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "주문 정보를 불러올 수 없습니다.");
+      setStatus("error");
+    }
+  }
 
   async function confirmPayment() {
     try {
@@ -191,25 +234,78 @@ export function PaymentSuccessClient() {
     );
   }
 
+  const successTitle = isTest
+    ? isCouponOrder
+      ? "쿠폰으로 주문이 처리되었습니다!"
+      : "테스트 모드로 주문이 처리되었습니다!"
+    : isExtraCharge
+    ? "추가 결제가 완료되었습니다!"
+    : "결제가 완료되었습니다!";
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5 px-6 text-center">
-      <div className="w-20 h-20 bg-[#00C896]/10 rounded-full flex items-center justify-center">
-        <CheckCircle className="w-10 h-10 text-[#00C896]" />
+      <div
+        className={`w-20 h-20 rounded-full flex items-center justify-center ${
+          isTest
+            ? isCouponOrder
+              ? "bg-purple-50"
+              : "bg-yellow-50"
+            : "bg-[#00C896]/10"
+        }`}
+      >
+        <CheckCircle
+          className={`w-10 h-10 ${
+            isTest
+              ? isCouponOrder
+                ? "text-purple-500"
+                : "text-yellow-500"
+              : "text-[#00C896]"
+          }`}
+        />
       </div>
       <div>
-        <p className="text-xl font-bold text-gray-900 mb-1">
-          {isExtraCharge ? "추가 결제가 완료되었습니다!" : "결제가 완료되었습니다!"}
-        </p>
-        {paymentInfo?.totalAmount && (
-          <p className="text-2xl font-bold text-[#00C896]">
-            {formatPrice(paymentInfo.totalAmount)}
+        <p className="text-xl font-bold text-gray-900 mb-1">{successTitle}</p>
+        {(paymentInfo?.totalAmount ?? 0) > 0 && (
+          <p
+            className={`text-2xl font-bold ${
+              isTest
+                ? isCouponOrder
+                  ? "text-purple-500"
+                  : "text-yellow-500"
+                : "text-[#00C896]"
+            }`}
+          >
+            {formatPrice(paymentInfo!.totalAmount!)}
           </p>
         )}
         {paymentInfo?.method && (
           <p className="text-sm text-gray-400 mt-1">{paymentInfo.method}</p>
         )}
       </div>
-      {isExtraCharge ? (
+      {isTest ? (
+        <div
+          className={`w-full p-4 rounded-2xl text-left ${
+            isCouponOrder ? "bg-purple-50" : "bg-yellow-50"
+          }`}
+        >
+          <p
+            className={`text-sm font-semibold mb-1 ${
+              isCouponOrder ? "text-purple-800" : "text-yellow-800"
+            }`}
+          >
+            {isCouponOrder ? "🎟 쿠폰 적용 주문 완료" : "🧪 테스트 주문 완료"}
+          </p>
+          <p
+            className={`text-xs leading-relaxed ${
+              isCouponOrder ? "text-purple-600" : "text-yellow-700"
+            }`}
+          >
+            {isCouponOrder
+              ? "쿠폰 할인이 적용되어 주문이 처리되었습니다. 수선 작업을 진행합니다."
+              : "테스트 모드로 주문이 생성되었습니다. 실제 결제는 이루어지지 않았습니다."}
+          </p>
+        </div>
+      ) : isExtraCharge ? (
         <div className="w-full p-4 bg-orange-50 rounded-2xl text-left">
           <p className="text-sm font-semibold text-orange-800 mb-1">✅ 추가 결제 완료</p>
           <p className="text-xs text-orange-600 leading-relaxed">

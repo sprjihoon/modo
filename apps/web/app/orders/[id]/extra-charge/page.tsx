@@ -41,6 +41,8 @@ interface OrderData {
   clothing_type?: string;
   extra_charge_status?: string;
   extra_charge_data?: ExtraChargeData;
+  total_price?: number;
+  remote_area_fee?: number;
 }
 
 function getClientKey(): string {
@@ -65,6 +67,21 @@ export default function ExtraChargePage() {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "success" | "skip" | "return">("idle");
+  const [returnResultMsg, setReturnResultMsg] = useState<string>("");
+  const [returnShippingFee, setReturnShippingFee] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/shipping-settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const fee = Number(data?.returnShippingFee);
+        if (Number.isFinite(fee)) setReturnShippingFee(fee);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     loadOrder();
@@ -76,7 +93,7 @@ export default function ExtraChargePage() {
       const supabase = createClient();
       const { data } = await supabase
         .from("orders")
-        .select("id, item_name, clothing_type, extra_charge_status, extra_charge_data")
+        .select("id, item_name, clothing_type, extra_charge_status, extra_charge_data, total_price, remote_area_fee")
         .eq("id", orderId)
         .single();
 
@@ -147,31 +164,61 @@ export default function ExtraChargePage() {
   }
 
   async function handleDecision(action: "SKIP" | "RETURN") {
-    const msg =
-      action === "SKIP"
-        ? "추가 작업 없이 원안대로 진행하시겠습니까?"
-        : "반송 처리하시겠습니까?\n왕복 배송비 6,000원이 차감됩니다.";
+    let msg: string;
+    if (action === "SKIP") {
+      msg = "추가 작업 없이 원안대로 진행하시겠습니까?";
+    } else {
+      const fee = returnShippingFee ?? 7000;
+      const remoteFee = Math.max(0, Number(order?.remote_area_fee ?? 0) || 0);
+      const totalDeduction = fee + remoteFee;
+      const total = Number(order?.total_price ?? 0);
+      const refund = Math.max(total - totalDeduction, 0);
+      const remotePart =
+        remoteFee > 0 ? ` + 도서산간 ${remoteFee.toLocaleString()}원` : "";
+      msg =
+        `반송 처리하시겠습니까?\n` +
+        `왕복 배송비 ${fee.toLocaleString()}원${remotePart}이 차감되고 ` +
+        `나머지 금액(${refund.toLocaleString()}원)은 자동 환불됩니다.`;
+    }
     if (!confirm(msg)) return;
     setIsActionLoading(true);
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { alert("로그인이 필요합니다."); return; }
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("id")
-        .eq("auth_id", user.id)
-        .maybeSingle();
-      if (!userRow) { alert("사용자 정보를 찾을 수 없습니다."); return; }
-      const { error: rpcError } = await supabase.rpc("process_customer_decision", {
-        p_order_id: orderId,
-        p_action: action,
-        p_customer_id: userRow.id,
-      });
-      if (rpcError) throw rpcError;
-      setStatus(action === "SKIP" ? "skip" : "return");
+      if (action === "RETURN") {
+        const res = await fetch(`/api/orders/${orderId}/return-and-refund`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.success === false) {
+          throw new Error(data?.error || "반송 처리에 실패했습니다.");
+        }
+        let resultMsg = data?.message || "반송 요청이 접수되었습니다.";
+        if (data?.refundError && !data?.noRefundRequired) {
+          resultMsg += `\n⚠️ 환불 처리 오류: ${data.refundError}\n고객센터로 문의해 주세요.`;
+        }
+        setReturnResultMsg(resultMsg);
+        setStatus("return");
+      } else {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { alert("로그인이 필요합니다."); return; }
+        const { data: userRow } = await supabase
+          .from("users")
+          .select("id")
+          .eq("auth_id", user.id)
+          .maybeSingle();
+        if (!userRow) { alert("사용자 정보를 찾을 수 없습니다."); return; }
+        const { error: rpcError } = await supabase.rpc("process_customer_decision", {
+          p_order_id: orderId,
+          p_action: action,
+          p_customer_id: userRow.id,
+        });
+        if (rpcError) throw rpcError;
+        setStatus("skip");
+      }
     } catch (e) {
-      alert("처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      const errMsg = e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.";
+      alert(errMsg);
       console.error(e);
     } finally {
       setIsActionLoading(false);
@@ -245,7 +292,9 @@ export default function ExtraChargePage() {
             <RotateCcw className="w-10 h-10 text-red-500" />
           </div>
           <p className="text-xl font-bold text-gray-900">반송 요청 완료</p>
-          <p className="text-sm text-gray-500">반송 처리가 요청되었습니다. 왕복 배송비 6,000원이 차감됩니다.</p>
+          <p className="text-sm text-gray-500 whitespace-pre-line">
+            {returnResultMsg || "반송 처리가 요청되었습니다."}
+          </p>
           <button
             onClick={() => router.replace(`/orders/${orderId}`)}
             className="px-8 py-3 bg-[#00C896] text-white text-sm font-bold rounded-xl active:brightness-95"
@@ -314,11 +363,25 @@ export default function ExtraChargePage() {
         </div>
 
         {/* 안내 */}
-        <div className="mx-4 mt-3 p-3 bg-gray-50 rounded-xl">
-          <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-line">
-            {"• 결제하기: 추가 금액을 결제 후 수선을 진행합니다\n• 그냥 진행: 추가 작업 없이 원안대로 진행합니다\n• 반송: 왕복 배송비 6,000원이 차감됩니다"}
-          </p>
-        </div>
+        {(() => {
+          const fee = returnShippingFee ?? 7000;
+          const remoteFee = Math.max(0, Number(order?.remote_area_fee ?? 0) || 0);
+          const totalDeduction = fee + remoteFee;
+          const total = Number(order?.total_price ?? 0);
+          const refund = Math.max(total - totalDeduction, 0);
+          const remotePart = remoteFee > 0 ? ` + 도서산간 ${remoteFee.toLocaleString()}원` : "";
+          return (
+            <div className="mx-4 mt-3 p-3 bg-gray-50 rounded-xl">
+              <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-line">
+                {[
+                  "• 결제하기: 추가 금액을 결제 후 수선을 진행합니다",
+                  "• 그냥 진행: 추가 작업 없이 원안대로 진행합니다",
+                  `• 반송: 왕복 배송비 ${fee.toLocaleString()}원${remotePart}이 차감되고 나머지 금액(${refund.toLocaleString()}원)은 자동 환불됩니다`,
+                ].join("\n")}
+              </p>
+            </div>
+          );
+        })()}
       </div>
 
       {/* 하단 버튼 고정 */}
