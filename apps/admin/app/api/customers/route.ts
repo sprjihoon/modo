@@ -14,9 +14,12 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search') || undefined;
-    
+    const startDate = searchParams.get('startDate') || undefined;
+    const endDate = searchParams.get('endDate') || undefined;
+    const dateFilterType = (searchParams.get('dateFilterType') || 'created_at') as 'created_at' | 'last_order';
+
     const [customers, stats] = await Promise.all([
-      getCustomers({ search }),
+      getCustomers({ search, startDate, endDate, dateFilterType }),
       getCustomerStats(),
     ]);
 

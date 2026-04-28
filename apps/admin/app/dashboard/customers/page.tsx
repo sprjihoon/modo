@@ -26,16 +26,17 @@ const getDaysAgo = (days: number) => {
 export default function CustomersPage() {
   const [search, setSearch] = useState("");
   
-  // 날짜 필터 (기본값: 최근 30일)
-  const [startDate, setStartDate] = useState<string>(getDaysAgo(30));
-  const [endDate, setEndDate] = useState<string>(getToday());
-  const [datePreset, setDatePreset] = useState<string>("30days");
+  // 날짜 필터 (기본값: 전체)
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [datePreset, setDatePreset] = useState<string>("all");
+  // 날짜 필터 기준: created_at(가입일) | last_order(최근 주문일)
+  const [dateFilterType, setDateFilterType] = useState<"created_at" | "last_order">("created_at");
 
   // 날짜 프리셋 변경
   const handleDatePreset = (preset: string) => {
     setDatePreset(preset);
     const today = getToday();
-    
     switch (preset) {
       case "today":
         setStartDate(today);
@@ -64,9 +65,14 @@ export default function CustomersPage() {
 
   // 고객 목록 및 통계 조회
   const { data, isLoading: isLoadingCustomers, error } = useQuery({
-    queryKey: ["customers", search],
+    queryKey: ["customers", search, startDate, endDate, dateFilterType],
     queryFn: async () => {
-      const response = await fetch(`/api/customers?${search ? `search=${encodeURIComponent(search)}` : ''}`);
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
+      if (startDate || endDate) params.set("dateFilterType", dateFilterType);
+      const response = await fetch(`/api/customers?${params.toString()}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || '고객 목록을 불러올 수 없습니다');
@@ -80,13 +86,7 @@ export default function CustomersPage() {
   const stats = data?.stats;
   const isLoadingStats = isLoadingCustomers;
 
-  // 검색 필터링
-  const filteredCustomers = customers.filter(
-    (customer: Customer) =>
-      customer.name?.toLowerCase().includes(search.toLowerCase()) ||
-      customer.email?.toLowerCase().includes(search.toLowerCase()) ||
-      customer.phone?.includes(search)
-  );
+  const filteredCustomers = customers;
 
   // 고객 상태 계산 (최근 30일 내 주문 = 활성, 이번 달 가입 = 신규, 그 외 = 일반)
   const getCustomerStatus = (customer: Customer) => {
@@ -123,67 +123,57 @@ export default function CustomersPage() {
       {/* 날짜 필터 */}
       <Card>
         <CardContent className="pt-6">
+          {/* 필터 기준 토글 */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm text-muted-foreground">기준:</span>
+            <div className="flex rounded-md border overflow-hidden text-xs">
+              <button
+                onClick={() => setDateFilterType("created_at")}
+                className={`px-3 py-1.5 font-medium transition-colors ${
+                  dateFilterType === "created_at"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background hover:bg-muted"
+                }`}
+              >
+                가입일
+              </button>
+              <button
+                onClick={() => setDateFilterType("last_order")}
+                className={`px-3 py-1.5 font-medium transition-colors border-l ${
+                  dateFilterType === "last_order"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background hover:bg-muted"
+                }`}
+              >
+                최근 주문일
+              </button>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-4 mb-4">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">기간 선택:</span>
+              <span className="text-sm font-medium">기간:</span>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant={datePreset === "today" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleDatePreset("today")}
-              >
-                오늘
-              </Button>
-              <Button
-                variant={datePreset === "7days" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleDatePreset("7days")}
-              >
-                7일
-              </Button>
-              <Button
-                variant={datePreset === "30days" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleDatePreset("30days")}
-              >
-                30일
-              </Button>
-              <Button
-                variant={datePreset === "90days" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleDatePreset("90days")}
-              >
-                90일
-              </Button>
-              <Button
-                variant={datePreset === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleDatePreset("all")}
-              >
-                전체
-              </Button>
+              <Button variant={datePreset === "today" ? "default" : "outline"} size="sm" onClick={() => handleDatePreset("today")}>오늘</Button>
+              <Button variant={datePreset === "7days" ? "default" : "outline"} size="sm" onClick={() => handleDatePreset("7days")}>7일</Button>
+              <Button variant={datePreset === "30days" ? "default" : "outline"} size="sm" onClick={() => handleDatePreset("30days")}>30일</Button>
+              <Button variant={datePreset === "90days" ? "default" : "outline"} size="sm" onClick={() => handleDatePreset("90days")}>90일</Button>
+              <Button variant={datePreset === "all" ? "default" : "outline"} size="sm" onClick={() => handleDatePreset("all")}>전체</Button>
             </div>
             <div className="flex items-center gap-2 ml-2">
               <Input
                 type="date"
                 className="w-36 h-9"
                 value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setDatePreset("custom");
-                }}
+                onChange={(e) => { setStartDate(e.target.value); setDatePreset("custom"); }}
               />
               <span className="text-muted-foreground">~</span>
               <Input
                 type="date"
                 className="w-36 h-9"
                 value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setDatePreset("custom");
-                }}
+                onChange={(e) => { setEndDate(e.target.value); setDatePreset("custom"); }}
               />
             </div>
           </div>

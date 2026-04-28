@@ -26,16 +26,25 @@ export async function getCustomers(filters?: {
   search?: string;
   limit?: number;
   offset?: number;
+  startDate?: string;
+  endDate?: string;
+  dateFilterType?: 'created_at' | 'last_order';
 }) {
   let query = supabaseAdmin
     .from('users')
     .select('*')
-    .eq('role', 'CUSTOMER')  // 고객만 조회 (user_role ENUM: ADMIN, MANAGER, WORKER, CUSTOMER 중 CUSTOMER만)
+    .eq('role', 'CUSTOMER')
     .order('created_at', { ascending: false });
 
   if (filters?.search) {
     const searchValue = `%${filters.search}%`;
     query = query.or(`name.ilike.${searchValue},email.ilike.${searchValue},phone.ilike.${searchValue}`);
+  }
+
+  // 가입일 기준 날짜 필터
+  if (filters?.dateFilterType !== 'last_order') {
+    if (filters?.startDate) query = query.gte('created_at', `${filters.startDate}T00:00:00`);
+    if (filters?.endDate)   query = query.lte('created_at', `${filters.endDate}T23:59:59`);
   }
 
   if (filters?.limit) {
@@ -78,6 +87,17 @@ export async function getCustomers(filters?: {
       };
     })
   );
+
+  // 최근 주문일 기준 필터 (주문 데이터 집계 후 처리)
+  if (filters?.dateFilterType === 'last_order' && (filters?.startDate || filters?.endDate)) {
+    return customersWithStats.filter((c) => {
+      if (!c.lastOrderDate) return false;
+      const d = c.lastOrderDate.slice(0, 10);
+      if (filters.startDate && d < filters.startDate) return false;
+      if (filters.endDate   && d > filters.endDate)   return false;
+      return true;
+    });
+  }
 
   return customersWithStats;
 }
