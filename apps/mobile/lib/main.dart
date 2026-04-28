@@ -17,6 +17,7 @@ import 'core/config/supabase_config.dart';
 import 'core/config/feature_flags.dart';
 import 'services/network_monitor_service.dart';
 import 'services/shipping_settings_service.dart';
+import 'services/customer_event_service.dart';
 
 /// 모두의수선 메인 엔트리포인트
 void main() async {
@@ -138,6 +139,11 @@ void main() async {
     // 실패해도 폴백값으로 동작하므로 await 하지 않고 백그라운드 실행
     // ignore: unawaited_futures
     ShippingSettingsService().refresh();
+
+    // 📊 고객 행동 분석 초기화
+    await CustomerEventService.initializeDeviceInfo();
+    // ignore: unawaited_futures
+    CustomerEventService.trackAppOpen();
   } catch (e, stackTrace) {
     print('❌ 초기화 실패: $e');
     print('   스택 트레이스: $stackTrace');

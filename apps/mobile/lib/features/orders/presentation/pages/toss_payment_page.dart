@@ -10,6 +10,7 @@ import 'package:tosspayments_widget_sdk_flutter/widgets/agreement.dart';
 import 'package:tosspayments_widget_sdk_flutter/widgets/payment_method.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/payment_service.dart';
+import '../../../../services/customer_event_service.dart';
 
 /// 토스페이먼츠 결제 위젯 페이지
 /// 
@@ -115,6 +116,12 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
     setState(() {
       _isLoading = false;
     });
+
+    // 결제 시작 이벤트 추적
+    CustomerEventService.trackPaymentStart(
+      orderId: widget.orderId,
+      amount: widget.amount,
+    );
     
     // 1.5초 후 준비 화면 숨기고 위젯 렌더링 시작
     Future.delayed(const Duration(milliseconds: 1500), () {
@@ -235,6 +242,13 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
   }
 
   void _showSuccessDialog(Map<String, dynamic> result) {
+    // 결제 성공 이벤트 추적
+    CustomerEventService.trackPaymentSuccess(
+      orderId: widget.orderId,
+      amount: widget.amount,
+      transactionId: result['paymentKey']?.toString(),
+    );
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -359,6 +373,13 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
   }
 
   void _showError(String message) {
+    // 결제 실패 이벤트 추적
+    CustomerEventService.trackPaymentFail(
+      orderId: widget.orderId,
+      amount: widget.amount,
+      errorMessage: message,
+    );
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCircle, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
+import { Analytics } from "@/lib/analytics";
 
 export function PaymentSuccessClient() {
   const searchParams = useSearchParams();
@@ -132,8 +133,9 @@ export function PaymentSuccessClient() {
       setPaymentInfo(data.data);
       setStatus("success");
 
-      // 신설된 주문 id 는 응답의 orderId (edge function 이 신규 흐름에서 반환)
+      // 결제 성공 이벤트 추적
       const newOrderId = (data.data?.orderId as string | undefined) ?? dbOrderId;
+      Analytics.paymentSuccess(newOrderId, amount, data.data?.method);
 
       // 결제 후 수거 예약 (오류 무시)
       if (!isExtraCharge && newOrderId) {

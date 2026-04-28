@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/permission_service.dart';
 import '../../providers/cart_provider.dart';
+import '../../../../services/customer_event_service.dart';
 
 /// 주문 생성 페이지
 class CreateOrderPage extends ConsumerStatefulWidget {
@@ -24,6 +25,7 @@ class _CreateOrderPageState extends ConsumerState<CreateOrderPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    CustomerEventService.trackOrderStart();
   }
 
   @override

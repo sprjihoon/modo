@@ -7,6 +7,7 @@ import '../../../../core/widgets/scaffold_with_footer.dart';
 import '../../../auth/data/providers/auth_provider.dart';
 import '../../../orders/providers/cart_provider.dart';
 import '../../../../services/order_service.dart';
+import '../../../../services/customer_event_service.dart';
 import '../../../../services/banner_service.dart';
 import '../../../../services/order_limit_service.dart';
 import '../../../../services/shipping_settings_service.dart';
@@ -56,6 +57,7 @@ class _HomePageState extends ConsumerState<HomePage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    CustomerEventService.trackPageView(pageTitle: '홈', pageUrl: '/home');
   }
 
   @override
