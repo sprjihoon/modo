@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -8,8 +9,35 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error && data.user) {
+      // OAuth 신규 유저를 public.users에 upsert (카카오/구글/애플 등)
+      const srk = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (srk) {
+        const admin = createSupabaseClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          srk
+        );
+        const meta = data.user.user_metadata || {};
+        const email =
+          data.user.email ||
+          meta.email ||
+          `oauth_${data.user.id}@noemail.local`;
+        const name =
+          meta.full_name || meta.name || meta.nickname || "고객";
+
+        await admin.from("users").upsert(
+          {
+            auth_id: data.user.id,
+            email,
+            name,
+            phone: null,
+            role: "CUSTOMER",
+          },
+          { onConflict: "auth_id", ignoreDuplicates: true }
+        );
+      }
+
       return NextResponse.redirect(`${origin}${redirectTo}`);
     }
   }
