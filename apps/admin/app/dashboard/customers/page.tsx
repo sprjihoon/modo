@@ -325,6 +325,25 @@ export default function CustomersPage() {
                             >
                               {status}
                             </Badge>
+                            {customer.login_provider && customer.login_provider !== "email" && (
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                customer.login_provider === "kakao"
+                                  ? "bg-[#FEE500] text-gray-800"
+                                  : customer.login_provider === "naver"
+                                  ? "bg-[#03C75A] text-white"
+                                  : customer.login_provider === "google"
+                                  ? "bg-white text-gray-700 border border-gray-300"
+                                  : customer.login_provider === "apple"
+                                  ? "bg-black text-white"
+                                  : "bg-gray-100 text-gray-600"
+                              }`}>
+                                {customer.login_provider === "kakao" ? "카카오"
+                                  : customer.login_provider === "naver" ? "네이버"
+                                  : customer.login_provider === "google" ? "구글"
+                                  : customer.login_provider === "apple" ? "애플"
+                                  : customer.login_provider}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">

@@ -6,6 +6,7 @@ export interface Customer {
   email: string;
   phone: string;
   created_at: string;
+  login_provider?: string;
   default_address?: string;
   default_address_detail?: string;
   point_balance?: number;

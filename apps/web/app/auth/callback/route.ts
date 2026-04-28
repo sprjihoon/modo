@@ -19,12 +19,14 @@ export async function GET(request: Request) {
           srk
         );
         const meta = data.user.user_metadata || {};
+        const appMeta = data.user.app_metadata || {};
         const email =
           data.user.email ||
           meta.email ||
           `oauth_${data.user.id}@noemail.local`;
         const name =
           meta.full_name || meta.name || meta.nickname || "고객";
+        const provider = appMeta.provider || "email";
 
         await admin.from("users").upsert(
           {
@@ -33,6 +35,7 @@ export async function GET(request: Request) {
             name,
             phone: null,
             role: "CUSTOMER",
+            login_provider: provider,
           },
           { onConflict: "auth_id", ignoreDuplicates: true }
         );

@@ -49,6 +49,22 @@ function NaverCallbackContent() {
           access_token: data.access_token,
           refresh_token: data.refresh_token,
         });
+
+        // public.users에 네이버 유저 upsert (login_provider 포함)
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("users").upsert(
+            {
+              auth_id: user.id,
+              email: user.email || data.email || `naver_${user.id}@naver.com`,
+              name: user.user_metadata?.name || data.name || "고객",
+              phone: null,
+              role: "CUSTOMER",
+              login_provider: "naver",
+            },
+            { onConflict: "auth_id", ignoreDuplicates: true }
+          );
+        }
       }
 
       sessionStorage.removeItem("naver_redirect_to");
