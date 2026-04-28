@@ -74,7 +74,7 @@ export function SignupPageClient() {
           phone: form.phone || null,
           agreed_to_terms: true,
           agreed_to_privacy: true,
-          role: "customer",
+          role: "CUSTOMER",
         });
 
         router.push("/");

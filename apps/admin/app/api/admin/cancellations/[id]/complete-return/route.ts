@@ -94,7 +94,7 @@ export async function POST(
       const { data: managers } = await supabaseAdmin
         .from("users")
         .select("id")
-        .in("role", ["ADMIN", "MANAGER", "SUPER_ADMIN"]);
+        .in("role", ["ADMIN", "MANAGER"]);
       const targets = (managers ?? []).filter((m) => m.id !== actor.id);
       if (targets.length > 0) {
         const rows = targets.map((m) => ({
