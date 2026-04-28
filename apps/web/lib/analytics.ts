@@ -54,4 +54,13 @@ export const Analytics = {
 
   extraChargeReject: (orderId: string, amount: number) =>
     trackEvent({ eventType: "EXTRA_CHARGE_REJECT", targetId: orderId, targetType: "order", metadata: { amount } }),
+
+  cartAdd: (draftId: string, itemCount?: number, repairCount?: number) =>
+    trackEvent({ eventType: "CART_ADD", targetId: draftId, targetType: "cart_item", metadata: { item_count: itemCount, repair_count: repairCount } }),
+
+  cartRemove: (draftId: string) =>
+    trackEvent({ eventType: "CART_REMOVE", targetId: draftId, targetType: "cart_item" }),
+
+  cartView: (itemCount: number) =>
+    trackEvent({ eventType: "PAGE_VIEW", pageTitle: "장바구니", pageUrl: "/cart", metadata: { cart_item_count: itemCount } }),
 };

@@ -8,6 +8,7 @@ import '../../../auth/data/providers/auth_provider.dart';
 import '../../../orders/providers/cart_provider.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/customer_event_service.dart';
+import '../../../../services/customer_event_service.dart';
 import '../../../../services/banner_service.dart';
 import '../../../../services/order_limit_service.dart';
 import '../../../../services/shipping_settings_service.dart';

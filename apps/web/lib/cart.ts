@@ -185,6 +185,9 @@ export async function fetchCartItems(): Promise<CartDraftItem[]> {
 
 /** 항목 하나를 추가한다. */
 export async function addCartItem(draft: OrderDraft): Promise<CartDraftItem> {
+  const itemCount = draft.items?.length ?? 0;
+  const repairCount = draft.items?.reduce((s, it) => s + (it.repairItems?.length ?? 0), 0) ?? 0;
+
   try {
     const userId = await resolveUserId();
     if (userId) {
@@ -200,14 +203,16 @@ export async function addCartItem(draft: OrderDraft): Promise<CartDraftItem> {
         savedAt: data.created_at as string,
         draft,
       };
-      // 로컬 캐시 갱신
       const cached = localLoad();
       localSave([item, ...cached]);
+      // 추적
+      import("@/lib/analytics").then(({ Analytics }) =>
+        Analytics.cartAdd(item.id, itemCount, repairCount)
+      );
       return item;
     }
   } catch { /* fallback to local */ }
 
-  // 비로그인 / 에러 → localStorage
   const item: CartDraftItem = {
     id: `cart_${Date.now()}`,
     savedAt: new Date().toISOString(),
@@ -215,11 +220,15 @@ export async function addCartItem(draft: OrderDraft): Promise<CartDraftItem> {
   };
   const items = localLoad();
   localSave([item, ...items]);
+  import("@/lib/analytics").then(({ Analytics }) =>
+    Analytics.cartAdd(item.id, itemCount, repairCount)
+  );
   return item;
 }
 
 /** 항목 하나를 삭제한다. */
 export async function removeCartItem(id: string): Promise<void> {
+  import("@/lib/analytics").then(({ Analytics }) => Analytics.cartRemove(id));
   try {
     const userId = await resolveUserId();
     if (userId) {

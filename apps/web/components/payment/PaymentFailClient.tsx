@@ -1,19 +1,26 @@
 "use client";
 
+import { useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { XCircle } from "lucide-react";
+import { Analytics } from "@/lib/analytics";
 
 export function PaymentFailClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Toss 가 failUrl 에 자동으로 붙여주는 orderId 는 우리가 결제 시 보낸 값
-  // = payment_intents.id (extra-charge 흐름에서는 별도 orderId 가 query 로 들어옴)
   const intentOrOrderId = searchParams.get("orderId") ?? "";
   const errorCode = searchParams.get("code") ?? "";
   const errorMessage = searchParams.get("message") ?? "결제가 취소되었거나 오류가 발생했습니다.";
 
   const isCancel = errorCode === "PAY_PROCESS_CANCELED";
+
+  useEffect(() => {
+    if (intentOrOrderId) {
+      Analytics.paymentFail(intentOrOrderId, 0, `${errorCode}: ${errorMessage}`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-5 px-6 text-center">

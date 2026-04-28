@@ -11,6 +11,7 @@ import 'package:tosspayments_widget_sdk_flutter/widgets/payment_method.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/payment_service.dart';
 import '../../../../services/customer_event_service.dart';
+import '../../../../services/customer_event_service.dart';
 
 /// 토스페이먼츠 결제 위젯 페이지
 /// 
@@ -98,6 +99,11 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
     _animationController.forward();
     
     _initPaymentWidget();
+    // 결제 시작 이벤트
+    CustomerEventService.trackPaymentStart(
+      orderId: widget.orderId,
+      amount: widget.amount,
+    );
   }
   
   @override
@@ -233,10 +239,20 @@ class _TossPaymentPageState extends State<TossPaymentPage> with SingleTickerProv
       );
 
       if (mounted) {
-        // 결제 완료 - 결과 페이지로 이동
+        // 결제 성공 이벤트
+        CustomerEventService.trackPaymentSuccess(
+          orderId: widget.orderId,
+          amount: widget.amount,
+          transactionId: success.paymentKey,
+        );
         _showSuccessDialog(result);
       }
     } catch (e) {
+      CustomerEventService.trackPaymentFail(
+        orderId: widget.orderId,
+        amount: widget.amount,
+        errorMessage: e.toString(),
+      );
       _showError('결제 승인 실패: $e');
     }
   }

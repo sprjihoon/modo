@@ -12,6 +12,7 @@ import {
   removeCartItem,
   CartDraftItem,
 } from "@/lib/cart";
+import { Analytics } from "@/lib/analytics";
 
 export function CartClient() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export function CartClient() {
     fetchCartItems().then((items) => {
       setDraftItems(items);
       setIsLoading(false);
+      if (items.length > 0) Analytics.cartView(items.length);
     });
 
     // 같은 탭 내 cart 변경 이벤트 수신
@@ -38,6 +40,7 @@ export function CartClient() {
   }
 
   function handleResumeDraft(item: CartDraftItem) {
+    Analytics.orderStart(item.id);
     sessionStorage.setItem("cart_resume_draft", JSON.stringify(item.draft));
     sessionStorage.setItem("cart_resume_id", item.id);
     router.push("/order/new?from=cart");

@@ -6,6 +6,7 @@ import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
 import { Scissors, MapPin, CreditCard, AlertCircle, X } from "lucide-react";
+import { Analytics } from "@/lib/analytics";
 
 interface TossPaymentInstance {
   requestPayment: (params: {
@@ -215,6 +216,8 @@ export function PaymentClient() {
         throw new Error("결제 시간이 만료되었습니다. 주문을 다시 시작해주세요.");
       }
       setIntent(data as PaymentIntent);
+      // 결제 페이지 진입 = 결제 시작 이벤트
+      Analytics.paymentStart(data.id, data.total_price);
     } catch (e) {
       setError(e instanceof Error ? e.message : "주문 정보를 불러올 수 없습니다.");
     } finally {
