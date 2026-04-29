@@ -3,6 +3,13 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/content_service.dart';
 
+class _NonRepairableItem {
+  final IconData icon;
+  final String title;
+  final String desc;
+  const _NonRepairableItem(this.icon, this.title, this.desc);
+}
+
 /// 쉬운가이드(이용 방법) 페이지
 /// app_contents.easy_guide.metadata.steps 에서 단계 데이터를 동적으로 로드합니다.
 /// 웹(`/guide/easy`) 및 admin(앱 컨텐츠 관리)와 동일한 데이터 소스를 사용합니다.
@@ -37,6 +44,39 @@ class _EasyGuidePageState extends State<EasyGuidePage> {
       emoji: '📬',
       title: '배송 완료',
       desc: '수선이 완료된 의류를 택배로 배송해드립니다.',
+    ),
+  ];
+
+  static const List<_NonRepairableItem> _nonRepairableItems = [
+    _NonRepairableItem(
+      Icons.checkroom,
+      '의류',
+      '니트, 밍크, 특수복(등산복, 스키복, 속옷, 수영복, 한복, 의사가운, 열처리복 등)',
+    ),
+    _NonRepairableItem(
+      Icons.local_mall,
+      '잡화류',
+      '넥타이, 머플러, 모자, 지갑 등',
+    ),
+    _NonRepairableItem(
+      Icons.directions_walk,
+      '신발류',
+      '운동화, 구두, 천연 가죽 신발 등',
+    ),
+    _NonRepairableItem(
+      Icons.bed,
+      '침구, 리빙류',
+      '이불, 러그, 커튼 등',
+    ),
+    _NonRepairableItem(
+      Icons.luggage,
+      '가방류',
+      '가죽 가방, 세무(스웨이드) 가방, 에코백 등',
+    ),
+    _NonRepairableItem(
+      Icons.open_in_full,
+      '늘림 수선',
+      '기장/길이 늘림, 전체폼 늘림, 팔통 늘림 등',
     ),
   ];
 
@@ -107,6 +147,8 @@ class _EasyGuidePageState extends State<EasyGuidePage> {
                     child: _buildStepCard(idx + 1, step),
                   );
                 }),
+                const SizedBox(height: 8),
+                _buildNonRepairableSection(),
               ],
             ),
           ),
@@ -147,6 +189,102 @@ class _EasyGuidePageState extends State<EasyGuidePage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildNonRepairableSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F7F7),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Text(
+              '수선 불가 품목',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
+            ),
+          ),
+          ..._nonRepairableItems.map(
+            (item) => Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildProhibitedIcon(item.icon),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Text(
+                          item.title,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF333333),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.desc,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[500],
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProhibitedIcon(IconData icon) {
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFEEEEEE)),
+            ),
+            child: Icon(icon, size: 22, color: Colors.grey[400]),
+          ),
+          Transform.rotate(
+            angle: -0.7854,
+            child: Container(
+              width: 52,
+              height: 2.5,
+              decoration: BoxDecoration(
+                color: Colors.orange[600],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
