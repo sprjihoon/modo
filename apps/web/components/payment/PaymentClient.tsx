@@ -150,11 +150,9 @@ export function PaymentClient() {
       if (isPaymentInProgressRef.current) return;
       if (!intent) return;
       e.preventDefault();
-      const type = (e as CustomEvent).detail?.type as "back" | "home";
-      pendingExitRef.current = () => {
-        if (type === "home") router.push("/");
-        else router.back();
-      };
+      // back/home 모두 홈으로 이동 (router.back()은 pushState 가드 엔트리로 인해
+      // 동일 URL로 돌아오는 문제가 있어 router.push("/")로 통일)
+      pendingExitRef.current = () => router.push("/");
       setShowExitDialog(true);
     };
     window.addEventListener("modu_before_navigate", handler);
@@ -173,7 +171,7 @@ export function PaymentClient() {
           window.removeEventListener("popstate", popstateHandlerRef.current);
           popstateHandlerRef.current = null;
         }
-        window.history.back();
+        router.push("/");
       };
       setShowExitDialog(true);
     };
