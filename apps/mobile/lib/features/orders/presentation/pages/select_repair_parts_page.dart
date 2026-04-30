@@ -365,7 +365,6 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                                               iconName: subItem['icon_name']
                                                   as String?,
                                               size: 28,
-                                              color: const Color(0xFF00C896),
                                             ),
                                     ),
                                   ),
@@ -670,7 +669,6 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                           child: CategoryIconWidget(
                             iconName: iconName,
                             size: 40,
-                            color: const Color(0xFF00C896),
                           ),
                         ),
                       ),
@@ -1059,10 +1057,10 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                                                                   'icon_name']
                                                               as String?,
                                                           size: 40,
+                                                          // 선택 시 흰색, 미선택 시 원본 SVG 색상 (웹과 동일)
                                                           color: isSelected
                                                               ? Colors.white
-                                                              : const Color(
-                                                                  0xFF00C896),
+                                                              : null,
                                                         ),
                                                 ),
                                               ),

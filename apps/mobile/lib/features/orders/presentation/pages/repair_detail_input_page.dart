@@ -1070,7 +1070,6 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
     return CategoryIconWidget(
       iconName: iconName,
       size: 28,
-      color: const Color(0xFF00C896),
     );
   }
 }

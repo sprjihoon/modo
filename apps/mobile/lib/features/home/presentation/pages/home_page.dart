@@ -8,7 +8,6 @@ import '../../../auth/data/providers/auth_provider.dart';
 import '../../../orders/providers/cart_provider.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/customer_event_service.dart';
-import '../../../../services/customer_event_service.dart';
 import '../../../../services/banner_service.dart';
 import '../../../../services/order_limit_service.dart';
 import '../../../../services/shipping_settings_service.dart';
@@ -50,6 +49,10 @@ class _HomePageState extends ConsumerState<HomePage>
   bool _ordersLoaded = false;
   bool _isCheckingOrderLimit = false;
 
+  /// FutureBuilder에 동일한 Future 객체를 유지하기 위한 필드
+  /// (매 build마다 새 Future가 생성되면 loading 깜빡임 발생)
+  Future<List<Map<String, dynamic>>>? _ordersFuture;
+
   /// 에러 상태 관리
   String? _orderError;
   bool _isRetrying = false;
@@ -59,6 +62,7 @@ class _HomePageState extends ConsumerState<HomePage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     CustomerEventService.trackPageView(pageTitle: '홈', pageUrl: '/home');
+    _ordersFuture = _getCachedOrders();
   }
 
   @override
@@ -68,14 +72,16 @@ class _HomePageState extends ConsumerState<HomePage>
     super.dispose();
   }
 
-  /// 앱이 포그라운드로 돌아올 때 캐시를 비우고 조용히 재로드
+  /// 앱이 포그라운드로 돌아올 때 백그라운드에서 조용히 재로드
+  /// _cachedOrders는 유지해서 로딩 중에도 기존 데이터로 UI가 유지되도록 함
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      _cachedOrders = null;
       _ordersLoaded = false;
       _orderError = null;
-      setState(() {});
+      setState(() {
+        _ordersFuture = _getCachedOrders();
+      });
     }
   }
 
@@ -282,10 +288,13 @@ class _HomePageState extends ConsumerState<HomePage>
         ),
       ),
       floatingActionButton: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _getCachedOrders(), // 캐싱된 주문 데이터 사용
+        future: _ordersFuture,
         builder: (context, snapshot) {
+          // 로딩 중엔 기존 캐시 데이터로 판단해서 버튼 텍스트 깜빡임 방지
           final hasOrders =
-              snapshot.hasData && (snapshot.data?.isNotEmpty ?? false);
+              snapshot.connectionState == ConnectionState.waiting
+                  ? (_cachedOrders?.isNotEmpty ?? false)
+                  : snapshot.hasData && (snapshot.data?.isNotEmpty ?? false);
           final buttonText = hasOrders ? '수거신청 하기' : '첫 수거신청 하기';
 
           return FloatingActionButton.extended(
@@ -703,17 +712,17 @@ class _HomePageState extends ConsumerState<HomePage>
 
   Widget _buildOptimizedBannerSlider(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: Future.wait([
-        _bannerService.getActiveBanners(),
-        _getCachedOrders(), // 캐싱된 주문 데이터 사용
-      ]).then((results) => results[0]),
+      future: _bannerService.getActiveBanners(),
       builder: (context, bannerSnapshot) {
-        // 캐싱된 주문 데이터 사용
         return FutureBuilder<List<Map<String, dynamic>>>(
-          future: _getCachedOrders(),
+          future: _ordersFuture,
           builder: (context, orderSnapshot) {
-            final hasOrders = orderSnapshot.hasData &&
-                (orderSnapshot.data?.isNotEmpty ?? false);
+            // 로딩 중엔 기존 캐시 데이터로 판단해서 버튼 텍스트 깜빡임 방지
+            final hasOrders =
+                orderSnapshot.connectionState == ConnectionState.waiting
+                    ? (_cachedOrders?.isNotEmpty ?? false)
+                    : orderSnapshot.hasData &&
+                        (orderSnapshot.data?.isNotEmpty ?? false);
 
             // 배너 데이터 로드 중
             if (bannerSnapshot.connectionState == ConnectionState.waiting) {

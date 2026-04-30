@@ -438,7 +438,7 @@ export function RepairTypeStep({
                   {/* 아이콘 */}
                   <div
                     className={cn(
-                      "w-12 h-12 rounded-xl flex items-center justify-center transition-colors overflow-hidden",
+                      "w-16 h-16 rounded-xl flex items-center justify-center transition-colors overflow-hidden",
                       active ? "bg-[#00C896]" : "bg-[#00C896]/10"
                     )}
                   >
@@ -447,20 +447,20 @@ export function RepairTypeStep({
                       <img
                         src={iconSrc}
                         alt={type.name}
-                        className={cn("w-7 h-7 object-contain", active && "brightness-0 invert")}
+                        className={cn("w-10 h-10 object-contain", active && "brightness-0 invert")}
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.style.display = "none";
                           const parent = target.parentElement;
                           if (parent) {
-                            parent.innerHTML = `<svg class="w-6 h-6 ${active ? "text-white" : "text-[#00C896]"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>`;
+                            parent.innerHTML = `<svg class="w-8 h-8 ${active ? "text-white" : "text-[#00C896]"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>`;
                           }
                         }}
                       />
                     ) : (
                       <Scissors
                         className={cn(
-                          "w-6 h-6",
+                          "w-8 h-8",
                           active ? "text-white" : "text-[#00C896]"
                         )}
                       />
@@ -604,13 +604,13 @@ export function RepairTypeStep({
                     >
                       <div
                         className={cn(
-                          "w-12 h-12 rounded-lg flex items-center justify-center",
+                          "w-16 h-16 rounded-lg flex items-center justify-center",
                           isSelected ? "bg-[#00C896]" : "bg-[#00C896]/10"
                         )}
                       >
                         {isSelected ? (
                           <svg
-                            className="w-6 h-6 text-white"
+                            className="w-8 h-8 text-white"
                             viewBox="0 0 24 24"
                             fill="none"
                           >
@@ -623,7 +623,7 @@ export function RepairTypeStep({
                             />
                           </svg>
                         ) : (
-                          <Scissors className="w-6 h-6 text-[#00C896]" />
+                          <Scissors className="w-8 h-8 text-[#00C896]" />
                         )}
                       </div>
                       <p
