@@ -320,7 +320,20 @@ export function RepairTypeStep({
       {/* 헤더 */}
       <div className="px-4 py-4 border-b border-gray-100">
         <h2 className="text-lg font-bold text-gray-900">수선 항목을 선택해주세요</h2>
-        <p className="text-sm text-gray-400 mt-0.5">{clothingType} · 복수 선택 가능</p>
+        <p className="text-xs text-gray-400 mt-0.5">복수 선택 가능</p>
+        {clothingType && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#00C896]/10 text-[#00C896] text-sm font-semibold rounded-full">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/>
+                <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+                <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+                <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+              </svg>
+              {clothingType}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 선택된 항목 */}
@@ -383,9 +396,9 @@ export function RepairTypeStep({
       {/* 수선 종류 그리드 */}
       <div className="px-4 py-3">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
+              <div key={i} className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
             ))}
           </div>
         ) : loadError ? (
@@ -401,12 +414,17 @@ export function RepairTypeStep({
         ) : repairTypes.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">수선 항목이 없습니다</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             {repairTypes.map((type) => {
               const active = isRepairTypeActive(type);
               const displayName = type.sub_type
                 ? `${type.name} (${type.sub_type})`
                 : type.name;
+              const iconSrc = type.icon_name
+                ? type.icon_name.startsWith("http")
+                  ? type.icon_name
+                  : `/icons/${type.icon_name.toLowerCase().replace(/\.svg$/, "")}.svg`
+                : null;
 
               return (
                 <button
@@ -414,7 +432,7 @@ export function RepairTypeStep({
                   onClick={() => handleTapRepairType(type)}
                   disabled={subPartsLoading}
                   className={cn(
-                    "relative flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all text-center min-h-[120px]",
+                    "relative flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all text-center min-h-[110px]",
                     active
                       ? "border-[#00C896] bg-[#00C896]/5"
                       : "border-gray-100 bg-white"
@@ -423,21 +441,29 @@ export function RepairTypeStep({
                   {/* 아이콘 */}
                   <div
                     className={cn(
-                      "w-14 h-14 rounded-xl flex items-center justify-center transition-colors overflow-hidden",
+                      "w-12 h-12 rounded-xl flex items-center justify-center transition-colors overflow-hidden",
                       active ? "bg-[#00C896]" : "bg-[#00C896]/10"
                     )}
                   >
-                    {type.icon_name && type.icon_name.startsWith("http") ? (
+                    {iconSrc ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={type.icon_name}
+                        src={iconSrc}
                         alt={type.name}
-                        className={cn("w-8 h-8 object-contain", active && "brightness-0 invert")}
+                        className={cn("w-7 h-7 object-contain", active && "brightness-0 invert")}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `<svg class="w-6 h-6 ${active ? "text-white" : "text-[#00C896]"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>`;
+                          }
+                        }}
                       />
                     ) : (
                       <Scissors
                         className={cn(
-                          "w-7 h-7",
+                          "w-6 h-6",
                           active ? "text-white" : "text-[#00C896]"
                         )}
                       />
