@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Scissors, X, Minus, Plus, Trash2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RepairItem } from "./OrderNewClient";
+import { InlineSvg } from "@/components/ui/InlineSvg";
 
 interface RepairType {
   id: string;
@@ -48,6 +49,23 @@ interface RepairTypeStepProps {
 
 function formatPrice(price: number) {
   return `${price.toLocaleString("ko-KR")}원`;
+}
+
+function getRepairTypeEmoji(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("허리") || n.includes("웨이스트")) return "📐";
+  if (n.includes("밑단") || n.includes("단") || n.includes("기장")) return "📏";
+  if (n.includes("소매") || n.includes("팔")) return "💪";
+  if (n.includes("어깨")) return "🧍";
+  if (n.includes("품") || n.includes("옆선") || n.includes("사이즈")) return "📏";
+  if (n.includes("지퍼") || n.includes("zip")) return "🔗";
+  if (n.includes("단추") || n.includes("버튼")) return "🔘";
+  if (n.includes("주머니") || n.includes("포켓")) return "🪡";
+  if (n.includes("안감") || n.includes("라이닝")) return "🧵";
+  if (n.includes("수선") || n.includes("수리") || n.includes("보수")) return "🪡";
+  if (n.includes("패치") || n.includes("덧댐")) return "🧵";
+  if (n.includes("줄임") || n.includes("늘임") || n.includes("조절")) return "📐";
+  return "✂️";
 }
 
 export function RepairTypeStep({
@@ -443,27 +461,16 @@ export function RepairTypeStep({
                     )}
                   >
                     {iconSrc ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <InlineSvg
                         src={iconSrc}
-                        alt={type.name}
-                        className={cn("w-10 h-10 object-contain", active && "brightness-0 invert")}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = "none";
-                          const parent = target.parentElement;
-                          if (parent) {
-                            parent.innerHTML = `<svg class="w-8 h-8 ${active ? "text-white" : "text-[#00C896]"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>`;
-                          }
-                        }}
-                      />
-                    ) : (
-                      <Scissors
                         className={cn(
-                          "w-8 h-8",
+                          "w-10 h-10 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full",
                           active ? "text-white" : "text-[#00C896]"
                         )}
+                        fallback={<span className="text-3xl">{getRepairTypeEmoji(type.name)}</span>}
                       />
+                    ) : (
+                      <span className="text-3xl">{getRepairTypeEmoji(type.name)}</span>
                     )}
                   </div>
 
@@ -591,6 +598,11 @@ export function RepairTypeStep({
               <div className="grid grid-cols-3 gap-3">
                 {subPartsModal.subParts.map((part) => {
                   const isSelected = subPartsModal.selectedIds.has(part.id);
+                  const partIconSrc = part.icon_name
+                    ? part.icon_name.startsWith("http")
+                      ? part.icon_name
+                      : `/icons/${part.icon_name.toLowerCase().replace(/\.svg$/, "")}.svg`
+                    : null;
                   return (
                     <button
                       key={part.id}
@@ -604,13 +616,13 @@ export function RepairTypeStep({
                     >
                       <div
                         className={cn(
-                          "w-16 h-16 rounded-lg flex items-center justify-center",
+                          "w-20 h-20 rounded-lg flex items-center justify-center overflow-hidden",
                           isSelected ? "bg-[#00C896]" : "bg-[#00C896]/10"
                         )}
                       >
                         {isSelected ? (
                           <svg
-                            className="w-8 h-8 text-white"
+                            className="w-10 h-10 text-white"
                             viewBox="0 0 24 24"
                             fill="none"
                           >
@@ -622,8 +634,14 @@ export function RepairTypeStep({
                               strokeLinejoin="round"
                             />
                           </svg>
+                        ) : partIconSrc ? (
+                          <InlineSvg
+                            src={partIconSrc}
+                            className="w-12 h-12 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
+                            fallback={<span className="text-3xl">{getRepairTypeEmoji(part.name)}</span>}
+                          />
                         ) : (
-                          <Scissors className="w-8 h-8 text-[#00C896]" />
+                          <span className="text-3xl">{getRepairTypeEmoji(part.name)}</span>
                         )}
                       </div>
                       <p
