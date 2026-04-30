@@ -178,11 +178,9 @@ export function OrderNewClient() {
     const handler = (e: Event) => {
       if (!hasUnsavedWork()) return;
       e.preventDefault();
-      const type = (e as CustomEvent).detail?.type as "back" | "home";
-      pendingExitRef.current = () => {
-        if (type === "home") router.push("/");
-        else router.back();
-      };
+      // back/home 모두 홈으로 이동 (router.back()은 pushState 가드 엔트리로 인해
+      // 동일 URL로 돌아오는 문제가 있어 router.push("/")로 통일)
+      pendingExitRef.current = () => router.push("/");
       setShowExitDialog(true);
     };
     window.addEventListener("modu_before_navigate", handler);
@@ -201,8 +199,9 @@ export function OrderNewClient() {
           window.removeEventListener("popstate", popstateHandlerRef.current);
           popstateHandlerRef.current = null;
         }
-        // pushState를 2번 쌓았으므로 go(-2)로 실제 이전 페이지로 이동
-        window.history.go(-2);
+        // history.go(-2)는 pushState 가드 엔트리 수에 따라 착지 위치가 달라지므로
+        // router.push("/")로 홈으로 직접 이동
+        router.push("/");
       };
       setShowExitDialog(true);
     };
