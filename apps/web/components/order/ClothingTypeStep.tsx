@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -41,18 +41,14 @@ interface ClothingTypeStepProps {
 
 export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selected, setSelected] = useState<string>("");
-  const [selectedId, setSelectedId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   // 소카테고리 단계
   const [subLevel, setSubLevel] = useState<{
     parent: Category;
     children: Category[];
   } | null>(null);
-  const [subSelected, setSubSelected] = useState<string>("");
-  const [subSelectedId, setSubSelectedId] = useState<string>("");
-  const [subLoading, setSubLoading] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -68,11 +64,7 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
         .is("parent_category_id", null)
         .order("display_order", { ascending: true });
 
-      if (data && data.length > 0) {
-        setCategories(data);
-      } else {
-        setCategories(DEFAULT_CATEGORIES);
-      }
+      setCategories(data && data.length > 0 ? data : DEFAULT_CATEGORIES);
     } catch {
       setCategories(DEFAULT_CATEGORIES);
     } finally {
@@ -80,178 +72,147 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
     }
   }
 
-  async function handleNext() {
-    if (!selected || !selectedId) return;
-
-    // 소카테고리가 있는지 확인
-    setSubLoading(true);
+  async function handleSelectCategory(cat: Category) {
+    setLoadingId(cat.id);
     try {
       const supabase = createClient();
       const { data } = await supabase
         .from("repair_categories")
         .select("id, name, icon_name, is_active, display_order")
         .eq("is_active", true)
-        .eq("parent_category_id", selectedId)
+        .eq("parent_category_id", cat.id)
         .order("display_order", { ascending: true });
 
       if (data && data.length > 0) {
-        // 소카테고리가 있으면 2단계로
-        setSubLevel({
-          parent: { id: selectedId, name: selected },
-          children: data,
-        });
-        setSubSelected("");
-        setSubSelectedId("");
+        setSubLevel({ parent: cat, children: data });
       } else {
-        // 소카테고리 없으면 바로 다음 단계
-        onNext(selected, selectedId);
+        onNext(cat.name, cat.id);
       }
     } catch {
-      onNext(selected, selectedId);
+      onNext(cat.name, cat.id);
     } finally {
-      setSubLoading(false);
+      setLoadingId(null);
     }
   }
 
-  function CategoryGrid({
-    items,
-    selectedName,
-    onSelect,
-  }: {
-    items: Category[];
-    selectedName: string;
-    onSelect: (name: string, id: string) => void;
-  }) {
-    return (
-      <div className="grid grid-cols-3 gap-3">
-        {items.map((cat) => {
-          const iconSrc = getIconSrc(cat.icon_name);
-          const isSelected = selectedName === cat.name;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => onSelect(cat.name, cat.id)}
-              className={cn(
-                "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl border-2 transition-all active:scale-95",
-                isSelected
-                  ? "border-[#00C896] bg-[#00C896]/5"
-                  : "border-gray-100 bg-white"
-              )}
-            >
-              {iconSrc ? (
-                <div className="w-9 h-9 flex items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={iconSrc}
-                    alt={cat.name}
-                    width={36}
-                    height={36}
-                    className={cn(
-                      "w-9 h-9 object-contain transition-all",
-                      isSelected
-                        ? "[filter:invert(56%)_sepia(74%)_saturate(442%)_hue-rotate(119deg)_brightness(97%)_contrast(101%)]"
-                        : "[filter:invert(50%)_sepia(0%)_saturate(0%)_brightness(60%)]"
-                    )}
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = "none";
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = `<span class="text-3xl leading-none">${getFallbackEmoji(cat.name)}</span>`;
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                <span className="text-3xl leading-none">
-                  {getFallbackEmoji(cat.name)}
-                </span>
-              )}
-              <span
-                className={cn(
-                  "text-xs font-semibold text-center leading-tight",
-                  isSelected ? "text-[#00C896]" : "text-gray-600"
-                )}
-              >
-                {cat.name}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-
-  // 소카테고리 선택 단계
+  // ── 소카테고리 선택 (2열 큰 카드 그리드) ──────────────────────────────
   if (subLevel) {
     return (
-      <div className="px-4 py-5">
-        <button
-          onClick={() => setSubLevel(null)}
-          className="flex items-center gap-1 text-sm text-gray-500 mb-4 -ml-1"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          {subLevel.parent.name}
-        </button>
-        <h2 className="text-lg font-bold text-gray-900 mb-1">
-          수선 항목을 선택해주세요
-        </h2>
-        <p className="text-sm text-gray-400 mb-5">
-          {subLevel.parent.name}의 수선 항목을 선택해주세요
-        </p>
-        <CategoryGrid
-          items={subLevel.children}
-          selectedName={subSelected}
-          onSelect={(name, id) => {
-            setSubSelected(name);
-            setSubSelectedId(id);
-          }}
-        />
-        <button
-          onClick={() => onNext(subSelected, subSelectedId)}
-          disabled={!subSelected}
-          className="btn-brand w-full py-4 text-base mt-6"
-        >
-          다음
-        </button>
+      <div>
+        <div className="px-4 py-3 border-b border-gray-100">
+          <button
+            onClick={() => setSubLevel(null)}
+            className="flex items-center gap-1 text-sm text-gray-500 active:opacity-60"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            {subLevel.parent.name}
+          </button>
+        </div>
+        <div className="px-4 py-5">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">
+            수선 부위를 선택해주세요
+          </h2>
+          <p className="text-sm text-gray-400 mb-5">
+            {subLevel.parent.name} · 수선 항목을 선택해주세요
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {subLevel.children.map((cat) => {
+              const iconSrc = getIconSrc(cat.icon_name);
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => onNext(cat.name, cat.id)}
+                  className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border-2 border-gray-100 bg-white active:scale-95 active:border-[#00C896] transition-all"
+                >
+                  {iconSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={iconSrc}
+                      alt={cat.name}
+                      className="w-20 h-20 object-contain [filter:invert(50%)_sepia(0%)_saturate(0%)_brightness(60%)]"
+                      onError={(e) => {
+                        const t = e.target as HTMLImageElement;
+                        t.style.display = "none";
+                        const p = t.parentElement;
+                        if (p) p.innerHTML = `<span class="text-4xl">${getFallbackEmoji(cat.name)}</span>`;
+                      }}
+                    />
+                  ) : (
+                    <span className="text-4xl">{getFallbackEmoji(cat.name)}</span>
+                  )}
+                  <span className="text-xs font-semibold text-gray-700 text-center leading-tight">
+                    {cat.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   }
 
-  // 대카테고리 선택 단계
+  // ── 대카테고리 선택 (리스트 형태) ──────────────────────────────────────
   return (
-    <div className="px-4 py-5">
-      <h2 className="text-lg font-bold text-gray-900 mb-1">
-        수선할 의류를 선택해주세요
-      </h2>
-      <p className="text-sm text-gray-400 mb-5">
-        의류 종류에 맞는 수선 메뉴를 제공해드립니다
-      </p>
+    <div>
+      <div className="px-4 pt-5 pb-3">
+        <h2 className="text-lg font-bold text-gray-900">
+          어떤 의류를 수선하시나요?
+        </h2>
+      </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="space-y-px">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />
+            <div key={i} className="h-16 bg-gray-100 mx-4 rounded-xl animate-pulse mb-2" />
           ))}
         </div>
       ) : (
-        <CategoryGrid
-          items={categories}
-          selectedName={selected}
-          onSelect={(name, id) => {
-            setSelected(name);
-            setSelectedId(id);
-          }}
-        />
+        <div className="divide-y divide-gray-100">
+          {categories.map((cat) => {
+            const iconSrc = getIconSrc(cat.icon_name);
+            const isItemLoading = loadingId === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => handleSelectCategory(cat)}
+                disabled={!!loadingId}
+                className={cn(
+                  "w-full flex items-center gap-4 px-4 py-4 bg-white transition-all",
+                  isItemLoading ? "opacity-70" : "active:bg-gray-50"
+                )}
+              >
+                <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                  {iconSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={iconSrc}
+                      alt={cat.name}
+                      className="w-9 h-9 object-contain [filter:invert(50%)_sepia(0%)_saturate(0%)_brightness(60%)]"
+                      onError={(e) => {
+                        const t = e.target as HTMLImageElement;
+                        t.style.display = "none";
+                        const p = t.parentElement;
+                        if (p) p.innerHTML = `<span class="text-2xl">${getFallbackEmoji(cat.name)}</span>`;
+                      }}
+                    />
+                  ) : (
+                    <span className="text-2xl">{getFallbackEmoji(cat.name)}</span>
+                  )}
+                </div>
+                <span className="text-sm font-semibold text-gray-700 flex-1 text-left">
+                  {cat.name}
+                </span>
+                {isItemLoading ? (
+                  <div className="w-4 h-4 border-2 border-[#00C896] border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
       )}
-
-      <button
-        onClick={handleNext}
-        disabled={!selected || subLoading}
-        className="btn-brand w-full py-4 text-base mt-6"
-      >
-        {subLoading ? "확인 중..." : "다음"}
-      </button>
     </div>
   );
 }

@@ -319,21 +319,18 @@ export function RepairTypeStep({
     <div className="relative">
       {/* 헤더 */}
       <div className="px-4 py-4 border-b border-gray-100">
-        <h2 className="text-lg font-bold text-gray-900">수선 항목을 선택해주세요</h2>
-        <p className="text-xs text-gray-400 mt-0.5">복수 선택 가능</p>
         {clothingType && (
-          <div className="mt-2 flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#00C896]/10 text-[#00C896] text-sm font-semibold rounded-full">
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/>
-                <line x1="20" y1="4" x2="8.12" y2="15.88"/>
-                <line x1="14.47" y1="14.48" x2="20" y2="20"/>
-                <line x1="8.12" y1="8.12" x2="12" y2="12"/>
-              </svg>
-              {clothingType}
-            </span>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00C896]/10 rounded-full">
+              <Scissors className="w-3.5 h-3.5 text-[#00C896]" />
+              <span className="text-sm font-semibold text-[#00C896]">{clothingType}</span>
+            </div>
           </div>
         )}
+        <h2 className="text-lg font-bold text-gray-900">
+          {clothingType ? "상세 수선 부위를 선택해주세요" : "수선 항목을 선택해주세요"}
+        </h2>
+        <p className="text-xs text-gray-400 mt-0.5">복수 선택 가능</p>
       </div>
 
       {/* 선택된 항목 */}
