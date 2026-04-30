@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -12,17 +13,13 @@ interface Category {
   display_order?: number;
 }
 
-// icon_name → SVG 경로 또는 URL 반환
 function getIconSrc(iconName?: string): string | null {
   if (!iconName) return null;
-  // URL인 경우 그대로 사용 (관리자에서 업로드한 외부 URL)
   if (iconName.startsWith("http")) return iconName;
-  // 파일명인 경우 public/icons/ 경로 사용
   const cleaned = iconName.toLowerCase().replace(/\.svg$/, "");
   return `/icons/${cleaned}.svg`;
 }
 
-// SVG가 없을 때 사용하는 fallback 이모지
 function getFallbackEmoji(name: string): string {
   const n = name.toLowerCase();
   if (n.includes("tshirt") || n.includes("티셔츠") || n.includes("맨투맨")) return "👕";
@@ -47,6 +44,15 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
   const [selected, setSelected] = useState<string>("");
   const [selectedId, setSelectedId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+
+  // 소카테고리 단계
+  const [subLevel, setSubLevel] = useState<{
+    parent: Category;
+    children: Category[];
+  } | null>(null);
+  const [subSelected, setSubSelected] = useState<string>("");
+  const [subSelectedId, setSubSelectedId] = useState<string>("");
+  const [subLoading, setSubLoading] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -74,6 +80,145 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
     }
   }
 
+  async function handleNext() {
+    if (!selected || !selectedId) return;
+
+    // 소카테고리가 있는지 확인
+    setSubLoading(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("repair_categories")
+        .select("id, name, icon_name, is_active, display_order")
+        .eq("is_active", true)
+        .eq("parent_category_id", selectedId)
+        .order("display_order", { ascending: true });
+
+      if (data && data.length > 0) {
+        // 소카테고리가 있으면 2단계로
+        setSubLevel({
+          parent: { id: selectedId, name: selected },
+          children: data,
+        });
+        setSubSelected("");
+        setSubSelectedId("");
+      } else {
+        // 소카테고리 없으면 바로 다음 단계
+        onNext(selected, selectedId);
+      }
+    } catch {
+      onNext(selected, selectedId);
+    } finally {
+      setSubLoading(false);
+    }
+  }
+
+  function CategoryGrid({
+    items,
+    selectedName,
+    onSelect,
+  }: {
+    items: Category[];
+    selectedName: string;
+    onSelect: (name: string, id: string) => void;
+  }) {
+    return (
+      <div className="grid grid-cols-3 gap-3">
+        {items.map((cat) => {
+          const iconSrc = getIconSrc(cat.icon_name);
+          const isSelected = selectedName === cat.name;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => onSelect(cat.name, cat.id)}
+              className={cn(
+                "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl border-2 transition-all active:scale-95",
+                isSelected
+                  ? "border-[#00C896] bg-[#00C896]/5"
+                  : "border-gray-100 bg-white"
+              )}
+            >
+              {iconSrc ? (
+                <div className="w-9 h-9 flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={iconSrc}
+                    alt={cat.name}
+                    width={36}
+                    height={36}
+                    className={cn(
+                      "w-9 h-9 object-contain transition-all",
+                      isSelected
+                        ? "[filter:invert(56%)_sepia(74%)_saturate(442%)_hue-rotate(119deg)_brightness(97%)_contrast(101%)]"
+                        : "[filter:invert(50%)_sepia(0%)_saturate(0%)_brightness(60%)]"
+                    )}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = "none";
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.innerHTML = `<span class="text-3xl leading-none">${getFallbackEmoji(cat.name)}</span>`;
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <span className="text-3xl leading-none">
+                  {getFallbackEmoji(cat.name)}
+                </span>
+              )}
+              <span
+                className={cn(
+                  "text-xs font-semibold text-center leading-tight",
+                  isSelected ? "text-[#00C896]" : "text-gray-600"
+                )}
+              >
+                {cat.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // 소카테고리 선택 단계
+  if (subLevel) {
+    return (
+      <div className="px-4 py-5">
+        <button
+          onClick={() => setSubLevel(null)}
+          className="flex items-center gap-1 text-sm text-gray-500 mb-4 -ml-1"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          {subLevel.parent.name}
+        </button>
+        <h2 className="text-lg font-bold text-gray-900 mb-1">
+          수선 항목을 선택해주세요
+        </h2>
+        <p className="text-sm text-gray-400 mb-5">
+          {subLevel.parent.name}의 수선 항목을 선택해주세요
+        </p>
+        <CategoryGrid
+          items={subLevel.children}
+          selectedName={subSelected}
+          onSelect={(name, id) => {
+            setSubSelected(name);
+            setSubSelectedId(id);
+          }}
+        />
+        <button
+          onClick={() => onNext(subSelected, subSelectedId)}
+          disabled={!subSelected}
+          className="btn-brand w-full py-4 text-base mt-6"
+        >
+          다음
+        </button>
+      </div>
+    );
+  }
+
+  // 대카테고리 선택 단계
   return (
     <div className="px-4 py-5">
       <h2 className="text-lg font-bold text-gray-900 mb-1">
@@ -90,74 +235,22 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-3">
-          {categories.map((cat) => {
-            const iconSrc = getIconSrc(cat.icon_name);
-            const isSelected = selected === cat.name;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  setSelected(cat.name);
-                  setSelectedId(cat.id);
-                }}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-2 py-5 rounded-2xl border-2 transition-all active:scale-95",
-                  isSelected
-                    ? "border-[#00C896] bg-[#00C896]/5"
-                    : "border-gray-100 bg-white"
-                )}
-              >
-                {iconSrc ? (
-                  <div className="w-9 h-9 flex items-center justify-center">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={iconSrc}
-                      alt={cat.name}
-                      width={36}
-                      height={36}
-                      className={cn(
-                        "w-9 h-9 object-contain transition-all",
-                        isSelected
-                          ? "[filter:invert(56%)_sepia(74%)_saturate(442%)_hue-rotate(119deg)_brightness(97%)_contrast(101%)]"
-                          : "[filter:invert(50%)_sepia(0%)_saturate(0%)_brightness(60%)]"
-                      )}
-                      onError={(e) => {
-                        // SVG 로드 실패 시 이모지로 fallback
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = "none";
-                        const parent = target.parentElement;
-                        if (parent) {
-                          parent.innerHTML = `<span class="text-3xl leading-none">${getFallbackEmoji(cat.name)}</span>`;
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <span className="text-3xl leading-none">
-                    {getFallbackEmoji(cat.name)}
-                  </span>
-                )}
-                <span
-                  className={cn(
-                    "text-xs font-semibold text-center leading-tight",
-                    isSelected ? "text-[#00C896]" : "text-gray-600"
-                  )}
-                >
-                  {cat.name}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <CategoryGrid
+          items={categories}
+          selectedName={selected}
+          onSelect={(name, id) => {
+            setSelected(name);
+            setSelectedId(id);
+          }}
+        />
       )}
 
       <button
-        onClick={() => onNext(selected, selectedId)}
-        disabled={!selected}
+        onClick={handleNext}
+        disabled={!selected || subLoading}
         className="btn-brand w-full py-4 text-base mt-6"
       >
-        다음
+        {subLoading ? "확인 중..." : "다음"}
       </button>
     </div>
   );
