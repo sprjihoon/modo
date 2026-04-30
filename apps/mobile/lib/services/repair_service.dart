@@ -89,13 +89,19 @@ class RepairService {
           .select()
           .eq('is_active', true)
           .isFilter('parent_category_id', null)
-          .order('display_order', ascending: true); // 오름차순 정렬
+          .order('display_order', ascending: true);
 
-      _logger.i('✅ 수선 카테고리 조회 성공: ${response.length}개');
-      // Supabase 응답을 올바르게 캐스팅
-      return (response as List<dynamic>)
+      // isFilter가 PostgREST에서 의도대로 동작하지 않는 경우를 대비해
+      // Dart에서도 parent_category_id == null 인 것만 필터링
+      final all = (response as List<dynamic>)
           .map((e) => e as Map<String, dynamic>)
           .toList();
+      final topLevel =
+          all.where((e) => e['parent_category_id'] == null).toList();
+
+      _logger.i(
+          '✅ 수선 카테고리 조회 성공: 전체 ${all.length}개 → 대카테고리 ${topLevel.length}개');
+      return topLevel;
     } catch (e) {
       _logger.e('❌ 수선 카테고리 조회 실패: $e');
       rethrow;
