@@ -245,25 +245,25 @@ export function OrderNewClient() {
   }
 
   // ── 의류 추가 sub-flow ──────────────────────────────────────────────────
-  // 앱과 동일한 순서: 의류 종류 → 사진+핀+메모 → 수선 항목(주문 입력값)
+  // 순서: 사진+핀+메모 → 의류 종류 → 수선 항목
   function startAddClothing() {
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
+    setMode("addPhoto");
+  }
+
+  function handlePhotoDone(imagesWithPins: ImageWithPins[]) {
+    setStagingImagesWithPins(imagesWithPins);
+    // 사진 다음에 의류 종류 선택
     setMode("addClothing");
   }
 
   function handleClothingDone(type: string, categoryId?: string) {
     setStagingClothingType(type);
     setStagingClothingCategoryId(categoryId);
-    // 사진/핀/메모 단계로 진입
-    setMode("addPhoto");
-  }
-
-  function handlePhotoDone(imagesWithPins: ImageWithPins[]) {
-    setStagingImagesWithPins(imagesWithPins);
-    // 사진/핀/메모 다음에 수선 항목(=주문 입력값) 단계로 진입
+    // 의류 종류 다음에 수선 항목 선택
     setMode("addRepair");
   }
 
@@ -419,10 +419,10 @@ export function OrderNewClient() {
 
   function subHeaderTitle(): string {
     switch (mode) {
-      case "addClothing":
-        return `의류 ${draft.items.length + 1}벌째 · 종류 선택`;
       case "addPhoto":
         return `의류 ${draft.items.length + 1}벌째 · 사진·핀·메모`;
+      case "addClothing":
+        return `의류 ${draft.items.length + 1}벌째 · 종류 선택`;
       case "addRepair":
         return `의류 ${draft.items.length + 1}벌째 · 수선 선택`;
       default:
@@ -431,12 +431,12 @@ export function OrderNewClient() {
   }
 
   function subHeaderBack() {
-    if (mode === "addClothing") {
+    if (mode === "addPhoto") {
       cancelAddClothing();
-    } else if (mode === "addPhoto") {
-      setMode("addClothing");
-    } else if (mode === "addRepair") {
+    } else if (mode === "addClothing") {
       setMode("addPhoto");
+    } else if (mode === "addRepair") {
+      setMode("addClothing");
     }
   }
 
