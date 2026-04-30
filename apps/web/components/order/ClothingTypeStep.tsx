@@ -59,6 +59,7 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
         .from("repair_categories")
         .select("id, name, icon_name, is_active, display_order")
         .eq("is_active", true)
+        .is("parent_category_id", null)
         .order("display_order", { ascending: true });
 
       if (data && data.length > 0) {
