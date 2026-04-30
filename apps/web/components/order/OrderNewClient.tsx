@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ShoppingCart, CreditCard, X, ChevronLeft } from "lucide-react";
 import { ClothingTypeStep } from "./ClothingTypeStep";
+import { SubCategoryStep } from "./SubCategoryStep";
 import { RepairTypeStep } from "./RepairTypeStep";
 import { ImagePinStep } from "./ImagePinStep";
 import { PickupStep } from "./PickupStep";
@@ -50,7 +51,7 @@ export interface OrderDraft {
   remoteAreaFee?: number;
 }
 
-type Mode = "list" | "addClothing" | "addRepair" | "addPhoto" | "pickup";
+type Mode = "list" | "addClothing" | "addPhoto" | "addSubCategory" | "addRepair" | "pickup";
 
 /** 옛 단일 형식 → 신규 items[] 형식 변환 */
 function normalizeDraft(raw: unknown): OrderDraft {
@@ -245,25 +246,35 @@ export function OrderNewClient() {
   }
 
   // ── 의류 추가 sub-flow ──────────────────────────────────────────────────
-  // 순서: 사진+핀+메모 → 의류 종류 → 수선 항목
+  // 순서: 대카테고리 선택 → 사진+핀+메모 → 소카테고리 선택(있으면) → 수선 항목
   function startAddClothing() {
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
-    setMode("addPhoto");
-  }
-
-  function handlePhotoDone(imagesWithPins: ImageWithPins[]) {
-    setStagingImagesWithPins(imagesWithPins);
-    // 사진 다음에 의류 종류 선택
     setMode("addClothing");
   }
 
   function handleClothingDone(type: string, categoryId?: string) {
     setStagingClothingType(type);
     setStagingClothingCategoryId(categoryId);
-    // 의류 종류 다음에 수선 항목 선택
+    // 대카테고리 선택 후 사진 촬영
+    setMode("addPhoto");
+  }
+
+  function handlePhotoDone(imagesWithPins: ImageWithPins[]) {
+    setStagingImagesWithPins(imagesWithPins);
+    // 사진 후 소카테고리 확인 → ClothingTypeStep이 대카테고리만 처리하므로
+    // 소카테고리가 있으면 SubCategoryStep으로, 없으면 바로 수선 항목으로
+    setMode("addSubCategory");
+  }
+
+  function handleSubCategoryDone(type: string, categoryId?: string) {
+    // 소카테고리가 있으면 해당 값으로 덮어쓰기, 없으면 대카테고리 유지
+    if (type && categoryId) {
+      setStagingClothingType(type);
+      setStagingClothingCategoryId(categoryId);
+    }
     setMode("addRepair");
   }
 
@@ -414,15 +425,18 @@ export function OrderNewClient() {
   // pickup 모드는 PickupStep 내부에 자체 헤더와 "이전" 버튼이 있어 별도 표시 안 함.
   const showSubHeader =
     mode === "addClothing" ||
-    mode === "addRepair" ||
-    mode === "addPhoto";
+    mode === "addPhoto" ||
+    mode === "addSubCategory" ||
+    mode === "addRepair";
 
   function subHeaderTitle(): string {
     switch (mode) {
-      case "addPhoto":
-        return `의류 ${draft.items.length + 1}벌째 · 사진·핀·메모`;
       case "addClothing":
         return `의류 ${draft.items.length + 1}벌째 · 종류 선택`;
+      case "addPhoto":
+        return `의류 ${draft.items.length + 1}벌째 · 사진·핀·메모`;
+      case "addSubCategory":
+        return `의류 ${draft.items.length + 1}벌째 · 수선 부위 선택`;
       case "addRepair":
         return `의류 ${draft.items.length + 1}벌째 · 수선 선택`;
       default:
@@ -431,12 +445,14 @@ export function OrderNewClient() {
   }
 
   function subHeaderBack() {
-    if (mode === "addPhoto") {
+    if (mode === "addClothing") {
       cancelAddClothing();
-    } else if (mode === "addClothing") {
+    } else if (mode === "addPhoto") {
+      setMode("addClothing");
+    } else if (mode === "addSubCategory") {
       setMode("addPhoto");
     } else if (mode === "addRepair") {
-      setMode("addClothing");
+      setMode("addSubCategory");
     }
   }
 
@@ -477,6 +493,15 @@ export function OrderNewClient() {
             initialImages={stagingImagesWithPins}
             onNext={handlePhotoDone}
             onBack={() => setMode("addClothing")}
+          />
+        )}
+
+        {mode === "addSubCategory" && (
+          <SubCategoryStep
+            parentCategoryId={stagingClothingCategoryId}
+            parentCategoryName={stagingClothingType}
+            onNext={handleSubCategoryDone}
+            onBack={() => setMode("addPhoto")}
           />
         )}
 

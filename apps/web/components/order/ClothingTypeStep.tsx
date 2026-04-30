@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +31,6 @@ function getFallbackEmoji(name: string): string {
   if (n.includes("outer") || n.includes("아우터") || n.includes("자켓") || n.includes("코트")) return "🧥";
   if (n.includes("suit") || n.includes("정장")) return "👔";
   if (n.includes("sweater") || n.includes("니트") || n.includes("스웨터")) return "🧶";
-  if (n.includes("leather") || n.includes("가죽")) return "🧥";
   return "👕";
 }
 
@@ -43,12 +42,6 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingId, setLoadingId] = useState<string | null>(null);
-
-  // 소카테고리 단계
-  const [subLevel, setSubLevel] = useState<{
-    parent: Category;
-    children: Category[];
-  } | null>(null);
 
   useEffect(() => {
     loadCategories();
@@ -72,87 +65,11 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
     }
   }
 
-  async function handleSelectCategory(cat: Category) {
+  function handleSelect(cat: Category) {
     setLoadingId(cat.id);
-    try {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("repair_categories")
-        .select("id, name, icon_name, is_active, display_order")
-        .eq("is_active", true)
-        .eq("parent_category_id", cat.id)
-        .order("display_order", { ascending: true });
-
-      if (data && data.length > 0) {
-        setSubLevel({ parent: cat, children: data });
-      } else {
-        onNext(cat.name, cat.id);
-      }
-    } catch {
-      onNext(cat.name, cat.id);
-    } finally {
-      setLoadingId(null);
-    }
+    onNext(cat.name, cat.id);
   }
 
-  // ── 소카테고리 선택 (2열 큰 카드 그리드) ──────────────────────────────
-  if (subLevel) {
-    return (
-      <div>
-        <div className="px-4 py-3 border-b border-gray-100">
-          <button
-            onClick={() => setSubLevel(null)}
-            className="flex items-center gap-1 text-sm text-gray-500 active:opacity-60"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            {subLevel.parent.name}
-          </button>
-        </div>
-        <div className="px-4 py-5">
-          <h2 className="text-lg font-bold text-gray-900 mb-1">
-            수선 부위를 선택해주세요
-          </h2>
-          <p className="text-sm text-gray-400 mb-5">
-            {subLevel.parent.name} · 수선 항목을 선택해주세요
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            {subLevel.children.map((cat) => {
-              const iconSrc = getIconSrc(cat.icon_name);
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => onNext(cat.name, cat.id)}
-                  className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border-2 border-gray-100 bg-white active:scale-95 active:border-[#00C896] transition-all"
-                >
-                  {iconSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={iconSrc}
-                      alt={cat.name}
-                      className="w-20 h-20 object-contain [filter:invert(50%)_sepia(0%)_saturate(0%)_brightness(60%)]"
-                      onError={(e) => {
-                        const t = e.target as HTMLImageElement;
-                        t.style.display = "none";
-                        const p = t.parentElement;
-                        if (p) p.innerHTML = `<span class="text-4xl">${getFallbackEmoji(cat.name)}</span>`;
-                      }}
-                    />
-                  ) : (
-                    <span className="text-4xl">{getFallbackEmoji(cat.name)}</span>
-                  )}
-                  <span className="text-xs font-semibold text-gray-700 text-center leading-tight">
-                    {cat.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── 대카테고리 선택 (리스트 형태) ──────────────────────────────────────
   return (
     <div>
       <div className="px-4 pt-5 pb-3">
@@ -162,9 +79,9 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
       </div>
 
       {isLoading ? (
-        <div className="space-y-px">
+        <div className="space-y-2 px-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-16 bg-gray-100 mx-4 rounded-xl animate-pulse mb-2" />
+            <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />
           ))}
         </div>
       ) : (
@@ -175,7 +92,7 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
             return (
               <button
                 key={cat.id}
-                onClick={() => handleSelectCategory(cat)}
+                onClick={() => handleSelect(cat)}
                 disabled={!!loadingId}
                 className={cn(
                   "w-full flex items-center gap-4 px-4 py-4 bg-white transition-all",
@@ -204,7 +121,7 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
                   {cat.name}
                 </span>
                 {isItemLoading ? (
-                  <div className="w-4 h-4 border-2 border-[#00C896] border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-[#00C896] border-t-transparent rounded-full animate-spin shrink-0" />
                 ) : (
                   <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
                 )}

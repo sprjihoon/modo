@@ -81,13 +81,14 @@ class RepairService {
   final _supabase = Supabase.instance.client;
   final _logger = Logger();
 
-  /// 수선 카테고리 목록 조회 (활성 항목만)
+  /// 수선 카테고리 목록 조회 (대카테고리만 - parent_category_id IS NULL)
   Future<List<Map<String, dynamic>>> getCategories() async {
     try {
       final response = await _supabase
           .from('repair_categories')
           .select()
           .eq('is_active', true)
+          .isFilter('parent_category_id', null)
           .order('display_order', ascending: true); // 오름차순 정렬
 
       _logger.i('✅ 수선 카테고리 조회 성공: ${response.length}개');
