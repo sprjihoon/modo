@@ -34,48 +34,86 @@ class SelectRepairPartsPage extends ConsumerStatefulWidget {
 
 class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
   final _repairService = RepairService();
-  List<Map<String, dynamic>> _repairTypes = [];
-  bool _isLoading = true;
 
-  final Set<String> _selectedPartIds = {}; // 다중 선택을 위해 Set 사용
-  final List<Map<String, dynamic>> _selectedItems = []; // 선택한 항목들
+  // 소카테고리 단계
+  List<Map<String, dynamic>> _subCategories = [];
+  bool _isLoadingSubCategories = true;
+
+  // 소카테고리 선택 후 수선 항목 단계
+  String? _selectedSubCategoryId;
+  String? _selectedSubCategoryName;
+  List<Map<String, dynamic>> _repairTypes = [];
+  bool _isLoadingRepairTypes = false;
+
+  final Set<String> _selectedPartIds = {};
+  final List<Map<String, dynamic>> _selectedItems = [];
 
   @override
   void initState() {
     super.initState();
-    _loadRepairTypes();
+    _loadSubCategories();
   }
 
-  /// DB에서 수선 종류 로드
-  Future<void> _loadRepairTypes() async {
-    debugPrint('🔍 수선 종류 로드 시작');
-    debugPrint('  categoryId: ${widget.categoryId}');
-    debugPrint('  categoryName: ${widget.categoryName}');
-
+  /// 소카테고리 로드 (대카테고리의 자식 카테고리)
+  Future<void> _loadSubCategories() async {
     if (widget.categoryId == null) {
-      debugPrint('⚠️ categoryId가 null입니다');
-      setState(() => _isLoading = false);
+      setState(() => _isLoadingSubCategories = false);
       return;
     }
-
     try {
-      debugPrint('📡 DB 조회 시작: category_id = ${widget.categoryId}');
-      final types =
-          await _repairService.getRepairTypesByCategory(widget.categoryId!);
-      debugPrint('✅ 수선 종류 ${types.length}개 로드 완료');
+      final response = await supabase
+          .from('repair_categories')
+          .select('id, name, icon_name, display_order')
+          .eq('is_active', true)
+          .eq('parent_category_id', widget.categoryId!)
+          .order('display_order', ascending: true);
 
+      final subs = List<Map<String, dynamic>>.from(response);
+
+      if (mounted) {
+        if (subs.isEmpty) {
+          // 소카테고리 없음 → 대카테고리로 바로 수선 항목 로드
+          setState(() => _isLoadingSubCategories = false);
+          await _loadRepairTypes(widget.categoryId!);
+        } else {
+          setState(() {
+            _subCategories = subs;
+            _isLoadingSubCategories = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ 소카테고리 로드 실패: $e');
+      if (mounted) setState(() => _isLoadingSubCategories = false);
+    }
+  }
+
+  /// 소카테고리 선택 후 수선 항목 로드
+  Future<void> _loadRepairTypes(String categoryId) async {
+    setState(() => _isLoadingRepairTypes = true);
+    try {
+      final types = await _repairService.getRepairTypesByCategory(categoryId);
       if (mounted) {
         setState(() {
           _repairTypes = types;
-          _isLoading = false;
+          _isLoadingRepairTypes = false;
         });
       }
     } catch (e) {
       debugPrint('❌ 수선 종류 로드 실패: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoadingRepairTypes = false);
     }
+  }
+
+  void _selectSubCategory(Map<String, dynamic> sub) {
+    setState(() {
+      _selectedSubCategoryId = sub['id'] as String;
+      _selectedSubCategoryName = sub['name'] as String;
+      _repairTypes = [];
+      _selectedPartIds.clear();
+      _selectedItems.clear();
+    });
+    _loadRepairTypes(_selectedSubCategoryId!);
   }
 
   // 전체 핀 개수 계산
@@ -542,36 +580,168 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const ModoAppBar(
-        title: Text(
+      appBar: ModoAppBar(
+        title: const Text(
           '수선',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
+        onBack: _selectedSubCategoryId != null && _subCategories.isNotEmpty
+            ? () => setState(() {
+                  _selectedSubCategoryId = null;
+                  _selectedSubCategoryName = null;
+                  _repairTypes = [];
+                  _selectedPartIds.clear();
+                  _selectedItems.clear();
+                })
+            : null,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 헤더
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '수선 부위를 선택해주세요.',
-                          style: TextStyle(
-                            fontSize: 24,
+      body: _isLoadingSubCategories
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C896)),
+              ),
+            )
+          // 소카테고리가 있고 아직 선택 안 한 경우 → 소카테고리 그리드
+          : _subCategories.isNotEmpty && _selectedSubCategoryId == null
+              ? _buildSubCategoryGrid()
+              : _buildRepairTypesBody(),
+    );
+  }
+
+  /// 소카테고리 선택 그리드
+  Widget _buildSubCategoryGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
+          child: Text(
+            '수선 부위를 선택해주세요',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Text(
+            widget.categoryName ?? '',
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.9,
+            ),
+            itemCount: _subCategories.length,
+            itemBuilder: (context, index) {
+              final sub = _subCategories[index];
+              final iconName = sub['icon_name'] as String?;
+              return InkWell(
+                onTap: () => _selectSubCategory(sub),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    border: Border.all(color: Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00C896).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: CategoryIconWidget(
+                            iconName: iconName,
+                            size: 40,
+                            color: const Color(0xFF00C896),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          sub['name'] as String,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: Colors.black87,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 수선 항목 그리드 (소카테고리 선택 후)
+  Widget _buildRepairTypesBody() {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 헤더
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_selectedSubCategoryName != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00C896).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            _selectedSubCategoryName!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF00C896),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      const Text(
+                        '상세 수선 부위를 선택해주세요.',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
                         if (widget.imagesWithPins != null &&
                             widget.imagesWithPins!.isNotEmpty) ...[
                           const SizedBox(height: 12),
@@ -616,7 +786,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                   // 수선 부위 그리드 (DB에서 로드)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _isLoading
+                    child: _isLoadingRepairTypes
                         ? const Center(
                             child: Padding(
                               padding: EdgeInsets.all(40),
@@ -1004,8 +1174,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   /// 사진 미리보기 섹션 (핀과 메모 표시)
