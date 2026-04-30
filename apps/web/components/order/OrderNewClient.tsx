@@ -201,7 +201,8 @@ export function OrderNewClient() {
           window.removeEventListener("popstate", popstateHandlerRef.current);
           popstateHandlerRef.current = null;
         }
-        window.history.back();
+        // pushState를 2번 쌓았으므로 go(-2)로 실제 이전 페이지로 이동
+        window.history.go(-2);
       };
       setShowExitDialog(true);
     };
@@ -429,21 +430,6 @@ export function OrderNewClient() {
     mode === "addSubCategory" ||
     mode === "addRepair";
 
-  function subHeaderTitle(): string {
-    switch (mode) {
-      case "addClothing":
-        return `의류 ${draft.items.length + 1}벌째 · 종류 선택`;
-      case "addPhoto":
-        return `의류 ${draft.items.length + 1}벌째 · 사진·핀·메모`;
-      case "addSubCategory":
-        return `의류 ${draft.items.length + 1}벌째 · 수선 부위 선택`;
-      case "addRepair":
-        return `의류 ${draft.items.length + 1}벌째 · 수선 선택`;
-      default:
-        return "";
-    }
-  }
-
   function subHeaderBack() {
     if (mode === "addClothing") {
       cancelAddClothing();
@@ -459,7 +445,7 @@ export function OrderNewClient() {
   return (
     <div>
       {showSubHeader && (
-        <div className="flex items-center px-3 py-2.5 border-b border-gray-100 gap-2">
+        <div className="flex items-center px-3 py-2 border-b border-gray-100">
           <button
             type="button"
             onClick={subHeaderBack}
@@ -468,7 +454,6 @@ export function OrderNewClient() {
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <p className="text-sm font-bold text-gray-800">{subHeaderTitle()}</p>
         </div>
       )}
 
