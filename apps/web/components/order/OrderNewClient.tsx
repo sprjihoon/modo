@@ -131,6 +131,13 @@ export function OrderNewClient() {
     stagingImagesWithPins,
   };
 
+  // 현재 mode를 이벤트 핸들러에서 stale 없이 읽기 위한 ref (매 렌더마다 동기화)
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
+  // 현재 단계에서 한 단계 뒤로 이동하는 함수 ref
+  const stepBackRef = useRef<() => void>(() => {});
+
   const popstateHandlerRef = useRef<(() => void) | null>(null);
 
   // 작업 진행 중 여부 (이탈 가드 기준)
@@ -176,10 +183,19 @@ export function OrderNewClient() {
   // ── 이탈 방지: modu_before_navigate ─────────────────────────────────────
   useEffect(() => {
     const handler = (e: Event) => {
+      const type = (e as CustomEvent).detail?.type as "back" | "home";
+      const currentMode = modeRef.current;
+
+      // sub-flow 단계(list 제외)에서 뒤로가기 → 이탈 다이얼로그 없이 이전 단계로
+      if (type === "back" && currentMode !== "list") {
+        e.preventDefault();
+        stepBackRef.current();
+        return;
+      }
+
+      // 홈 버튼 또는 list 모드에서 뒤로가기 → 미저장 작업 있으면 이탈 다이얼로그
       if (!hasUnsavedWork()) return;
       e.preventDefault();
-      // back/home 모두 홈으로 이동 (router.back()은 pushState 가드 엔트리로 인해
-      // 동일 URL로 돌아오는 문제가 있어 router.push("/")로 통일)
       pendingExitRef.current = () => router.push("/");
       setShowExitDialog(true);
     };
@@ -192,15 +208,23 @@ export function OrderNewClient() {
     window.history.pushState({ orderFlowGuard: true }, "");
 
     const handler = () => {
-      if (!hasUnsavedWork()) return;
+      const currentMode = modeRef.current;
+      // 가드 엔트리를 다시 쌓아 페이지를 유지
       window.history.pushState({ orderFlowGuard: true }, "");
+
+      // sub-flow 단계에서 브라우저 뒤로가기 → 이전 단계로 이동
+      if (currentMode !== "list") {
+        stepBackRef.current();
+        return;
+      }
+
+      // list 모드에서 브라우저 뒤로가기 → 이탈 확인
+      if (!hasUnsavedWork()) return;
       pendingExitRef.current = () => {
         if (popstateHandlerRef.current) {
           window.removeEventListener("popstate", popstateHandlerRef.current);
           popstateHandlerRef.current = null;
         }
-        // history.go(-2)는 pushState 가드 엔트리 수에 따라 착지 위치가 달라지므로
-        // router.push("/")로 홈으로 직접 이동
         router.push("/");
       };
       setShowExitDialog(true);
@@ -437,9 +461,15 @@ export function OrderNewClient() {
     } else if (mode === "addSubCategory") {
       setMode("addPhoto");
     } else if (mode === "addRepair") {
-      setMode("addSubCategory");
+      // addSubCategory는 소카테고리 없을 때 자동 통과하므로 addPhoto로 이동
+      setMode("addPhoto");
+    } else if (mode === "pickup") {
+      setMode("list");
     }
   }
+
+  // stepBackRef를 항상 최신 subHeaderBack으로 동기화 (매 렌더마다)
+  stepBackRef.current = subHeaderBack;
 
   return (
     <div>
