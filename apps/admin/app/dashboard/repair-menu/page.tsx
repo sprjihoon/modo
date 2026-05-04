@@ -211,7 +211,7 @@ export default function RepairMenuPage() {
         <div>
           <h1 className="text-3xl font-bold">수선 메뉴 관리</h1>
           <p className="text-muted-foreground mt-2">
-            대카테고리(상의/하의/공통) → 소카테고리 → 수선항목 순으로 구성합니다
+            대카테고리(상의/하의 등) → 세부항목(가격+치수) 2단계 구조로 구성합니다
           </p>
         </div>
         <div className="flex gap-2">
@@ -252,7 +252,7 @@ export default function RepairMenuPage() {
                   <div>
                     <span className="text-lg font-bold">{main.name}</span>
                     <span className="ml-2 text-sm text-muted-foreground">
-                      소카테고리 {main.sub_categories?.length || 0}개
+                      세부항목 {main.sub_categories?.length || 0}개
                     </span>
                   </div>
                   {!main.is_active && <Badge variant="secondary">비활성</Badge>}
@@ -267,11 +267,11 @@ export default function RepairMenuPage() {
                     </Button>
                   </div>
                   <EditCategoryDialog category={main} onUpdated={loadData} />
-                  {/* 소카테고리 추가 */}
+                  {/* 세부항목 추가 */}
                   <AddCategoryDialog
                     onAdded={loadData}
                     parentCategoryId={main.id}
-                    label="+ 소카테고리"
+                    label="+ 세부항목"
                   />
                   <Button variant="outline" size="sm" onClick={() => deleteCategory(main.id)}>
                     <Trash2 className="h-4 w-4" />
@@ -279,29 +279,61 @@ export default function RepairMenuPage() {
                 </div>
               </div>
 
-              {/* 소카테고리 목록 */}
-              <div className="p-4 space-y-3 bg-white">
+              {/* 세부항목/소카테고리 목록 */}
+              <div className="p-4 bg-white">
                 {(main.sub_categories || []).length === 0 ? (
                   <div className="py-6 text-center text-muted-foreground text-sm border border-dashed rounded-lg">
-                    소카테고리가 없습니다. &ldquo;+ 소카테고리&rdquo; 버튼으로 추가하세요.
+                    세부항목이 없습니다. &ldquo;+ 세부항목&rdquo; 버튼으로 가격·치수 항목을 추가하세요.
                   </div>
-                ) : (
-                  (main.sub_categories || []).map((sub, subIdx) => (
-                    <SubCategoryCard
-                      key={sub.id}
-                      category={sub}
-                      index={subIdx}
-                      total={(main.sub_categories || []).length}
-                      expanded={expandedCategories.has(sub.id)}
-                      onToggle={() => toggleCategory(sub.id)}
-                      onMoveUp={() => moveCategoryOrder(sub.id, 'up')}
-                      onMoveDown={() => moveCategoryOrder(sub.id, 'down')}
-                      onDelete={() => deleteCategory(sub.id)}
-                      onDeleteType={deleteRepairType}
-                      onReload={loadData}
-                    />
-                  ))
-                )}
+                ) : (() => {
+                  const subs = main.sub_categories || [];
+                  const directItems = subs.filter(s => s.price != null);
+                  const legacySubs = subs.filter(s => s.price == null);
+                  return (
+                    <div className="space-y-2">
+                      {/* 직접가격 세부항목 (2단계 구조) */}
+                      {directItems.length > 0 && (
+                        <div className="space-y-2">
+                          {directItems.map((sub, subIdx) => (
+                            <DirectItemCard
+                              key={sub.id}
+                              category={sub}
+                              index={subIdx}
+                              total={directItems.length}
+                              onMoveUp={() => moveCategoryOrder(sub.id, 'up')}
+                              onMoveDown={() => moveCategoryOrder(sub.id, 'down')}
+                              onDelete={() => deleteCategory(sub.id)}
+                              onReload={loadData}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {/* 레거시 소카테고리 (3단계 구조) */}
+                      {legacySubs.length > 0 && (
+                        <div className="space-y-2">
+                          {directItems.length > 0 && (
+                            <p className="text-xs text-muted-foreground px-1 pt-2">── 레거시 소카테고리 (수선항목 테이블 연결)</p>
+                          )}
+                          {legacySubs.map((sub, subIdx) => (
+                            <SubCategoryCard
+                              key={sub.id}
+                              category={sub}
+                              index={subIdx}
+                              total={legacySubs.length}
+                              expanded={expandedCategories.has(sub.id)}
+                              onToggle={() => toggleCategory(sub.id)}
+                              onMoveUp={() => moveCategoryOrder(sub.id, 'up')}
+                              onMoveDown={() => moveCategoryOrder(sub.id, 'down')}
+                              onDelete={() => deleteCategory(sub.id)}
+                              onDeleteType={deleteRepairType}
+                              onReload={loadData}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))}
@@ -339,7 +371,70 @@ export default function RepairMenuPage() {
   );
 }
 
-// ── 소카테고리 카드 컴포넌트 ──
+// ── 세부항목(직접가격) 카드 ──
+function DirectItemCard({
+  category,
+  index,
+  total,
+  onMoveUp,
+  onMoveDown,
+  onDelete,
+  onReload,
+}: {
+  category: RepairCategory;
+  index: number;
+  total: number;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onDelete: () => void;
+  onReload: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <GripVertical className="h-4 w-4 text-gray-400 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-sm">{category.name}</span>
+            {category.price != null && (
+              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                {category.price_range || `${category.price.toLocaleString()}원`}
+              </span>
+            )}
+            {category.requires_measurement && (
+              <span className="text-xs text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">
+                치수 입력
+              </span>
+            )}
+            {!category.is_active && <Badge variant="secondary">비활성</Badge>}
+          </div>
+          {category.description && (
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">{category.description}</p>
+          )}
+          {category.requires_measurement && category.input_labels && category.input_labels.length > 0 && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              입력: {Array.isArray(category.input_labels) ? category.input_labels.join(", ") : category.input_labels}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="flex gap-1 shrink-0">
+        <Button variant="outline" size="sm" onClick={onMoveUp} disabled={index === 0}>
+          <ArrowUp className="h-3 w-3" />
+        </Button>
+        <Button variant="outline" size="sm" onClick={onMoveDown} disabled={index === total - 1}>
+          <ArrowDown className="h-3 w-3" />
+        </Button>
+        <EditCategoryDialog category={category} onUpdated={onReload} />
+        <Button variant="outline" size="sm" onClick={onDelete}>
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── 소카테고리 카드 컴포넌트 (레거시 3단계 구조용) ──
 function SubCategoryCard({
   category,
   index,
@@ -394,7 +489,10 @@ function SubCategoryCard({
               <ArrowDown className="h-3 w-3" />
             </Button>
             <EditCategoryDialog category={category} onUpdated={onReload} />
-            <AddRepairTypeDialog categoryId={category.id} categoryName={category.name} onAdded={onReload} />
+            {/* 직접가격 세부항목에는 repair_types 불필요 */}
+            {category.price == null && (
+              <AddRepairTypeDialog categoryId={category.id} categoryName={category.name} onAdded={onReload} />
+            )}
             <Button variant="outline" size="sm" onClick={onDelete}>
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -897,12 +995,13 @@ function AddCategoryDialog({
 
   // 직접 가격/치수 (소카테고리에만 표시)
   const isSubCat = !isMainCategory;
-  const [hasDirectPrice, setHasDirectPrice] = useState(false);
+  // 대카테고리 하위 추가 시 직접가격이 기본값 (세부항목 구조)
+  const [hasDirectPrice, setHasDirectPrice] = useState(!!parentCategoryId);
   const [price, setPrice] = useState("");
   const [priceRange, setPriceRange] = useState("");
   const [description, setDescription] = useState("");
   const [subSelectionLabel, setSubSelectionLabel] = useState("");
-  const [requiresMeasurement, setRequiresMeasurement] = useState(false);
+  const [requiresMeasurement, setRequiresMeasurement] = useState(!!parentCategoryId);
   const [inputCount, setInputCount] = useState(1);
   const [inputLabels, setInputLabels] = useState<string[]>(["치수 (cm)"]);
 
@@ -954,7 +1053,7 @@ function AddCategoryDialog({
         parent_category_id: parentCategoryId || null,
       };
 
-      if (isSubCat) {
+      if (isSubCat && !parentCategoryId) {
         body.sub_selection_label = subSelectionLabel || null;
       }
       if (isSubCat && hasDirectPrice) {
@@ -985,12 +1084,12 @@ function AddCategoryDialog({
       setOpen(false);
       setName("");
       setIconName("");
-      setHasDirectPrice(false);
+      setHasDirectPrice(!!parentCategoryId);
       setPrice("");
       setPriceRange("");
       setDescription("");
       setSubSelectionLabel("");
-      setRequiresMeasurement(false);
+      setRequiresMeasurement(!!parentCategoryId);
       setInputCount(1);
       setInputLabels(["치수 (cm)"]);
       onAdded();
@@ -1002,13 +1101,13 @@ function AddCategoryDialog({
     }
   };
 
-  const dialogTitle = isMainCategory ? '대카테고리 추가' : parentCategoryId ? '소카테고리 추가' : '카테고리 추가';
+  const dialogTitle = isMainCategory ? '대카테고리 추가' : parentCategoryId ? '세부항목 추가' : '카테고리 추가';
   const dialogDesc = isMainCategory
-    ? '상의·하의·공통사항 등 대분류를 추가합니다'
+    ? '상의·하의 등 대분류를 추가합니다'
     : parentCategoryId
-    ? '이 대카테고리 하위에 소카테고리를 추가합니다'
+    ? '선택 시 가격과 치수를 직접 입력받는 세부항목을 추가합니다'
     : '새로운 카테고리를 추가합니다';
-  const placeholder = isMainCategory ? '예: 상의, 하의, 공통사항' : '예: 아우터, 청바지';
+  const placeholder = isMainCategory ? '예: 상의, 하의, 원피스' : '예: 어깨줄임, 소매기장, 밑단줄임';
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -1109,36 +1208,26 @@ function AddCategoryDialog({
             </div>
           </div>
 
-          {/* 소카테고리 전용 설정 */}
+          {/* 세부항목 설정 (대카테고리 하위 추가 시 항상 표시) */}
           {isSubCat && (
             <div className="space-y-4 pt-2 border-t">
-              <div>
-                <Label htmlFor="add-sub-selection-label">세부항목 선택 안내 문구 (선택)</Label>
-                <Input
-                  id="add-sub-selection-label"
-                  placeholder="예: 들이고자 하는 단면 사이즈를 입력해주세요."
-                  value={subSelectionLabel}
-                  onChange={(e) => setSubSelectionLabel(e.target.value)}
-                  className="mt-1"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  이 카테고리 선택 후 세부항목이 있을 때 표시되는 안내 문구입니다.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="add-has-direct-price"
-                  checked={hasDirectPrice}
-                  onChange={(e) => setHasDirectPrice(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <Label htmlFor="add-has-direct-price" className="cursor-pointer font-semibold">
-                  직접 가격 설정 (이 카테고리 선택 시 바로 주문 항목으로 추가)
-                </Label>
-              </div>
+              {/* 대카테고리 하위(세부항목)가 아닌 경우에만 선택 체크박스 표시 */}
+              {!parentCategoryId && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="add-has-direct-price"
+                    checked={hasDirectPrice}
+                    onChange={(e) => setHasDirectPrice(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="add-has-direct-price" className="cursor-pointer font-semibold">
+                    직접 가격 설정 (이 카테고리 선택 시 바로 주문 항목으로 추가)
+                  </Label>
+                </div>
+              )}
               {hasDirectPrice && (
-                <div className="space-y-3 pl-6">
+                <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="add-cat-price">가격 (원) *</Label>
@@ -1183,7 +1272,7 @@ function AddCategoryDialog({
                       className="w-4 h-4"
                     />
                     <Label htmlFor="add-requires-measurement" className="cursor-pointer">
-                      수치 입력 필요
+                      치수 입력 필요
                     </Label>
                   </div>
                   {requiresMeasurement && (
@@ -1221,6 +1310,19 @@ function AddCategoryDialog({
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+              {/* 레거시 소카테고리 전용 (대카테고리 하위가 아닌 경우) */}
+              {!parentCategoryId && (
+                <div>
+                  <Label htmlFor="add-sub-selection-label">세부항목 선택 안내 문구 (선택)</Label>
+                  <Input
+                    id="add-sub-selection-label"
+                    placeholder="예: 들이고자 하는 단면 사이즈를 입력해주세요."
+                    value={subSelectionLabel}
+                    onChange={(e) => setSubSelectionLabel(e.target.value)}
+                    className="mt-1"
+                  />
                 </div>
               )}
             </div>
