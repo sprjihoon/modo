@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // @ts-expect-error: dynamic payload with extra fields not in generated types
     const { data, error } = await supabaseAdmin
       .from("repair_categories")
       .insert(insertPayload)
@@ -126,7 +125,6 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // @ts-expect-error: dynamic payload with extra fields not in generated types
     const { data, error } = await supabaseAdmin
       .from("repair_categories")
       .update(updatePayload)
