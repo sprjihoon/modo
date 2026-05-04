@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const insertPayload: Record<string, unknown> = {
+    const insertPayload: Record<string, any> = {
       name,
       icon_name: icon_name || null,
       display_order: display_order || 999,
@@ -110,7 +110,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updatePayload: Record<string, unknown> = {
+    const updatePayload: Record<string, any> = {
       name,
       icon_name: icon_name || null,
     };

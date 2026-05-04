@@ -540,6 +540,7 @@ function EditCategoryDialog({
       : ["치수 (cm)"]
   );
   const [hasDirectPrice, setHasDirectPrice] = useState(category.price != null);
+  const [subSelectionLabel, setSubSelectionLabel] = useState(category.sub_selection_label || "");
 
   // icon_name이 URL인지 확인
   const isIconUrl = iconName.startsWith("http");
@@ -589,6 +590,7 @@ function EditCategoryDialog({
       };
 
       if (isSubCategory) {
+        body.sub_selection_label = subSelectionLabel || null;
         if (hasDirectPrice) {
           body.price = price ? parseInt(price) : null;
           body.price_range = priceRange || null;
@@ -731,9 +733,22 @@ function EditCategoryDialog({
             </div>
           </div>
 
-          {/* 직접 가격/치수 설정 (소카테고리만 표시) */}
+          {/* 소카테고리 전용 설정 */}
           {isSubCategory && (
             <div className="space-y-4 pt-2 border-t">
+              <div>
+                <Label htmlFor="edit-sub-selection-label">세부항목 선택 안내 문구 (선택)</Label>
+                <Input
+                  id="edit-sub-selection-label"
+                  placeholder="예: 들이고자 하는 단면 사이즈를 입력해주세요."
+                  value={subSelectionLabel}
+                  onChange={(e) => setSubSelectionLabel(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  이 카테고리 선택 후 세부항목이 있을 때 표시되는 안내 문구입니다.
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -886,6 +901,7 @@ function AddCategoryDialog({
   const [price, setPrice] = useState("");
   const [priceRange, setPriceRange] = useState("");
   const [description, setDescription] = useState("");
+  const [subSelectionLabel, setSubSelectionLabel] = useState("");
   const [requiresMeasurement, setRequiresMeasurement] = useState(false);
   const [inputCount, setInputCount] = useState(1);
   const [inputLabels, setInputLabels] = useState<string[]>(["치수 (cm)"]);
@@ -938,6 +954,9 @@ function AddCategoryDialog({
         parent_category_id: parentCategoryId || null,
       };
 
+      if (isSubCat) {
+        body.sub_selection_label = subSelectionLabel || null;
+      }
       if (isSubCat && hasDirectPrice) {
         body.price = price ? parseInt(price) : null;
         body.price_range = priceRange || null;
@@ -970,6 +989,7 @@ function AddCategoryDialog({
       setPrice("");
       setPriceRange("");
       setDescription("");
+      setSubSelectionLabel("");
       setRequiresMeasurement(false);
       setInputCount(1);
       setInputLabels(["치수 (cm)"]);
@@ -1089,9 +1109,22 @@ function AddCategoryDialog({
             </div>
           </div>
 
-          {/* 직접 가격/치수 설정 (소카테고리만 표시) */}
+          {/* 소카테고리 전용 설정 */}
           {isSubCat && (
             <div className="space-y-4 pt-2 border-t">
+              <div>
+                <Label htmlFor="add-sub-selection-label">세부항목 선택 안내 문구 (선택)</Label>
+                <Input
+                  id="add-sub-selection-label"
+                  placeholder="예: 들이고자 하는 단면 사이즈를 입력해주세요."
+                  value={subSelectionLabel}
+                  onChange={(e) => setSubSelectionLabel(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  이 카테고리 선택 후 세부항목이 있을 때 표시되는 안내 문구입니다.
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
