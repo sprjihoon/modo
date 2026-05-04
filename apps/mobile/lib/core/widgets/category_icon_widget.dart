@@ -51,11 +51,10 @@ class CategoryIconWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // color가 null이면 SVG 원본 색상 그대로 표시 (웹과 동일한 동작)
-    // color가 지정된 경우에만 ColorFilter 적용 (예: 선택 시 Colors.white)
+    // color가 null이면 기본 grey.shade600 으로 ColorFilter 적용 (웹의 text-gray-500 동작과 동일)
+    // color가 지정된 경우 해당 색상으로 ColorFilter 적용 (예: 선택 시 Colors.white)
     final effectiveColor = color ?? Colors.grey.shade600;
-    final colorFilter =
-        color != null ? ColorFilter.mode(color!, BlendMode.srcIn) : null;
+    final colorFilter = ColorFilter.mode(effectiveColor, BlendMode.srcIn);
 
     // icon_name이 없으면 기본 아이콘
     if (iconName == null || iconName!.isEmpty) {
@@ -208,8 +207,7 @@ class NetworkCategoryIconWidget extends StatelessWidget {
       NoCacheSvgLoader(iconUrl!),
       width: size,
       height: size,
-      colorFilter:
-          color != null ? ColorFilter.mode(color!, BlendMode.srcIn) : null,
+      colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
       placeholderBuilder: (context) => SizedBox(
         width: size,
         height: size,

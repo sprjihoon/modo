@@ -103,9 +103,10 @@ export default function WorkPage() {
           const s = raw.trim();
           if (s.startsWith("{")) {
             try {
-              const obj = JSON.parse(s) as { name?: string; quantity?: number };
+              const obj = JSON.parse(s) as { name?: string; quantity?: number; detail?: string };
               const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
-              return `${obj.name ?? s}${qty}`;
+              const detail = obj.detail ? ` [${obj.detail}]` : "";
+              return `${obj.name ?? s}${qty}${detail}`;
             } catch {
               return s;
             }
@@ -113,9 +114,10 @@ export default function WorkPage() {
           return s;
         }
         if (typeof raw === "object") {
-          const obj = raw as { name?: string; quantity?: number };
+          const obj = raw as { name?: string; quantity?: number; detail?: string };
           const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
-          return `${obj.name ?? ""}${qty}`;
+          const detail = obj.detail ? ` [${obj.detail}]` : "";
+          return `${obj.name ?? ""}${qty}${detail}`;
         }
         return String(raw);
       };

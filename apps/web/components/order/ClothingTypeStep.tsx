@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { InlineSvg } from "@/components/ui/InlineSvg";
 
 interface Category {
   id: string;
@@ -101,17 +102,10 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
               >
                 <div className="w-10 h-10 flex items-center justify-center shrink-0">
                   {iconSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <InlineSvg
                       src={iconSrc}
-                      alt={cat.name}
-                      className="w-9 h-9 object-contain [filter:invert(50%)_sepia(0%)_saturate(0%)_brightness(60%)]"
-                      onError={(e) => {
-                        const t = e.target as HTMLImageElement;
-                        t.style.display = "none";
-                        const p = t.parentElement;
-                        if (p) p.innerHTML = `<span class="text-2xl">${getFallbackEmoji(cat.name)}</span>`;
-                      }}
+                      className="w-9 h-9 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
+                      fallback={<span className="text-2xl">{getFallbackEmoji(cat.name)}</span>}
                     />
                   ) : (
                     <span className="text-2xl">{getFallbackEmoji(cat.name)}</span>

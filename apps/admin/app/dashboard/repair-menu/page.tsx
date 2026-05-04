@@ -17,6 +17,14 @@ interface RepairCategory {
   icon_name?: string;
   is_active: boolean;
   parent_category_id?: string | null;
+  // 직접 가격/치수 필드 (소카테고리가 수선 항목 역할을 겸할 때 사용)
+  price?: number | null;
+  price_range?: string | null;
+  requires_measurement?: boolean;
+  input_count?: number;
+  input_labels?: string[] | null;
+  description?: string | null;
+  sub_selection_label?: string | null;
   repair_types?: RepairType[];
   sub_categories?: RepairCategory[];
 }
@@ -359,7 +367,7 @@ function SubCategoryCard({
     <Card className="shadow-none border border-gray-200">
       <CardHeader className="py-3 px-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onToggle} className="h-7 w-7 p-0">
               {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
@@ -369,6 +377,12 @@ function SubCategoryCard({
               <span className="ml-2 text-xs text-muted-foreground">
                 {category.repair_types?.length || 0}개 항목
               </span>
+              {category.price != null && (
+                <span className="ml-2 text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
+                  직접가격 {category.price.toLocaleString()}원
+                  {category.requires_measurement && " · 수치입력"}
+                </span>
+              )}
             </div>
             {!category.is_active && <Badge variant="secondary">비활성</Badge>}
           </div>
@@ -513,8 +527,22 @@ function EditCategoryDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
+  // 직접 가격/치수 필드 (소카테고리용)
+  const isSubCategory = !!category.parent_category_id;
+  const [price, setPrice] = useState(category.price != null ? String(category.price) : "");
+  const [priceRange, setPriceRange] = useState(category.price_range || "");
+  const [description, setDescription] = useState(category.description || "");
+  const [requiresMeasurement, setRequiresMeasurement] = useState(category.requires_measurement ?? false);
+  const [inputCount, setInputCount] = useState(category.input_count ?? 1);
+  const [inputLabels, setInputLabels] = useState<string[]>(
+    category.input_labels && category.input_labels.length > 0
+      ? category.input_labels
+      : ["치수 (cm)"]
+  );
+  const [hasDirectPrice, setHasDirectPrice] = useState(category.price != null);
+
   // icon_name이 URL인지 확인
-  const isIconUrl = iconName.startsWith('http');
+  const isIconUrl = iconName.startsWith("http");
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -554,16 +582,39 @@ function EditCategoryDialog({
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin/repair-menu/categories', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: category.id,
-          name,
-          icon_name: iconName || null,
-        }),
+      const body: Record<string, unknown> = {
+        id: category.id,
+        name,
+        icon_name: iconName || null,
+      };
+
+      if (isSubCategory) {
+        if (hasDirectPrice) {
+          body.price = price ? parseInt(price) : null;
+          body.price_range = priceRange || null;
+          body.description = description || null;
+          body.requires_measurement = requiresMeasurement;
+          if (requiresMeasurement) {
+            body.input_count = inputCount;
+            body.input_labels = inputLabels.filter(Boolean);
+          } else {
+            body.input_count = 1;
+            body.input_labels = null;
+          }
+        } else {
+          body.price = null;
+          body.price_range = null;
+          body.description = description || null;
+          body.requires_measurement = false;
+          body.input_count = 1;
+          body.input_labels = null;
+        }
+      }
+
+      const response = await fetch("/api/admin/repair-menu/categories", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
 
       const result = await response.json();
@@ -679,6 +730,122 @@ function EditCategoryDialog({
               />
             </div>
           </div>
+
+          {/* 직접 가격/치수 설정 (소카테고리만 표시) */}
+          {isSubCategory && (
+            <div className="space-y-4 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="edit-has-direct-price"
+                  checked={hasDirectPrice}
+                  onChange={(e) => setHasDirectPrice(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="edit-has-direct-price" className="cursor-pointer font-semibold">
+                  직접 가격 설정 (이 카테고리 선택 시 바로 주문 항목으로 추가)
+                </Label>
+              </div>
+              {hasDirectPrice && (
+                <div className="space-y-3 pl-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="edit-cat-price">가격 (원) *</Label>
+                      <Input
+                        id="edit-cat-price"
+                        type="number"
+                        placeholder="예: 15000"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-cat-price-range">가격 표시 텍스트 (선택)</Label>
+                      <Input
+                        id="edit-cat-price-range"
+                        placeholder="예: 15,000원~"
+                        value={priceRange}
+                        onChange={(e) => setPriceRange(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-cat-description">설명 (선택)</Label>
+                    <Input
+                      id="edit-cat-description"
+                      placeholder="예: 줄이고자 하는 단면 치수를 입력해주세요."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="edit-requires-measurement"
+                      checked={requiresMeasurement}
+                      onChange={(e) => {
+                        setRequiresMeasurement(e.target.checked);
+                        if (e.target.checked && inputLabels.length === 0) {
+                          setInputLabels(["치수 (cm)"]);
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <Label htmlFor="edit-requires-measurement" className="cursor-pointer">
+                      수치 입력 필요
+                    </Label>
+                  </div>
+                  {requiresMeasurement && (
+                    <div className="space-y-2 pl-6">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="edit-multi-input"
+                          checked={inputCount >= 2}
+                          onChange={(e) => {
+                            const count = e.target.checked ? 2 : 1;
+                            setInputCount(count);
+                            const newLabels = Array.from({ length: count }, (_, i) =>
+                              inputLabels[i] || `치수 ${i + 1} (cm)`
+                            );
+                            setInputLabels(newLabels);
+                          }}
+                          className="w-4 h-4"
+                        />
+                        <Label htmlFor="edit-multi-input" className="cursor-pointer">
+                          입력값 2개 필요
+                        </Label>
+                      </div>
+                      {Array.from({ length: inputCount }).map((_, i) => (
+                        <Input
+                          key={i}
+                          placeholder={i === 0 ? "예: 왼쪽어깨" : "예: 오른쪽어깨"}
+                          value={inputLabels[i] || ""}
+                          onChange={(e) => {
+                            const next = [...inputLabels];
+                            next[i] = e.target.value;
+                            setInputLabels(next);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* 설명은 직접가격 여부 무관하게 설정 가능 */}
+              {!hasDirectPrice && (
+                <div>
+                  <Label htmlFor="edit-cat-desc-only">설명 (선택)</Label>
+                  <Input
+                    id="edit-cat-desc-only"
+                    placeholder="예: 카테고리 안내 문구"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
@@ -713,8 +880,18 @@ function AddCategoryDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
+  // 직접 가격/치수 (소카테고리에만 표시)
+  const isSubCat = !isMainCategory;
+  const [hasDirectPrice, setHasDirectPrice] = useState(false);
+  const [price, setPrice] = useState("");
+  const [priceRange, setPriceRange] = useState("");
+  const [description, setDescription] = useState("");
+  const [requiresMeasurement, setRequiresMeasurement] = useState(false);
+  const [inputCount, setInputCount] = useState(1);
+  const [inputLabels, setInputLabels] = useState<string[]>(["치수 (cm)"]);
+
   // icon_name이 URL인지 확인
-  const isIconUrl = iconName.startsWith('http');
+  const isIconUrl = iconName.startsWith("http");
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -754,17 +931,30 @@ function AddCategoryDialog({
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin/repair-menu/categories', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          icon_name: iconName || null,
-          display_order: 999,
-          parent_category_id: parentCategoryId || null,
-        }),
+      const body: Record<string, unknown> = {
+        name,
+        icon_name: iconName || null,
+        display_order: 999,
+        parent_category_id: parentCategoryId || null,
+      };
+
+      if (isSubCat && hasDirectPrice) {
+        body.price = price ? parseInt(price) : null;
+        body.price_range = priceRange || null;
+        body.description = description || null;
+        body.requires_measurement = requiresMeasurement;
+        if (requiresMeasurement) {
+          body.input_count = inputCount;
+          body.input_labels = inputLabels.filter(Boolean);
+        }
+      } else if (isSubCat && description) {
+        body.description = description;
+      }
+
+      const response = await fetch("/api/admin/repair-menu/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
 
       const result = await response.json();
@@ -776,6 +966,13 @@ function AddCategoryDialog({
       setOpen(false);
       setName("");
       setIconName("");
+      setHasDirectPrice(false);
+      setPrice("");
+      setPriceRange("");
+      setDescription("");
+      setRequiresMeasurement(false);
+      setInputCount(1);
+      setInputLabels(["치수 (cm)"]);
       onAdded();
     } catch (error: any) {
       console.error('Add category error:', error);
@@ -891,6 +1088,110 @@ function AddCategoryDialog({
               />
             </div>
           </div>
+
+          {/* 직접 가격/치수 설정 (소카테고리만 표시) */}
+          {isSubCat && (
+            <div className="space-y-4 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="add-has-direct-price"
+                  checked={hasDirectPrice}
+                  onChange={(e) => setHasDirectPrice(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="add-has-direct-price" className="cursor-pointer font-semibold">
+                  직접 가격 설정 (이 카테고리 선택 시 바로 주문 항목으로 추가)
+                </Label>
+              </div>
+              {hasDirectPrice && (
+                <div className="space-y-3 pl-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="add-cat-price">가격 (원) *</Label>
+                      <Input
+                        id="add-cat-price"
+                        type="number"
+                        placeholder="예: 15000"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="add-cat-price-range">가격 표시 텍스트 (선택)</Label>
+                      <Input
+                        id="add-cat-price-range"
+                        placeholder="예: 15,000원~"
+                        value={priceRange}
+                        onChange={(e) => setPriceRange(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="add-cat-desc">설명 (선택)</Label>
+                    <Input
+                      id="add-cat-desc"
+                      placeholder="예: 줄이고자 하는 단면 치수를 입력해주세요."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="add-requires-measurement"
+                      checked={requiresMeasurement}
+                      onChange={(e) => {
+                        setRequiresMeasurement(e.target.checked);
+                        if (e.target.checked && inputLabels.length === 0) {
+                          setInputLabels(["치수 (cm)"]);
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <Label htmlFor="add-requires-measurement" className="cursor-pointer">
+                      수치 입력 필요
+                    </Label>
+                  </div>
+                  {requiresMeasurement && (
+                    <div className="space-y-2 pl-6">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="add-multi-input"
+                          checked={inputCount >= 2}
+                          onChange={(e) => {
+                            const count = e.target.checked ? 2 : 1;
+                            setInputCount(count);
+                            const newLabels = Array.from({ length: count }, (_, i) =>
+                              inputLabels[i] || `치수 ${i + 1} (cm)`
+                            );
+                            setInputLabels(newLabels);
+                          }}
+                          className="w-4 h-4"
+                        />
+                        <Label htmlFor="add-multi-input" className="cursor-pointer">
+                          입력값 2개 필요
+                        </Label>
+                      </div>
+                      {Array.from({ length: inputCount }).map((_, i) => (
+                        <Input
+                          key={i}
+                          placeholder={i === 0 ? "예: 왼쪽어깨" : "예: 오른쪽어깨"}
+                          value={inputLabels[i] || ""}
+                          onChange={(e) => {
+                            const next = [...inputLabels];
+                            next[i] = e.target.value;
+                            setInputLabels(next);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>

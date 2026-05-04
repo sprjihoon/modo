@@ -293,12 +293,32 @@ export function OrderNewClient() {
     setMode("addSubCategory");
   }
 
-  function handleSubCategoryDone(type: string, categoryId?: string) {
-    // 소카테고리가 있으면 해당 값으로 덮어쓰기, 없으면 대카테고리 유지
+  function handleSubCategoryDone(type: string, categoryId?: string, repairItem?: RepairItem | null) {
+    const finalType = (type && categoryId) ? type : stagingClothingType;
+    const finalCategoryId = (type && categoryId) ? categoryId : stagingClothingCategoryId;
+
     if (type && categoryId) {
       setStagingClothingType(type);
       setStagingClothingCategoryId(categoryId);
     }
+
+    // 소카테고리가 직접 가격/치수를 가진 경우 → RepairTypeStep 건너뛰고 바로 항목 추가
+    if (repairItem) {
+      const newItem: ClothingItem = {
+        clothingType: finalType,
+        clothingCategoryId: finalCategoryId,
+        repairItems: [repairItem],
+        imagesWithPins: stagingImagesWithPins,
+      };
+      setDraft((prev) => ({ ...prev, items: [...prev.items, newItem] }));
+      setStagingClothingType("");
+      setStagingClothingCategoryId(undefined);
+      setStagingImagesWithPins([]);
+      setStagingRepairItems([]);
+      setMode("list");
+      return;
+    }
+
     setMode("addRepair");
   }
 
