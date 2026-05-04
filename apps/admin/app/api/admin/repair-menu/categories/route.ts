@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("repair_categories")
-      .insert(insertPayload)
+      .insert(insertPayload as unknown as { name: string })
       .select()
       .single();
 
@@ -127,7 +127,7 @@ export async function PUT(request: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("repair_categories")
-      .update(updatePayload)
+      .update(updatePayload as unknown as { name: string })
       .eq("id", id)
       .select();
 
