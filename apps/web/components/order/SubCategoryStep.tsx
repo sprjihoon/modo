@@ -71,11 +71,6 @@ export function SubCategoryStep({
   const [children, setChildren] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 세부카테고리 뷰 상태
-  const [selectedMiddle, setSelectedMiddle] = useState<Category | null>(null);
-  const [subChildren, setSubChildren] = useState<Category[]>([]);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-
   // 치수 입력 모달 (직접 가격 카테고리에 requires_measurement가 있을 때)
   const [measureModal, setMeasureModal] = useState<{
     category: Category;
@@ -117,46 +112,15 @@ export function SubCategoryStep({
   }
 
   // 중카테고리 항목 클릭
-  async function handleSelectMiddle(cat: Category) {
+  function handleSelectMiddle(cat: Category) {
     // 직접 가격이 설정된 카테고리 → 수선 항목으로 바로 처리
     if (cat.price != null) {
       handleDirectPriceCategory(cat);
       return;
     }
-
-    // 하위 항목 확인
-    setIsLoadingDetail(true);
-    try {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("repair_categories")
-        .select(
-          "id, name, icon_name, display_order, price, price_range, requires_measurement, input_count, input_labels, description"
-        )
-        .eq("is_active", true)
-        .eq("parent_category_id", cat.id)
-        .order("display_order", { ascending: true });
-
-      if (!data || data.length === 0) {
-        onNext(cat.name, cat.id);
-      } else {
-        setSelectedMiddle(cat);
-        setSubChildren(data);
-      }
-    } catch {
-      onNext(cat.name, cat.id);
-    } finally {
-      setIsLoadingDetail(false);
-    }
-  }
-
-  // 세부카테고리 항목 클릭
-  function handleSelectSub(cat: Category) {
-    if (cat.price != null) {
-      handleDirectPriceCategory(cat);
-    } else {
-      onNext(cat.name, cat.id);
-    }
+    // 하위 항목 여부와 관계없이 onNext로 진행
+    // (세부항목은 사진 촬영 이후 SubCategoryStep 재진입 시 표시)
+    onNext(cat.name, cat.id);
   }
 
   // 직접 가격 설정된 카테고리 처리
@@ -196,11 +160,6 @@ export function SubCategoryStep({
     onNext(category.name, category.id, item);
   }
 
-  function handleDetailBack() {
-    setSelectedMiddle(null);
-    setSubChildren([]);
-  }
-
   if (isLoading) {
     return (
       <div className="px-4 py-5">
@@ -213,115 +172,7 @@ export function SubCategoryStep({
     );
   }
 
-  // ── 세부카테고리 뷰 ──────────────────────────────────────────────────────
-  if (selectedMiddle && subChildren.length > 0) {
-    const middleIconSrc = getIconSrc(selectedMiddle.icon_name);
-    const label =
-      selectedMiddle.sub_selection_label ||
-      `${selectedMiddle.name} 세부항목을 선택하세요`;
-
-    return (
-      <div>
-        <div className="px-4 py-5">
-          <h2 className="text-lg font-bold text-gray-900 mb-5">
-            상세 수선 부위를 선택해주세요.
-          </h2>
-
-          {/* 선택된 중카테고리 카드 */}
-          <div className="flex items-center gap-3 mb-6 p-3 bg-gray-50 rounded-2xl border border-gray-100">
-            <div className="w-14 h-14 flex items-center justify-center shrink-0">
-              {middleIconSrc ? (
-                <InlineSvg
-                  src={middleIconSrc}
-                  className="w-12 h-12 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
-                  fallback={
-                    <span className="text-4xl">
-                      {getFallbackEmoji(selectedMiddle.name)}
-                    </span>
-                  }
-                />
-              ) : (
-                <span className="text-4xl">
-                  {getFallbackEmoji(selectedMiddle.name)}
-                </span>
-              )}
-            </div>
-            <span className="text-sm font-semibold text-gray-800">
-              {selectedMiddle.name}
-            </span>
-          </div>
-
-          {/* 세부항목 선택 안내 문구 */}
-          <p className="text-sm font-semibold text-gray-700 mb-3">{label}</p>
-
-          {/* 세부카테고리 그리드 */}
-          <div className="grid grid-cols-3 gap-3">
-            {subChildren.map((cat) => {
-              const iconSrc = getIconSrc(cat.icon_name);
-              const hasDirect = cat.price != null;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => handleSelectSub(cat)}
-                  className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border-2 border-gray-100 bg-white active:scale-95 active:border-[#00C896] transition-all"
-                >
-                  {iconSrc ? (
-                    <InlineSvg
-                      src={iconSrc}
-                      className="w-16 h-16 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
-                      fallback={
-                        <div className="w-16 h-16 flex items-center justify-center">
-                          <span className="text-4xl">
-                            {getFallbackEmoji(cat.name)}
-                          </span>
-                        </div>
-                      }
-                    />
-                  ) : (
-                    <div className="w-16 h-16 flex items-center justify-center">
-                      <span className="text-4xl">
-                        {getFallbackEmoji(cat.name)}
-                      </span>
-                    </div>
-                  )}
-                  <span className="text-xs font-semibold text-gray-700 text-center leading-tight">
-                    {cat.name}
-                  </span>
-                  {hasDirect && (
-                    <span className="text-[10px] text-gray-400">
-                      {cat.price_range || formatPrice(cat.price!)}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={handleDetailBack}
-            className="mt-5 w-full py-3 border border-gray-200 rounded-xl text-sm text-gray-500 font-semibold"
-          >
-            이전
-          </button>
-        </div>
-
-        {/* 치수 입력 모달 */}
-        {measureModal && (
-          <MeasureModal
-            category={measureModal.category}
-            values={measureModal.values}
-            onChange={(values) =>
-              setMeasureModal((prev) => prev ? { ...prev, values } : prev)
-            }
-            onConfirm={confirmMeasurement}
-            onClose={() => setMeasureModal(null)}
-          />
-        )}
-      </div>
-    );
-  }
-
-  // ── 중카테고리 목록 뷰 ───────────────────────────────────────────────────
+  // ── 카테고리 목록 뷰 ───────────────────────────────────────────────────
   return (
     <div>
       <div className="px-4 py-5">
@@ -339,8 +190,7 @@ export function SubCategoryStep({
               <button
                 key={cat.id}
                 onClick={() => handleSelectMiddle(cat)}
-                disabled={isLoadingDetail}
-                className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border-2 border-gray-100 bg-white active:scale-95 active:border-[#00C896] transition-all disabled:opacity-60"
+                className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border-2 border-gray-100 bg-white active:scale-95 active:border-[#00C896] transition-all"
               >
                 {iconSrc ? (
                   <InlineSvg

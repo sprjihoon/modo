@@ -270,10 +270,12 @@ export function OrderNewClient() {
   }
 
   // ── 의류 추가 sub-flow ──────────────────────────────────────────────────
-  // 순서: 대카테고리 선택 → 소카테고리 선택 → 사진+핀+메모 → 세부항목/수선 항목
-  // (소카테고리를 사진 촬영 전에 먼저 선택)
+  // 순서: 대카 → 소카(SubCategoryStep pre-photo) → 사진 →
+  //       세부항목(SubCategoryStep post-photo) → 수선항목(RepairTypeStep)
   const [stagingRepairItemFromSubCat, setStagingRepairItemFromSubCat] =
     useState<RepairItem | null>(null);
+  // 'pre': 사진 촬영 전 소카테고리 선택, 'post': 사진 촬영 후 세부항목 선택
+  const [subCategoryPhase, setSubCategoryPhase] = useState<"pre" | "post">("pre");
 
   function startAddClothing() {
     setStagingClothingType("");
@@ -281,13 +283,14 @@ export function OrderNewClient() {
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
     setStagingRepairItemFromSubCat(null);
+    setSubCategoryPhase("pre");
     setMode("addClothing");
   }
 
   function handleClothingDone(type: string, categoryId?: string) {
     setStagingClothingType(type);
     setStagingClothingCategoryId(categoryId);
-    // 대카테고리 선택 후 → 소카테고리 선택 (사진 전)
+    setSubCategoryPhase("pre");
     setMode("addSubCategory");
   }
 
@@ -307,11 +310,13 @@ export function OrderNewClient() {
       setStagingImagesWithPins([]);
       setStagingRepairItems([]);
       setStagingRepairItemFromSubCat(null);
+      setSubCategoryPhase("pre");
       setMode("list");
       return;
     }
-    // 일반 소카테고리 선택 후 → 수선 항목 선택
-    setMode("addRepair");
+    // 사진 후 → 세부항목 선택(SubCategoryStep post-photo)으로
+    setSubCategoryPhase("post");
+    setMode("addSubCategory");
   }
 
   function handleSubCategoryDone(type: string, categoryId?: string, repairItem?: RepairItem | null) {
@@ -320,16 +325,37 @@ export function OrderNewClient() {
       setStagingClothingCategoryId(categoryId);
     }
 
-    // 소카테고리가 직접 가격/치수를 가진 경우 → 사진 촬영 후 항목 추가
-    if (repairItem) {
-      setStagingRepairItemFromSubCat(repairItem);
+    if (subCategoryPhase === "pre") {
+      // 사진 전: 소카테고리 선택 → 사진 촬영으로
+      if (repairItem) {
+        setStagingRepairItemFromSubCat(repairItem);
+      } else {
+        setStagingRepairItemFromSubCat(null);
+      }
       setMode("addPhoto");
-      return;
+    } else {
+      // 사진 후: 세부항목 선택 완료
+      if (repairItem) {
+        // 직접 가격 항목 → 사진과 함께 목록 추가
+        const newItem: ClothingItem = {
+          clothingType: stagingClothingType,
+          clothingCategoryId: stagingClothingCategoryId,
+          repairItems: [repairItem],
+          imagesWithPins: stagingImagesWithPins,
+        };
+        setDraft((prev) => ({ ...prev, items: [...prev.items, newItem] }));
+        setStagingClothingType("");
+        setStagingClothingCategoryId(undefined);
+        setStagingImagesWithPins([]);
+        setStagingRepairItems([]);
+        setStagingRepairItemFromSubCat(null);
+        setSubCategoryPhase("pre");
+        setMode("list");
+      } else {
+        // 수선 항목 선택으로 이동 (RepairTypeStep)
+        setMode("addRepair");
+      }
     }
-
-    // 일반 소카테고리 선택 → 사진 촬영으로 이동
-    setStagingRepairItemFromSubCat(null);
-    setMode("addPhoto");
   }
 
   function handleRepairDone(items: RepairItem[]) {
@@ -353,6 +379,7 @@ export function OrderNewClient() {
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
     setStagingRepairItemFromSubCat(null);
+    setSubCategoryPhase("pre");
     setMode("list");
   }
 
@@ -488,15 +515,24 @@ export function OrderNewClient() {
     if (mode === "addClothing") {
       cancelAddClothing();
     } else if (mode === "addSubCategory") {
-      // 소카테고리 선택 → 대카테고리로
-      setMode("addClothing");
+      if (subCategoryPhase === "pre") {
+        // pre: 소카테고리 선택 → 대카테고리로
+        setMode("addClothing");
+      } else {
+        // post: 세부항목 선택 → 사진으로
+        setStagingRepairItemFromSubCat(null);
+        setSubCategoryPhase("pre");
+        setMode("addPhoto");
+      }
     } else if (mode === "addPhoto") {
-      // 사진 → 소카테고리로
+      // 사진 → 소카테고리(pre)로
       setStagingRepairItemFromSubCat(null);
+      setSubCategoryPhase("pre");
       setMode("addSubCategory");
     } else if (mode === "addRepair") {
-      // 수선항목 → 사진으로
-      setMode("addPhoto");
+      // 수선항목 → 세부항목(post)으로
+      setSubCategoryPhase("post");
+      setMode("addSubCategory");
     } else if (mode === "pickup") {
       setMode("list");
     }
@@ -540,7 +576,15 @@ export function OrderNewClient() {
             parentCategoryId={stagingClothingCategoryId}
             parentCategoryName={stagingClothingType}
             onNext={handleSubCategoryDone}
-            onBack={() => setMode("addClothing")}
+            onBack={() => {
+              if (subCategoryPhase === "pre") {
+                setMode("addClothing");
+              } else {
+                setStagingRepairItemFromSubCat(null);
+                setSubCategoryPhase("pre");
+                setMode("addPhoto");
+              }
+            }}
           />
         )}
 
@@ -551,6 +595,7 @@ export function OrderNewClient() {
             onNext={handlePhotoDone}
             onBack={() => {
               setStagingRepairItemFromSubCat(null);
+              setSubCategoryPhase("pre");
               setMode("addSubCategory");
             }}
           />
@@ -561,7 +606,10 @@ export function OrderNewClient() {
             clothingType={stagingClothingType}
             clothingCategoryId={stagingClothingCategoryId}
             onNext={(items) => handleRepairDone(items)}
-            onBack={() => setMode("addPhoto")}
+            onBack={() => {
+              setSubCategoryPhase("post");
+              setMode("addSubCategory");
+            }}
           />
         )}
 
