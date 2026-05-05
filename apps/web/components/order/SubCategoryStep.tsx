@@ -11,21 +11,6 @@ interface Category {
   display_order?: number;
 }
 
-function getFallbackEmoji(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("tshirt") || n.includes("티셔츠") || n.includes("맨투맨") || n.includes("반팔")) return "👕";
-  if (n.includes("shirt") || n.includes("셔츠") || n.includes("블라우스")) return "👔";
-  if (n.includes("pants") || n.includes("바지") || n.includes("슬랙스") || n.includes("트라우저")) return "👖";
-  if (n.includes("dress") || n.includes("원피스")) return "👗";
-  if (n.includes("skirt") || n.includes("치마")) return "🩱";
-  if (n.includes("jeans") || n.includes("청바지") || n.includes("데님")) return "👖";
-  if (n.includes("outer") || n.includes("아우터") || n.includes("자켓") || n.includes("코트") || n.includes("점퍼")) return "🧥";
-  if (n.includes("suit") || n.includes("정장") || n.includes("수트")) return "👔";
-  if (n.includes("sweater") || n.includes("니트") || n.includes("스웨터") || n.includes("가디건")) return "🧶";
-  if (n.includes("leather") || n.includes("가죽")) return "🥼";
-  if (n.includes("shorts") || n.includes("반바지")) return "🩲";
-  return "👕";
-}
 
 function getIconSrc(iconName?: string): string | null {
   if (!iconName) return null;
@@ -132,20 +117,9 @@ export function SubCategoryStep({
                     <InlineSvg
                       src={iconSrc}
                       className="w-20 h-20 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
-                      fallback={
-                        <div className="w-20 h-20 flex items-center justify-center">
-                          <span className="text-5xl">
-                            {getFallbackEmoji(cat.name)}
-                          </span>
-                        </div>
-                      }
                     />
                   )
-                ) : (
-                  <div className="w-20 h-20 flex items-center justify-center">
-                    <span className="text-5xl">{getFallbackEmoji(cat.name)}</span>
-                  </div>
-                )}
+                ) : null}
                 <span className="text-xs font-semibold text-gray-700 text-center leading-tight">
                   {cat.name}
                 </span>

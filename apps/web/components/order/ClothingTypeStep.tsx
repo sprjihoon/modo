@@ -21,19 +21,6 @@ function getIconSrc(iconName?: string): string | null {
   return `/icons/${cleaned}.svg`;
 }
 
-function getFallbackEmoji(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("tshirt") || n.includes("티셔츠") || n.includes("맨투맨")) return "👕";
-  if (n.includes("shirt") || n.includes("셔츠") || n.includes("블라우스")) return "👔";
-  if (n.includes("pants") || n.includes("바지")) return "👖";
-  if (n.includes("dress") || n.includes("원피스")) return "👗";
-  if (n.includes("skirt") || n.includes("치마")) return "🩱";
-  if (n.includes("jeans") || n.includes("청바지")) return "👖";
-  if (n.includes("outer") || n.includes("아우터") || n.includes("자켓") || n.includes("코트")) return "🧥";
-  if (n.includes("suit") || n.includes("정장")) return "👔";
-  if (n.includes("sweater") || n.includes("니트") || n.includes("스웨터")) return "🧶";
-  return "👕";
-}
 
 interface ClothingTypeStepProps {
   onNext: (type: string, categoryId?: string) => void;
@@ -100,9 +87,9 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
                   isItemLoading ? "opacity-70" : "active:bg-gray-50"
                 )}
               >
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                  {iconSrc ? (
-                    iconSrc.startsWith("http") ? (
+                {iconSrc && (
+                  <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                    {iconSrc.startsWith("http") ? (
                       <img
                         src={iconSrc}
                         alt={cat.name}
@@ -112,13 +99,10 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
                       <InlineSvg
                         src={iconSrc}
                         className="w-9 h-9 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
-                        fallback={<span className="text-2xl">{getFallbackEmoji(cat.name)}</span>}
                       />
-                    )
-                  ) : (
-                    <span className="text-2xl">{getFallbackEmoji(cat.name)}</span>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
                 <span className="text-sm font-semibold text-gray-700 flex-1 text-left">
                   {cat.name}
                 </span>

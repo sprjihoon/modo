@@ -52,22 +52,6 @@ function formatPrice(price: number) {
   return `${price.toLocaleString("ko-KR")}원`;
 }
 
-function getRepairTypeEmoji(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("허리") || n.includes("웨이스트")) return "📐";
-  if (n.includes("밑단") || n.includes("단") || n.includes("기장")) return "📏";
-  if (n.includes("소매") || n.includes("팔")) return "💪";
-  if (n.includes("어깨")) return "🧍";
-  if (n.includes("품") || n.includes("옆선") || n.includes("사이즈")) return "📏";
-  if (n.includes("지퍼") || n.includes("zip")) return "🔗";
-  if (n.includes("단추") || n.includes("버튼")) return "🔘";
-  if (n.includes("주머니") || n.includes("포켓")) return "🪡";
-  if (n.includes("안감") || n.includes("라이닝")) return "🧵";
-  if (n.includes("수선") || n.includes("수리") || n.includes("보수")) return "🪡";
-  if (n.includes("패치") || n.includes("덧댐")) return "🧵";
-  if (n.includes("줄임") || n.includes("늘임") || n.includes("조절")) return "📐";
-  return "✂️";
-}
 
 function getIconSrc(iconName?: string): string | null {
   if (!iconName) return null;
@@ -373,27 +357,18 @@ export function RepairTypeStep({
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
           {/* 선택된 수선 항목 카드 */}
           <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
-            <div className="w-12 h-12 flex items-center justify-center shrink-0">
-              {rtIconSrc ? (
-                rtIconSrc.startsWith("http") ? (
+            {rtIconSrc && (
+              <div className="w-12 h-12 flex items-center justify-center shrink-0">
+                {rtIconSrc.startsWith("http") ? (
                   <img src={rtIconSrc} alt={repairType.name} className="w-10 h-10 object-contain" />
                 ) : (
                   <InlineSvg
                     src={rtIconSrc}
                     className="w-10 h-10 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
-                    fallback={
-                      <span className="text-3xl">
-                        {getRepairTypeEmoji(repairType.name)}
-                      </span>
-                    }
                   />
-                )
-              ) : (
-                <span className="text-3xl">
-                  {getRepairTypeEmoji(repairType.name)}
-                </span>
-              )}
-            </div>
+                )}
+              </div>
+            )}
             <span className="text-sm font-semibold text-gray-800">
               {repairType.sub_type
                 ? `${repairType.name} (${repairType.sub_type})`
@@ -513,18 +488,9 @@ export function RepairTypeStep({
                             <InlineSvg
                               src={partIconSrc}
                               className="w-10 h-10 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
-                              fallback={
-                                <span className="text-3xl">
-                                  {getRepairTypeEmoji(part.name)}
-                                </span>
-                              }
                             />
                           )
-                        ) : (
-                          <span className="text-3xl">
-                            {getRepairTypeEmoji(part.name)}
-                          </span>
-                        )}
+                        ) : null}
                       </div>
                       <p
                         className={cn(
@@ -702,15 +668,15 @@ export function RepairTypeStep({
                       : "border-gray-100 bg-white"
                   )}
                 >
-                  {/* 아이콘 */}
-                  <div
-                    className={cn(
-                      "w-16 h-16 rounded-xl flex items-center justify-center transition-colors overflow-hidden",
-                      active ? "bg-[#00C896]" : "bg-[#00C896]/10"
-                    )}
-                  >
-                    {iconSrc ? (
-                      iconSrc.startsWith("http") ? (
+                  {/* 아이콘 (등록된 경우에만 표시) */}
+                  {iconSrc && (
+                    <div
+                      className={cn(
+                        "w-16 h-16 rounded-xl flex items-center justify-center transition-colors overflow-hidden",
+                        active ? "bg-[#00C896]" : "bg-[#00C896]/10"
+                      )}
+                    >
+                      {iconSrc.startsWith("http") ? (
                         <img
                           src={iconSrc}
                           alt={type.name}
@@ -726,19 +692,10 @@ export function RepairTypeStep({
                             "w-10 h-10 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full",
                             active ? "text-white" : "text-[#00C896]"
                           )}
-                          fallback={
-                            <span className="text-3xl">
-                              {getRepairTypeEmoji(type.name)}
-                            </span>
-                          }
                         />
-                      )
-                    ) : (
-                      <span className="text-3xl">
-                        {getRepairTypeEmoji(type.name)}
-                      </span>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* 이름 */}
                   <p
