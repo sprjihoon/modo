@@ -27,6 +27,7 @@ interface RepairCategory {
   sub_selection_label?: string | null;
   repair_types?: RepairType[];
   sub_categories?: RepairCategory[];
+  sub_items?: RepairCategory[]; // 소카테고리의 자식 = 3단계 세부항목
 }
 
 interface RepairType {
@@ -252,8 +253,13 @@ export default function RepairMenuPage() {
                   <div>
                     <span className="text-lg font-bold">{main.name}</span>
                     <span className="ml-2 text-sm text-muted-foreground">
-                      세부항목 {main.sub_categories?.length || 0}개
+                      소카테고리 {main.sub_categories?.filter(s => s.price == null).length || 0}개
                     </span>
+                    {(main.sub_categories?.filter(s => s.price != null).length || 0) > 0 && (
+                      <span className="ml-1 text-sm text-muted-foreground">
+                        · 직접항목 {main.sub_categories!.filter(s => s.price != null).length}개
+                      </span>
+                    )}
                   </div>
                   {!main.is_active && <Badge variant="secondary">비활성</Badge>}
                 </div>
@@ -267,11 +273,12 @@ export default function RepairMenuPage() {
                     </Button>
                   </div>
                   <EditCategoryDialog category={main} onUpdated={loadData} />
-                  {/* 세부항목 추가 */}
+                  {/* 소카테고리 추가 (가격 없는 중간 단계) */}
                   <AddCategoryDialog
                     onAdded={loadData}
                     parentCategoryId={main.id}
-                    label="+ 세부항목"
+                    label="+ 소카테고리"
+                    forceNoPrice
                   />
                   <Button variant="outline" size="sm" onClick={() => deleteCategory(main.id)}>
                     <Trash2 className="h-4 w-4" />
@@ -283,7 +290,7 @@ export default function RepairMenuPage() {
               <div className="p-4 bg-white">
                 {(main.sub_categories || []).length === 0 ? (
                   <div className="py-6 text-center text-muted-foreground text-sm border border-dashed rounded-lg">
-                    세부항목이 없습니다. &ldquo;+ 세부항목&rdquo; 버튼으로 가격·치수 항목을 추가하세요.
+                    소카테고리가 없습니다. &ldquo;+ 소카테고리&rdquo;로 중간 분류를 추가하세요.
                   </div>
                 ) : (() => {
                   const subs = main.sub_categories || [];
@@ -291,7 +298,7 @@ export default function RepairMenuPage() {
                   const legacySubs = subs.filter(s => s.price == null);
                   return (
                     <div className="space-y-2">
-                      {/* 직접가격 세부항목 (2단계 구조) */}
+                      {/* 직접가격 항목 (대카테고리 바로 아래, 2단계) */}
                       {directItems.length > 0 && (
                         <div className="space-y-2">
                           {directItems.map((sub, subIdx) => (
@@ -308,11 +315,11 @@ export default function RepairMenuPage() {
                           ))}
                         </div>
                       )}
-                      {/* 레거시 소카테고리 (3단계 구조) */}
+                      {/* 소카테고리 (대카테고리 하위, 다시 세부항목을 가짐, 3단계) */}
                       {legacySubs.length > 0 && (
                         <div className="space-y-2">
                           {directItems.length > 0 && (
-                            <p className="text-xs text-muted-foreground px-1 pt-2">── 레거시 소카테고리 (수선항목 테이블 연결)</p>
+                            <p className="text-xs text-muted-foreground px-1 pt-2">── 소카테고리 (3단계 구조)</p>
                           )}
                           {legacySubs.map((sub, subIdx) => (
                             <SubCategoryCard
@@ -327,6 +334,8 @@ export default function RepairMenuPage() {
                               onDelete={() => deleteCategory(sub.id)}
                               onDeleteType={deleteRepairType}
                               onReload={loadData}
+                              onMoveItem={(id, dir) => moveCategoryOrder(id, dir)}
+                              onDeleteItem={(id) => deleteCategory(id)}
                             />
                           ))}
                         </div>
@@ -360,6 +369,8 @@ export default function RepairMenuPage() {
                     onDelete={() => deleteCategory(category.id)}
                     onDeleteType={deleteRepairType}
                     onReload={loadData}
+                    onMoveItem={(id, dir) => moveCategoryOrder(id, dir)}
+                    onDeleteItem={(id) => deleteCategory(id)}
                   />
                 ))}
               </div>
@@ -434,7 +445,7 @@ function DirectItemCard({
   );
 }
 
-// ── 소카테고리 카드 컴포넌트 (레거시 3단계 구조용) ──
+// ── 소카테고리 카드 컴포넌트 (3단계 구조: 소카테고리 → 세부항목 or repair_types) ──
 function SubCategoryCard({
   category,
   index,
@@ -446,6 +457,8 @@ function SubCategoryCard({
   onDelete,
   onDeleteType,
   onReload,
+  onMoveItem,
+  onDeleteItem,
 }: {
   category: RepairCategory;
   index: number;
@@ -457,12 +470,20 @@ function SubCategoryCard({
   onDelete: () => void;
   onDeleteType: (id: string) => Promise<void>;
   onReload: () => void;
+  onMoveItem: (id: string, dir: 'up' | 'down') => void;
+  onDeleteItem: (id: string) => void;
 }) {
+  const subItems = category.sub_items || [];
+  const repairTypes = category.repair_types || [];
+  const hasSubItems = subItems.length > 0;
+  const hasRepairTypes = repairTypes.length > 0;
+  const totalCount = subItems.length + repairTypes.length;
+
   return (
     <Card className="shadow-none border border-gray-200">
       <CardHeader className="py-3 px-4">
         <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onToggle} className="h-7 w-7 p-0">
               {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
@@ -470,7 +491,7 @@ function SubCategoryCard({
             <div>
               <span className="font-semibold text-base">{category.name}</span>
               <span className="ml-2 text-xs text-muted-foreground">
-                {category.repair_types?.length || 0}개 항목
+                세부항목 {totalCount}개
               </span>
               {category.price != null && (
                 <span className="ml-2 text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
@@ -489,10 +510,14 @@ function SubCategoryCard({
               <ArrowDown className="h-3 w-3" />
             </Button>
             <EditCategoryDialog category={category} onUpdated={onReload} />
-            {/* 직접가격 세부항목에는 repair_types 불필요 */}
-            {category.price == null && (
-              <AddRepairTypeDialog categoryId={category.id} categoryName={category.name} onAdded={onReload} />
-            )}
+            {/* 세부항목 추가 (직접가격 자식 카테고리) */}
+            <AddCategoryDialog
+              onAdded={onReload}
+              parentCategoryId={category.id}
+              label="+ 세부항목"
+            />
+            {/* repair_types 추가 (기존 방식) */}
+            <AddRepairTypeDialog categoryId={category.id} categoryName={category.name} onAdded={onReload} />
             <Button variant="outline" size="sm" onClick={onDelete}>
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -501,50 +526,80 @@ function SubCategoryCard({
       </CardHeader>
 
       {expanded && (
-        <CardContent className="pt-0 pb-3 px-4">
-          {category.repair_types && category.repair_types.length > 0 ? (
-            <div className="space-y-2 mt-1">
-              {category.repair_types.map((type) => (
-                <div
-                  key={type.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <GripVertical className="h-4 w-4 text-gray-400" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium">{type.name}</p>
-                        {type.requires_measurement === false && (
-                          <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">선택만</Badge>
-                        )}
-                        {type.requires_multiple_inputs && (
-                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">입력×2</Badge>
-                        )}
-                        {type.has_sub_parts && (
-                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">세부부위</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{type.price.toLocaleString()}원</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!type.is_active && <Badge variant="secondary">비활성</Badge>}
-                    <EditRepairTypeDialog repairType={type} categoryName={category.name} onUpdated={onReload} />
-                    <Button variant="ghost" size="sm" onClick={() => onDeleteType(type.id)}>
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-6 text-muted-foreground text-sm border border-dashed rounded-lg mt-1">
-              <p>등록된 수선 항목이 없습니다</p>
-              <AddRepairTypeDialog categoryId={category.id} categoryName={category.name} onAdded={onReload}>
-                <Button variant="outline" size="sm" className="mt-2">첫 항목 추가하기</Button>
-              </AddRepairTypeDialog>
+        <CardContent className="pt-0 pb-3 px-4 space-y-3">
+          {/* 세부항목 (직접가격 자식 카테고리) */}
+          {hasSubItems && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-2">세부항목 (직접가격)</p>
+              <div className="space-y-1.5">
+                {subItems.map((item, idx) => (
+                  <DirectItemCard
+                    key={item.id}
+                    category={item}
+                    index={idx}
+                    total={subItems.length}
+                    onMoveUp={() => onMoveItem(item.id, 'up')}
+                    onMoveDown={() => onMoveItem(item.id, 'down')}
+                    onDelete={() => onDeleteItem(item.id)}
+                    onReload={onReload}
+                  />
+                ))}
+              </div>
             </div>
           )}
+
+          {/* repair_types (기존 방식) */}
+          {hasRepairTypes ? (
+            <div>
+              {hasSubItems && <p className="text-xs font-semibold text-gray-500 mb-2">수선 항목 (repair_types)</p>}
+              <div className="space-y-2">
+                {repairTypes.map((type) => (
+                  <div
+                    key={type.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <GripVertical className="h-4 w-4 text-gray-400" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium">{type.name}</p>
+                          {type.requires_measurement === false && (
+                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">선택만</Badge>
+                          )}
+                          {type.requires_multiple_inputs && (
+                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">입력×2</Badge>
+                          )}
+                          {type.has_sub_parts && (
+                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">세부부위</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{type.price.toLocaleString()}원</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!type.is_active && <Badge variant="secondary">비활성</Badge>}
+                      <EditRepairTypeDialog repairType={type} categoryName={category.name} onUpdated={onReload} />
+                      <Button variant="ghost" size="sm" onClick={() => onDeleteType(type.id)}>
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : !hasSubItems ? (
+            <div className="text-center py-6 text-muted-foreground text-sm border border-dashed rounded-lg mt-1">
+              <p>세부항목이 없습니다</p>
+              <div className="flex justify-center gap-2 mt-2">
+                <AddCategoryDialog onAdded={onReload} parentCategoryId={category.id} label="세부항목 추가">
+                  <Button variant="outline" size="sm">+ 세부항목 (직접가격)</Button>
+                </AddCategoryDialog>
+                <AddRepairTypeDialog categoryId={category.id} categoryName={category.name} onAdded={onReload}>
+                  <Button variant="outline" size="sm">+ 수선항목 추가</Button>
+                </AddRepairTypeDialog>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       )}
     </Card>
@@ -980,12 +1035,14 @@ function AddCategoryDialog({
   isMainCategory,
   parentCategoryId,
   label,
+  forceNoPrice,
 }: {
   onAdded: () => void;
   children?: React.ReactNode;
   isMainCategory?: boolean;
   parentCategoryId?: string;
   label?: string;
+  forceNoPrice?: boolean; // 소카테고리 추가 시 가격 강제 비활성화
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -995,13 +1052,15 @@ function AddCategoryDialog({
 
   // 직접 가격/치수 (소카테고리에만 표시)
   const isSubCat = !isMainCategory;
-  // 대카테고리 하위 추가 시 직접가격이 기본값 (세부항목 구조)
-  const [hasDirectPrice, setHasDirectPrice] = useState(!!parentCategoryId);
+  // forceNoPrice: 소카테고리 추가 (중간 단계, 가격 없음)
+  // parentCategoryId 있고 forceNoPrice 없으면: 세부항목 추가 (가격 기본 활성화)
+  const defaultHasPrice = !!parentCategoryId && !forceNoPrice;
+  const [hasDirectPrice, setHasDirectPrice] = useState(defaultHasPrice);
   const [price, setPrice] = useState("");
   const [priceRange, setPriceRange] = useState("");
   const [description, setDescription] = useState("");
   const [subSelectionLabel, setSubSelectionLabel] = useState("");
-  const [requiresMeasurement, setRequiresMeasurement] = useState(!!parentCategoryId);
+  const [requiresMeasurement, setRequiresMeasurement] = useState(defaultHasPrice);
   const [inputCount, setInputCount] = useState(1);
   const [inputLabels, setInputLabels] = useState<string[]>(["치수 (cm)"]);
 
@@ -1084,12 +1143,12 @@ function AddCategoryDialog({
       setOpen(false);
       setName("");
       setIconName("");
-      setHasDirectPrice(!!parentCategoryId);
+      setHasDirectPrice(defaultHasPrice);
       setPrice("");
       setPriceRange("");
       setDescription("");
       setSubSelectionLabel("");
-      setRequiresMeasurement(!!parentCategoryId);
+      setRequiresMeasurement(defaultHasPrice);
       setInputCount(1);
       setInputLabels(["치수 (cm)"]);
       onAdded();
@@ -1101,13 +1160,25 @@ function AddCategoryDialog({
     }
   };
 
-  const dialogTitle = isMainCategory ? '대카테고리 추가' : parentCategoryId ? '세부항목 추가' : '카테고리 추가';
+  const dialogTitle = isMainCategory
+    ? '대카테고리 추가'
+    : forceNoPrice
+    ? '소카테고리 추가'
+    : parentCategoryId
+    ? '세부항목 추가'
+    : '카테고리 추가';
   const dialogDesc = isMainCategory
     ? '상의·하의 등 대분류를 추가합니다'
+    : forceNoPrice
+    ? '대카테고리 아래 중간 분류(소카테고리)를 추가합니다'
     : parentCategoryId
     ? '선택 시 가격과 치수를 직접 입력받는 세부항목을 추가합니다'
     : '새로운 카테고리를 추가합니다';
-  const placeholder = isMainCategory ? '예: 상의, 하의, 원피스' : '예: 어깨줄임, 소매기장, 밑단줄임';
+  const placeholder = isMainCategory
+    ? '예: 상의, 하의, 원피스'
+    : forceNoPrice
+    ? '예: 아우터, 티셔츠, 바지'
+    : '예: 어깨줄임, 소매기장, 밑단줄임';
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

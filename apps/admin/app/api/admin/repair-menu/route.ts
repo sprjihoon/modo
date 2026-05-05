@@ -52,6 +52,13 @@ export async function GET() {
     // 소카테고리 (parent_category_id NOT NULL)
     const subCats = all.filter(c => !!c.parent_category_id);
 
+    // 대카테고리의 직접 자식 = 소카테고리 (1단계 자식)
+    const subCatIds = new Set(
+      subCats
+        .filter(sub => mainCats.find(m => m.id === sub.parent_category_id))
+        .map(sub => sub.id)
+    );
+
     const mainWithSubs = mainCats.map(main => ({
       ...main,
       sub_categories: subCats
@@ -59,14 +66,20 @@ export async function GET() {
         .map(sub => ({
           ...sub,
           repair_types: typesMap[sub.id] || [],
+          // 3단계: 소카테고리의 자식 = 세부항목 (직접 가격/치수 설정된 leaf)
+          sub_items: subCats
+            .filter(item => item.parent_category_id === sub.id)
+            .map(item => ({ ...item, repair_types: typesMap[item.id] || [] })),
         })),
-      // 대카테고리에 직접 연결된 수선 항목도 지원
+      // 대카테고리에 직접 연결된 수선 항목도 지원 (2단계 단축)
       repair_types: typesMap[main.id] || [],
     }));
 
-    // 어느 대카테고리에도 속하지 않는 소카테고리 (parent 없이 단독으로 있는 기존 카테고리)
+    // 어느 대카테고리에도 속하지 않는 소카테고리 (단, 소카테고리의 자식=세부항목은 제외)
     const orphanCats = subCats.filter(
-      sub => !mainCats.find(m => m.id === sub.parent_category_id)
+      sub =>
+        !mainCats.find(m => m.id === sub.parent_category_id) &&
+        !subCatIds.has(sub.parent_category_id)
     ).map(cat => ({ ...cat, repair_types: typesMap[cat.id] || [] }));
 
     // 대카테고리가 없는 기존 flat 카테고리도 함께 반환
