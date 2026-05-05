@@ -26,6 +26,9 @@ export function InlineSvg({ src, className, fallback }: InlineSvgProps) {
     fetch(src)
       .then((res) => {
         if (!res.ok) throw new Error("fetch failed");
+        const contentType = res.headers.get("content-type") ?? "";
+        // HTML 응답(404 페이지 등)은 SVG로 처리하지 않음
+        if (contentType.includes("text/html")) throw new Error("html response");
         return res.text();
       })
       .then((text) => {
