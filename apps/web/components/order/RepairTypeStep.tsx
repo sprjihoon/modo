@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, Scissors, X, Minus, Plus, Trash2, ChevronRight } from "lucide-react";
+import { ChevronLeft, X, Minus, Plus, Trash2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RepairItem } from "./OrderNewClient";
 import { InlineSvg } from "@/components/ui/InlineSvg";
+import { createClient } from "@/lib/supabase/client";
 
 interface RepairType {
   id: string;
@@ -70,6 +71,7 @@ export function RepairTypeStep({
   const [loadError, setLoadError] = useState(false);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [subPartsLoading, setSubPartsLoading] = useState(false);
+  const [categoryIconName, setCategoryIconName] = useState<string | null>(null);
 
   // 세부 부위 인라인 뷰 상태 (모달 대신 화면 전환)
   const [subPartsView, setSubPartsView] = useState<{
@@ -90,8 +92,24 @@ export function RepairTypeStep({
 
   useEffect(() => {
     loadRepairTypes();
+    loadCategoryIcon();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clothingType, clothingCategoryId]);
+
+  async function loadCategoryIcon() {
+    if (!clothingCategoryId) { setCategoryIconName(null); return; }
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("repair_categories")
+        .select("icon_name")
+        .eq("id", clothingCategoryId)
+        .single();
+      setCategoryIconName(data?.icon_name ?? null);
+    } catch {
+      setCategoryIconName(null);
+    }
+  }
 
   async function loadRepairTypes() {
     try {
@@ -557,7 +575,19 @@ export function RepairTypeStep({
         {clothingType && (
           <div className="flex items-center gap-2 mb-2">
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00C896]/10 rounded-full">
-              <Scissors className="w-3.5 h-3.5 text-[#00C896]" />
+              {categoryIconName && (() => {
+                const src = getIconSrc(categoryIconName);
+                return src ? (
+                  src.startsWith("http") ? (
+                    <img src={src} alt={clothingType} className="w-4 h-4 object-contain" />
+                  ) : (
+                    <InlineSvg
+                      src={src}
+                      className="w-4 h-4 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
+                    />
+                  )
+                ) : null;
+              })()}
               <span className="text-sm font-semibold text-[#00C896]">
                 {clothingType}
               </span>
