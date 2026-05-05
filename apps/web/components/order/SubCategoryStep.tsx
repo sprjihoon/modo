@@ -1,24 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { InlineSvg } from "@/components/ui/InlineSvg";
-import type { RepairItem } from "./OrderNewClient";
 
 interface Category {
   id: string;
   name: string;
   icon_name?: string;
   display_order?: number;
-  sub_selection_label?: string;
-  // 직접 가격/치수 필드
-  price?: number | null;
-  price_range?: string | null;
-  requires_measurement?: boolean;
-  input_count?: number;
-  input_labels?: string[] | null;
-  description?: string | null;
 }
 
 function getFallbackEmoji(name: string): string {
@@ -43,22 +33,11 @@ function getIconSrc(iconName?: string): string | null {
   return `/icons/${iconName.toLowerCase().replace(/\.svg$/, "")}.svg`;
 }
 
-function formatPrice(price: number): string {
-  return `${price.toLocaleString("ko-KR")}원`;
-}
-
-function getInputLabels(cat: Category): string[] {
-  const count = cat.input_count ?? 1;
-  if (Array.isArray(cat.input_labels) && cat.input_labels.length > 0) {
-    return cat.input_labels;
-  }
-  return Array.from({ length: count }, () => "치수 (cm)");
-}
 
 interface SubCategoryStepProps {
   parentCategoryId?: string;
   parentCategoryName: string;
-  onNext: (type: string, categoryId?: string, repairItem?: RepairItem | null) => void;
+  onNext: (type: string, categoryId?: string) => void;
   onBack: () => void;
 }
 
@@ -71,11 +50,6 @@ export function SubCategoryStep({
   const [children, setChildren] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 치수 입력 모달 (직접 가격 카테고리에 requires_measurement가 있을 때)
-  const [measureModal, setMeasureModal] = useState<{
-    category: Category;
-    values: string[];
-  } | null>(null);
 
   useEffect(() => {
     load();
@@ -92,9 +66,7 @@ export function SubCategoryStep({
       const supabase = createClient();
       const { data } = await supabase
         .from("repair_categories")
-        .select(
-          "id, name, icon_name, display_order, sub_selection_label, price, price_range, requires_measurement, input_count, input_labels, description"
-        )
+        .select("id, name, icon_name, display_order")
         .eq("is_active", true)
         .eq("parent_category_id", parentCategoryId)
         .order("display_order", { ascending: true });
@@ -111,53 +83,11 @@ export function SubCategoryStep({
     }
   }
 
-  // 중카테고리 항목 클릭
+  // 카테고리 항목 클릭
   function handleSelectMiddle(cat: Category) {
-    // 직접 가격이 설정된 카테고리 → 수선 항목으로 바로 처리
-    if (cat.price != null) {
-      handleDirectPriceCategory(cat);
-      return;
-    }
     // 하위 항목 여부와 관계없이 onNext로 진행
     // (세부항목은 사진 촬영 이후 SubCategoryStep 재진입 시 표시)
     onNext(cat.name, cat.id);
-  }
-
-  // 직접 가격 설정된 카테고리 처리
-  function handleDirectPriceCategory(cat: Category) {
-    if (cat.requires_measurement) {
-      const labels = getInputLabels(cat);
-      setMeasureModal({ category: cat, values: labels.map(() => "") });
-    } else {
-      const item: RepairItem = {
-        name: cat.name,
-        price: cat.price!,
-        priceRange: cat.price_range || formatPrice(cat.price!),
-        quantity: 1,
-        detail: "",
-      };
-      onNext(cat.name, cat.id, item);
-    }
-  }
-
-  // 치수 입력 확인
-  function confirmMeasurement() {
-    if (!measureModal) return;
-    const { category, values } = measureModal;
-    const labels = getInputLabels(category);
-    const detail = labels
-      .map((label, i) => `${label}: ${values[i] || "-"}`)
-      .join(", ");
-
-    const item: RepairItem = {
-      name: category.name,
-      price: category.price!,
-      priceRange: category.price_range || formatPrice(category.price!),
-      quantity: 1,
-      detail,
-    };
-    setMeasureModal(null);
-    onNext(category.name, category.id, item);
   }
 
   if (isLoading) {
@@ -185,7 +115,6 @@ export function SubCategoryStep({
         <div className="grid grid-cols-2 gap-3">
           {children.map((cat) => {
             const iconSrc = getIconSrc(cat.icon_name);
-            const hasDirect = cat.price != null;
             return (
               <button
                 key={cat.id}
@@ -212,11 +141,6 @@ export function SubCategoryStep({
                 <span className="text-xs font-semibold text-gray-700 text-center leading-tight">
                   {cat.name}
                 </span>
-                {hasDirect && (
-                  <span className="text-[10px] text-[#00C896] font-semibold">
-                    {cat.price_range || formatPrice(cat.price!)}
-                  </span>
-                )}
               </button>
             );
           })}
@@ -230,99 +154,6 @@ export function SubCategoryStep({
         </button>
       </div>
 
-      {/* 치수 입력 모달 */}
-      {measureModal && (
-        <MeasureModal
-          category={measureModal.category}
-          values={measureModal.values}
-          onChange={(values) =>
-            setMeasureModal((prev) => prev ? { ...prev, values } : prev)
-          }
-          onConfirm={confirmMeasurement}
-          onClose={() => setMeasureModal(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── 치수 입력 모달 ────────────────────────────────────────────────────────
-function MeasureModal({
-  category,
-  values,
-  onChange,
-  onConfirm,
-  onClose,
-}: {
-  category: Category;
-  values: string[];
-  onChange: (values: string[]) => void;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const labels = getInputLabels(category);
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-[430px] bg-white rounded-t-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 핸들 */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-gray-300" />
-        </div>
-
-        {/* 제목 */}
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <p className="text-lg font-bold text-gray-900">치수를 입력해주세요</p>
-            <p className="text-sm text-gray-500 mt-0.5">{category.name}</p>
-            {category.description && (
-              <p className="text-xs text-gray-400 mt-1">{category.description}</p>
-            )}
-          </div>
-          <button onClick={onClose} className="p-1 text-gray-400">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* 입력 필드 */}
-        <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-          {labels.map((label, i) => (
-            <div key={i}>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                {label}
-              </label>
-              <input
-                type="number"
-                inputMode="decimal"
-                placeholder="예: 30"
-                value={values[i] || ""}
-                onChange={(e) => {
-                  const next = [...values];
-                  next[i] = e.target.value;
-                  onChange(next);
-                }}
-                className="w-full px-4 py-3 border-2 border-gray-100 rounded-xl text-sm outline-none focus:border-[#00C896]"
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* 확인 버튼 */}
-        <div className="px-5 pb-6">
-          <button
-            onClick={onConfirm}
-            className="w-full py-4 rounded-xl bg-[#00C896] text-white text-sm font-bold"
-          >
-            확인
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
