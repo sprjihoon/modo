@@ -270,56 +270,66 @@ export function OrderNewClient() {
   }
 
   // ── 의류 추가 sub-flow ──────────────────────────────────────────────────
-  // 순서: 대카테고리 선택 → 사진+핀+메모 → 소카테고리 선택(있으면) → 수선 항목
+  // 순서: 대카테고리 선택 → 소카테고리 선택 → 사진+핀+메모 → 세부항목/수선 항목
+  // (소카테고리를 사진 촬영 전에 먼저 선택)
+  const [stagingRepairItemFromSubCat, setStagingRepairItemFromSubCat] =
+    useState<RepairItem | null>(null);
+
   function startAddClothing() {
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
+    setStagingRepairItemFromSubCat(null);
     setMode("addClothing");
   }
 
   function handleClothingDone(type: string, categoryId?: string) {
     setStagingClothingType(type);
     setStagingClothingCategoryId(categoryId);
-    // 대카테고리 선택 후 사진 촬영
-    setMode("addPhoto");
+    // 대카테고리 선택 후 → 소카테고리 선택 (사진 전)
+    setMode("addSubCategory");
   }
 
   function handlePhotoDone(imagesWithPins: ImageWithPins[]) {
     setStagingImagesWithPins(imagesWithPins);
-    // 사진 후 소카테고리 확인 → ClothingTypeStep이 대카테고리만 처리하므로
-    // 소카테고리가 있으면 SubCategoryStep으로, 없으면 바로 수선 항목으로
-    setMode("addSubCategory");
-  }
-
-  function handleSubCategoryDone(type: string, categoryId?: string, repairItem?: RepairItem | null) {
-    const finalType = (type && categoryId) ? type : stagingClothingType;
-    const finalCategoryId = (type && categoryId) ? categoryId : stagingClothingCategoryId;
-
-    if (type && categoryId) {
-      setStagingClothingType(type);
-      setStagingClothingCategoryId(categoryId);
-    }
-
-    // 소카테고리가 직접 가격/치수를 가진 경우 → RepairTypeStep 건너뛰고 바로 항목 추가
-    if (repairItem) {
+    // 소카테고리에서 직접가격 항목을 선택했던 경우 → 사진 포함해서 바로 목록에 추가
+    if (stagingRepairItemFromSubCat) {
       const newItem: ClothingItem = {
-        clothingType: finalType,
-        clothingCategoryId: finalCategoryId,
-        repairItems: [repairItem],
-        imagesWithPins: stagingImagesWithPins,
+        clothingType: stagingClothingType,
+        clothingCategoryId: stagingClothingCategoryId,
+        repairItems: [stagingRepairItemFromSubCat],
+        imagesWithPins,
       };
       setDraft((prev) => ({ ...prev, items: [...prev.items, newItem] }));
       setStagingClothingType("");
       setStagingClothingCategoryId(undefined);
       setStagingImagesWithPins([]);
       setStagingRepairItems([]);
+      setStagingRepairItemFromSubCat(null);
       setMode("list");
       return;
     }
-
+    // 일반 소카테고리 선택 후 → 수선 항목 선택
     setMode("addRepair");
+  }
+
+  function handleSubCategoryDone(type: string, categoryId?: string, repairItem?: RepairItem | null) {
+    if (type && categoryId) {
+      setStagingClothingType(type);
+      setStagingClothingCategoryId(categoryId);
+    }
+
+    // 소카테고리가 직접 가격/치수를 가진 경우 → 사진 촬영 후 항목 추가
+    if (repairItem) {
+      setStagingRepairItemFromSubCat(repairItem);
+      setMode("addPhoto");
+      return;
+    }
+
+    // 일반 소카테고리 선택 → 사진 촬영으로 이동
+    setStagingRepairItemFromSubCat(null);
+    setMode("addPhoto");
   }
 
   function handleRepairDone(items: RepairItem[]) {
@@ -342,6 +352,7 @@ export function OrderNewClient() {
     setStagingClothingCategoryId(undefined);
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
+    setStagingRepairItemFromSubCat(null);
     setMode("list");
   }
 
@@ -476,12 +487,15 @@ export function OrderNewClient() {
   function subHeaderBack() {
     if (mode === "addClothing") {
       cancelAddClothing();
-    } else if (mode === "addPhoto") {
-      setMode("addClothing");
     } else if (mode === "addSubCategory") {
-      setMode("addPhoto");
+      // 소카테고리 선택 → 대카테고리로
+      setMode("addClothing");
+    } else if (mode === "addPhoto") {
+      // 사진 → 소카테고리로
+      setStagingRepairItemFromSubCat(null);
+      setMode("addSubCategory");
     } else if (mode === "addRepair") {
-      // addSubCategory는 소카테고리 없을 때 자동 통과하므로 addPhoto로 이동
+      // 수선항목 → 사진으로
       setMode("addPhoto");
     } else if (mode === "pickup") {
       setMode("list");
@@ -521,21 +535,24 @@ export function OrderNewClient() {
           <ClothingTypeStep onNext={handleClothingDone} />
         )}
 
-        {mode === "addPhoto" && (
-          <ImagePinStep
-            clothingType={stagingClothingType}
-            initialImages={stagingImagesWithPins}
-            onNext={handlePhotoDone}
-            onBack={() => setMode("addClothing")}
-          />
-        )}
-
         {mode === "addSubCategory" && (
           <SubCategoryStep
             parentCategoryId={stagingClothingCategoryId}
             parentCategoryName={stagingClothingType}
             onNext={handleSubCategoryDone}
-            onBack={() => setMode("addPhoto")}
+            onBack={() => setMode("addClothing")}
+          />
+        )}
+
+        {mode === "addPhoto" && (
+          <ImagePinStep
+            clothingType={stagingClothingType}
+            initialImages={stagingImagesWithPins}
+            onNext={handlePhotoDone}
+            onBack={() => {
+              setStagingRepairItemFromSubCat(null);
+              setMode("addSubCategory");
+            }}
           />
         )}
 
