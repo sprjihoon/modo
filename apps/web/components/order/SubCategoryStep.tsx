@@ -24,6 +24,8 @@ interface SubCategoryStepProps {
   parentCategoryName: string;
   onNext: (type: string, categoryId?: string) => void;
   onBack: () => void;
+  /** "backward" 일 때 자식 없으면 onNext 대신 onBack 호출 (뒤로가기 루프 방지) */
+  direction?: "forward" | "backward";
 }
 
 export function SubCategoryStep({
@@ -31,6 +33,7 @@ export function SubCategoryStep({
   parentCategoryName,
   onNext,
   onBack,
+  direction = "forward",
 }: SubCategoryStepProps) {
   const [children, setChildren] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,7 +60,12 @@ export function SubCategoryStep({
         .order("display_order", { ascending: true });
 
       if (!data || data.length === 0) {
-        onNext("", undefined);
+        // 뒤로가기 중이면 onBack, 앞으로 진행 중이면 onNext
+        if (direction === "backward") {
+          onBack();
+        } else {
+          onNext("", undefined);
+        }
       } else {
         setChildren(data);
       }

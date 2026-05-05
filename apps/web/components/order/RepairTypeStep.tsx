@@ -122,13 +122,7 @@ export function RepairTypeStep({
       const res = await fetch(`/api/repair-types?${params.toString()}`);
       const json = await res.json();
 
-      let items: RepairType[] = json.data ?? [];
-
-      if (items.length === 0 && clothingCategoryId) {
-        const res2 = await fetch("/api/repair-types");
-        const json2 = await res2.json();
-        items = json2.data ?? [];
-      }
+      const items: RepairType[] = json.data ?? [];
 
       setRepairTypes(
         items.map((d) => ({

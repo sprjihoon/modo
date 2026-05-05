@@ -274,6 +274,7 @@ export function OrderNewClient() {
   //       세부항목(SubCategoryStep post-photo) → 수선항목(RepairTypeStep)
   // 'pre': 사진 촬영 전 소카테고리 선택, 'post': 사진 촬영 후 세부항목 선택
   const [subCategoryPhase, setSubCategoryPhase] = useState<"pre" | "post">("pre");
+  const [subCategoryDirection, setSubCategoryDirection] = useState<"forward" | "backward">("forward");
 
   function startAddClothing() {
     setStagingClothingType("");
@@ -281,6 +282,7 @@ export function OrderNewClient() {
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
     setSubCategoryPhase("pre");
+    setSubCategoryDirection("forward");
     setMode("addClothing");
   }
 
@@ -288,6 +290,7 @@ export function OrderNewClient() {
     setStagingClothingType(type);
     setStagingClothingCategoryId(categoryId);
     setSubCategoryPhase("pre");
+    setSubCategoryDirection("forward");
     setMode("addSubCategory");
   }
 
@@ -295,6 +298,7 @@ export function OrderNewClient() {
     setStagingImagesWithPins(imagesWithPins);
     // 사진 후 → 세부항목 선택(SubCategoryStep post-photo)으로
     setSubCategoryPhase("post");
+    setSubCategoryDirection("forward");
     setMode("addSubCategory");
   }
 
@@ -480,10 +484,12 @@ export function OrderNewClient() {
     } else if (mode === "addPhoto") {
       // 사진 → 소카테고리(pre)로
       setSubCategoryPhase("pre");
+      setSubCategoryDirection("backward");
       setMode("addSubCategory");
     } else if (mode === "addRepair") {
-      // 수선항목 → 세부항목(post)으로
+      // 수선항목 → 세부항목(post)으로 (자식 없으면 SubCategoryStep이 onBack 호출 → 사진으로)
       setSubCategoryPhase("post");
+      setSubCategoryDirection("backward");
       setMode("addSubCategory");
     } else if (mode === "pickup") {
       setMode("list");
@@ -528,11 +534,13 @@ export function OrderNewClient() {
             parentCategoryId={stagingClothingCategoryId}
             parentCategoryName={stagingClothingType}
             onNext={handleSubCategoryDone}
+            direction={subCategoryDirection}
             onBack={() => {
               if (subCategoryPhase === "pre") {
                 setMode("addClothing");
               } else {
                 setSubCategoryPhase("pre");
+                setSubCategoryDirection("backward");
                 setMode("addPhoto");
               }
             }}
