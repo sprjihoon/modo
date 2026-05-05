@@ -102,11 +102,19 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
               >
                 <div className="w-10 h-10 flex items-center justify-center shrink-0">
                   {iconSrc ? (
-                    <InlineSvg
-                      src={iconSrc}
-                      className="w-9 h-9 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
-                      fallback={<span className="text-2xl">{getFallbackEmoji(cat.name)}</span>}
-                    />
+                    iconSrc.startsWith("http") ? (
+                      <img
+                        src={iconSrc}
+                        alt={cat.name}
+                        className="w-9 h-9 object-contain"
+                      />
+                    ) : (
+                      <InlineSvg
+                        src={iconSrc}
+                        className="w-9 h-9 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
+                        fallback={<span className="text-2xl">{getFallbackEmoji(cat.name)}</span>}
+                      />
+                    )
                   ) : (
                     <span className="text-2xl">{getFallbackEmoji(cat.name)}</span>
                   )}

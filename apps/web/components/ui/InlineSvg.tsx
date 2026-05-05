@@ -57,8 +57,7 @@ export function InlineSvg({ src, className, fallback }: InlineSvgProps) {
     };
   }, [src]);
 
-  if (error) return <>{fallback ?? null}</>;
-  if (!svgContent) return null;
+  if (error || !svgContent) return <>{fallback ?? null}</>;
 
   return (
     <span

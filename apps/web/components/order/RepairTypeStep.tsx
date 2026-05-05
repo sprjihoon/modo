@@ -375,15 +375,19 @@ export function RepairTypeStep({
           <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
             <div className="w-12 h-12 flex items-center justify-center shrink-0">
               {rtIconSrc ? (
-                <InlineSvg
-                  src={rtIconSrc}
-                  className="w-10 h-10 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
-                  fallback={
-                    <span className="text-3xl">
-                      {getRepairTypeEmoji(repairType.name)}
-                    </span>
-                  }
-                />
+                rtIconSrc.startsWith("http") ? (
+                  <img src={rtIconSrc} alt={repairType.name} className="w-10 h-10 object-contain" />
+                ) : (
+                  <InlineSvg
+                    src={rtIconSrc}
+                    className="w-10 h-10 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
+                    fallback={
+                      <span className="text-3xl">
+                        {getRepairTypeEmoji(repairType.name)}
+                      </span>
+                    }
+                  />
+                )
               ) : (
                 <span className="text-3xl">
                   {getRepairTypeEmoji(repairType.name)}
@@ -503,15 +507,19 @@ export function RepairTypeStep({
                             />
                           </svg>
                         ) : partIconSrc ? (
-                          <InlineSvg
-                            src={partIconSrc}
-                            className="w-10 h-10 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
-                            fallback={
-                              <span className="text-3xl">
-                                {getRepairTypeEmoji(part.name)}
-                              </span>
-                            }
-                          />
+                          partIconSrc.startsWith("http") ? (
+                            <img src={partIconSrc} alt={part.name} className="w-10 h-10 object-contain" />
+                          ) : (
+                            <InlineSvg
+                              src={partIconSrc}
+                              className="w-10 h-10 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
+                              fallback={
+                                <span className="text-3xl">
+                                  {getRepairTypeEmoji(part.name)}
+                                </span>
+                              }
+                            />
+                          )
                         ) : (
                           <span className="text-3xl">
                             {getRepairTypeEmoji(part.name)}
@@ -702,18 +710,29 @@ export function RepairTypeStep({
                     )}
                   >
                     {iconSrc ? (
-                      <InlineSvg
-                        src={iconSrc}
-                        className={cn(
-                          "w-10 h-10 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full",
-                          active ? "text-white" : "text-[#00C896]"
-                        )}
-                        fallback={
-                          <span className="text-3xl">
-                            {getRepairTypeEmoji(type.name)}
-                          </span>
-                        }
-                      />
+                      iconSrc.startsWith("http") ? (
+                        <img
+                          src={iconSrc}
+                          alt={type.name}
+                          className={cn(
+                            "w-10 h-10 object-contain",
+                            active ? "brightness-0 invert" : ""
+                          )}
+                        />
+                      ) : (
+                        <InlineSvg
+                          src={iconSrc}
+                          className={cn(
+                            "w-10 h-10 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full",
+                            active ? "text-white" : "text-[#00C896]"
+                          )}
+                          fallback={
+                            <span className="text-3xl">
+                              {getRepairTypeEmoji(type.name)}
+                            </span>
+                          }
+                        />
+                      )
                     ) : (
                       <span className="text-3xl">
                         {getRepairTypeEmoji(type.name)}

@@ -122,17 +122,25 @@ export function SubCategoryStep({
                 className="flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border-2 border-gray-100 bg-white active:scale-95 active:border-[#00C896] transition-all"
               >
                 {iconSrc ? (
-                  <InlineSvg
-                    src={iconSrc}
-                    className="w-20 h-20 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
-                    fallback={
-                      <div className="w-20 h-20 flex items-center justify-center">
-                        <span className="text-5xl">
-                          {getFallbackEmoji(cat.name)}
-                        </span>
-                      </div>
-                    }
-                  />
+                  iconSrc.startsWith("http") ? (
+                    <img
+                      src={iconSrc}
+                      alt={cat.name}
+                      className="w-20 h-20 object-contain"
+                    />
+                  ) : (
+                    <InlineSvg
+                      src={iconSrc}
+                      className="w-20 h-20 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
+                      fallback={
+                        <div className="w-20 h-20 flex items-center justify-center">
+                          <span className="text-5xl">
+                            {getFallbackEmoji(cat.name)}
+                          </span>
+                        </div>
+                      }
+                    />
+                  )
                 ) : (
                   <div className="w-20 h-20 flex items-center justify-center">
                     <span className="text-5xl">{getFallbackEmoji(cat.name)}</span>
