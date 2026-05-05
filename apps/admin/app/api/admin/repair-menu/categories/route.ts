@@ -57,11 +57,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from("repair_categories")
       .insert(insertPayload as unknown as { name: string })
       .select()
       .single();
+
+    // DB에 컬럼이 없는 경우(마이그레이션 미적용) → 기본 필드만으로 재시도
+    if (error && (error.code === "42703" || error.message?.includes("column"))) {
+      console.warn("컬럼 누락, 기본 필드만으로 재시도:", error.message);
+      const safePayload = {
+        name,
+        icon_name: icon_name || null,
+        display_order: display_order || 999,
+        parent_category_id: body.parent_category_id || null,
+      };
+      const retry = await supabaseAdmin
+        .from("repair_categories")
+        .insert(safePayload as unknown as { name: string })
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error("카테고리 추가 실패:", error);
@@ -125,11 +143,27 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from("repair_categories")
       .update(updatePayload as unknown as { name: string })
       .eq("id", id)
       .select();
+
+    // DB에 컬럼이 없는 경우(마이그레이션 미적용) → 기본 필드만으로 재시도
+    if (error && (error.code === "42703" || error.message?.includes("column"))) {
+      console.warn("컬럼 누락, 기본 필드만으로 재시도:", error.message);
+      const safePayload: Record<string, any> = { name, icon_name: icon_name || null };
+      if ("parent_category_id" in body) {
+        safePayload.parent_category_id = body.parent_category_id || null;
+      }
+      const retry = await supabaseAdmin
+        .from("repair_categories")
+        .update(safePayload as unknown as { name: string })
+        .eq("id", id)
+        .select();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error("카테고리 수정 실패:", error);
