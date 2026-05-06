@@ -567,22 +567,22 @@ export function RepairTypeStep({
       {/* 헤더 */}
       <div className="px-4 py-4 border-b border-gray-100">
         {clothingType && (
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00C896]/10 rounded-full">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="inline-flex items-center gap-2 px-5 py-3 bg-[#00C896]/10 rounded-2xl border border-[#00C896]/20">
               {categoryIconName && (() => {
                 const src = getIconSrc(categoryIconName);
                 return src ? (
                   src.startsWith("http") ? (
-                    <img src={src} alt={clothingType} className="w-4 h-4 object-contain" />
+                    <img src={src} alt={clothingType} className="w-7 h-7 object-contain" />
                   ) : (
                     <InlineSvg
                       src={src}
-                      className="w-4 h-4 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
+                      className="w-7 h-7 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
                     />
                   )
                 ) : null;
               })()}
-              <span className="text-sm font-semibold text-[#00C896]">
+              <span className="text-lg font-bold text-[#00C896]">
                 {clothingType}
               </span>
             </div>
