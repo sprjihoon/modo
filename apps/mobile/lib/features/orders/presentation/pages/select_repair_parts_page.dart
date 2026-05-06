@@ -212,6 +212,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
     final hasSubParts = repairType['has_sub_parts'] as bool? ?? false;
     final allowMultiple =
         repairType['allow_multiple_sub_parts'] as bool? ?? false;
+    final allOptionPrice = repairType['all_option_price'] as int?;
 
     debugPrint('🔄 수치 입력 페이지로 이동: $displayName');
 
@@ -221,6 +222,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
       extra: {
         'repairPart': displayName,
         'price': price,
+        'allOptionPrice': allOptionPrice,
         'repairTypeId': repairType['id'],
         'requiresMultipleInputs':
             repairType['requires_multiple_inputs'] ?? false,

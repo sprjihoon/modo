@@ -14,6 +14,7 @@ class RepairDetailInputPage extends ConsumerStatefulWidget {
   final String repairPart;
   final String? priceRange; // 가격 범위 (legacy)
   final int? price; // 단일 가격
+  final int? allOptionPrice; // 전체 옵션 선택 시 가격
   final List<String> imageUrls;
   final List<Map<String, dynamic>>? imagesWithPins; // 이 의류의 핀 정보
   final bool? hasAdvancedOptions; // 고급 옵션 여부
@@ -29,6 +30,7 @@ class RepairDetailInputPage extends ConsumerStatefulWidget {
     super.key,
     this.priceRange,
     this.price,
+    this.allOptionPrice,
     this.imagesWithPins,
     this.hasAdvancedOptions,
     this.requiresMultipleInputs,
@@ -741,16 +743,20 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                           debugPrint(
                               '📸 이미지 데이터 복사 완료: ${imageDataCopy.length}장');
 
+                          final effectivePrice = _selectedScope == '전체' && widget.allOptionPrice != null
+                              ? widget.allOptionPrice
+                              : widget.price;
+
                           final repairItem = {
                             'id': itemId,
                             'repairPart': widget.repairPart,
-                            'priceRange': widget.price != null
-                                ? '${widget.price.toString().replaceAllMapped(
+                            'priceRange': effectivePrice != null
+                                ? '${effectivePrice.toString().replaceAllMapped(
                                       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
                                       (Match m) => '${m[1]},',
                                     )}원'
                                 : widget.priceRange ?? '가격 미정',
-                            'price': widget.price,
+                            'price': effectivePrice,
                             'scope': _selectedScope,
                             'measurement': measurements,
                             'selectedParts': _selectedSubParts

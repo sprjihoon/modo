@@ -91,14 +91,15 @@ export function RepairTypeStep({
   const [measureView, setMeasureView] = useState<{
     repairType: RepairType;
     chosenParts?: SubPart[];
+    overridePrice?: number;
   } | null>(null);
   const [measureValues, setMeasureValues] = useState<string[]>([]);
 
-  function openMeasureView(repairType: RepairType, chosenParts?: SubPart[]) {
+  function openMeasureView(repairType: RepairType, chosenParts?: SubPart[], overridePrice?: number) {
     const labels = getInputLabels(repairType);
     const groups = chosenParts && chosenParts.length > 0 ? chosenParts.length : 1;
     setMeasureValues(Array.from({ length: labels.length * groups }, () => ""));
-    setMeasureView({ repairType, chosenParts });
+    setMeasureView({ repairType, chosenParts, overridePrice });
   }
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -297,10 +298,11 @@ export function RepairTypeStep({
     setSubPartsView(null);
 
     if (selectedMode === "all") {
+      const allPrice = repairType.all_option_price ?? repairType.price;
       if (repairType.requires_measurement) {
-        openMeasureView(repairType, []);
+        openMeasureView(repairType, [], allPrice);
       } else {
-        addSimpleItem(repairType);
+        addSimpleItem(repairType, undefined, allPrice);
       }
       return;
     }
@@ -327,14 +329,14 @@ export function RepairTypeStep({
 
   function confirmMeasurement(values: string[]) {
     if (!measureView) return;
-    const { repairType, chosenParts } = measureView;
+    const { repairType, chosenParts, overridePrice } = measureView;
     const labels = getInputLabels(repairType);
 
     if (!chosenParts || chosenParts.length === 0) {
       const detail = labels
         .map((label, i) => `${label}: ${values[i] || "-"}`)
         .join(", ");
-      addSimpleItem(repairType, detail);
+      addSimpleItem(repairType, detail, overridePrice);
       setMeasureView(null);
       return;
     }
@@ -655,8 +657,8 @@ export function RepairTypeStep({
                   ? `${repairType.name} (${repairType.sub_type})`
                   : repairType.name}
               </span>
-              {repairType.price > 0 && (
-                <p className="text-xs text-[#00C896]">{formatPrice(repairType.price)}</p>
+              {(measureView.overridePrice ?? repairType.price) > 0 && (
+                <p className="text-xs text-[#00C896]">{formatPrice(measureView.overridePrice ?? repairType.price)}</p>
               )}
             </div>
           </div>

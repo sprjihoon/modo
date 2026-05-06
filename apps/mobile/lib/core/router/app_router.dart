@@ -301,6 +301,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             repairPart: data['repairPart'] as String? ?? '',
             priceRange: data['priceRange'] as String?,
             price: data['price'] as int?,
+            allOptionPrice: data['allOptionPrice'] as int?,
             imageUrls: data['imageUrls'] as List<String>? ?? [],
             imagesWithPins: data['imagesWithPins'] as List<Map<String, dynamic>>?,
             hasAdvancedOptions: data['hasAdvancedOptions'] as bool?,
