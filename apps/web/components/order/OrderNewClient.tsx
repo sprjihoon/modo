@@ -140,8 +140,29 @@ export function OrderNewClient() {
   const modeRef = useRef(mode);
   modeRef.current = mode;
 
-  // 현재 단계에서 한 단계 뒤로 이동하는 함수 ref
-  const stepBackRef = useRef<() => void>(() => {});
+  // 모드 히스토리 스택 (뒤로가기 단순화)
+  const modeHistoryRef = useRef<Mode[]>([]);
+
+  function pushMode(next: Mode) {
+    modeHistoryRef.current.push(mode);
+    setMode(next);
+  }
+
+  function popMode() {
+    if (modeRef.current === "addClothing") {
+      cancelAddClothing();
+      return;
+    }
+    if (modeRef.current === "addMeasurement") {
+      setMeasurementConfig(null);
+    }
+    const prev = modeHistoryRef.current.pop();
+    if (prev != null) {
+      setMode(prev);
+    } else {
+      setMode("list");
+    }
+  }
 
   const popstateHandlerRef = useRef<(() => void) | null>(null);
 
@@ -185,54 +206,48 @@ export function OrderNewClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 이탈 방지: modu_before_navigate ─────────────────────────────────────
+  // ── 뒤로가기 처리: modu_before_navigate ─────────────────────────────────
   useEffect(() => {
     const handler = (e: Event) => {
-      const type = (e as CustomEvent).detail?.type as "back" | "home";
       const currentMode = modeRef.current;
-
-      // sub-flow 단계(list 제외)에서 뒤로가기 → 이탈 다이얼로그 없이 이전 단계로
-      if (type === "back" && currentMode !== "list") {
-        e.preventDefault();
-        stepBackRef.current();
-        return;
-      }
-
-      // 홈 버튼 또는 list 모드에서 뒤로가기 → 미저장 작업 있으면 이탈 다이얼로그
-      if (!hasUnsavedWork()) return;
       e.preventDefault();
-      pendingExitRef.current = () => router.push("/");
-      setShowExitDialog(true);
+
+      if (currentMode === "list") {
+        // list에서 뒤로가기 → 이탈 확인
+        pendingExitRef.current = () => router.push("/");
+        setShowExitDialog(true);
+      } else {
+        // sub-flow에서 뒤로가기 → 이전 단계로
+        popMode();
+      }
     };
     window.addEventListener("modu_before_navigate", handler);
     return () => window.removeEventListener("modu_before_navigate", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  // ── 이탈 방지: popstate ─────────────────────────────────────────────────
+  // ── 뒤로가기 처리: popstate ─────────────────────────────────────────────
   useEffect(() => {
     window.history.pushState({ orderFlowGuard: true }, "");
 
     const handler = () => {
       const currentMode = modeRef.current;
-      // 가드 엔트리를 다시 쌓아 페이지를 유지
       window.history.pushState({ orderFlowGuard: true }, "");
 
-      // sub-flow 단계에서 브라우저 뒤로가기 → 이전 단계로 이동
-      if (currentMode !== "list") {
-        stepBackRef.current();
-        return;
+      if (currentMode === "list") {
+        // list에서 브라우저 뒤로가기 → 이탈 확인
+        pendingExitRef.current = () => {
+          if (popstateHandlerRef.current) {
+            window.removeEventListener("popstate", popstateHandlerRef.current);
+            popstateHandlerRef.current = null;
+          }
+          router.push("/");
+        };
+        setShowExitDialog(true);
+      } else {
+        // sub-flow에서 브라우저 뒤로가기 → 이전 단계로
+        popMode();
       }
-
-      // list 모드에서 브라우저 뒤로가기 → 이탈 확인
-      if (!hasUnsavedWork()) return;
-      pendingExitRef.current = () => {
-        if (popstateHandlerRef.current) {
-          window.removeEventListener("popstate", popstateHandlerRef.current);
-          popstateHandlerRef.current = null;
-        }
-        router.push("/");
-      };
-      setShowExitDialog(true);
     };
 
     popstateHandlerRef.current = handler;
@@ -242,6 +257,7 @@ export function OrderNewClient() {
         window.removeEventListener("popstate", popstateHandlerRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── 이탈 방지: beforeunload ─────────────────────────────────────────────
@@ -288,7 +304,8 @@ export function OrderNewClient() {
     setStagingRepairItems([]);
     setSubCategoryPhase("pre");
     setSubCategoryDirection("forward");
-    setMode("addClothing");
+    modeHistoryRef.current = [];
+    pushMode("addClothing");
   }
 
   function handleClothingDone(type: string, categoryId?: string) {
@@ -296,7 +313,7 @@ export function OrderNewClient() {
     setStagingClothingCategoryId(categoryId);
     setSubCategoryPhase("pre");
     setSubCategoryDirection("forward");
-    setMode("addSubCategory");
+    pushMode("addSubCategory");
   }
 
   function handlePhotoDone(imagesWithPins: ImageWithPins[]) {
@@ -312,8 +329,9 @@ export function OrderNewClient() {
           itemName: prePhaseSelection.name,
           labels,
           price: prePhaseSelection.directPrice,
+          iconName: prePhaseSelection.iconName ?? undefined,
         });
-        setMode("addMeasurement");
+        pushMode("addMeasurement");
       } else {
         const price = prePhaseSelection.directPrice;
         const priceRange = prePhaseSelection.priceRange || `${price.toLocaleString("ko-KR")}원`;
@@ -332,7 +350,7 @@ export function OrderNewClient() {
     // 일반 카테고리 → 세부항목 선택(SubCategoryStep post-photo)으로
     setSubCategoryPhase("post");
     setSubCategoryDirection("forward");
-    setMode("addSubCategory");
+    pushMode("addSubCategory");
   }
 
   // PRE-photo 단계에서 선택한 카테고리 정보 (직접가격 leaf일 때 사용)
@@ -349,7 +367,7 @@ export function OrderNewClient() {
 
     if (subCategoryPhase === "pre") {
       setPrePhaseSelection(selection || null);
-      setMode("addPhoto");
+      pushMode("addPhoto");
     } else {
       const effectiveSelection = selection || ((!type && !categoryId) ? prePhaseSelection : null);
 
@@ -362,8 +380,9 @@ export function OrderNewClient() {
             itemName: effectiveSelection.name,
             labels,
             price: effectiveSelection.directPrice,
+            iconName: effectiveSelection.iconName ?? undefined,
           });
-          setMode("addMeasurement");
+          pushMode("addMeasurement");
         } else {
           const price = effectiveSelection.directPrice;
           const priceRange = effectiveSelection.priceRange || `${price.toLocaleString("ko-KR")}원`;
@@ -377,7 +396,7 @@ export function OrderNewClient() {
           handleRepairDone([repairItem]);
         }
       } else {
-        setMode("addRepair");
+        pushMode("addRepair");
       }
     }
   }
@@ -413,6 +432,7 @@ export function OrderNewClient() {
     setStagingClothingCategoryId(undefined);
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
+    modeHistoryRef.current = [];
     setMode("list");
   }
 
@@ -422,6 +442,7 @@ export function OrderNewClient() {
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
     setSubCategoryPhase("pre");
+    modeHistoryRef.current = [];
     setMode("list");
   }
 
@@ -436,7 +457,7 @@ export function OrderNewClient() {
   // ── 메인 → 수거정보 ─────────────────────────────────────────────────────
   function handleProceedToPickup() {
     if (draft.items.length === 0) return;
-    setMode("pickup");
+    pushMode("pickup");
   }
 
   // ── 메인 → 담기 (수거정보 없이) ────────────────────────────────────────
@@ -551,37 +572,9 @@ export function OrderNewClient() {
     mode === "addClothing" ||
     mode === "addPhoto" ||
     mode === "addSubCategory" ||
-    mode === "addRepair";
+    mode === "addRepair" ||
+    mode === "addMeasurement";
 
-  function subHeaderBack() {
-    if (mode === "addClothing") {
-      cancelAddClothing();
-    } else if (mode === "addSubCategory") {
-      if (subCategoryPhase === "pre") {
-        // pre: 소카테고리 선택 → 대카테고리로
-        setMode("addClothing");
-      } else {
-        // post: 세부항목 선택 → 사진으로
-        setSubCategoryPhase("pre");
-        setMode("addPhoto");
-      }
-    } else if (mode === "addPhoto") {
-      // 사진 → 소카테고리(pre)로
-      setSubCategoryPhase("pre");
-      setSubCategoryDirection("backward");
-      setMode("addSubCategory");
-    } else if (mode === "addRepair") {
-      // 수선항목 → 세부항목(post)으로 (자식 없으면 SubCategoryStep이 onBack 호출 → 사진으로)
-      setSubCategoryPhase("post");
-      setSubCategoryDirection("backward");
-      setMode("addSubCategory");
-    } else if (mode === "pickup") {
-      setMode("list");
-    }
-  }
-
-  // stepBackRef를 항상 최신 subHeaderBack으로 동기화 (매 렌더마다)
-  stepBackRef.current = subHeaderBack;
 
   return (
     <div>
@@ -589,7 +582,7 @@ export function OrderNewClient() {
         <div className="flex items-center px-3 py-2 border-b border-gray-100">
           <button
             type="button"
-            onClick={subHeaderBack}
+            onClick={popMode}
             className="p-1.5 text-gray-500 active:opacity-60"
             aria-label="뒤로"
           >
@@ -619,15 +612,7 @@ export function OrderNewClient() {
             parentCategoryName={stagingClothingType}
             onNext={handleSubCategoryDone}
             direction={subCategoryDirection}
-            onBack={() => {
-              if (subCategoryPhase === "pre") {
-                setMode("addClothing");
-              } else {
-                setSubCategoryPhase("pre");
-                setSubCategoryDirection("backward");
-                setMode("addPhoto");
-              }
-            }}
+            onBack={popMode}
           />
         )}
 
@@ -636,10 +621,7 @@ export function OrderNewClient() {
             clothingType={stagingClothingType}
             initialImages={stagingImagesWithPins}
             onNext={handlePhotoDone}
-            onBack={() => {
-              setSubCategoryPhase("pre");
-              setMode("addSubCategory");
-            }}
+            onBack={popMode}
           />
         )}
 
@@ -647,10 +629,7 @@ export function OrderNewClient() {
           <MeasurementStep
             config={measurementConfig}
             onConfirm={handleMeasurementDone}
-            onBack={() => {
-              setMeasurementConfig(null);
-              setMode("addPhoto");
-            }}
+            onBack={popMode}
           />
         )}
 
@@ -659,10 +638,7 @@ export function OrderNewClient() {
             clothingType={stagingClothingType}
             clothingCategoryId={stagingClothingCategoryId}
             onNext={(items) => handleRepairDone(items)}
-            onBack={() => {
-              setSubCategoryPhase("post");
-              setMode("addSubCategory");
-            }}
+            onBack={popMode}
           />
         )}
 
@@ -670,7 +646,7 @@ export function OrderNewClient() {
           <PickupStep
             draft={draft}
             onNext={handlePickupDone}
-            onBack={() => setMode("list")}
+            onBack={popMode}
           />
         )}
       </div>
