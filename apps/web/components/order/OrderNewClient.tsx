@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ShoppingCart, CreditCard, X, ChevronLeft } from "lucide-react";
+import { ShoppingCart, X, ChevronLeft } from "lucide-react";
 import { ClothingTypeStep } from "./ClothingTypeStep";
 import { SubCategoryStep, SubCategorySelection } from "./SubCategoryStep";
 import { RepairTypeStep } from "./RepairTypeStep";
@@ -113,14 +113,8 @@ export function OrderNewClient() {
     []
   );
 
-  // 이탈 방지 다이얼로그
+  // 이탈 다이얼로그 (pickup 단계에서 뒤로가기 시)
   const [showExitDialog, setShowExitDialog] = useState(false);
-  const pendingExitRef = useRef<(() => void) | null>(null);
-
-  // 결제/장바구니 선택 모달
-  const [showPaymentChoice, setShowPaymentChoice] = useState(false);
-  const [pendingPickupData, setPendingPickupData] =
-    useState<Partial<OrderDraft> | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const draftRef = useRef(draft);
@@ -213,7 +207,6 @@ export function OrderNewClient() {
 
       if (currentMode === "pickup") {
         e.preventDefault();
-        pendingExitRef.current = () => router.back();
         setShowExitDialog(true);
       } else if (currentMode === "list") {
         // list에서는 그냥 이전 페이지로 (가드 없음)
@@ -236,13 +229,6 @@ export function OrderNewClient() {
 
       if (currentMode === "pickup") {
         window.history.pushState({ orderFlowGuard: true }, "");
-        pendingExitRef.current = () => {
-          if (popstateHandlerRef.current) {
-            window.removeEventListener("popstate", popstateHandlerRef.current);
-            popstateHandlerRef.current = null;
-          }
-          router.back();
-        };
         setShowExitDialog(true);
       } else if (currentMode === "list") {
         // list에서는 브라우저 기본 동작 (이전 페이지로)
@@ -282,18 +268,25 @@ export function OrderNewClient() {
     const d = draftRef.current;
     if (d.items.length > 0) {
       await addCartItem(d);
-      // 이어서 진행 중이던 cart 항목이 있으면 새 항목으로 대체 (중복 방지)
       if (resumingCartId) {
         try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
       }
     }
     setShowExitDialog(false);
-    pendingExitRef.current?.();
+    if (popstateHandlerRef.current) {
+      window.removeEventListener("popstate", popstateHandlerRef.current);
+      popstateHandlerRef.current = null;
+    }
+    router.push("/cart");
   }
 
   function handleExitWithoutSaving() {
     setShowExitDialog(false);
-    pendingExitRef.current?.();
+    if (popstateHandlerRef.current) {
+      window.removeEventListener("popstate", popstateHandlerRef.current);
+      popstateHandlerRef.current = null;
+    }
+    router.push("/");
   }
 
   // ── 의류 추가 sub-flow ──────────────────────────────────────────────────
@@ -486,22 +479,10 @@ export function OrderNewClient() {
     }
   }
 
-  // ── 수거정보 완료 → 결제/장바구니 선택 모달 ─────────────────────────────
+  // ── 수거정보 완료 → 바로 결제 진행 ─────────────────────────────────────
   async function handlePickupDone(pickupData: Partial<OrderDraft>) {
-    setPendingPickupData(pickupData);
-    setShowPaymentChoice(true);
-  }
-
-  // ── 바로 결제 ──────────────────────────────────────────────────────────
-  // 흐름:
-  //   1) /api/orders/quote 호출 → 서버 권위적 가격 + intent_id
-  //   2) 0원이면 /api/orders/free 로 바로 PAID 주문 생성 + 수거 예약
-  //   3) 그 외에는 /payment?intentId=... 로 이동 (PaymentClient 가 결제 진행)
-  //   ※ DB 에는 결제 성공 전까지 orders row 가 절대 만들어지지 않음 (PENDING_PAYMENT 폐지)
-  const handlePayNow = useCallback(async () => {
-    if (!pendingPickupData) return;
     setIsProcessing(true);
-    const finalDraft: OrderDraft = { ...draft, ...pendingPickupData };
+    const finalDraft: OrderDraft = { ...draft, ...pickupData };
     try {
       const quoteRes = await fetch("/api/orders/quote", {
         method: "POST",
@@ -511,7 +492,6 @@ export function OrderNewClient() {
       if (!quoteRes.ok) {
         const err = await quoteRes.json().catch(() => ({}));
         alert((err as { error?: string }).error || "주문 가격 계산에 실패했습니다.");
-        setShowPaymentChoice(false);
         return;
       }
       const quote = await quoteRes.json() as { intentId: string; totalPrice: number };
@@ -533,7 +513,6 @@ export function OrderNewClient() {
         if (!freeRes.ok) {
           const err = await freeRes.json().catch(() => ({}));
           alert((err as { error?: string }).error || "0원 주문 생성에 실패했습니다.");
-          setShowPaymentChoice(false);
           return;
         }
         const { orderId } = await freeRes.json() as { orderId: string };
@@ -544,33 +523,13 @@ export function OrderNewClient() {
       router.push(`/payment?intentId=${quote.intentId}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error("[결제] handlePayNow 오류:", e);
+      console.error("[결제] handlePickupDone 오류:", e);
       alert(`주문 처리 중 오류가 발생했습니다.\n${msg}`);
-      setShowPaymentChoice(false);
     } finally {
       setIsProcessing(false);
     }
-  }, [draft, pendingPickupData, router, resumingCartId]);
+  }
 
-  // ── 장바구니에 담기 (수거정보 포함) ────────────────────────────────────
-  const handleSaveToCartFromPickup = useCallback(async () => {
-    if (!pendingPickupData) return;
-    setIsProcessing(true);
-    try {
-      const finalDraft: OrderDraft = { ...draft, ...pendingPickupData };
-      await addCartItem(finalDraft);
-      if (resumingCartId) {
-        try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
-      }
-      if (popstateHandlerRef.current) {
-        window.removeEventListener("popstate", popstateHandlerRef.current);
-        popstateHandlerRef.current = null;
-      }
-      router.push("/cart");
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [draft, pendingPickupData, router, resumingCartId]);
 
   // ── 헤더 표시 (sub-flow 인 경우) ───────────────────────────────────────
   // pickup 모드는 PickupStep 내부에 자체 헤더와 "이전" 버튼이 있어 별도 표시 안 함.
@@ -652,16 +611,13 @@ export function OrderNewClient() {
           <PickupStep
             draft={draft}
             onNext={handlePickupDone}
-            onBack={() => {
-              pendingExitRef.current = () => router.back();
-              setShowExitDialog(true);
-            }}
+            onBack={() => setShowExitDialog(true)}
           />
         )}
       </div>
 
 
-      {/* ── 이탈 방지 다이얼로그 ── */}
+      {/* ── 이탈 다이얼로그 (결제 직전 뒤로가기 시) ── */}
       {showExitDialog && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div
@@ -676,81 +632,31 @@ export function OrderNewClient() {
               <X className="w-5 h-5" />
             </button>
             <p className="text-base font-bold text-gray-900 mb-1">
-              신청을 중단하시겠어요?
+              결제를 중단하시겠어요?
             </p>
             <p className="text-sm text-gray-500 mb-5">
-              지금까지 입력한 내용을 장바구니에 저장할 수 있습니다.
+              장바구니에 담아두면 나중에 이어서 결제할 수 있습니다.
             </p>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => setShowExitDialog(false)}
                 className="w-full py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80"
               >
-                계속 신청하기
+                계속 결제하기
               </button>
               <button
                 onClick={handleExitSaveToCart}
                 disabled={draft.items.length === 0}
-                className="w-full py-3.5 border border-[#00C896] text-[#00C896] text-sm font-bold rounded-xl active:bg-[#00C896]/5 disabled:opacity-40"
-              >
-                장바구니에 담고 나가기
-              </button>
-              <button
-                onClick={handleExitWithoutSaving}
-                className="w-full py-3 text-gray-400 text-sm font-medium active:opacity-70"
-              >
-                저장 없이 나가기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 결제/장바구니 선택 모달 ── */}
-      {showPaymentChoice && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => !isProcessing && setShowPaymentChoice(false)}
-          />
-          <div className="relative w-full max-w-[430px] bg-white rounded-t-2xl px-5 pt-5 pb-8 shadow-2xl">
-            {!isProcessing && (
-              <button
-                onClick={() => setShowPaymentChoice(false)}
-                className="absolute top-4 right-4 p-1 text-gray-400 active:opacity-60"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-            <p className="text-base font-bold text-gray-900 mb-1">
-              어떻게 하시겠어요?
-            </p>
-            <p className="text-sm text-gray-500 mb-5">
-              바로 결제하거나 장바구니에 담아두고 나중에 결제할 수 있습니다.
-            </p>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={handlePayNow}
-                disabled={isProcessing}
-                className="w-full py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <CreditCard className="w-4 h-4" />
-                {isProcessing ? "처리 중..." : "바로 결제하기"}
-              </button>
-              <button
-                onClick={handleSaveToCartFromPickup}
-                disabled={isProcessing}
-                className="w-full py-3.5 border border-[#00C896] text-[#00C896] text-sm font-bold rounded-xl active:bg-[#00C896]/5 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-3.5 border border-[#00C896] text-[#00C896] text-sm font-bold rounded-xl active:bg-[#00C896]/5 disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="w-4 h-4" />
                 장바구니에 담기
               </button>
               <button
-                onClick={() => !isProcessing && setShowPaymentChoice(false)}
-                disabled={isProcessing}
-                className="w-full py-3 text-gray-400 text-sm font-medium active:opacity-70 disabled:opacity-50"
+                onClick={handleExitWithoutSaving}
+                className="w-full py-3 text-gray-400 text-sm font-medium active:opacity-70"
               >
-                취소 (수거정보 다시 확인)
+                홈으로 나가기
               </button>
             </div>
           </div>
