@@ -210,14 +210,15 @@ export function OrderNewClient() {
   useEffect(() => {
     const handler = (e: Event) => {
       const currentMode = modeRef.current;
-      e.preventDefault();
 
-      if (currentMode === "list") {
-        // list에서 뒤로가기 → 이탈 확인
-        pendingExitRef.current = () => router.push("/");
+      if (currentMode === "pickup") {
+        e.preventDefault();
+        pendingExitRef.current = () => router.back();
         setShowExitDialog(true);
+      } else if (currentMode === "list") {
+        // list에서는 그냥 이전 페이지로 (가드 없음)
       } else {
-        // sub-flow에서 뒤로가기 → 이전 단계로
+        e.preventDefault();
         popMode();
       }
     };
@@ -232,20 +233,25 @@ export function OrderNewClient() {
 
     const handler = () => {
       const currentMode = modeRef.current;
-      window.history.pushState({ orderFlowGuard: true }, "");
 
-      if (currentMode === "list") {
-        // list에서 브라우저 뒤로가기 → 이탈 확인
+      if (currentMode === "pickup") {
+        window.history.pushState({ orderFlowGuard: true }, "");
         pendingExitRef.current = () => {
           if (popstateHandlerRef.current) {
             window.removeEventListener("popstate", popstateHandlerRef.current);
             popstateHandlerRef.current = null;
           }
-          router.push("/");
+          router.back();
         };
         setShowExitDialog(true);
+      } else if (currentMode === "list") {
+        // list에서는 브라우저 기본 동작 (이전 페이지로)
+        if (popstateHandlerRef.current) {
+          window.removeEventListener("popstate", popstateHandlerRef.current);
+          popstateHandlerRef.current = null;
+        }
       } else {
-        // sub-flow에서 브라우저 뒤로가기 → 이전 단계로
+        window.history.pushState({ orderFlowGuard: true }, "");
         popMode();
       }
     };
@@ -646,7 +652,10 @@ export function OrderNewClient() {
           <PickupStep
             draft={draft}
             onNext={handlePickupDone}
-            onBack={popMode}
+            onBack={() => {
+              pendingExitRef.current = () => router.back();
+              setShowExitDialog(true);
+            }}
           />
         )}
       </div>
