@@ -46,6 +46,7 @@ interface RepairType {
   has_sub_parts?: boolean;
   allow_multiple_sub_parts?: boolean;
   sub_parts_title?: string;
+  show_all_option?: boolean;
 }
 
 export default function RepairMenuPage() {
@@ -1454,6 +1455,7 @@ function EditRepairTypeDialog({
   const [inputLabel2, setInputLabel2] = useState(repairType.input_labels?.[1] || "");
   const [hasSubParts, setHasSubParts] = useState(repairType.has_sub_parts || false);
   const [allowMultipleSubParts, setAllowMultipleSubParts] = useState(repairType.allow_multiple_sub_parts || false);
+  const [showAllOption, setShowAllOption] = useState(repairType.show_all_option !== false);
   const [subPartsTitle, setSubPartsTitle] = useState(repairType.sub_parts_title || "");
   const [subParts, setSubParts] = useState<Array<{id?: string, name: string, icon?: string, price?: number}>>([]);
   const [newSubPartName, setNewSubPartName] = useState("");
@@ -1599,6 +1601,7 @@ function EditRepairTypeDialog({
           input_labels: inputLabels,
           has_sub_parts: hasSubParts,
           allow_multiple_sub_parts: hasSubParts ? allowMultipleSubParts : false,
+          show_all_option: hasSubParts ? showAllOption : true,
           sub_parts_title: hasSubParts && subPartsTitle ? subPartsTitle : null,
           sub_parts: subParts,
         }),
@@ -1819,6 +1822,18 @@ function EditRepairTypeDialog({
                         세부 부위 다중 선택 허용
                       </Label>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="edit-show-all-option"
+                        checked={showAllOption}
+                        onChange={(e) => setShowAllOption(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label htmlFor="edit-show-all-option" className="text-sm font-normal cursor-pointer">
+                        &quot;전체&quot; 옵션 표시 (체크 해제 시 특정 부위만 선택 가능)
+                      </Label>
+                    </div>
                     <div>
                       <Label htmlFor="edit-sub-parts-title" className="text-xs">
                         선택 화면 제목 (선택)
@@ -2019,6 +2034,7 @@ function AddRepairTypeDialog({
   // 세부 부위 (예: 앞섶, 뒤판, 왼팔, 오른팔)
   const [hasSubParts, setHasSubParts] = useState(false);
   const [allowMultipleSubParts, setAllowMultipleSubParts] = useState(false);
+  const [showAllOption, setShowAllOption] = useState(true);
   const [subPartsTitle, setSubPartsTitle] = useState("");
   const [subParts, setSubParts] = useState<Array<{name: string, icon?: string, price?: number}>>([]);
   const [newSubPartName, setNewSubPartName] = useState("");
@@ -2125,6 +2141,7 @@ function AddRepairTypeDialog({
           input_labels: inputLabels,
           has_sub_parts: hasSubParts,
           allow_multiple_sub_parts: hasSubParts ? allowMultipleSubParts : false,
+          show_all_option: hasSubParts ? showAllOption : true,
           sub_parts_title: hasSubParts && subPartsTitle ? subPartsTitle : null,
           sub_parts: subParts,
         }),
@@ -2393,6 +2410,18 @@ function AddRepairTypeDialog({
                       />
                       <Label htmlFor="allow-multiple-sub-parts" className="text-sm font-normal cursor-pointer">
                         세부 부위 다중 선택 허용
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="show-all-option"
+                        checked={showAllOption}
+                        onChange={(e) => setShowAllOption(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label htmlFor="show-all-option" className="text-sm font-normal cursor-pointer">
+                        &quot;전체&quot; 옵션 표시 (체크 해제 시 특정 부위만 선택 가능)
                       </Label>
                     </div>
                     <div>

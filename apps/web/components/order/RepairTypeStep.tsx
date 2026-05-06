@@ -19,6 +19,7 @@ interface RepairType {
   requires_measurement: boolean;
   has_sub_parts: boolean;
   allow_multiple_sub_parts: boolean;
+  show_all_option: boolean;
   sub_parts_title?: string;
   requires_multiple_inputs: boolean;
   // DB에서 string 또는 string[] 모두 가능
@@ -131,28 +132,38 @@ export function RepairTypeStep({
 
       const items: RepairType[] = json.data ?? [];
 
-      setRepairTypes(
-        items.map((d) => ({
-          id: d.id,
-          name: d.name,
-          sub_type: d.sub_type ?? undefined,
-          price: d.price ?? 0,
-          price_range: d.price_range ?? (d.price ? formatPrice(d.price) : ""),
-          description: d.description ?? undefined,
-          icon_name: d.icon_name ?? undefined,
-          category_id: d.category_id,
-          requires_measurement: d.requires_measurement ?? false,
-          has_sub_parts: d.has_sub_parts ?? false,
-          allow_multiple_sub_parts: d.allow_multiple_sub_parts ?? true,
-          sub_parts_title: d.sub_parts_title ?? undefined,
-          requires_multiple_inputs: d.requires_multiple_inputs ?? false,
-          input_labels: d.input_labels ?? "치수 (cm)",
-          input_count: d.input_count ?? 1,
-        }))
-      );
+      const mapped = items.map((d) => ({
+        id: d.id,
+        name: d.name,
+        sub_type: d.sub_type ?? undefined,
+        price: d.price ?? 0,
+        price_range: d.price_range ?? (d.price ? formatPrice(d.price) : ""),
+        description: d.description ?? undefined,
+        icon_name: d.icon_name ?? undefined,
+        category_id: d.category_id,
+        requires_measurement: d.requires_measurement ?? false,
+        has_sub_parts: d.has_sub_parts ?? false,
+        allow_multiple_sub_parts: d.allow_multiple_sub_parts ?? true,
+        show_all_option: d.show_all_option !== false,
+        sub_parts_title: d.sub_parts_title ?? undefined,
+        requires_multiple_inputs: d.requires_multiple_inputs ?? false,
+        input_labels: d.input_labels ?? "치수 (cm)",
+        input_count: d.input_count ?? 1,
+      }));
+
+      // has_sub_parts인 항목이 있으면 바로 세부 부위 뷰로 진입 (중간 목록 생략)
+      const subPartsType = mapped.find((t) => t.has_sub_parts);
+      setRepairTypes(mapped);
+
+      if (subPartsType) {
+        // isLoading을 유지한 채 sub-parts를 로드 → 깜빡임 방지
+        await openSubPartsView(subPartsType);
+        setIsLoading(false);
+      } else {
+        setIsLoading(false);
+      }
     } catch {
       setLoadError(true);
-    } finally {
       setIsLoading(false);
     }
   }
@@ -222,7 +233,7 @@ export function RepairTypeStep({
       setSubPartsView({
         repairType: type,
         subParts,
-        selectedMode: "all",
+        selectedMode: type.show_all_option ? "all" : "specific",
         selectedIds: new Set(),
       });
     } catch {
@@ -364,18 +375,24 @@ export function RepairTypeStep({
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
           {/* 선택된 수선 항목 카드 */}
           <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
-            {rtIconSrc && (
-              <div className="w-12 h-12 flex items-center justify-center shrink-0">
-                {rtIconSrc.startsWith("http") ? (
-                  <img src={rtIconSrc} alt={repairType.name} className="w-10 h-10 object-contain" />
-                ) : (
-                  <InlineSvg
-                    src={rtIconSrc}
-                    className="w-10 h-10 flex items-center justify-center text-gray-500 [&>svg]:w-full [&>svg]:h-full"
-                  />
-                )}
-              </div>
-            )}
+            {(() => {
+              const iconSrc = rtIconSrc || getIconSrc(categoryIconName ?? undefined);
+              if (iconSrc) {
+                return (
+                  <div className="w-10 h-10 rounded-xl bg-[#00C896]/10 flex items-center justify-center shrink-0">
+                    {iconSrc.startsWith("http") ? (
+                      <img src={iconSrc} alt={repairType.name} className="w-7 h-7 object-contain" />
+                    ) : (
+                      <InlineSvg
+                        src={iconSrc}
+                        className="w-7 h-7 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
+                      />
+                    )}
+                  </div>
+                );
+              }
+              return null;
+            })()}
             <span className="text-sm font-semibold text-gray-800">
               {repairType.sub_type
                 ? `${repairType.name} (${repairType.sub_type})`
@@ -386,73 +403,80 @@ export function RepairTypeStep({
           {/* 전체 / 특정 부위 선택 라디오 */}
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-3">
-              세부 부위를 선택(해주)세요
+              {selectionLabel}
             </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() =>
-                  setSubPartsView((prev) =>
-                    prev ? { ...prev, selectedMode: "all", selectedIds: new Set() } : prev
-                  )
-                }
-                className={cn(
-                  "flex-1 flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all",
-                  selectedMode === "all"
-                    ? "border-[#00C896] bg-[#00C896]/5 text-[#00C896]"
-                    : "border-gray-200 text-gray-600"
-                )}
-              >
-                <div
+            {repairType.show_all_option ? (
+              <div className="flex gap-3">
+                <button
+                  onClick={() =>
+                    setSubPartsView((prev) =>
+                      prev ? { ...prev, selectedMode: "all", selectedIds: new Set() } : prev
+                    )
+                  }
                   className={cn(
-                    "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                    "flex-1 flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all",
                     selectedMode === "all"
-                      ? "border-[#00C896]"
-                      : "border-gray-400"
+                      ? "border-[#00C896] bg-[#00C896]/5 text-[#00C896]"
+                      : "border-gray-200 text-gray-600"
                   )}
                 >
-                  {selectedMode === "all" && (
-                    <div className="w-2 h-2 rounded-full bg-[#00C896]" />
-                  )}
-                </div>
-                전체
-              </button>
-              <button
-                onClick={() =>
-                  setSubPartsView((prev) =>
-                    prev ? { ...prev, selectedMode: "specific" } : prev
-                  )
-                }
-                className={cn(
-                  "flex-1 flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all",
-                  selectedMode === "specific"
-                    ? "border-[#00C896] bg-[#00C896]/5 text-[#00C896]"
-                    : "border-gray-200 text-gray-600"
-                )}
-              >
-                <div
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      selectedMode === "all"
+                        ? "border-[#00C896]"
+                        : "border-gray-400"
+                    )}
+                  >
+                    {selectedMode === "all" && (
+                      <div className="w-2 h-2 rounded-full bg-[#00C896]" />
+                    )}
+                  </div>
+                  전체
+                </button>
+                <button
+                  onClick={() =>
+                    setSubPartsView((prev) =>
+                      prev ? { ...prev, selectedMode: "specific" } : prev
+                    )
+                  }
                   className={cn(
-                    "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                    "flex-1 flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all",
                     selectedMode === "specific"
-                      ? "border-[#00C896]"
-                      : "border-gray-400"
+                      ? "border-[#00C896] bg-[#00C896]/5 text-[#00C896]"
+                      : "border-gray-200 text-gray-600"
                   )}
                 >
-                  {selectedMode === "specific" && (
-                    <div className="w-2 h-2 rounded-full bg-[#00C896]" />
-                  )}
-                </div>
-                특정 부위 선택
-              </button>
-            </div>
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      selectedMode === "specific"
+                        ? "border-[#00C896]"
+                        : "border-gray-400"
+                    )}
+                  >
+                    {selectedMode === "specific" && (
+                      <div className="w-2 h-2 rounded-full bg-[#00C896]" />
+                    )}
+                  </div>
+                  특정 부위 선택
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {/* 세부 부위 카드 그리드 (특정 부위 선택 시) */}
           {selectedMode === "specific" && (
             <div>
-              <p className="text-xs text-gray-500 mb-3">
-                {selectionLabel}
-                {repairType.allow_multiple_sub_parts ? " (다중 선택 가능)" : ""}
-              </p>
+              {repairType.show_all_option && (
+                <p className="text-xs text-gray-500 mb-3">
+                  {selectionLabel}
+                  {repairType.allow_multiple_sub_parts ? " (다중 선택 가능)" : ""}
+                </p>
+              )}
+              {!repairType.show_all_option && repairType.allow_multiple_sub_parts && (
+                <p className="text-xs text-gray-500 mb-3">복수 선택 가능</p>
+              )}
               <div className="grid grid-cols-3 gap-3">
                 {subParts.map((part) => {
                   const isSelected = selectedIds.has(part.id);
@@ -574,10 +598,25 @@ export function RepairTypeStep({
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
           {/* 선택된 항목 카드 */}
           <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
-            <div className="w-10 h-10 rounded-xl bg-[#00C896]/10 flex items-center justify-center">
-              <span className="text-[#00C896] text-lg font-bold">
-                {repairType.name.charAt(0)}
-              </span>
+            <div className="w-10 h-10 rounded-xl bg-[#00C896]/10 flex items-center justify-center shrink-0">
+              {(() => {
+                const iconSrc = getIconSrc(categoryIconName ?? repairType.icon_name);
+                if (iconSrc) {
+                  return iconSrc.startsWith("http") ? (
+                    <img src={iconSrc} alt={repairType.name} className="w-7 h-7 object-contain" />
+                  ) : (
+                    <InlineSvg
+                      src={iconSrc}
+                      className="w-7 h-7 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
+                    />
+                  );
+                }
+                return (
+                  <span className="text-[#00C896] text-lg font-bold">
+                    {repairType.name.charAt(0)}
+                  </span>
+                );
+              })()}
             </div>
             <div className="flex-1">
               <span className="text-sm font-semibold text-gray-800">

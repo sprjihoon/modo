@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
       input_labels,
       has_sub_parts,
       allow_multiple_sub_parts,
+      show_all_option,
       sub_parts_title,
       sub_parts,
     } = body;
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
         input_labels: input_labels || ['치수 (cm)'],
         has_sub_parts: has_sub_parts || false,
         allow_multiple_sub_parts: allow_multiple_sub_parts || false,
+        show_all_option: show_all_option !== false,
         sub_parts_title: sub_parts_title || null,
       })
       .select()
@@ -123,6 +125,7 @@ export async function PUT(request: NextRequest) {
       input_labels,
       has_sub_parts,
       allow_multiple_sub_parts,
+      show_all_option,
       sub_parts_title,
       sub_parts,
     } = body;
@@ -151,6 +154,7 @@ export async function PUT(request: NextRequest) {
         input_labels: input_labels || ['치수 (cm)'],
         has_sub_parts: has_sub_parts || false,
         allow_multiple_sub_parts: allow_multiple_sub_parts || false,
+        show_all_option: show_all_option !== false,
         sub_parts_title: sub_parts_title || null,
       })
       .eq('id', id)
