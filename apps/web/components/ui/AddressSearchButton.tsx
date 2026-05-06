@@ -36,30 +36,7 @@ export function AddressSearchButton({
   }, [fallbackOpen]);
 
   function openSearch() {
-    const width = 500;
-    const height = 600;
-    const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
-    const top = Math.round(window.screenY + (window.outerHeight - height) / 2);
-
-    const popup = window.open(
-      "/postcode",
-      "kakao-postcode",
-      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
-    );
-
-    if (!popup) {
-      // 팝업 차단 시 인라인 iframe 모달로 폴백
-      setFallbackOpen(true);
-      return;
-    }
-
-    function handler(e: MessageEvent) {
-      if (e.data?.type === "ADDRESS_SELECTED") {
-        onSelectRef.current(e.data.zipcode, e.data.address);
-        window.removeEventListener("message", handler);
-      }
-    }
-    window.addEventListener("message", handler);
+    setFallbackOpen(true);
   }
 
   return (
