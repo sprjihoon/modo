@@ -80,7 +80,28 @@ export function SubCategoryStep({
         if (direction === "backward") {
           onBack();
         } else {
-          onNext("", undefined);
+          // 자식이 없으면 부모 카테고리 자체가 직접가격 항목일 수 있음 → 부모 정보 조회 후 전달
+          const { data: parentData } = await supabase
+            .from("repair_categories")
+            .select("id, name, price, price_range, requires_measurement, input_count, input_labels, description")
+            .eq("id", parentCategoryId)
+            .single();
+
+          if (parentData && parentData.price != null && parentData.price > 0) {
+            const sel: SubCategorySelection = {
+              name: parentData.name,
+              categoryId: parentData.id,
+              directPrice: parentData.price,
+              priceRange: parentData.price_range,
+              requiresMeasurement: parentData.requires_measurement,
+              inputCount: parentData.input_count,
+              inputLabels: parentData.input_labels,
+              description: parentData.description,
+            };
+            onNext("", undefined, sel);
+          } else {
+            onNext("", undefined);
+          }
         }
       } else {
         setChildren(data);
