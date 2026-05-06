@@ -436,7 +436,7 @@ export default function EpostTestPage() {
         <CardContent className="space-y-2 text-sm text-red-800">
           <p>• 본 페이지는 <strong>실제 우체국 운영 서버</strong>로 송장을 발행합니다.</p>
           <p>• 발행 즉시 <strong>실제 수거기사가 입력한 주소로 출동</strong>합니다.</p>
-          <p>• 잘못 발행한 경우 가능한 한 즉시 <strong>"취소" 버튼</strong>으로 취소하세요. (집하 완료 후엔 취소 불가)</p>
+          <p>• 잘못 발행한 경우 가능한 한 즉시 <strong>&ldquo;취소&rdquo; 버튼</strong>으로 취소하세요. (집하 완료 후엔 취소 불가)</p>
           <p>• 본 테스트는 <code className="bg-red-100 px-1 rounded">epost_test_logs</code> 테이블에만 저장되며, 일반 주문/배송과는 무관합니다.</p>
         </CardContent>
       </Card>
