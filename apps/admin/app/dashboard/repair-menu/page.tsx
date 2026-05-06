@@ -123,6 +123,14 @@ export default function RepairMenuPage() {
     const target = sameLevel[targetIndex];
 
     try {
+      // display_order가 같을 수 있으므로 (예: 둘 다 999), 전체 순서를 재정렬
+      let newCurrentOrder = target.display_order;
+      let newTargetOrder = current.display_order;
+      if (newCurrentOrder === newTargetOrder) {
+        // 같은 값이면 강제로 인접 순서 부여
+        newCurrentOrder = targetIndex;
+        newTargetOrder = levelIndex;
+      }
 
       const response = await fetch('/api/admin/repair-menu/categories/order', {
         method: 'PUT',
@@ -131,8 +139,8 @@ export default function RepairMenuPage() {
         },
         body: JSON.stringify({
           updates: [
-            { id: current.id, display_order: target.display_order },
-            { id: target.id, display_order: current.display_order },
+            { id: current.id, display_order: newCurrentOrder },
+            { id: target.id, display_order: newTargetOrder },
           ],
         }),
       });
