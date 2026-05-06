@@ -5,8 +5,10 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
-import { Scissors, MapPin, CreditCard, AlertCircle, X } from "lucide-react";
+import { Scissors, MapPin, CreditCard, AlertCircle, X, ShoppingCart } from "lucide-react";
 import { Analytics } from "@/lib/analytics";
+import { addCartItem } from "@/lib/cart";
+import type { OrderDraft } from "@/components/order/OrderNewClient";
 
 interface TossPaymentInstance {
   requestPayment: (params: {
@@ -85,9 +87,9 @@ export function PaymentClient() {
 
   // 이탈 가드: 결제 직전 → "결제 안 끝내고 나가실래요?" 확인
   const [showExitDialog, setShowExitDialog] = useState(false);
-  const pendingExitRef = useRef<(() => void) | null>(null);
   const popstateHandlerRef = useRef<(() => void) | null>(null);
   const isPaymentInProgressRef = useRef(false);
+  const [isSavingToCart, setIsSavingToCart] = useState(false);
 
   useEffect(() => {
     if (!intentId) {
@@ -150,9 +152,6 @@ export function PaymentClient() {
       if (isPaymentInProgressRef.current) return;
       if (!intent) return;
       e.preventDefault();
-      // back/home 모두 홈으로 이동 (router.back()은 pushState 가드 엔트리로 인해
-      // 동일 URL로 돌아오는 문제가 있어 router.push("/")로 통일)
-      pendingExitRef.current = () => router.push("/");
       setShowExitDialog(true);
     };
     window.addEventListener("modu_before_navigate", handler);
@@ -166,13 +165,6 @@ export function PaymentClient() {
     const handler = () => {
       if (isPaymentInProgressRef.current) return;
       window.history.pushState({ paymentFlowGuard: true }, "");
-      pendingExitRef.current = () => {
-        if (popstateHandlerRef.current) {
-          window.removeEventListener("popstate", popstateHandlerRef.current);
-          popstateHandlerRef.current = null;
-        }
-        router.push("/");
-      };
       setShowExitDialog(true);
     };
     popstateHandlerRef.current = handler;
@@ -271,9 +263,31 @@ export function PaymentClient() {
     }
   }
 
-  function handleExitConfirm() {
+  function handleExitGoHome() {
     setShowExitDialog(false);
-    pendingExitRef.current?.();
+    if (popstateHandlerRef.current) {
+      window.removeEventListener("popstate", popstateHandlerRef.current);
+      popstateHandlerRef.current = null;
+    }
+    router.push("/");
+  }
+
+  async function handleExitSaveToCart() {
+    setIsSavingToCart(true);
+    try {
+      const raw = sessionStorage.getItem("payment_draft");
+      if (raw) {
+        const draft: OrderDraft = JSON.parse(raw);
+        await addCartItem(draft);
+        sessionStorage.removeItem("payment_draft");
+      }
+    } catch { /* ignore */ }
+    setShowExitDialog(false);
+    if (popstateHandlerRef.current) {
+      window.removeEventListener("popstate", popstateHandlerRef.current);
+      popstateHandlerRef.current = null;
+    }
+    router.push("/cart");
   }
 
   if (isLoading) {
@@ -461,8 +475,7 @@ export function PaymentClient() {
             </button>
             <p className="text-base font-bold text-gray-900 mb-1">결제를 중단하시겠어요?</p>
             <p className="text-sm text-gray-500 mb-5">
-              결제를 완료하지 않으면 주문이 생성되지 않습니다.
-              <br />계속 결제할지, 그냥 나갈지 선택해주세요.
+              장바구니에 담아두면 나중에 이어서 결제할 수 있습니다.
             </p>
             <div className="flex flex-col gap-2">
               <button
@@ -472,10 +485,18 @@ export function PaymentClient() {
                 계속 결제하기
               </button>
               <button
-                onClick={handleExitConfirm}
-                className="w-full py-3.5 border border-gray-200 text-gray-500 text-sm font-bold rounded-xl active:bg-gray-50"
+                onClick={handleExitSaveToCart}
+                disabled={isSavingToCart}
+                className="w-full py-3.5 border border-[#00C896] text-[#00C896] text-sm font-bold rounded-xl active:bg-[#00C896]/5 disabled:opacity-40 flex items-center justify-center gap-2"
               >
-                나가기
+                <ShoppingCart className="w-4 h-4" />
+                장바구니에 담기
+              </button>
+              <button
+                onClick={handleExitGoHome}
+                className="w-full py-3 text-gray-400 text-sm font-medium active:opacity-70"
+              >
+                홈으로 나가기
               </button>
             </div>
           </div>

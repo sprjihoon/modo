@@ -527,6 +527,8 @@ export function OrderNewClient() {
         return;
       }
 
+      // 결제 페이지에서 장바구니 담기 옵션을 위해 draft 저장
+      try { sessionStorage.setItem("payment_draft", JSON.stringify(finalDraft)); } catch { /* ignore */ }
       router.push(`/payment?intentId=${quote.intentId}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
