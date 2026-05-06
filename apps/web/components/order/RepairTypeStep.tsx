@@ -368,7 +368,7 @@ export function RepairTypeStep({
         {/* 헤더 */}
         <div className="px-4 py-4 border-b border-gray-100">
           <h2 className="text-lg font-bold text-gray-900">
-            상세 수선 부위를 선택해주세요.
+            {selectionLabel}
           </h2>
         </div>
 
@@ -402,9 +402,11 @@ export function RepairTypeStep({
 
           {/* 전체 / 특정 부위 선택 라디오 */}
           <div>
-            <p className="text-sm font-semibold text-gray-700 mb-3">
-              {selectionLabel}
-            </p>
+            {repairType.show_all_option && (
+              <p className="text-sm font-semibold text-gray-700 mb-3">
+                수선 범위를 선택해주세요
+              </p>
+            )}
             {repairType.show_all_option ? (
               <div className="flex gap-3">
                 <button
