@@ -81,12 +81,19 @@ export function RepairTypeStep({
     selectedIds: Set<string>;
   } | null>(null);
 
-  // 치수 입력 모달 상태 (유지)
-  const [measureModal, setMeasureModal] = useState<{
+  // 치수 입력 뷰 (인라인 풀페이지)
+  const [measureView, setMeasureView] = useState<{
     repairType: RepairType;
-    values: string[];
     chosenParts?: SubPart[];
   } | null>(null);
+  const [measureValues, setMeasureValues] = useState<string[]>([]);
+
+  function openMeasureView(repairType: RepairType, chosenParts?: SubPart[]) {
+    const labels = getInputLabels(repairType);
+    const groups = chosenParts && chosenParts.length > 0 ? chosenParts.length : 1;
+    setMeasureValues(Array.from({ length: labels.length * groups }, () => ""));
+    setMeasureView({ repairType, chosenParts });
+  }
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -176,8 +183,7 @@ export function RepairTypeStep({
     if (type.has_sub_parts) {
       await openSubPartsView(type);
     } else if (type.requires_measurement) {
-      const labels = getInputLabels(type);
-      setMeasureModal({ repairType: type, values: labels.map(() => "") });
+      openMeasureView(type);
     } else {
       addSimpleItem(type);
     }
@@ -205,10 +211,8 @@ export function RepairTypeStep({
       const subParts: SubPart[] = json.data ?? [];
 
       if (subParts.length === 0) {
-        // 세부항목 없으면 기존 분기로
         if (type.requires_measurement) {
-          const labels = getInputLabels(type);
-          setMeasureModal({ repairType: type, values: labels.map(() => "") });
+          openMeasureView(type);
         } else {
           addSimpleItem(type);
         }
@@ -253,10 +257,8 @@ export function RepairTypeStep({
     setSubPartsView(null);
 
     if (selectedMode === "all") {
-      // 전체 선택 → 세부 부위 없이 진행
       if (repairType.requires_measurement) {
-        const labels = getInputLabels(repairType);
-        setMeasureModal({ repairType, values: labels.map(() => ""), chosenParts: [] });
+        openMeasureView(repairType, []);
       } else {
         addSimpleItem(repairType);
       }
@@ -268,13 +270,7 @@ export function RepairTypeStep({
     if (chosenParts.length === 0) return;
 
     if (repairType.requires_measurement) {
-      const labels = getInputLabels(repairType);
-      const totalFields = labels.length * chosenParts.length;
-      setMeasureModal({
-        repairType,
-        values: Array.from({ length: totalFields }, () => ""),
-        chosenParts,
-      });
+      openMeasureView(repairType, chosenParts);
       return;
     }
 
@@ -289,18 +285,17 @@ export function RepairTypeStep({
     setSelectedItems((prev) => [...prev, ...newItems]);
   }
 
-  function confirmMeasurement() {
-    if (!measureModal) return;
-    const { repairType, values, chosenParts } = measureModal;
+  function confirmMeasurement(values: string[]) {
+    if (!measureView) return;
+    const { repairType, chosenParts } = measureView;
     const labels = getInputLabels(repairType);
 
-    // 세부 부위 없이 전체 모드였던 경우 (chosenParts = [] 또는 undefined)
     if (!chosenParts || chosenParts.length === 0) {
       const detail = labels
         .map((label, i) => `${label}: ${values[i] || "-"}`)
         .join(", ");
       addSimpleItem(repairType, detail);
-      setMeasureModal(null);
+      setMeasureView(null);
       return;
     }
 
@@ -321,7 +316,7 @@ export function RepairTypeStep({
       };
     });
     setSelectedItems((prev) => [...prev, ...newItems]);
-    setMeasureModal(null);
+    setMeasureView(null);
   }
 
   function updateQuantity(id: string, delta: number) {
@@ -561,6 +556,93 @@ export function RepairTypeStep({
     );
   }
 
+  // ── 치수 입력 인라인 뷰 ───────────────────────────────────────────────────
+  if (measureView) {
+    const { repairType, chosenParts } = measureView;
+    const labels = getInputLabels(repairType);
+    const effectiveGroups = chosenParts && chosenParts.length > 0
+      ? chosenParts.map((p) => ({ key: p.id, title: p.name }))
+      : [{ key: "_single", title: "" }];
+    const hasAnyValue = measureValues.some((v) => v.trim() !== "");
+
+    return (
+      <div className="flex flex-col min-h-0">
+        <div className="px-4 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">치수를 입력해주세요</h2>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+          {/* 선택된 항목 카드 */}
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
+            <div className="w-10 h-10 rounded-xl bg-[#00C896]/10 flex items-center justify-center">
+              <span className="text-[#00C896] text-lg font-bold">
+                {repairType.name.charAt(0)}
+              </span>
+            </div>
+            <div className="flex-1">
+              <span className="text-sm font-semibold text-gray-800">
+                {repairType.sub_type
+                  ? `${repairType.name} (${repairType.sub_type})`
+                  : repairType.name}
+              </span>
+              {repairType.price > 0 && (
+                <p className="text-xs text-[#00C896]">{formatPrice(repairType.price)}</p>
+              )}
+            </div>
+          </div>
+
+          {/* 입력 필드 */}
+          {effectiveGroups.map((group, gIdx) => (
+            <div key={group.key} className="space-y-3">
+              {group.title && (
+                <p className="text-xs font-bold text-[#00C896]">{group.title}</p>
+              )}
+              {labels.map((label, lIdx) => {
+                const idx = gIdx * labels.length + lIdx;
+                return (
+                  <div key={lIdx}>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                      {label}
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="예: 30"
+                      value={measureValues[idx] || ""}
+                      onChange={(e) => {
+                        const next = [...measureValues];
+                        next[idx] = e.target.value;
+                        setMeasureValues(next);
+                      }}
+                      className="w-full px-4 py-3.5 border-2 border-gray-100 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* 하단 버튼 */}
+        <div className="px-4 py-4 border-t border-gray-50 flex gap-3">
+          <button
+            onClick={() => setMeasureView(null)}
+            className="flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
+          >
+            이전
+          </button>
+          <button
+            onClick={() => confirmMeasurement(measureValues)}
+            disabled={!hasAnyValue}
+            className="flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ── 메인 그리드 뷰 ──────────────────────────────────────────────────────
   return (
     <div className="relative">
@@ -791,103 +873,6 @@ export function RepairTypeStep({
         </button>
       </div>
 
-      {/* ── 치수 입력 모달 ── */}
-      {measureModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-          onClick={() => setMeasureModal(null)}
-        >
-          <div
-            className="w-full max-w-[430px] bg-white rounded-t-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* 핸들 */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-gray-300" />
-            </div>
-
-            {/* 제목 */}
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <p className="text-lg font-bold text-gray-900">치수를 입력해주세요</p>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {measureModal.repairType.sub_type
-                    ? `${measureModal.repairType.name} (${measureModal.repairType.sub_type})`
-                    : measureModal.repairType.name}
-                  {measureModal.chosenParts && measureModal.chosenParts.length === 0
-                    ? " · 전체"
-                    : ""}
-                </p>
-              </div>
-              <button
-                onClick={() => setMeasureModal(null)}
-                className="p-1 text-gray-400"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* 입력 필드 */}
-            <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-              {(() => {
-                const labels = getInputLabels(measureModal.repairType);
-                const groups =
-                  measureModal.chosenParts && measureModal.chosenParts.length > 0
-                    ? measureModal.chosenParts.map((p) => ({
-                        key: p.id,
-                        title: p.name,
-                      }))
-                    : [{ key: "_single", title: "" }];
-                return groups.map((group, gIdx) => (
-                  <div key={group.key} className="space-y-3">
-                    {group.title && (
-                      <p className="text-xs font-bold text-[#00C896]">
-                        {group.title}
-                      </p>
-                    )}
-                    {labels.map((label, lIdx) => {
-                      const idx = gIdx * labels.length + lIdx;
-                      return (
-                        <div key={lIdx}>
-                          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                            {label}
-                          </label>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            placeholder="예: 30"
-                            value={measureModal.values[idx] || ""}
-                            onChange={(e) =>
-                              setMeasureModal((prev) => {
-                                if (!prev) return prev;
-                                const next = [...prev.values];
-                                next[idx] = e.target.value;
-                                return { ...prev, values: next };
-                              })
-                            }
-                            className="w-full px-4 py-3 border-2 border-gray-100 rounded-xl text-sm outline-none focus:border-[#00C896]"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ));
-              })()}
-            </div>
-
-            {/* 확인 버튼 */}
-            <div className="px-5 pb-6">
-              <button
-                onClick={confirmMeasurement}
-                className="w-full py-4 rounded-xl bg-[#00C896] text-white text-sm font-bold"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

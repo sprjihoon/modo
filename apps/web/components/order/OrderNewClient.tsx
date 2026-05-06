@@ -6,6 +6,7 @@ import { ShoppingCart, CreditCard, X, ChevronLeft } from "lucide-react";
 import { ClothingTypeStep } from "./ClothingTypeStep";
 import { SubCategoryStep, SubCategorySelection } from "./SubCategoryStep";
 import { RepairTypeStep } from "./RepairTypeStep";
+import { MeasurementStep, MeasurementConfig } from "./MeasurementStep";
 import { ImagePinStep } from "./ImagePinStep";
 import { PickupStep } from "./PickupStep";
 import { ItemsListPanel } from "./ItemsListPanel";
@@ -53,7 +54,7 @@ export interface OrderDraft {
   remoteAreaFee?: number;
 }
 
-type Mode = "list" | "addClothing" | "addPhoto" | "addSubCategory" | "addRepair" | "pickup";
+type Mode = "list" | "addClothing" | "addPhoto" | "addSubCategory" | "addMeasurement" | "addRepair" | "pickup";
 
 /** 옛 단일 형식 → 신규 items[] 형식 변환 */
 function normalizeDraft(raw: unknown): OrderDraft {
@@ -304,11 +305,15 @@ export function OrderNewClient() {
     // 직접가격 카테고리인 경우 → POST SubCategoryStep 건너뛰고 바로 처리
     if (prePhaseSelection?.directPrice != null && prePhaseSelection.directPrice > 0) {
       if (prePhaseSelection.requiresMeasurement) {
-        const count = prePhaseSelection.inputCount || 1;
-        setDirectPriceMeasure({
-          selection: prePhaseSelection,
-          values: Array.from({ length: count }, () => ""),
+        const labels: string[] = Array.isArray(prePhaseSelection.inputLabels)
+          ? prePhaseSelection.inputLabels
+          : ["치수 (cm)"];
+        setMeasurementConfig({
+          itemName: prePhaseSelection.name,
+          labels,
+          price: prePhaseSelection.directPrice,
         });
+        setMode("addMeasurement");
       } else {
         const price = prePhaseSelection.directPrice;
         const priceRange = prePhaseSelection.priceRange || `${price.toLocaleString("ko-KR")}원`;
@@ -333,11 +338,8 @@ export function OrderNewClient() {
   // PRE-photo 단계에서 선택한 카테고리 정보 (직접가격 leaf일 때 사용)
   const [prePhaseSelection, setPrePhaseSelection] = useState<SubCategorySelection | null>(null);
 
-  // 직접 가격 카테고리의 치수 입력 모달 상태
-  const [directPriceMeasure, setDirectPriceMeasure] = useState<{
-    selection: SubCategorySelection;
-    values: string[];
-  } | null>(null);
+  // 치수 입력 단계 설정
+  const [measurementConfig, setMeasurementConfig] = useState<MeasurementConfig | null>(null);
 
   function handleSubCategoryDone(type: string, categoryId?: string, selection?: SubCategorySelection) {
     if (type && categoryId) {
@@ -346,20 +348,22 @@ export function OrderNewClient() {
     }
 
     if (subCategoryPhase === "pre") {
-      // PRE 단계 선택 정보 저장 (직접가격 leaf인 경우 POST 자동진행 시 사용)
       setPrePhaseSelection(selection || null);
       setMode("addPhoto");
     } else {
-      // POST-photo: 실제 선택된 항목 또는 자동진행(자식 없음) 처리
       const effectiveSelection = selection || ((!type && !categoryId) ? prePhaseSelection : null);
 
       if (effectiveSelection?.directPrice != null && effectiveSelection.directPrice > 0) {
         if (effectiveSelection.requiresMeasurement) {
-          const count = effectiveSelection.inputCount || 1;
-          setDirectPriceMeasure({
-            selection: effectiveSelection,
-            values: Array.from({ length: count }, () => ""),
+          const labels: string[] = Array.isArray(effectiveSelection.inputLabels)
+            ? effectiveSelection.inputLabels
+            : ["치수 (cm)"];
+          setMeasurementConfig({
+            itemName: effectiveSelection.name,
+            labels,
+            price: effectiveSelection.directPrice,
           });
+          setMode("addMeasurement");
         } else {
           const price = effectiveSelection.directPrice;
           const priceRange = effectiveSelection.priceRange || `${price.toLocaleString("ko-KR")}원`;
@@ -378,25 +382,22 @@ export function OrderNewClient() {
     }
   }
 
-  function confirmDirectPriceMeasure() {
-    if (!directPriceMeasure) return;
-    const { selection, values } = directPriceMeasure;
-    const price = selection.directPrice!;
-    const priceRange = selection.priceRange || `${price.toLocaleString("ko-KR")}원`;
-    const labels: string[] = Array.isArray(selection.inputLabels)
-      ? selection.inputLabels
-      : ["치수 (cm)"];
-    const detail = labels
+  function handleMeasurementDone(values: string[]) {
+    if (!measurementConfig) return;
+    const sel = prePhaseSelection;
+    const price = measurementConfig.price || sel?.directPrice || 0;
+    const priceRange = sel?.priceRange || `${price.toLocaleString("ko-KR")}원`;
+    const detail = measurementConfig.labels
       .map((label, i) => `${label}: ${values[i] || "-"}`)
       .join(", ");
     const repairItem: RepairItem = {
-      name: selection.name,
+      name: measurementConfig.itemName,
       price,
       priceRange,
       quantity: 1,
       detail,
     };
-    setDirectPriceMeasure(null);
+    setMeasurementConfig(null);
     handleRepairDone([repairItem]);
   }
 
@@ -642,6 +643,17 @@ export function OrderNewClient() {
           />
         )}
 
+        {mode === "addMeasurement" && measurementConfig && (
+          <MeasurementStep
+            config={measurementConfig}
+            onConfirm={handleMeasurementDone}
+            onBack={() => {
+              setMeasurementConfig(null);
+              setMode("addPhoto");
+            }}
+          />
+        )}
+
         {mode === "addRepair" && (
           <RepairTypeStep
             clothingType={stagingClothingType}
@@ -663,73 +675,6 @@ export function OrderNewClient() {
         )}
       </div>
 
-      {/* ── 직접 가격 카테고리 치수 입력 모달 ── */}
-      {directPriceMeasure && (() => {
-        const { selection, values } = directPriceMeasure;
-        const labels: string[] = Array.isArray(selection.inputLabels)
-          ? selection.inputLabels
-          : ["치수 (cm)"];
-        return (
-          <div
-            className="fixed inset-0 z-50 flex items-end justify-center"
-            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-            onClick={() => setDirectPriceMeasure(null)}
-          >
-            <div
-              className="w-full max-w-[430px] bg-white rounded-t-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 rounded-full bg-gray-300" />
-              </div>
-              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                  <p className="text-lg font-bold text-gray-900">치수를 입력해주세요</p>
-                  <p className="text-sm text-gray-500 mt-0.5">{selection.name}</p>
-                </div>
-                <button
-                  onClick={() => setDirectPriceMeasure(null)}
-                  className="p-1 text-gray-400"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="px-5 py-4 space-y-4">
-                {labels.map((label, i) => (
-                  <div key={i}>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                      {label}
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="예: 30"
-                      value={values[i] || ""}
-                      onChange={(e) =>
-                        setDirectPriceMeasure((prev) => {
-                          if (!prev) return prev;
-                          const next = [...prev.values];
-                          next[i] = e.target.value;
-                          return { ...prev, values: next };
-                        })
-                      }
-                      className="w-full px-4 py-3 border-2 border-gray-100 rounded-xl text-sm outline-none focus:border-[#00C896]"
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="px-5 pb-6">
-                <button
-                  onClick={confirmDirectPriceMeasure}
-                  className="w-full py-4 rounded-xl bg-[#00C896] text-white text-sm font-bold"
-                >
-                  확인
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* ── 이탈 방지 다이얼로그 ── */}
       {showExitDialog && (
