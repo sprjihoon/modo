@@ -20,6 +20,7 @@ interface RepairType {
   has_sub_parts: boolean;
   allow_multiple_sub_parts: boolean;
   show_all_option: boolean;
+  all_option_price?: number | null;
   sub_parts_title?: string;
   requires_multiple_inputs: boolean;
   // DB에서 string 또는 string[] 모두 가능
@@ -170,6 +171,7 @@ export function RepairTypeStep({
         has_sub_parts: d.has_sub_parts ?? false,
         allow_multiple_sub_parts: d.allow_multiple_sub_parts ?? true,
         show_all_option: d.show_all_option !== false,
+        all_option_price: d.all_option_price ?? null,
         sub_parts_title: d.sub_parts_title ?? undefined,
         requires_multiple_inputs: d.requires_multiple_inputs ?? false,
         input_labels: d.input_labels ?? "치수 (cm)",
@@ -226,14 +228,15 @@ export function RepairTypeStep({
     }
   }
 
-  function addSimpleItem(type: RepairType, detail?: string) {
+  function addSimpleItem(type: RepairType, detail?: string, overridePrice?: number) {
+    const effectivePrice = overridePrice ?? type.price;
     setSelectedItems((prev) => [
       ...prev,
       {
         id: type.id,
         name: type.sub_type ? `${type.name} (${type.sub_type})` : type.name,
-        price: type.price,
-        priceRange: type.price_range || formatPrice(type.price),
+        price: effectivePrice,
+        priceRange: type.price_range || formatPrice(effectivePrice),
         quantity: 1,
         detail: detail ?? "",
       },

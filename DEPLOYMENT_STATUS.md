@@ -172,6 +172,33 @@ NEXT_PUBLIC_USE_DIRECT_FILE_UPLOAD=false
 
 ---
 
+---
+
+## 🧹 인프라 정리 이력
+
+### 2026-05-06: Vercel 불필요 프로젝트 삭제
+
+**삭제한 프로젝트:**
+
+| 프로젝트명 | 도메인 | 삭제 사유 |
+|-----------|--------|-----------|
+| admin | admin-ochre-tau.vercel.app | Git 미연결, 커스텀 도메인 없음, 코드에서 참조 0건 |
+| web | web-three-livid-33.vercel.app | Git 미연결, 커스텀 도메인 없음, 코드에서 참조 0건 |
+
+**현재 운영 중인 Vercel 프로젝트:**
+
+| 프로젝트명 | 커스텀 도메인 | Git 연결 | 앱 |
+|-----------|-------------|----------|-----|
+| modo | admin.modo.mom | sprjihoon/modo (main) | `apps/admin` |
+| modo-web | modo.mom | sprjihoon/modo (main) | `apps/web` |
+
+**참고:**
+- admin 미들웨어의 Vercel 프리뷰 허용 prefix: `modo-admin` (`ADMIN_VERCEL_PROJECT_PREFIX` 환경변수로 변경 가능)
+- Supabase 인증 redirect URL: `modo.mom`, `admin.modo.mom`, `localhost:3000`
+- CORS 허용 origin: `modo.mom`, `admin.modo.mom`, `www.modo.mom`
+
+---
+
 **버전:** 2.0  
 **Status:** 🟢 **LIVE - All Features ON**  
 **Commits:** 

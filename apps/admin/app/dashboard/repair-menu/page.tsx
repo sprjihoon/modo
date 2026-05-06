@@ -47,6 +47,7 @@ interface RepairType {
   allow_multiple_sub_parts?: boolean;
   sub_parts_title?: string;
   show_all_option?: boolean;
+  all_option_price?: number | null;
 }
 
 export default function RepairMenuPage() {
@@ -1456,6 +1457,7 @@ function EditRepairTypeDialog({
   const [hasSubParts, setHasSubParts] = useState(repairType.has_sub_parts || false);
   const [allowMultipleSubParts, setAllowMultipleSubParts] = useState(repairType.allow_multiple_sub_parts || false);
   const [showAllOption, setShowAllOption] = useState(repairType.show_all_option !== false);
+  const [allOptionPrice, setAllOptionPrice] = useState(repairType.all_option_price != null ? String(repairType.all_option_price) : "");
   const [subPartsTitle, setSubPartsTitle] = useState(repairType.sub_parts_title || "");
   const [subParts, setSubParts] = useState<Array<{id?: string, name: string, icon?: string, price?: number}>>([]);
   const [newSubPartName, setNewSubPartName] = useState("");
@@ -1602,6 +1604,7 @@ function EditRepairTypeDialog({
           has_sub_parts: hasSubParts,
           allow_multiple_sub_parts: hasSubParts ? allowMultipleSubParts : false,
           show_all_option: hasSubParts ? showAllOption : true,
+          all_option_price: (hasSubParts && showAllOption && allOptionPrice) ? parseInt(allOptionPrice) : null,
           sub_parts_title: hasSubParts && subPartsTitle ? subPartsTitle : null,
           sub_parts: subParts,
         }),
@@ -1834,6 +1837,24 @@ function EditRepairTypeDialog({
                         &quot;전체&quot; 옵션 표시 (체크 해제 시 특정 부위만 선택 가능)
                       </Label>
                     </div>
+                    {showAllOption && (
+                      <div className="mt-2">
+                        <Label htmlFor="edit-all-option-price" className="text-xs">
+                          전체 옵션 가격 (선택)
+                        </Label>
+                        <Input
+                          id="edit-all-option-price"
+                          type="number"
+                          placeholder="미입력 시 기본 가격 사용"
+                          value={allOptionPrice}
+                          onChange={(e) => setAllOptionPrice(e.target.value)}
+                          className="h-9 text-sm mt-1"
+                        />
+                        <p className="text-xs text-purple-700 mt-1">
+                          고객이 &quot;전체&quot;를 선택했을 때 적용되는 가격입니다. 미입력 시 위의 기본 가격({price ? `${parseInt(price).toLocaleString()}원` : '0원'})이 적용됩니다.
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <Label htmlFor="edit-sub-parts-title" className="text-xs">
                         선택 화면 제목 (선택)
@@ -2035,6 +2056,7 @@ function AddRepairTypeDialog({
   const [hasSubParts, setHasSubParts] = useState(false);
   const [allowMultipleSubParts, setAllowMultipleSubParts] = useState(false);
   const [showAllOption, setShowAllOption] = useState(true);
+  const [allOptionPrice, setAllOptionPrice] = useState("");
   const [subPartsTitle, setSubPartsTitle] = useState("");
   const [subParts, setSubParts] = useState<Array<{name: string, icon?: string, price?: number}>>([]);
   const [newSubPartName, setNewSubPartName] = useState("");
@@ -2142,6 +2164,7 @@ function AddRepairTypeDialog({
           has_sub_parts: hasSubParts,
           allow_multiple_sub_parts: hasSubParts ? allowMultipleSubParts : false,
           show_all_option: hasSubParts ? showAllOption : true,
+          all_option_price: (hasSubParts && showAllOption && allOptionPrice) ? parseInt(allOptionPrice) : null,
           sub_parts_title: hasSubParts && subPartsTitle ? subPartsTitle : null,
           sub_parts: subParts,
         }),
@@ -2165,6 +2188,7 @@ function AddRepairTypeDialog({
       setInputLabel2("");
       setHasSubParts(false);
       setAllowMultipleSubParts(false);
+      setAllOptionPrice("");
       setSubPartsTitle("");
       setSubParts([]);
       setNewSubPartName("");
@@ -2424,6 +2448,24 @@ function AddRepairTypeDialog({
                         &quot;전체&quot; 옵션 표시 (체크 해제 시 특정 부위만 선택 가능)
                       </Label>
                     </div>
+                    {showAllOption && (
+                      <div className="mt-2">
+                        <Label htmlFor="add-all-option-price" className="text-xs">
+                          전체 옵션 가격 (선택)
+                        </Label>
+                        <Input
+                          id="add-all-option-price"
+                          type="number"
+                          placeholder="미입력 시 기본 가격 사용"
+                          value={allOptionPrice}
+                          onChange={(e) => setAllOptionPrice(e.target.value)}
+                          className="h-9 text-sm mt-1"
+                        />
+                        <p className="text-xs text-purple-700 mt-1">
+                          고객이 &quot;전체&quot;를 선택했을 때 적용되는 가격입니다. 미입력 시 위의 기본 가격({price ? `${parseInt(price).toLocaleString()}원` : '0원'})이 적용됩니다.
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <Label htmlFor="sub-parts-title" className="text-xs">
                         선택 화면 제목 (선택)

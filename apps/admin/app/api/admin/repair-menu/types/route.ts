@@ -21,13 +21,10 @@ export async function POST(request: NextRequest) {
       has_sub_parts,
       allow_multiple_sub_parts,
       show_all_option,
+      all_option_price,
       sub_parts_title,
       sub_parts,
     } = body;
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2375dfe-4ef7-4e43-8b9d-f2b7ae038a52',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'types/route.ts:POST',message:'POST repair_type request',data:{name,icon_name,has_sub_parts,sub_parts_count:sub_parts?.length,sub_parts_icons:sub_parts?.map((p:any)=>({name:p.name,icon:p.icon}))},timestamp:Date.now(),hypothesisId:'A,B,E'})}).catch(()=>{});
-    // #endregion
 
     if (!category_id || !name || !price) {
       return NextResponse.json(
@@ -53,6 +50,7 @@ export async function POST(request: NextRequest) {
         has_sub_parts: has_sub_parts || false,
         allow_multiple_sub_parts: allow_multiple_sub_parts || false,
         show_all_option: show_all_option !== false,
+        all_option_price: (show_all_option !== false && all_option_price != null) ? parseInt(all_option_price) : null,
         sub_parts_title: sub_parts_title || null,
       })
       .select()
@@ -77,25 +75,14 @@ export async function POST(request: NextRequest) {
         display_order: index + 1,
       }));
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b2375dfe-4ef7-4e43-8b9d-f2b7ae038a52',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'types/route.ts:POST:subParts',message:'Inserting sub_parts to DB',data:{subPartsData},timestamp:Date.now(),hypothesisId:'B,E'})}).catch(()=>{});
-      // #endregion
-
       const { error: subPartsError } = await supabaseAdmin
         .from('repair_sub_parts')
         .insert(subPartsData);
 
       if (subPartsError) {
         console.error('세부 부위 추가 실패:', subPartsError);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/b2375dfe-4ef7-4e43-8b9d-f2b7ae038a52',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'types/route.ts:POST:subPartsError',message:'Sub parts insert error',data:{error:subPartsError.message},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
       }
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2375dfe-4ef7-4e43-8b9d-f2b7ae038a52',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'types/route.ts:POST:success',message:'POST success',data:{repairTypeId:repairTypeData?.id,savedIconName:repairTypeData?.icon_name},timestamp:Date.now(),hypothesisId:'A,E'})}).catch(()=>{});
-    // #endregion
 
     return NextResponse.json({ success: true, data: repairTypeData });
   } catch (error: any) {
@@ -126,13 +113,10 @@ export async function PUT(request: NextRequest) {
       has_sub_parts,
       allow_multiple_sub_parts,
       show_all_option,
+      all_option_price,
       sub_parts_title,
       sub_parts,
     } = body;
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2375dfe-4ef7-4e43-8b9d-f2b7ae038a52',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'types/route.ts:PUT',message:'PUT repair_type request',data:{id,name,icon_name,has_sub_parts,sub_parts_count:sub_parts?.length,sub_parts_icons:sub_parts?.map((p:any)=>({name:p.name,icon:p.icon}))},timestamp:Date.now(),hypothesisId:'A,B,E'})}).catch(()=>{});
-    // #endregion
 
     if (!id || !name || !price) {
       return NextResponse.json(
@@ -155,15 +139,11 @@ export async function PUT(request: NextRequest) {
         has_sub_parts: has_sub_parts || false,
         allow_multiple_sub_parts: allow_multiple_sub_parts || false,
         show_all_option: show_all_option !== false,
+        all_option_price: (show_all_option !== false && all_option_price != null) ? parseInt(all_option_price) : null,
         sub_parts_title: sub_parts_title || null,
       })
       .eq('id', id)
       .select();
-
-    // #region agent log
-    console.log('[DEBUG:PUT] Update result:', { updateData, error, count, id, icon_name });
-    fetch('http://127.0.0.1:7242/ingest/b2375dfe-4ef7-4e43-8b9d-f2b7ae038a52',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'types/route.ts:PUT:updateResult',message:'DB update result',data:{updateData,error:error?.message,count,id,icon_name},timestamp:Date.now(),hypothesisId:'A,E'})}).catch(()=>{});
-    // #endregion
 
     if (error) {
       console.error('수선 항목 수정 실패:', error);
@@ -200,19 +180,12 @@ export async function PUT(request: NextRequest) {
         display_order: index + 1,
       }));
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/b2375dfe-4ef7-4e43-8b9d-f2b7ae038a52',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'types/route.ts:PUT:subParts',message:'Updating sub_parts in DB',data:{subPartsData},timestamp:Date.now(),hypothesisId:'B,E'})}).catch(()=>{});
-      // #endregion
-
       const { error: subPartsError } = await supabaseAdmin
         .from('repair_sub_parts')
         .insert(subPartsData);
 
       if (subPartsError) {
         console.error('세부 부위 저장 실패:', subPartsError);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/b2375dfe-4ef7-4e43-8b9d-f2b7ae038a52',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'types/route.ts:PUT:subPartsError',message:'Sub parts update error',data:{error:subPartsError.message},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
       }
     } else if (!has_sub_parts) {
       // 세부 부위 체크 해제 시 기존 데이터 삭제
@@ -222,10 +195,6 @@ export async function PUT(request: NextRequest) {
         .eq('repair_type_id', id)
         .eq('part_type', 'sub_part');
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/b2375dfe-4ef7-4e43-8b9d-f2b7ae038a52',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'types/route.ts:PUT:success',message:'PUT success',data:{id,icon_name},timestamp:Date.now(),hypothesisId:'A,E'})}).catch(()=>{});
-    // #endregion
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

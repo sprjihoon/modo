@@ -34,10 +34,10 @@ modo/
 
 ## 🔗 서비스 URL
 
-| 서비스 | URL | 설명 |
-|--------|-----|------|
-| **고객 웹** | [modo.mom](https://modo.mom) | Next.js 고객 포털 |
-| **관리자** | [admin.modo.mom](https://admin.modo.mom) | 관리자·운영 콘솔 |
+| 서비스 | URL | Vercel 프로젝트 | 설명 |
+|--------|-----|----------------|------|
+| **고객 웹** | [modo.mom](https://modo.mom) | modo-web | Next.js 고객 포털 (`apps/web`) |
+| **관리자** | [admin.modo.mom](https://admin.modo.mom) | modo | 관리자·운영 콘솔 (`apps/admin`) |
 
 ---
 
