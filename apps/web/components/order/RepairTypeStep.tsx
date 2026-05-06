@@ -48,6 +48,7 @@ interface RepairTypeStepProps {
   clothingCategoryId?: string;
   onNext: (items: RepairItem[]) => void;
   onBack: () => void;
+  childBackRef?: React.MutableRefObject<(() => boolean) | null>;
 }
 
 function formatPrice(price: number) {
@@ -66,6 +67,7 @@ export function RepairTypeStep({
   clothingCategoryId,
   onNext,
   onBack,
+  childBackRef,
 }: RepairTypeStepProps) {
   const [repairTypes, setRepairTypes] = useState<RepairType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -81,6 +83,8 @@ export function RepairTypeStep({
     selectedMode: "all" | "specific";
     selectedIds: Set<string>;
   } | null>(null);
+  // 자동으로 열린 경우 (repair type이 하나뿐일 때) 뒤로가기시 이전 단계로
+  const [autoOpenedSubParts, setAutoOpenedSubParts] = useState(false);
 
   // 치수 입력 뷰 (인라인 풀페이지)
   const [measureView, setMeasureView] = useState<{
@@ -97,6 +101,27 @@ export function RepairTypeStep({
   }
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 부모에게 내부 뒤로가기 핸들러 등록
+  useEffect(() => {
+    if (!childBackRef) return;
+    childBackRef.current = () => {
+      if (measureView) {
+        setMeasureView(null);
+        return true;
+      }
+      if (subPartsView) {
+        if (autoOpenedSubParts) {
+          // 자동으로 열린 경우 → 이전 단계로 돌아가기 (부모의 popMode 호출)
+          return false;
+        }
+        setSubPartsView(null);
+        return true;
+      }
+      return false;
+    };
+    return () => { childBackRef.current = null; };
+  });
 
   useEffect(() => {
     loadRepairTypes();
@@ -151,15 +176,16 @@ export function RepairTypeStep({
         input_count: d.input_count ?? 1,
       }));
 
-      // has_sub_parts인 항목이 있으면 바로 세부 부위 뷰로 진입 (중간 목록 생략)
-      const subPartsType = mapped.find((t) => t.has_sub_parts);
+      // has_sub_parts인 항목이 하나뿐이면 바로 세부 부위 뷰로 진입 (중간 목록 생략)
+      const subPartsTypes = mapped.filter((t) => t.has_sub_parts);
       setRepairTypes(mapped);
 
-      if (subPartsType) {
-        // isLoading을 유지한 채 sub-parts를 로드 → 깜빡임 방지
-        await openSubPartsView(subPartsType);
+      if (subPartsTypes.length === 1 && mapped.length === 1) {
+        setAutoOpenedSubParts(true);
+        await openSubPartsView(subPartsTypes[0]);
         setIsLoading(false);
       } else {
+        setAutoOpenedSubParts(false);
         setIsLoading(false);
       }
     } catch {

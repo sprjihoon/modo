@@ -137,12 +137,19 @@ export function OrderNewClient() {
   // 모드 히스토리 스택 (뒤로가기 단순화)
   const modeHistoryRef = useRef<Mode[]>([]);
 
+  // 자식 컴포넌트 내부 뒤로가기 핸들러 (subPartsView 등 내부 뷰가 열려있을 때)
+  const childBackRef = useRef<(() => boolean) | null>(null);
+
   function pushMode(next: Mode) {
     modeHistoryRef.current.push(mode);
     setMode(next);
   }
 
   function popMode() {
+    // 자식 컴포넌트에 내부 뒤로가기 상태가 있으면 먼저 처리
+    if (childBackRef.current && childBackRef.current()) {
+      return;
+    }
     if (modeRef.current === "addClothing") {
       cancelAddClothing();
       return;
@@ -604,6 +611,7 @@ export function OrderNewClient() {
             clothingCategoryId={stagingClothingCategoryId}
             onNext={(items) => handleRepairDone(items)}
             onBack={popMode}
+            childBackRef={childBackRef}
           />
         )}
 
