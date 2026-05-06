@@ -138,7 +138,7 @@ export default function PriceGuidePage() {
           {regularSubs.map((sub) => {
             const items: RepairType[] = [];
             if (sub.price != null) {
-              items.push({ id: sub.id, name: sub.name, price: sub.price ?? undefined });
+              items.push({ id: sub.id, name: "전체", price: sub.price ?? undefined });
             }
             items.push(...sub.repair_types);
             return (

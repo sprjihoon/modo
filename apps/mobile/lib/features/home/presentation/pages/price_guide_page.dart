@@ -363,12 +363,11 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
         blocks.add(const SizedBox(height: 8));
 
         if (sub.repairTypes.isNotEmpty) {
-          // 소카테고리 자체에 직접가격이 있으면 첫 번째 항목으로 포함
           final items = <RepairTypeItem>[];
           if (sub.price != null) {
             items.add(RepairTypeItem(
               id: sub.id,
-              name: sub.name,
+              name: '전체',
               price: sub.price,
             ),);
           }
