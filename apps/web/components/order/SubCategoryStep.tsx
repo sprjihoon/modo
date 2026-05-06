@@ -9,6 +9,12 @@ interface Category {
   name: string;
   icon_name?: string;
   display_order?: number;
+  price?: number | null;
+  price_range?: string | null;
+  requires_measurement?: boolean;
+  input_count?: number;
+  input_labels?: string[] | null;
+  description?: string | null;
 }
 
 
@@ -19,10 +25,21 @@ function getIconSrc(iconName?: string): string | null {
 }
 
 
+export interface SubCategorySelection {
+  name: string;
+  categoryId?: string;
+  directPrice?: number | null;
+  priceRange?: string | null;
+  requiresMeasurement?: boolean;
+  inputCount?: number;
+  inputLabels?: string[] | null;
+  description?: string | null;
+}
+
 interface SubCategoryStepProps {
   parentCategoryId?: string;
   parentCategoryName: string;
-  onNext: (type: string, categoryId?: string) => void;
+  onNext: (type: string, categoryId?: string, selection?: SubCategorySelection) => void;
   onBack: () => void;
   /** "backward" 일 때 자식 없으면 onNext 대신 onBack 호출 (뒤로가기 루프 방지) */
   direction?: "forward" | "backward";
@@ -54,13 +71,12 @@ export function SubCategoryStep({
       const supabase = createClient();
       const { data } = await supabase
         .from("repair_categories")
-        .select("id, name, icon_name, display_order")
+        .select("id, name, icon_name, display_order, price, price_range, requires_measurement, input_count, input_labels, description")
         .eq("is_active", true)
         .eq("parent_category_id", parentCategoryId)
         .order("display_order", { ascending: true });
 
       if (!data || data.length === 0) {
-        // 뒤로가기 중이면 onBack, 앞으로 진행 중이면 onNext
         if (direction === "backward") {
           onBack();
         } else {
@@ -78,9 +94,17 @@ export function SubCategoryStep({
 
   // 카테고리 항목 클릭
   function handleSelectMiddle(cat: Category) {
-    // 하위 항목 여부와 관계없이 onNext로 진행
-    // (세부항목은 사진 촬영 이후 SubCategoryStep 재진입 시 표시)
-    onNext(cat.name, cat.id);
+    const selection: SubCategorySelection = {
+      name: cat.name,
+      categoryId: cat.id,
+      directPrice: cat.price,
+      priceRange: cat.price_range,
+      requiresMeasurement: cat.requires_measurement,
+      inputCount: cat.input_count,
+      inputLabels: cat.input_labels,
+      description: cat.description,
+    };
+    onNext(cat.name, cat.id, selection);
   }
 
   if (isLoading) {
@@ -131,6 +155,11 @@ export function SubCategoryStep({
                 <span className="text-xs font-semibold text-gray-700 text-center leading-tight">
                   {cat.name}
                 </span>
+                {cat.price != null && (
+                  <span className="text-[10px] text-gray-400">
+                    {cat.price_range || `${cat.price.toLocaleString("ko-KR")}원`}
+                  </span>
+                )}
               </button>
             );
           })}

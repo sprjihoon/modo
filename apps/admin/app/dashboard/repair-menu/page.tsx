@@ -280,6 +280,12 @@ export default function RepairMenuPage() {
                     label="+ 소카테고리"
                     forceNoPrice
                   />
+                  {/* 세부항목 추가 (직접가격, 대카테고리 바로 아래) */}
+                  <AddCategoryDialog
+                    onAdded={loadData}
+                    parentCategoryId={main.id}
+                    label="+ 세부항목"
+                  />
                   <Button variant="outline" size="sm" onClick={() => deleteCategory(main.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -294,52 +300,38 @@ export default function RepairMenuPage() {
                   </div>
                 ) : (() => {
                   const subs = main.sub_categories || [];
-                  const directItems = subs.filter(s => s.price != null);
-                  const legacySubs = subs.filter(s => s.price == null);
                   return (
                     <div className="space-y-2">
-                      {/* 직접가격 항목 (대카테고리 바로 아래, 2단계) */}
-                      {directItems.length > 0 && (
-                        <div className="space-y-2">
-                          {directItems.map((sub, subIdx) => (
-                            <DirectItemCard
-                              key={sub.id}
-                              category={sub}
-                              index={subIdx}
-                              total={directItems.length}
-                              onMoveUp={() => moveCategoryOrder(sub.id, 'up')}
-                              onMoveDown={() => moveCategoryOrder(sub.id, 'down')}
-                              onDelete={() => deleteCategory(sub.id)}
-                              onReload={loadData}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      {/* 소카테고리 (대카테고리 하위, 다시 세부항목을 가짐, 3단계) */}
-                      {legacySubs.length > 0 && (
-                        <div className="space-y-2">
-                          {directItems.length > 0 && (
-                            <p className="text-xs text-muted-foreground px-1 pt-2">── 소카테고리 (3단계 구조)</p>
-                          )}
-                          {legacySubs.map((sub, subIdx) => (
-                            <SubCategoryCard
-                              key={sub.id}
-                              category={sub}
-                              index={subIdx}
-                              total={legacySubs.length}
-                              expanded={expandedCategories.has(sub.id)}
-                              onToggle={() => toggleCategory(sub.id)}
-                              onMoveUp={() => moveCategoryOrder(sub.id, 'up')}
-                              onMoveDown={() => moveCategoryOrder(sub.id, 'down')}
-                              onDelete={() => deleteCategory(sub.id)}
-                              onDeleteType={deleteRepairType}
-                              onReload={loadData}
-                              onMoveItem={(id, dir) => moveCategoryOrder(id, dir)}
-                              onDeleteItem={(id) => deleteCategory(id)}
-                            />
-                          ))}
-                        </div>
-                      )}
+                      {subs.map((sub, subIdx) => (
+                        sub.price != null ? (
+                          <DirectItemCard
+                            key={sub.id}
+                            category={sub}
+                            index={subIdx}
+                            total={subs.length}
+                            onMoveUp={() => moveCategoryOrder(sub.id, 'up')}
+                            onMoveDown={() => moveCategoryOrder(sub.id, 'down')}
+                            onDelete={() => deleteCategory(sub.id)}
+                            onReload={loadData}
+                          />
+                        ) : (
+                          <SubCategoryCard
+                            key={sub.id}
+                            category={sub}
+                            index={subIdx}
+                            total={subs.length}
+                            expanded={expandedCategories.has(sub.id)}
+                            onToggle={() => toggleCategory(sub.id)}
+                            onMoveUp={() => moveCategoryOrder(sub.id, 'up')}
+                            onMoveDown={() => moveCategoryOrder(sub.id, 'down')}
+                            onDelete={() => deleteCategory(sub.id)}
+                            onDeleteType={deleteRepairType}
+                            onReload={loadData}
+                            onMoveItem={(id, dir) => moveCategoryOrder(id, dir)}
+                            onDeleteItem={(id) => deleteCategory(id)}
+                          />
+                        )
+                      ))}
                     </div>
                   );
                 })()}
@@ -680,7 +672,6 @@ function EditCategoryDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // 직접 가격/치수 필드 (소카테고리용)
   const isSubCategory = !!category.parent_category_id;
   const [price, setPrice] = useState(category.price != null ? String(category.price) : "");
   const [priceRange, setPriceRange] = useState(category.price_range || "");
@@ -694,6 +685,25 @@ function EditCategoryDialog({
   );
   const [hasDirectPrice, setHasDirectPrice] = useState(category.price != null);
   const [subSelectionLabel, setSubSelectionLabel] = useState(category.sub_selection_label || "");
+
+  useEffect(() => {
+    if (open) {
+      setName(category.name);
+      setIconName(category.icon_name || "");
+      setPrice(category.price != null ? String(category.price) : "");
+      setPriceRange(category.price_range || "");
+      setDescription(category.description || "");
+      setRequiresMeasurement(category.requires_measurement ?? false);
+      setInputCount(category.input_count ?? 1);
+      setInputLabels(
+        category.input_labels && category.input_labels.length > 0
+          ? category.input_labels
+          : ["치수 (cm)"]
+      );
+      setHasDirectPrice(category.price != null);
+      setSubSelectionLabel(category.sub_selection_label || "");
+    }
+  }, [open, category]);
 
   // icon_name이 URL인지 확인
   const isIconUrl = iconName.startsWith("http");
@@ -1128,6 +1138,8 @@ function AddCategoryDialog({
         body.description = description;
       }
 
+      console.log('[DEBUG] AddCategory POST body:', JSON.stringify(body, null, 2));
+
       const response = await fetch("/api/admin/repair-menu/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1135,6 +1147,7 @@ function AddCategoryDialog({
       });
 
       const result = await response.json();
+      console.log('[DEBUG] AddCategory response:', JSON.stringify(result, null, 2));
 
       if (!result.success) {
         throw new Error(result.error || '카테고리 추가 실패');

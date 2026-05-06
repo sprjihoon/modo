@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ShoppingCart, CreditCard, X, ChevronLeft } from "lucide-react";
 import { ClothingTypeStep } from "./ClothingTypeStep";
-import { SubCategoryStep } from "./SubCategoryStep";
+import { SubCategoryStep, SubCategorySelection } from "./SubCategoryStep";
 import { RepairTypeStep } from "./RepairTypeStep";
 import { ImagePinStep } from "./ImagePinStep";
 import { PickupStep } from "./PickupStep";
@@ -42,11 +42,13 @@ export interface OrderDraft {
   pickupAddress?: string;
   pickupAddressDetail?: string;
   pickupZipcode?: string;
+  pickupPhone?: string;
   pickupDate?: string;
   notes?: string;
   deliveryAddress?: string;
   deliveryAddressDetail?: string;
   deliveryZipcode?: string;
+  deliveryPhone?: string;
   agreedToExtraCharge?: boolean;
   remoteAreaFee?: number;
 }
@@ -75,11 +77,13 @@ function normalizeDraft(raw: unknown): OrderDraft {
     pickupAddress: d.pickupAddress as string | undefined,
     pickupAddressDetail: d.pickupAddressDetail as string | undefined,
     pickupZipcode: d.pickupZipcode as string | undefined,
+    pickupPhone: d.pickupPhone as string | undefined,
     pickupDate: d.pickupDate as string | undefined,
     notes: d.notes as string | undefined,
     deliveryAddress: d.deliveryAddress as string | undefined,
     deliveryAddressDetail: d.deliveryAddressDetail as string | undefined,
     deliveryZipcode: d.deliveryZipcode as string | undefined,
+    deliveryPhone: d.deliveryPhone as string | undefined,
     agreedToExtraCharge: d.agreedToExtraCharge as boolean | undefined,
     remoteAreaFee: d.remoteAreaFee as number | undefined,
   };
@@ -302,19 +306,67 @@ export function OrderNewClient() {
     setMode("addSubCategory");
   }
 
-  function handleSubCategoryDone(type: string, categoryId?: string) {
+  // 직접 가격 카테고리의 치수 입력 모달 상태
+  const [directPriceMeasure, setDirectPriceMeasure] = useState<{
+    selection: SubCategorySelection;
+    values: string[];
+  } | null>(null);
+
+  function handleSubCategoryDone(type: string, categoryId?: string, selection?: SubCategorySelection) {
     if (type && categoryId) {
       setStagingClothingType(type);
       setStagingClothingCategoryId(categoryId);
     }
 
     if (subCategoryPhase === "pre") {
-      // 사진 전: 소카테고리 선택 → 사진 촬영으로
       setMode("addPhoto");
     } else {
-      // 사진 후: 세부항목 선택 완료 → 수선 항목 선택(RepairTypeStep)으로
-      setMode("addRepair");
+      // 세부항목에 직접 가격이 설정된 경우 → RepairTypeStep 건너뛰고 바로 완료
+      if (selection?.directPrice != null && selection.directPrice > 0) {
+        if (selection.requiresMeasurement) {
+          const count = selection.inputCount || 1;
+          setDirectPriceMeasure({
+            selection,
+            values: Array.from({ length: count }, () => ""),
+          });
+        } else {
+          const price = selection.directPrice;
+          const priceRange = selection.priceRange || `${price.toLocaleString("ko-KR")}원`;
+          const repairItem: RepairItem = {
+            name: selection.name,
+            price,
+            priceRange,
+            quantity: 1,
+            detail: "",
+          };
+          handleRepairDone([repairItem]);
+        }
+      } else {
+        setMode("addRepair");
+      }
     }
+  }
+
+  function confirmDirectPriceMeasure() {
+    if (!directPriceMeasure) return;
+    const { selection, values } = directPriceMeasure;
+    const price = selection.directPrice!;
+    const priceRange = selection.priceRange || `${price.toLocaleString("ko-KR")}원`;
+    const labels: string[] = Array.isArray(selection.inputLabels)
+      ? selection.inputLabels
+      : ["치수 (cm)"];
+    const detail = labels
+      .map((label, i) => `${label}: ${values[i] || "-"}`)
+      .join(", ");
+    const repairItem: RepairItem = {
+      name: selection.name,
+      price,
+      priceRange,
+      quantity: 1,
+      detail,
+    };
+    setDirectPriceMeasure(null);
+    handleRepairDone([repairItem]);
   }
 
   function handleRepairDone(items: RepairItem[]) {
@@ -579,6 +631,74 @@ export function OrderNewClient() {
           />
         )}
       </div>
+
+      {/* ── 직접 가격 카테고리 치수 입력 모달 ── */}
+      {directPriceMeasure && (() => {
+        const { selection, values } = directPriceMeasure;
+        const labels: string[] = Array.isArray(selection.inputLabels)
+          ? selection.inputLabels
+          : ["치수 (cm)"];
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center"
+            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+            onClick={() => setDirectPriceMeasure(null)}
+          >
+            <div
+              className="w-full max-w-[430px] bg-white rounded-t-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-gray-300" />
+              </div>
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-bold text-gray-900">치수를 입력해주세요</p>
+                  <p className="text-sm text-gray-500 mt-0.5">{selection.name}</p>
+                </div>
+                <button
+                  onClick={() => setDirectPriceMeasure(null)}
+                  className="p-1 text-gray-400"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-4">
+                {labels.map((label, i) => (
+                  <div key={i}>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                      {label}
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="예: 30"
+                      value={values[i] || ""}
+                      onChange={(e) =>
+                        setDirectPriceMeasure((prev) => {
+                          if (!prev) return prev;
+                          const next = [...prev.values];
+                          next[i] = e.target.value;
+                          return { ...prev, values: next };
+                        })
+                      }
+                      className="w-full px-4 py-3 border-2 border-gray-100 rounded-xl text-sm outline-none focus:border-[#00C896]"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 pb-6">
+                <button
+                  onClick={confirmDirectPriceMeasure}
+                  className="w-full py-4 rounded-xl bg-[#00C896] text-white text-sm font-bold"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── 이탈 방지 다이얼로그 ── */}
       {showExitDialog && (
