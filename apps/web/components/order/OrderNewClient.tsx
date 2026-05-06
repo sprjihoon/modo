@@ -306,6 +306,9 @@ export function OrderNewClient() {
     setMode("addSubCategory");
   }
 
+  // PRE-photo 단계에서 선택한 카테고리 정보 (직접가격 leaf일 때 사용)
+  const [prePhaseSelection, setPrePhaseSelection] = useState<SubCategorySelection | null>(null);
+
   // 직접 가격 카테고리의 치수 입력 모달 상태
   const [directPriceMeasure, setDirectPriceMeasure] = useState<{
     selection: SubCategorySelection;
@@ -319,21 +322,25 @@ export function OrderNewClient() {
     }
 
     if (subCategoryPhase === "pre") {
+      // PRE 단계 선택 정보 저장 (직접가격 leaf인 경우 POST 자동진행 시 사용)
+      setPrePhaseSelection(selection || null);
       setMode("addPhoto");
     } else {
-      // 세부항목에 직접 가격이 설정된 경우 → RepairTypeStep 건너뛰고 바로 완료
-      if (selection?.directPrice != null && selection.directPrice > 0) {
-        if (selection.requiresMeasurement) {
-          const count = selection.inputCount || 1;
+      // POST-photo: 실제 선택된 항목 또는 자동진행(자식 없음) 처리
+      const effectiveSelection = selection || ((!type && !categoryId) ? prePhaseSelection : null);
+
+      if (effectiveSelection?.directPrice != null && effectiveSelection.directPrice > 0) {
+        if (effectiveSelection.requiresMeasurement) {
+          const count = effectiveSelection.inputCount || 1;
           setDirectPriceMeasure({
-            selection,
+            selection: effectiveSelection,
             values: Array.from({ length: count }, () => ""),
           });
         } else {
-          const price = selection.directPrice;
-          const priceRange = selection.priceRange || `${price.toLocaleString("ko-KR")}원`;
+          const price = effectiveSelection.directPrice;
+          const priceRange = effectiveSelection.priceRange || `${price.toLocaleString("ko-KR")}원`;
           const repairItem: RepairItem = {
-            name: selection.name,
+            name: effectiveSelection.name,
             price,
             priceRange,
             quantity: 1,
