@@ -300,7 +300,31 @@ export function OrderNewClient() {
 
   function handlePhotoDone(imagesWithPins: ImageWithPins[]) {
     setStagingImagesWithPins(imagesWithPins);
-    // 사진 후 → 세부항목 선택(SubCategoryStep post-photo)으로
+
+    // 직접가격 카테고리인 경우 → POST SubCategoryStep 건너뛰고 바로 처리
+    if (prePhaseSelection?.directPrice != null && prePhaseSelection.directPrice > 0) {
+      if (prePhaseSelection.requiresMeasurement) {
+        const count = prePhaseSelection.inputCount || 1;
+        setDirectPriceMeasure({
+          selection: prePhaseSelection,
+          values: Array.from({ length: count }, () => ""),
+        });
+      } else {
+        const price = prePhaseSelection.directPrice;
+        const priceRange = prePhaseSelection.priceRange || `${price.toLocaleString("ko-KR")}원`;
+        const repairItem: RepairItem = {
+          name: prePhaseSelection.name,
+          price,
+          priceRange,
+          quantity: 1,
+          detail: "",
+        };
+        handleRepairDone([repairItem]);
+      }
+      return;
+    }
+
+    // 일반 카테고리 → 세부항목 선택(SubCategoryStep post-photo)으로
     setSubCategoryPhase("post");
     setSubCategoryDirection("forward");
     setMode("addSubCategory");
