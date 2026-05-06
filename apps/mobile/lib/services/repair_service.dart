@@ -50,6 +50,7 @@ class RepairMainCategory {
   final String id;
   final String name;
   final num displayOrder;
+  final num? price;
   final List<RepairSubCategory> subCategories;
   final List<RepairTypeItem> repairTypes; // 대카테고리 직속 항목
 
@@ -57,6 +58,7 @@ class RepairMainCategory {
     required this.id,
     required this.name,
     required this.displayOrder,
+    this.price,
     required this.subCategories,
     required this.repairTypes,
   });
@@ -278,6 +280,7 @@ class RepairService {
               id: mainId,
               name: (main['name'] as String?) ?? '',
               displayOrder: (main['display_order'] as num?) ?? 999,
+              price: main['price'] as num?,
               subCategories: subs,
               repairTypes:
                   allTypes.where((t) => t.categoryId == mainId).toList(),

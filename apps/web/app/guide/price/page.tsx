@@ -26,6 +26,7 @@ interface MainCategory {
   id: string;
   name: string;
   display_order: number;
+  price?: number | null;
   sub_categories: SubCategory[];
   repair_types: RepairType[]; // 대카테고리 직속 항목 (있는 경우)
 }
@@ -113,8 +114,18 @@ export default function PriceGuidePage() {
       const regularSubs = main.sub_categories
         .filter((s) => !(s.price != null && s.repair_types.length === 0));
 
+      // 대카테고리 자체 가격 항목
+      const mainPriceItem: RepairType[] =
+        main.price != null && main.price > 0
+          ? [{ id: main.id, name: main.name, price: main.price }]
+          : [];
+
       return (
         <div className="space-y-5">
+          {/* 대카테고리 자체 가격 */}
+          {mainPriceItem.length > 0 && (
+            <ItemList items={mainPriceItem} priceLabel={priceLabel} />
+          )}
           {/* 대카테고리 직속 항목 */}
           {main.repair_types.length > 0 && (
             <ItemList items={main.repair_types} priceLabel={priceLabel} />

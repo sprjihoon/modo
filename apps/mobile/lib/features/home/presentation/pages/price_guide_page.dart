@@ -313,6 +313,16 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
 
       final blocks = <Widget>[];
 
+      // 대카테고리 자체 가격
+      if (main.price != null) {
+        blocks.add(
+          _ItemListCard(
+            items: [RepairTypeItem(id: main.id, name: main.name, price: main.price)],
+            priceLabel: _priceLabel,
+          ),
+        );
+      }
+
       // 대카테고리 직속 repair_types
       if (main.repairTypes.isNotEmpty) {
         blocks.add(
