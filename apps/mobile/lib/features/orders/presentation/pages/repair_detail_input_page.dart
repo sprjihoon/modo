@@ -21,6 +21,7 @@ class RepairDetailInputPage extends ConsumerStatefulWidget {
   final List<String>? inputLabels; // 입력 필드 라벨 배열
   final String? repairTypeId; // 수선 종류 ID (세부 부위 조회용)
   final bool? allowMultipleSubParts; // 세부 부위 다중 선택 허용 여부
+  final String? iconName; // 카테고리 아이콘명 (SVG)
 
   const RepairDetailInputPage({
     required this.repairPart,
@@ -34,6 +35,7 @@ class RepairDetailInputPage extends ConsumerStatefulWidget {
     this.inputLabels,
     this.repairTypeId,
     this.allowMultipleSubParts,
+    this.iconName,
   });
 
   @override
@@ -415,13 +417,15 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                             width: 60,
                             height: 60,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFF6B6B).withOpacity(0.1),
+                              color: const Color(0xFF00C896).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(
-                              Icons.checkroom_rounded,
-                              color: Color(0xFFFF6B6B),
-                              size: 30,
+                            child: Center(
+                              child: CategoryIconWidget(
+                                iconName: widget.iconName,
+                                size: 30,
+                                color: const Color(0xFF00C896),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),

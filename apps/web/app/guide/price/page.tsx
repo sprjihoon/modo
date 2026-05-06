@@ -18,6 +18,7 @@ interface SubCategory {
   id: string;
   name: string;
   display_order: number;
+  price?: number | null;
   repair_types: RepairType[];
 }
 
@@ -33,6 +34,7 @@ interface FlatCategory {
   id: string;
   name: string;
   display_order: number;
+  price?: number | null;
   repair_types: RepairType[];
 }
 
@@ -101,22 +103,47 @@ export default function PriceGuidePage() {
     if (isHierarchical) {
       const main = mainCategories.find((m) => m.id === selectedId);
       if (!main) return null;
+
+      // 직접가격 항목 (대카테고리 바로 아래, repair_types 없음, price 있음)
+      const directPriceItems = main.sub_categories
+        .filter((s) => s.price != null && s.repair_types.length === 0)
+        .map((s) => ({ id: s.id, name: s.name, price: s.price ?? undefined } as RepairType));
+
+      // 일반 소카테고리 (중간 그룹핑 역할)
+      const regularSubs = main.sub_categories
+        .filter((s) => !(s.price != null && s.repair_types.length === 0));
+
       return (
         <div className="space-y-5">
           {/* 대카테고리 직속 항목 */}
           {main.repair_types.length > 0 && (
             <ItemList items={main.repair_types} priceLabel={priceLabel} />
           )}
+          {/* 직접가격 항목 (소카테고리 헤더 없이 하나의 카드로) */}
+          {directPriceItems.length > 0 && (
+            <ItemList items={directPriceItems} priceLabel={priceLabel} />
+          )}
           {/* 소카테고리별 그룹 */}
-          {main.sub_categories.map((sub) => (
-            <div key={sub.id}>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-1 h-4 rounded-full bg-[#00C896]/50" />
-                <span className="text-sm font-semibold text-gray-600">{sub.name}</span>
+          {regularSubs.map((sub) => {
+            const items: RepairType[] = [];
+            if (sub.price != null) {
+              items.push({ id: sub.id, name: sub.name, price: sub.price ?? undefined });
+            }
+            items.push(...sub.repair_types);
+            return (
+              <div key={sub.id}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-1 h-4 rounded-full bg-[#00C896]/50" />
+                  <span className="text-sm font-semibold text-gray-600">{sub.name}</span>
+                </div>
+                {items.length > 0 ? (
+                  <ItemList items={items} priceLabel={priceLabel} />
+                ) : (
+                  <EmptyState />
+                )}
               </div>
-              <ItemList items={sub.repair_types} priceLabel={priceLabel} />
-            </div>
-          ))}
+            );
+          })}
           {main.sub_categories.length === 0 && main.repair_types.length === 0 && (
             <EmptyState />
           )}
@@ -127,11 +154,13 @@ export default function PriceGuidePage() {
     // flat
     const cat = flatCategories.find((c) => c.id === selectedId);
     if (!cat) return null;
-    return cat.repair_types.length > 0 ? (
-      <ItemList items={cat.repair_types} priceLabel={priceLabel} />
-    ) : (
-      <EmptyState />
-    );
+    if (cat.repair_types.length > 0) {
+      return <ItemList items={cat.repair_types} priceLabel={priceLabel} />;
+    }
+    if (cat.price != null) {
+      return <ItemList items={[{ id: cat.id, name: cat.name, price: cat.price ?? undefined }]} priceLabel={priceLabel} />;
+    }
+    return <EmptyState />;
   }
 
   const selectedName =

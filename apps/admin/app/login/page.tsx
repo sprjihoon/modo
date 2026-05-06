@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,29 @@ import { AlertCircle } from "lucide-react";
 import { logAction } from "@/lib/api/action-logs";
 import { ActionType } from "@/lib/types/action-log";
 
+const SAVED_CREDENTIALS_KEY = "modo_admin_saved_credentials";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SAVED_CREDENTIALS_KEY);
+      if (saved) {
+        const { email: savedEmail, password: savedPassword } = JSON.parse(saved);
+        setEmail(savedEmail || "");
+        setPassword(savedPassword || "");
+        setRememberMe(true);
+      }
+    } catch {
+      localStorage.removeItem(SAVED_CREDENTIALS_KEY);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +82,12 @@ export default function LoginPage() {
       }
 
       console.log("✅ 관리자 권한 확인 완료");
+
+      if (rememberMe) {
+        localStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+      } else {
+        localStorage.removeItem(SAVED_CREDENTIALS_KEY);
+      }
 
       // 4. 📊 로그인 액션 로그 기록
       await logAction(ActionType.LOGIN, undefined, {
@@ -129,6 +152,19 @@ export default function LoginPage() {
                 disabled={isLoading}
                 minLength={6}
               />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                id="rememberMe"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={isLoading}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+              />
+              <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer select-none">
+                로그인 정보 저장
+              </Label>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "로그인 중..." : "로그인"}

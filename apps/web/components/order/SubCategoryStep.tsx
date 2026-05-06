@@ -28,6 +28,7 @@ function getIconSrc(iconName?: string): string | null {
 export interface SubCategorySelection {
   name: string;
   categoryId?: string;
+  iconName?: string | null;
   directPrice?: number | null;
   priceRange?: string | null;
   requiresMeasurement?: boolean;
@@ -83,7 +84,7 @@ export function SubCategoryStep({
           // 자식이 없으면 부모 카테고리 자체가 직접가격 항목일 수 있음 → 부모 정보 조회 후 전달
           const { data: parentData } = await supabase
             .from("repair_categories")
-            .select("id, name, price, price_range, requires_measurement, input_count, input_labels, description")
+            .select("id, name, icon_name, price, price_range, requires_measurement, input_count, input_labels, description")
             .eq("id", parentCategoryId)
             .single();
 
@@ -91,6 +92,7 @@ export function SubCategoryStep({
             const sel: SubCategorySelection = {
               name: parentData.name,
               categoryId: parentData.id,
+              iconName: parentData.icon_name,
               directPrice: parentData.price,
               priceRange: parentData.price_range,
               requiresMeasurement: parentData.requires_measurement,
@@ -118,6 +120,7 @@ export function SubCategoryStep({
     const selection: SubCategorySelection = {
       name: cat.name,
       categoryId: cat.id,
+      iconName: cat.icon_name,
       directPrice: cat.price,
       priceRange: cat.price_range,
       requiresMeasurement: cat.requires_measurement,

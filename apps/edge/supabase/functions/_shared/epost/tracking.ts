@@ -321,26 +321,67 @@ export async function getPublicTrackingInfo(trackingNo: string): Promise<Trackin
 
 /**
  * 처리현황에서 상태 코드 추출
+ *
+ * 매핑 규칙:
+ *   05 배송완료 ← "배달완료" / "수령"
+ *   04 배송중   ← "배달중" / "배달준비" / "도착" / "발송" / "출발" / "이동"
+ *   03 집하완료 ← "집하" 키워드 (실제 물리적 집하 발생). 또는 일반소포의 "접수"
+ *   02 운송장출력 ← "운송장" / "출력" / "수거준비" / "신청"
+ *                  + 반품소포(수거)에서의 "접수" (= 신청 접수 처리이지 물리적 집하 아님)
+ *   00 신청준비   ← 그 외 (이벤트 없음/알 수 없음)
+ *
+ * 주의: 과거 버전은 "접수"를 무조건 03(집하완료)로 매핑하고, fallback 도 03 이라
+ *       반품소포에서 운송장만 출력된 상태에도 "집하완료"로 잘못 표시되었음.
+ *       반품소포 여부는 events 안에 "수거" 또는 "반품" 키워드가 있는지로 판별한다.
  */
 export function getStatusFromEvents(events: TrackingEvent[]): string {
   if (events.length === 0) return '00';
-  
-  // 가장 최근 이벤트 (마지막)
+
   const latestEvent = events[events.length - 1];
-  const status = latestEvent.status;
-  
-  if (status.includes('배달완료') || status.includes('수령')) {
+  const latest = latestEvent.status;
+
+  // 05 배송완료
+  if (latest.includes('배달완료') || latest.includes('수령')) {
     return '05';
   }
-  if (status.includes('배달중') || status.includes('배달준비') || status.includes('도착')) {
+
+  // 04 배송중
+  if (
+    latest.includes('배달중') ||
+    latest.includes('배달준비') ||
+    latest.includes('도착') ||
+    latest.includes('발송') ||
+    latest.includes('출발') ||
+    latest.includes('이동')
+  ) {
     return '04';
   }
-  if (status.includes('발송') || status.includes('출발') || status.includes('이동')) {
-    return '04';
-  }
-  if (status.includes('집하') || status.includes('접수')) {
+
+  // 03 집하완료 — 명시적 "집하" 키워드만 (실제 물리적 픽업)
+  if (latest.includes('집하')) {
     return '03';
   }
-  
-  return '03'; // 이벤트가 있으면 최소 집하완료
+
+  // "접수": 일반소포는 우체국 입고(=집하완료) 의미, 반품소포(수거)는 신청 접수 처리이지 물리적 집하 아님.
+  // 이벤트 이력에 "수거" / "반품" 키워드가 있으면 반품소포로 판단.
+  const isPickupDirection = events.some(
+    (e) => e.status.includes('수거') || e.status.includes('반품')
+  );
+  if (latest.includes('접수')) {
+    return isPickupDirection ? '02' : '03';
+  }
+
+  // 02 운송장출력 / 수거준비 / 신청 단계 (아직 물리적 집하 전)
+  if (
+    latest.includes('운송장') ||
+    latest.includes('출력') ||
+    latest.includes('수거준비') ||
+    latest.includes('신청')
+  ) {
+    return '02';
+  }
+
+  // 알 수 없는 상태: 이벤트는 있으나 의미 불명 → 보수적으로 02 (집하 전)로 판단.
+  // (과거: '03' 으로 기본 설정해 잘못 "집하완료" 표시되던 버그 수정.)
+  return '02';
 }

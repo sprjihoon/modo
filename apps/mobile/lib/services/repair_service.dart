@@ -33,12 +33,14 @@ class RepairSubCategory {
   final String id;
   final String name;
   final num displayOrder;
+  final num? price;
   final List<RepairTypeItem> repairTypes;
 
   const RepairSubCategory({
     required this.id,
     required this.name,
     required this.displayOrder,
+    this.price,
     required this.repairTypes,
   });
 }
@@ -170,14 +172,13 @@ class RepairService {
       try {
         final response = await _supabase
             .from('repair_categories')
-            .select('id, name, display_order, icon_name, is_active, parent_category_id')
+            .select('id, name, display_order, icon_name, is_active, parent_category_id, price, description')
             .eq('is_active', true)
             .order('display_order', ascending: true);
         allCats = (response as List)
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
       } catch (_) {
-        // parent_category_id 컬럼이 없는 환경 → fallback
         hasParentColumn = false;
         final response = await _supabase
             .from('repair_categories')
@@ -212,18 +213,64 @@ class RepairService {
             allCats.where((c) => c['parent_category_id'] != null).toList();
 
         if (mainCatsRaw.isNotEmpty) {
+          final mainIds = mainCatsRaw.map((m) => m['id'].toString()).toSet();
+
+          // 대카테고리 직속 자식 카테고리 ID set (중간 소카테고리 + 직접가격 항목)
+          final directChildIds = subCatsRaw
+              .where((s) => mainIds.contains(s['parent_category_id'].toString()))
+              .map((s) => s['id'].toString())
+              .toSet();
+
           final mainCategories = mainCatsRaw.map((main) {
             final mainId = main['id'].toString();
-            final subs = subCatsRaw
+
+            // 대카테고리의 직속 자식 (소카테고리 + 직접가격 항목)
+            final directChildren = subCatsRaw
                 .where((s) => s['parent_category_id'].toString() == mainId)
-                .map((sub) {
+                .toList();
+
+            final subs = directChildren.map((sub) {
               final subId = sub['id'].toString();
+              final subPrice = sub['price'] as num?;
+
+              // 3단계: 이 소카테고리의 자식 카테고리 (세부항목)
+              final thirdLevel = subCatsRaw
+                  .where((s) => s['parent_category_id'].toString() == subId)
+                  .toList();
+
+              // repair_types 에서 가져온 항목
+              final directRepairTypes =
+                  allTypes.where((t) => t.categoryId == subId).toList();
+
+              // 3단계 자식 카테고리를 RepairTypeItem 으로 변환하여 포함
+              final thirdLevelItems = thirdLevel.map((item) {
+                return RepairTypeItem(
+                  id: item['id'].toString(),
+                  name: (item['name'] as String?) ?? '',
+                  description: item['description'] as String?,
+                  price: item['price'] as num?,
+                  categoryId: subId,
+                );
+              }).toList();
+
+              // 3단계 항목의 repair_types 도 포함
+              final thirdLevelRepairTypes = thirdLevel.expand((item) {
+                final itemId = item['id'].toString();
+                return allTypes.where((t) => t.categoryId == itemId);
+              }).toList();
+
+              final combinedRepairTypes = [
+                ...directRepairTypes,
+                ...thirdLevelItems,
+                ...thirdLevelRepairTypes,
+              ];
+
               return RepairSubCategory(
                 id: subId,
                 name: (sub['name'] as String?) ?? '',
                 displayOrder: (sub['display_order'] as num?) ?? 999,
-                repairTypes:
-                    allTypes.where((t) => t.categoryId == subId).toList(),
+                price: subPrice,
+                repairTypes: combinedRepairTypes,
               );
             }).toList();
 
@@ -237,11 +284,11 @@ class RepairService {
             );
           }).toList();
 
-          // 어느 대카테고리에도 속하지 않은 소카테고리 (orphan)
-          final mainIds = mainCatsRaw.map((m) => m['id'].toString()).toSet();
+          // 어느 대카테고리에도 속하지 않고, 대카테고리 직속 자식의 하위도 아닌 orphan
+          final allKnownParentIds = {...mainIds, ...directChildIds};
           final orphanSubs = subCatsRaw
               .where(
-                (s) => !mainIds.contains(s['parent_category_id'].toString()),
+                (s) => !allKnownParentIds.contains(s['parent_category_id'].toString()),
               )
               .map((sub) {
             final subId = sub['id'].toString();
@@ -249,6 +296,7 @@ class RepairService {
               id: subId,
               name: (sub['name'] as String?) ?? '',
               displayOrder: (sub['display_order'] as num?) ?? 999,
+              price: sub['price'] as num?,
               repairTypes:
                   allTypes.where((t) => t.categoryId == subId).toList(),
             );
@@ -278,6 +326,7 @@ class RepairService {
           id: catId,
           name: (cat['name'] as String?) ?? '',
           displayOrder: (cat['display_order'] as num?) ?? 999,
+          price: cat['price'] as num?,
           repairTypes: allTypes.where((t) => t.categoryId == catId).toList(),
         );
       }).toList();

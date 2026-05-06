@@ -275,17 +275,17 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   }
 
   /// 실제 우체국 API 테스트 (결제 건너뛰고 수거예약만)
+  ///
+  /// 두 가지 흐름을 지원한다:
+  ///   1) 신규 흐름 (_isIntentFlow == true): widget.orderId 가 payment_intents.id 인 경우
+  ///      → `payments-test-skip` Edge Function 으로 인텐트 → orders 생성 → 수거예약을 한 번에 수행.
+  ///      (웹의 /api/admin/test/skip-payment 와 동일한 동작)
+  ///   2) 레거시 흐름: widget.orderId 가 이미 orders.id 인 경우
+  ///      → orders.payment_status 만 PAID 로 갱신 후 shipments-book 직접 호출.
   Future<void> _testRealShipment({required bool testMode}) async {
     setState(() => _isLoading = true);
 
     try {
-      await _supabase
-          .from('orders')
-          .update({'payment_status': 'PAID'})
-          .eq('id', widget.orderId);
-
-      if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(testMode ? '🧪 Mock 모드로 수거예약 시작...' : '🚚 실제 우체국 API로 수거예약 시작...'),
@@ -294,33 +294,60 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         ),
       );
 
-      final shipment = await _orderService.bookShipment(
-        orderId: widget.orderId,
-        pickupAddress: _orderData!['pickup_address'] ?? '테스트 주소',
-        pickupPhone: _orderData!['pickup_phone'] ?? '010-1234-5678',
-        pickupZipcode: _orderData!['pickup_zipcode'] as String?,
-        deliveryAddress: _orderData!['delivery_address'] ?? '테스트 주소',
-        deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
-        deliveryZipcode: _orderData!['delivery_zipcode'] as String?,
-        customerName: _orderData!['customer_name'] ?? '테스트 고객',
-        deliveryMessage: _orderData!['notes'] as String?,
-        testMode: testMode,
-      );
+      String? trackingNo;
+      String? bookErrorMessage;
+
+      if (_isIntentFlow && _intentId != null) {
+        final result = await _orderService.testSkipPaymentAndBook(
+          intentId: _intentId!,
+          testMode: testMode,
+        );
+        trackingNo = result['trackingNo'] as String?;
+        bookErrorMessage = result['bookErrorMessage'] as String?;
+      } else {
+        await _supabase
+            .from('orders')
+            .update({'payment_status': 'PAID'})
+            .eq('id', widget.orderId);
+
+        final shipment = await _orderService.bookShipment(
+          orderId: widget.orderId,
+          pickupAddress: _orderData!['pickup_address'] ?? '테스트 주소',
+          pickupPhone: _orderData!['pickup_phone'] ?? '010-1234-5678',
+          pickupZipcode: _orderData!['pickup_zipcode'] as String?,
+          deliveryAddress: _orderData!['delivery_address'] ?? '테스트 주소',
+          deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
+          deliveryZipcode: _orderData!['delivery_zipcode'] as String?,
+          customerName: _orderData!['customer_name'] ?? '테스트 고객',
+          deliveryMessage: _orderData!['notes'] as String?,
+          testMode: testMode,
+        );
+        trackingNo = (shipment['tracking_no'] ?? shipment['pickup_tracking_no']) as String?;
+      }
 
       if (!mounted) return;
 
-      final trackingNo = shipment['tracking_no'] ?? shipment['pickup_tracking_no'];
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            testMode 
-              ? '✅ Mock 수거예약 완료!\n송장번호: $trackingNo'
-              : '🎉 실제 우체국 수거예약 완료!\n송장번호: $trackingNo',
+      if (bookErrorMessage != null && bookErrorMessage.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('주문은 생성되었지만 수거예약은 실패했습니다.\n$bookErrorMessage'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 6),
           ),
-          duration: const Duration(seconds: 5),
-          backgroundColor: const Color(0xFF00C896),
-        ),
-      );
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              testMode
+                ? '✅ Mock 수거예약 완료!\n송장번호: ${trackingNo ?? '-'}'
+                : '🎉 실제 우체국 수거예약 완료!\n송장번호: ${trackingNo ?? '-'}',
+            ),
+            duration: const Duration(seconds: 5),
+            backgroundColor: const Color(0xFF00C896),
+          ),
+        );
+      }
 
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {

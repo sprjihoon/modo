@@ -42,6 +42,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
   // 소카테고리 선택 후 수선 항목 단계
   String? _selectedSubCategoryId;
   String? _selectedSubCategoryName;
+  String? _selectedSubCategoryIcon;
   List<Map<String, dynamic>> _repairTypes = [];
   bool _isLoadingRepairTypes = false;
 
@@ -63,7 +64,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
     try {
       final response = await supabase
           .from('repair_categories')
-          .select('id, name, icon_name, display_order')
+          .select('id, name, icon_name, display_order, price, price_range, requires_measurement, input_count, input_labels, description')
           .eq('is_active', true)
           .eq('parent_category_id', widget.categoryId!)
           .order('display_order', ascending: true);
@@ -106,14 +107,79 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
   }
 
   void _selectSubCategory(Map<String, dynamic> sub) {
+    final price = sub['price'] as int?;
+
+    // 직접가격 카테고리 → repair_types 조회 없이 바로 치수 입력으로
+    if (price != null && price > 0) {
+      _handleDirectPriceCategory(sub);
+      return;
+    }
+
     setState(() {
       _selectedSubCategoryId = sub['id'] as String;
       _selectedSubCategoryName = sub['name'] as String;
+      _selectedSubCategoryIcon = sub['icon_name'] as String?;
       _repairTypes = [];
       _selectedPartIds.clear();
       _selectedItems.clear();
     });
     _loadRepairTypes(_selectedSubCategoryId!);
+  }
+
+  /// 직접가격 카테고리 선택 처리 (repair_types 없이 카테고리 자체가 수선 항목)
+  void _handleDirectPriceCategory(Map<String, dynamic> category) {
+    final name = category['name'] as String;
+    final price = category['price'] as int;
+    final requiresMeasurement = category['requires_measurement'] as bool? ?? false;
+    final inputCount = category['input_count'] as int? ?? 1;
+    final rawLabels = category['input_labels'];
+    final List<String> inputLabels = rawLabels is List
+        ? rawLabels.map((e) => e.toString()).toList()
+        : ['치수 (cm)'];
+    final iconName = category['icon_name'] as String?;
+
+    if (requiresMeasurement) {
+      context.push(
+        '/repair-detail-input',
+        extra: {
+          'repairPart': name,
+          'price': price,
+          'repairTypeId': category['id'],
+          'requiresMultipleInputs': inputCount >= 2,
+          'inputLabels': inputLabels,
+          'hasAdvancedOptions': false,
+          'allowMultipleSubParts': false,
+          'imageUrls': widget.imageUrls,
+          'imagesWithPins': widget.imagesWithPins,
+          'iconName': iconName,
+        },
+      );
+    } else {
+      // 치수 입력 불필요 → 바로 항목 추가
+      final repairItem = {
+        'name': name,
+        'price': price,
+        'quantity': 1,
+        'detail': '',
+      };
+      ref.read(repairItemsProvider.notifier).addItem(repairItem);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$name 추가됨')),
+        );
+        context.pop();
+      }
+    }
+  }
+
+  String _formatPrice(int price) {
+    final str = price.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < str.length; i++) {
+      if (i > 0 && (str.length - i) % 3 == 0) buffer.write(',');
+      buffer.write(str[i]);
+    }
+    return buffer.toString();
   }
 
   // 전체 핀 개수 계산
@@ -163,6 +229,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
         'allowMultipleSubParts': allowMultiple,
         'imageUrls': widget.imageUrls,
         'imagesWithPins': widget.imagesWithPins,
+        'iconName': _selectedSubCategoryIcon ?? repairType['icon_name'],
       },
     );
   }
@@ -591,6 +658,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
             ? () => setState(() {
                   _selectedSubCategoryId = null;
                   _selectedSubCategoryName = null;
+                  _selectedSubCategoryIcon = null;
                   _repairTypes = [];
                   _selectedPartIds.clear();
                   _selectedItems.clear();
@@ -646,13 +714,21 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
             itemBuilder: (context, index) {
               final sub = _subCategories[index];
               final iconName = sub['icon_name'] as String?;
+              final directPrice = sub['price'] as int?;
+              final hasDirectPrice = directPrice != null && directPrice > 0;
               return InkWell(
                 onTap: () => _selectSubCategory(sub),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: hasDirectPrice
+                        ? const Color(0xFF00C896).withOpacity(0.05)
+                        : Colors.grey.shade50,
+                    border: Border.all(
+                      color: hasDirectPrice
+                          ? const Color(0xFF00C896).withOpacity(0.3)
+                          : Colors.grey.shade200,
+                    ),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
@@ -687,6 +763,17 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (hasDirectPrice) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_formatPrice(directPrice)}원',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF00C896),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

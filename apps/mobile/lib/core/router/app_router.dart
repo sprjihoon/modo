@@ -308,6 +308,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             inputLabels: (data['inputLabels'] as List?)?.cast<String>(),
             repairTypeId: data['repairTypeId'] as String?,
             allowMultipleSubParts: data['allowMultipleSubParts'] as bool?,
+            iconName: data['iconName'] as String?,
           );
         },
       ),

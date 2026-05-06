@@ -15,6 +15,7 @@ interface Address {
   id: string;
   label?: string;
   recipient_name: string;
+  recipient_phone?: string;
   address: string;
   address_detail?: string;
   zipcode?: string;
@@ -93,6 +94,8 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
     draft.pickupAddressDetail ?? ""
   );
   const [pickupZipcode, setPickupZipcode] = useState(draft.pickupZipcode ?? "");
+  // 수거지 연락처 (저장 주소 선택 시 자동 채움, 신규 주소면 직접 입력 가능)
+  const [pickupPhone, setPickupPhone] = useState(draft.pickupPhone ?? "");
   const [pickupDate, setPickupDate] = useState(draft.pickupDate ?? minDate);
   const [notes, setNotes] = useState(draft.notes ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -183,7 +186,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
       if (!userRow) return;
       const { data } = await supabase
         .from("addresses")
-        .select("id, label, recipient_name, address, address_detail, zipcode, is_default")
+        .select("id, label, recipient_name, recipient_phone, address, address_detail, zipcode, is_default")
         .eq("user_id", userRow.id)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
@@ -196,6 +199,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
           setAddress(defaultAddr.address);
           setAddressDetail(defaultAddr.address_detail ?? "");
           setPickupZipcode(defaultAddr.zipcode ?? "");
+          setPickupPhone(defaultAddr.recipient_phone ?? "");
         }
       }
     } catch { /* ignore */ }
@@ -216,6 +220,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
     setAddress(addr.address);
     setAddressDetail(addr.address_detail ?? "");
     setPickupZipcode(addr.zipcode ?? "");
+    setPickupPhone(addr.recipient_phone ?? "");
     setShowAddressList(false);
   }
 
@@ -224,6 +229,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
     setAddress("");
     setAddressDetail("");
     setPickupZipcode("");
+    setPickupPhone("");
   }
 
   async function handleSubmit() {
@@ -231,6 +237,15 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
     if (!pickupDate) { alert("수거 희망일을 선택해주세요."); return; }
     if (disabledDates.includes(pickupDate)) {
       alert("토·일요일 및 공휴일은 수거가 불가합니다. 다른 날짜를 선택해주세요."); return;
+    }
+    const cleanedPhone = pickupPhone.trim();
+    if (!cleanedPhone) {
+      alert("수거지 연락처를 입력해주세요. (수거 기사가 연락드릴 번호)");
+      return;
+    }
+    if (!/^[0-9\-\s]{9,}$/.test(cleanedPhone)) {
+      alert("수거지 연락처 형식이 올바르지 않습니다. (예: 010-1234-5678)");
+      return;
     }
     if (!sameAsPickup && !deliveryAddress.trim()) {
       alert("수선 후 배송받을 주소를 입력해주세요."); return;
@@ -244,11 +259,14 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
         pickupAddress: address.trim(),
         pickupAddressDetail: addressDetail.trim(),
         pickupZipcode: pickupZipcode.trim(),
+        pickupPhone: cleanedPhone,
         pickupDate,
         notes,
         deliveryAddress: sameAsPickup ? address.trim() : deliveryAddress.trim(),
         deliveryAddressDetail: sameAsPickup ? addressDetail.trim() : deliveryAddressDetail.trim(),
         deliveryZipcode: sameAsPickup ? pickupZipcode.trim() : deliveryZipcode.trim(),
+        // 수거지=배송지 동일이면 동일한 연락처, 아니면 동일 연락처를 기본값으로 사용 (별도 UI는 추후 추가).
+        deliveryPhone: cleanedPhone,
         agreedToExtraCharge: true,
         remoteAreaFee,
       });
@@ -440,6 +458,25 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
               className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
             />
           </div>
+        </div>
+
+        {/* 수거지 연락처 */}
+        <div>
+          <label className="flex items-center gap-1.5 text-sm font-bold text-gray-700 mb-2">
+            <Truck className="w-4 h-4 text-[#00C896]" />
+            수거지 연락처 *
+          </label>
+          <input
+            type="tel"
+            inputMode="tel"
+            placeholder="010-1234-5678"
+            value={pickupPhone}
+            onChange={(e) => setPickupPhone(e.target.value)}
+            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            우체국 수거 기사가 이 번호로 연락드립니다. 저장된 주소를 선택하면 자동으로 채워집니다.
+          </p>
         </div>
 
         {/* 수거지 = 배송지 체크박스 */}

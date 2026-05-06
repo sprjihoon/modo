@@ -31,10 +31,19 @@ export interface OrderQuoteInput {
   pickupAddressDetail?: string;
   pickupZipcode?: string;
   pickupDate?: string;
+  // 수거지 연락처 (저장 주소의 recipient_phone 또는 폼에서 직접 입력).
+  // 비어 있으면 users.phone 으로 fallback.
+  pickupPhone?: string;
   notes?: string;
   deliveryAddress?: string;
   deliveryAddressDetail?: string;
   deliveryZipcode?: string;
+  // 배송지 연락처 (없으면 pickupPhone, 그래도 없으면 users.phone).
+  deliveryPhone?: string;
+  // 주문자/수령인 정보 (없으면 users.name / users.phone).
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
   promotionCodeId?: string;
 }
 
@@ -232,7 +241,22 @@ export async function quoteOrder(
   const finalDeliveryAddress = input.deliveryAddress || input.pickupAddress || "";
   const finalDeliveryAddressDetail = input.deliveryAddressDetail || input.pickupAddressDetail || null;
   const finalDeliveryZipcode = input.deliveryZipcode || input.pickupZipcode || null;
-  const phone = user.phone || "010-0000-0000";
+  // 전화번호 우선순위:
+  //   1) 폼에서 입력/선택한 값 (input.*Phone)
+  //   2) 회원가입 등록 번호 (users.phone)
+  //   3) "010-0000-0000" (fallback)
+  // 과거 버그: input.pickupPhone 을 무시하고 users.phone 만 사용 → 우체국 기사에게
+  //         계정 소유자의 회원가입 번호가 전달됨. 저장 주소의 recipient_phone 도 무시됨.
+  const userPhone = user.phone || "010-0000-0000";
+  const sanitize = (v?: string | null) => (v && v.trim() ? v.trim() : "");
+  const inputPickupPhone = sanitize(input.pickupPhone);
+  const inputDeliveryPhone = sanitize(input.deliveryPhone);
+  const inputCustomerPhone = sanitize(input.customerPhone);
+  const pickupPhone = inputPickupPhone || userPhone;
+  const deliveryPhone = inputDeliveryPhone || pickupPhone;
+  const customerPhone = inputCustomerPhone || pickupPhone;
+  const customerName = sanitize(input.customerName) || user.name || "고객";
+  const customerEmail = sanitize(input.customerEmail) || user.email;
 
   return {
     totalPrice,
@@ -256,17 +280,17 @@ export async function quoteOrder(
       pickupAddress: input.pickupAddress || "",
       pickupAddressDetail: input.pickupAddressDetail || null,
       pickupZipcode: input.pickupZipcode || null,
-      pickupPhone: phone,
+      pickupPhone,
       pickupDate: input.pickupDate || null,
 
       deliveryAddress: finalDeliveryAddress,
       deliveryAddressDetail: finalDeliveryAddressDetail,
       deliveryZipcode: finalDeliveryZipcode,
-      deliveryPhone: phone,
+      deliveryPhone,
 
-      customerName: user.name || "고객",
-      customerEmail: user.email,
-      customerPhone: phone,
+      customerName,
+      customerEmail,
+      customerPhone,
 
       notes: input.notes || null,
 

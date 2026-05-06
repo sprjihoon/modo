@@ -617,6 +617,43 @@ class OrderService {
     }
   }
 
+  /// 테스트: 결제 게이트웨이 우회 → 주문 생성 → 수거예약 일괄 처리
+  ///
+  /// 신규 결제 흐름(payment_intents 기반)에서는 결제가 끝나기 전까지
+  /// `orders` 행이 없기 때문에 `shipments-book` 만 호출하면 404 가 발생한다.
+  /// 이 메서드는 `payments-test-skip` Edge Function 을 호출하여
+  /// 1) 인텐트 → orders 생성, 2) 인텐트 consume, 3) 우체국 수거예약을 한 번에 수행한다.
+  ///
+  /// 관리자 페이지에서 `ops_center_settings.show_test_buttons = true` 가 켜진
+  /// 환경에서만 작동한다. (운영 안전 가드)
+  Future<Map<String, dynamic>> testSkipPaymentAndBook({
+    required String intentId,
+    required bool testMode,
+  }) async {
+    try {
+      debugPrint('🧪 [test-skip-payment] 호출 (intentId=$intentId, testMode=$testMode)');
+
+      final response = await _supabase.functions.invoke(
+        'payments-test-skip',
+        body: {
+          'intent_id': intentId,
+          'test_mode': testMode,
+        },
+      );
+
+      final data = response.data;
+      if (data is! Map || data['success'] != true) {
+        final err = (data is Map ? data['error'] : null)?.toString() ??
+            '테스트 결제 처리 실패';
+        throw Exception(err);
+      }
+
+      return Map<String, dynamic>.from(data['data'] as Map);
+    } catch (e) {
+      throw Exception('테스트 결제 처리 실패: $e');
+    }
+  }
+
   /// 수거예약 (Edge Function 호출)
   Future<Map<String, dynamic>> bookShipment({
     required String orderId,

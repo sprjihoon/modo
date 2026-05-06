@@ -67,11 +67,13 @@ function normalizeStoredDraft(raw: Record<string, unknown>): OrderDraft {
     pickupAddress: raw.pickupAddress as string | undefined,
     pickupAddressDetail: raw.pickupAddressDetail as string | undefined,
     pickupZipcode: raw.pickupZipcode as string | undefined,
+    pickupPhone: raw.pickupPhone as string | undefined,
     pickupDate: raw.pickupDate as string | undefined,
     notes: raw.notes as string | undefined,
     deliveryAddress: raw.deliveryAddress as string | undefined,
     deliveryAddressDetail: raw.deliveryAddressDetail as string | undefined,
     deliveryZipcode: raw.deliveryZipcode as string | undefined,
+    deliveryPhone: raw.deliveryPhone as string | undefined,
     agreedToExtraCharge: raw.agreedToExtraCharge as boolean | undefined,
     remoteAreaFee: raw.remoteAreaFee as number | undefined,
   };

@@ -8,7 +8,7 @@ export async function GET() {
     // parent_category_id 컬럼 포함 시도, 없으면 fallback
     let { data: categories, error: catError } = await supabase
       .from("repair_categories")
-      .select("id, name, display_order, icon_name, is_active, parent_category_id")
+      .select("id, name, display_order, icon_name, is_active, parent_category_id, price, description")
       .eq("is_active", true)
       .order("display_order", { ascending: true });
 
@@ -20,7 +20,7 @@ export async function GET() {
         .eq("is_active", true)
         .order("display_order", { ascending: true });
       // parent_category_id 없이 가져온 데이터에 null 기본값 추가
-      categories = (fallback.data ?? []).map((c) => ({ ...c, parent_category_id: null }));
+      categories = (fallback.data ?? []).map((c) => ({ ...c, parent_category_id: null, price: null, description: null }));
       catError = fallback.error;
     }
 
@@ -49,21 +49,52 @@ export async function GET() {
       const subCats = allCats.filter((c) => !!c.parent_category_id);
 
       if (mainCats.length > 0) {
-        // 2단계 계층 구조
-        const mainWithSubs = mainCats.map((main) => ({
-          ...main,
-          sub_categories: subCats
-            .filter((s) => s.parent_category_id === main.id)
-            .map((sub) => ({
-              ...sub,
-              repair_types: repairTypes.filter((t) => t.category_id === sub.id),
-            })),
-          repair_types: repairTypes.filter((t) => t.category_id === main.id),
-        }));
+        const mainIds = new Set(mainCats.map((m) => m.id));
+        const directChildIds = new Set(
+          subCats.filter((s) => mainIds.has(s.parent_category_id)).map((s) => s.id)
+        );
 
-        // 어느 대카테고리에도 속하지 않은 소카테고리
+        const mainWithSubs = mainCats.map((main) => {
+          const directChildren = subCats.filter((s) => s.parent_category_id === main.id);
+
+          const sub_categories = directChildren.map((sub) => {
+            // 3단계: 이 소카테고리의 자식 카테고리 (세부항목)
+            const thirdLevel = subCats.filter((s) => s.parent_category_id === sub.id);
+
+            const directRepairTypes = repairTypes.filter((t) => t.category_id === sub.id);
+
+            // 3단계 카테고리를 repair_type 형태로 변환
+            const thirdLevelItems = thirdLevel.map((item) => ({
+              id: item.id,
+              name: item.name,
+              description: item.description ?? null,
+              price: item.price ?? null,
+              category_id: sub.id,
+              display_order: item.display_order,
+            }));
+
+            // 3단계 항목의 repair_types 포함
+            const thirdLevelRepairTypes = thirdLevel.flatMap((item) =>
+              repairTypes.filter((t) => t.category_id === item.id)
+            );
+
+            return {
+              ...sub,
+              repair_types: [...directRepairTypes, ...thirdLevelItems, ...thirdLevelRepairTypes],
+            };
+          });
+
+          return {
+            ...main,
+            sub_categories,
+            repair_types: repairTypes.filter((t) => t.category_id === main.id),
+          };
+        });
+
+        // 어느 대카테고리에도 속하지 않고 직속 자식의 하위도 아닌 orphan
+        const allKnownParentIds = new Set([...mainIds, ...directChildIds]);
         const orphanSubs = subCats
-          .filter((s) => !mainCats.find((m) => m.id === s.parent_category_id))
+          .filter((s) => !allKnownParentIds.has(s.parent_category_id))
           .map((cat) => ({
             ...cat,
             repair_types: repairTypes.filter((t) => t.category_id === cat.id),

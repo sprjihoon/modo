@@ -312,6 +312,8 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
       if (main == null) return const SizedBox.shrink();
 
       final blocks = <Widget>[];
+
+      // 대카테고리 직속 repair_types
       if (main.repairTypes.isNotEmpty) {
         blocks.add(
           _ItemListCard(
@@ -320,17 +322,68 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
           ),
         );
       }
-      for (final sub in main.subCategories) {
+
+      // 직접가격 항목 (대카테고리 바로 아래 직접입력 세부항목)을 하나의 카드로 묶기
+      final directPriceItems = main.subCategories
+          .where((s) => s.price != null && s.repairTypes.isEmpty)
+          .toList();
+
+      if (directPriceItems.isNotEmpty) {
         if (blocks.isNotEmpty) blocks.add(const SizedBox(height: 20));
-        blocks.add(_buildSubCategoryHeader(sub.name));
-        blocks.add(const SizedBox(height: 8));
         blocks.add(
           _ItemListCard(
-            items: sub.repairTypes,
+            items: directPriceItems.map((s) => RepairTypeItem(
+              id: s.id,
+              name: s.name,
+              price: s.price,
+            ),).toList(),
             priceLabel: _priceLabel,
           ),
         );
       }
+
+      // 소카테고리 (중간 그룹핑 역할: repair_types 보유 or 직접가격+하위항목 포함)
+      final regularSubs = main.subCategories
+          .where((s) => !(s.price != null && s.repairTypes.isEmpty))
+          .toList();
+
+      for (final sub in regularSubs) {
+        if (blocks.isNotEmpty) blocks.add(const SizedBox(height: 20));
+        blocks.add(_buildSubCategoryHeader(sub.name));
+        blocks.add(const SizedBox(height: 8));
+
+        if (sub.repairTypes.isNotEmpty) {
+          // 소카테고리 자체에 직접가격이 있으면 첫 번째 항목으로 포함
+          final items = <RepairTypeItem>[];
+          if (sub.price != null) {
+            items.add(RepairTypeItem(
+              id: sub.id,
+              name: sub.name,
+              price: sub.price,
+            ),);
+          }
+          items.addAll(sub.repairTypes);
+          blocks.add(
+            _ItemListCard(items: items, priceLabel: _priceLabel),
+          );
+        } else if (sub.price != null) {
+          blocks.add(
+            _ItemListCard(
+              items: [
+                RepairTypeItem(
+                  id: sub.id,
+                  name: sub.name,
+                  price: sub.price,
+                ),
+              ],
+              priceLabel: _priceLabel,
+            ),
+          );
+        } else {
+          blocks.add(_buildEmptyState());
+        }
+      }
+
       if (main.subCategories.isEmpty && main.repairTypes.isEmpty) {
         blocks.add(_buildEmptyState());
       }
@@ -349,9 +402,16 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
       }
     }
     if (cat == null) return const SizedBox.shrink();
-    return cat.repairTypes.isNotEmpty
-        ? _ItemListCard(items: cat.repairTypes, priceLabel: _priceLabel)
-        : _buildEmptyState();
+    if (cat.repairTypes.isNotEmpty) {
+      return _ItemListCard(items: cat.repairTypes, priceLabel: _priceLabel);
+    }
+    if (cat.price != null) {
+      return _ItemListCard(
+        items: [RepairTypeItem(id: cat.id, name: cat.name, price: cat.price)],
+        priceLabel: _priceLabel,
+      );
+    }
+    return _buildEmptyState();
   }
 
   Widget _buildSubCategoryHeader(String name) {

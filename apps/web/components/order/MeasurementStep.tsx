@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { InlineSvg } from "@/components/ui/InlineSvg";
 
 export interface MeasurementGroup {
   key: string;
@@ -13,6 +14,7 @@ export interface MeasurementConfig {
   labels: string[];
   groups?: MeasurementGroup[];
   price?: number;
+  iconName?: string;
 }
 
 interface MeasurementStepProps {
@@ -21,8 +23,15 @@ interface MeasurementStepProps {
   onBack: () => void;
 }
 
+function getIconSrc(iconName?: string): string | null {
+  if (!iconName) return null;
+  if (iconName.startsWith("http")) return iconName;
+  return `/icons/${iconName.toLowerCase().replace(/\.svg$/, "")}.svg`;
+}
+
 export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepProps) {
-  const { itemName, subType, labels, groups, price } = config;
+  const { itemName, subType, labels, groups, price, iconName } = config;
+  const iconSrc = getIconSrc(iconName);
   const effectiveGroups = groups && groups.length > 0 ? groups : [{ key: "_single", title: "" }];
   const totalFields = labels.length * effectiveGroups.length;
   const [values, setValues] = useState<string[]>(Array.from({ length: totalFields }, () => ""));
@@ -40,10 +49,21 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
         {/* 선택된 항목 카드 */}
         <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
-          <div className="w-10 h-10 rounded-xl bg-[#00C896]/10 flex items-center justify-center">
-            <span className="text-[#00C896] text-lg font-bold">
-              {itemName.charAt(0)}
-            </span>
+          <div className="w-10 h-10 rounded-xl bg-[#00C896]/10 flex items-center justify-center shrink-0">
+            {iconSrc ? (
+              iconSrc.startsWith("http") ? (
+                <img src={iconSrc} alt={itemName} className="w-7 h-7 object-contain" />
+              ) : (
+                <InlineSvg
+                  src={iconSrc}
+                  className="w-7 h-7 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
+                />
+              )
+            ) : (
+              <span className="text-[#00C896] text-lg font-bold">
+                {itemName.charAt(0)}
+              </span>
+            )}
           </div>
           <div className="flex-1">
             <span className="text-sm font-semibold text-gray-800">{displayName}</span>
