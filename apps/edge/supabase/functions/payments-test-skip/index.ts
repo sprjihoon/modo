@@ -206,40 +206,50 @@ Deno.serve(async (req) => {
       .eq('id', intentId);
 
     // 10) 우체국 수거 예약 호출 (shipments-book 내부 호출)
+    //     주소 또는 고객 정보가 없으면 수거 예약을 건너뛴다 (웹 동일 조건).
     let trackingNo: string | null = null;
     let bookErrorMessage: string | null = null;
-    try {
-      const bookRes = await fetch(`${supabaseUrl}/functions/v1/shipments-book`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${serviceRoleKey}`,
-          apikey: serviceRoleKey,
-        },
-        body: JSON.stringify({
-          order_id: inserted.id,
-          customer_name: p.customerName ?? '테스트 고객',
-          pickup_address: p.pickupAddress ?? '테스트 주소',
-          pickup_phone: p.pickupPhone ?? '010-1234-5678',
-          pickup_zipcode: (p.pickupZipcode as string) ?? '',
-          delivery_address: p.deliveryAddress ?? p.pickupAddress ?? '테스트 주소',
-          delivery_phone: p.deliveryPhone ?? p.pickupPhone ?? '010-1234-5678',
-          delivery_zipcode: (p.deliveryZipcode as string) ?? '',
-          delivery_message: (p.notes as string) ?? '',
-          test_mode: testMode,
-        }),
-      });
-      const bookData = await bookRes.json();
-      if (bookRes.ok) {
-        trackingNo =
-          bookData?.data?.tracking_no ?? bookData?.data?.pickup_tracking_no ?? null;
-      } else {
-        bookErrorMessage = bookData?.error ?? '수거 예약 실패';
-        console.error('[payments-test-skip] 수거 예약 실패:', bookData);
+
+    const pickupAddr = ((p.pickupAddress as string) ?? '').trim();
+    const custName = ((p.customerName as string) ?? '').trim();
+    const shouldSkipShipment = !pickupAddr || !custName;
+
+    if (shouldSkipShipment) {
+      console.log('[payments-test-skip] 수거 예약 스킵: 주소 또는 고객 정보 없음');
+    } else {
+      try {
+        const bookRes = await fetch(`${supabaseUrl}/functions/v1/shipments-book`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${serviceRoleKey}`,
+            apikey: serviceRoleKey,
+          },
+          body: JSON.stringify({
+            order_id: inserted.id,
+            customer_name: custName,
+            pickup_address: pickupAddr,
+            pickup_phone: p.pickupPhone ?? '010-1234-5678',
+            pickup_zipcode: (p.pickupZipcode as string) ?? '',
+            delivery_address: p.deliveryAddress ?? pickupAddr,
+            delivery_phone: p.deliveryPhone ?? p.pickupPhone ?? '010-1234-5678',
+            delivery_zipcode: (p.deliveryZipcode as string) ?? '',
+            delivery_message: (p.notes as string) ?? '',
+            test_mode: testMode,
+          }),
+        });
+        const bookData = await bookRes.json();
+        if (bookRes.ok) {
+          trackingNo =
+            bookData?.data?.tracking_no ?? bookData?.data?.pickup_tracking_no ?? null;
+        } else {
+          bookErrorMessage = bookData?.error ?? '수거 예약 실패';
+          console.error('[payments-test-skip] 수거 예약 실패:', bookData);
+        }
+      } catch (e) {
+        bookErrorMessage = e instanceof Error ? e.message : String(e);
+        console.error('[payments-test-skip] 수거 예약 호출 오류:', e);
       }
-    } catch (e) {
-      bookErrorMessage = e instanceof Error ? e.message : String(e);
-      console.error('[payments-test-skip] 수거 예약 호출 오류:', e);
     }
 
     return successResponse({
@@ -247,6 +257,7 @@ Deno.serve(async (req) => {
       trackingNo,
       testMode,
       bookErrorMessage,
+      shipmentSkipped: shouldSkipShipment,
     });
   } catch (e: any) {
     console.error('[payments-test-skip] error:', e);

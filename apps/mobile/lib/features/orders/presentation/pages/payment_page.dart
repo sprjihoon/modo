@@ -214,8 +214,6 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       String targetOrderId = widget.orderId;
 
       if (_isIntentFlow && _intentId != null) {
-        // 신규 흐름: payment_intent 가 consumed_order_id 를 가지고 있어야 함.
-        //   payments-confirm-toss 가 성공한 직후 update 됨.
         for (var i = 0; i < 10; i++) {
           final row = await _supabase
               .from('payment_intents')
@@ -229,43 +227,65 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           }
           await Future.delayed(const Duration(milliseconds: 500));
         }
-
-        // edge function 이 이미 수거예약을 호출하지 않으므로 여기서 호출
-        // intent 결제 흐름은 _orderData 가 intent.payload 기반 가상 데이터지만,
-        // shipments-book 호출에 필요한 모든 필드를 포함.
       }
 
-      final shipment = await _orderService.bookShipment(
-        orderId: targetOrderId,
-        pickupAddress: _orderData!['pickup_address'] ?? '',
-        pickupPhone: _orderData!['pickup_phone'] ?? '010-1234-5678',
-        pickupZipcode: _orderData!['pickup_zipcode'] as String?,
-        deliveryAddress: _orderData!['delivery_address'] ?? '',
-        deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
-        deliveryZipcode: _orderData!['delivery_zipcode'] as String?,
-        customerName: _orderData!['customer_name'] ?? '고객',
-        deliveryMessage: _orderData!['notes'] as String?,
-      );
+      // 수거 예약 조건 검사 (웹 PaymentSuccessClient 와 동일)
+      final pickupAddress = (_orderData?['pickup_address'] as String?) ?? '';
+      final customerName = (_orderData?['customer_name'] as String?) ?? '';
 
-      if (!mounted) return;
+      if (pickupAddress.isEmpty || customerName.isEmpty) {
+        debugPrint('⚠️ 수거 예약 스킵: 주소 또는 고객 정보 없음');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('결제가 완료되었습니다.'),
+              duration: Duration(seconds: 3),
+              backgroundColor: Color(0xFF00C896),
+            ),
+          );
+          context.go('/orders/$targetOrderId');
+        }
+        return;
+      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('결제 완료! 송장번호: ${shipment['tracking_no']}'),
-          duration: const Duration(seconds: 3),
-          backgroundColor: const Color(0xFF00C896),
-        ),
-      );
+      try {
+        final shipment = await _orderService.bookShipment(
+          orderId: targetOrderId,
+          pickupAddress: pickupAddress,
+          pickupPhone: _orderData!['pickup_phone'] ?? '010-1234-5678',
+          pickupZipcode: _orderData!['pickup_zipcode'] as String?,
+          deliveryAddress: _orderData!['delivery_address'] ?? pickupAddress,
+          deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
+          deliveryZipcode: _orderData!['delivery_zipcode'] as String?,
+          customerName: customerName,
+          deliveryMessage: _orderData!['notes'] as String?,
+        );
 
-      context.go('/orders/$targetOrderId');
-    } catch (e) {
-      if (mounted) {
+        if (!mounted) return;
+
+        final trackingNo = shipment['tracking_no'] ?? shipment['pickup_tracking_no'];
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('수거예약 실패: $e'),
-            backgroundColor: Colors.red,
+            content: Text('결제 완료! 송장번호: ${trackingNo ?? '-'}'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: const Color(0xFF00C896),
           ),
         );
+      } catch (e) {
+        debugPrint('❌ 수거 예약 실패 (무시): $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('결제 완료! 수거예약은 관리자가 처리합니다.\n($e)'),
+              duration: const Duration(seconds: 4),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+
+      if (mounted) {
+        context.go('/orders/$targetOrderId');
       }
     } finally {
       if (mounted) {
@@ -310,15 +330,35 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             .update({'payment_status': 'PAID'})
             .eq('id', widget.orderId);
 
+        // 수거 예약 조건 검사 (웹과 동일)
+        final pickupAddress = (_orderData?['pickup_address'] as String?) ?? '';
+        final customerName = (_orderData?['customer_name'] as String?) ?? '';
+
+        if (pickupAddress.isEmpty || customerName.isEmpty) {
+          debugPrint('⚠️ 수거 예약 스킵: 주소 또는 고객 정보 없음');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('주문 생성 완료! (수거 예약은 주소/고객 정보가 없어 생략됨)'),
+                backgroundColor: Color(0xFF00C896),
+                duration: Duration(seconds: 4),
+              ),
+            );
+            await Future.delayed(const Duration(seconds: 2));
+            if (mounted) context.go('/orders');
+          }
+          return;
+        }
+
         final shipment = await _orderService.bookShipment(
           orderId: widget.orderId,
-          pickupAddress: _orderData!['pickup_address'] ?? '테스트 주소',
+          pickupAddress: pickupAddress,
           pickupPhone: _orderData!['pickup_phone'] ?? '010-1234-5678',
           pickupZipcode: _orderData!['pickup_zipcode'] as String?,
-          deliveryAddress: _orderData!['delivery_address'] ?? '테스트 주소',
+          deliveryAddress: _orderData!['delivery_address'] ?? pickupAddress,
           deliveryPhone: _orderData!['delivery_phone'] ?? '010-1234-5678',
           deliveryZipcode: _orderData!['delivery_zipcode'] as String?,
-          customerName: _orderData!['customer_name'] ?? '테스트 고객',
+          customerName: customerName,
           deliveryMessage: _orderData!['notes'] as String?,
           testMode: testMode,
         );
