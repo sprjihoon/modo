@@ -915,10 +915,7 @@ export function RepairTypeStep({
       </div>
 
       {/* 하단 버튼 */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-2">
-        <button onClick={onBack} className="btn-outline px-5 py-4">
-          이전
-        </button>
+      <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3">
         <button
           onClick={() =>
             onNext(
@@ -932,7 +929,7 @@ export function RepairTypeStep({
             )
           }
           disabled={selectedItems.length === 0}
-          className="btn-brand flex-1 py-4"
+          className="btn-brand w-full py-4"
         >
           {selectedItems.length > 0
             ? `${selectedItems.length}개 선택 → 다음`
