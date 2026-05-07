@@ -157,11 +157,12 @@ export function OrderNewClient() {
     if (modeRef.current === "addMeasurement") {
       setMeasurementConfig(null);
     }
-    const prev = modeHistoryRef.current.pop();
+    let prev = modeHistoryRef.current.pop();
+    // addRepair에서 뒤로갈 때 addSubCategory(pass-through)는 건너뛰고 사진 단계로 직행
+    if (prev === "addSubCategory" && modeRef.current === "addRepair") {
+      prev = modeHistoryRef.current.pop() ?? "list";
+    }
     if (prev != null) {
-      if (prev === "addSubCategory") {
-        setSubCategoryDirection("backward");
-      }
       setMode(prev);
     } else {
       setMode("list");
