@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ShoppingCart, X, ChevronLeft } from "lucide-react";
+import { ShoppingCart, X } from "lucide-react";
 import { ClothingTypeStep } from "./ClothingTypeStep";
 import { SubCategoryStep, SubCategorySelection } from "./SubCategoryStep";
 import { RepairTypeStep } from "./RepairTypeStep";
@@ -544,30 +544,10 @@ export function OrderNewClient() {
   }
 
 
-  // ── 헤더 표시 (sub-flow 인 경우) ───────────────────────────────────────
-  // pickup 모드는 PickupStep 내부에 자체 헤더와 "이전" 버튼이 있어 별도 표시 안 함.
-  const showSubHeader =
-    mode === "addClothing" ||
-    mode === "addPhoto" ||
-    mode === "addSubCategory" ||
-    mode === "addRepair" ||
-    mode === "addMeasurement";
 
 
   return (
     <div>
-      {showSubHeader && (
-        <div className="flex items-center px-3 py-2 border-b border-gray-100">
-          <button
-            type="button"
-            onClick={popMode}
-            className="p-1.5 text-gray-500 active:opacity-60"
-            aria-label="뒤로"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-        </div>
-      )}
 
       <div>
         {mode === "list" && (
