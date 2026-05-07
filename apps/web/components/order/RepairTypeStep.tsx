@@ -404,15 +404,15 @@ export function RepairTypeStep({
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
-          {/* 선택된 수선 항목 카드 */}
+          {/* 선택된 수선 항목 카드 - 소카테고리 이름/아이콘 우선 표시 */}
           <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
             {(() => {
-              const iconSrc = rtIconSrc || getIconSrc(categoryIconName ?? undefined);
+              const iconSrc = getIconSrc(categoryIconName ?? undefined) || rtIconSrc;
               if (iconSrc) {
                 return (
                   <div className="w-10 h-10 rounded-xl bg-[#00C896]/10 flex items-center justify-center shrink-0">
                     {iconSrc.startsWith("http") ? (
-                      <img src={iconSrc} alt={repairType.name} className="w-7 h-7 object-contain" />
+                      <img src={iconSrc} alt={clothingType || repairType.name} className="w-7 h-7 object-contain" />
                     ) : (
                       <InlineSvg
                         src={iconSrc}
@@ -425,9 +425,9 @@ export function RepairTypeStep({
               return null;
             })()}
             <span className="text-sm font-semibold text-gray-800">
-              {repairType.sub_type
+              {clothingType || (repairType.sub_type
                 ? `${repairType.name} (${repairType.sub_type})`
-                : repairType.name}
+                : repairType.name)}
             </span>
           </div>
 
@@ -587,12 +587,6 @@ export function RepairTypeStep({
         {/* 하단 확인 버튼 */}
         <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-2">
           <button
-            onClick={() => setSubPartsView(null)}
-            className="btn-outline px-5 py-4"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
             onClick={confirmInlineSubParts}
             disabled={!canConfirm}
             className={cn(
@@ -629,14 +623,14 @@ export function RepairTypeStep({
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
-          {/* 선택된 항목 카드 */}
+          {/* 선택된 항목 카드 - 소카테고리 이름/아이콘 우선 표시 */}
           <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
             <div className="w-10 h-10 rounded-xl bg-[#00C896]/10 flex items-center justify-center shrink-0">
               {(() => {
-                const iconSrc = getIconSrc(categoryIconName ?? repairType.icon_name);
+                const iconSrc = getIconSrc(categoryIconName ?? undefined) || getIconSrc(repairType.icon_name);
                 if (iconSrc) {
                   return iconSrc.startsWith("http") ? (
-                    <img src={iconSrc} alt={repairType.name} className="w-7 h-7 object-contain" />
+                    <img src={iconSrc} alt={clothingType || repairType.name} className="w-7 h-7 object-contain" />
                   ) : (
                     <InlineSvg
                       src={iconSrc}
@@ -644,18 +638,19 @@ export function RepairTypeStep({
                     />
                   );
                 }
+                const displayName = clothingType || repairType.name;
                 return (
                   <span className="text-[#00C896] text-lg font-bold">
-                    {repairType.name.charAt(0)}
+                    {displayName.charAt(0)}
                   </span>
                 );
               })()}
             </div>
             <div className="flex-1">
               <span className="text-sm font-semibold text-gray-800">
-                {repairType.sub_type
+                {clothingType || (repairType.sub_type
                   ? `${repairType.name} (${repairType.sub_type})`
-                  : repairType.name}
+                  : repairType.name)}
               </span>
               {(measureView.overridePrice ?? repairType.price) > 0 && (
                 <p className="text-xs text-[#00C896]">{formatPrice(measureView.overridePrice ?? repairType.price)}</p>
@@ -832,7 +827,7 @@ export function RepairTypeStep({
               const displayName = type.sub_type
                 ? `${type.name} (${type.sub_type})`
                 : type.name;
-              const iconSrc = getIconSrc(type.icon_name);
+              const iconSrc = getIconSrc(type.icon_name) || getIconSrc(categoryIconName ?? undefined);
 
               return (
                 <button
@@ -846,7 +841,7 @@ export function RepairTypeStep({
                       : "border-gray-100 bg-white"
                   )}
                 >
-                  {/* 아이콘 (등록된 경우에만 표시) */}
+                  {/* 아이콘 (등록된 경우에만 표시, 없으면 카테고리 아이콘 폴백) */}
                   {iconSrc && (
                     <div
                       className={cn(

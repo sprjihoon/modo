@@ -159,6 +159,9 @@ export function OrderNewClient() {
     }
     const prev = modeHistoryRef.current.pop();
     if (prev != null) {
+      if (prev === "addSubCategory") {
+        setSubCategoryDirection("backward");
+      }
       setMode(prev);
     } else {
       setMode("list");
