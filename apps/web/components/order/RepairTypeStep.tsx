@@ -547,11 +547,11 @@ export function RepairTypeStep({
                           </svg>
                         ) : partIconSrc ? (
                           partIconSrc.startsWith("http") ? (
-                            <img src={partIconSrc} alt={part.name} className="w-14 h-14 object-contain" />
+                            <img src={partIconSrc} alt={part.name} className="w-full h-full object-contain p-1" />
                           ) : (
                             <InlineSvg
                               src={partIconSrc}
-                              className="w-14 h-14 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full"
+                              className="w-full h-full flex items-center justify-center text-[#00C896] p-1 [&>svg]:w-full [&>svg]:h-full"
                             />
                           )
                         ) : null}
@@ -854,7 +854,7 @@ export function RepairTypeStep({
                           src={iconSrc}
                           alt={type.name}
                           className={cn(
-                            "w-14 h-14 object-contain",
+                            "w-full h-full object-contain p-1",
                             active ? "brightness-0 invert" : ""
                           )}
                         />
@@ -862,7 +862,7 @@ export function RepairTypeStep({
                         <InlineSvg
                           src={iconSrc}
                           className={cn(
-                            "w-14 h-14 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full",
+                            "w-full h-full flex items-center justify-center p-1 [&>svg]:w-full [&>svg]:h-full",
                             active ? "text-white" : "text-[#00C896]"
                           )}
                         />
