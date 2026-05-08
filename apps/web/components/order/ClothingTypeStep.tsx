@@ -23,7 +23,7 @@ function getIconSrc(iconName?: string): string | null {
 
 
 interface ClothingTypeStepProps {
-  onNext: (type: string, categoryId?: string) => void;
+  onNext: (type: string, categoryId?: string, iconName?: string) => void;
 }
 
 export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
@@ -55,7 +55,7 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
 
   function handleSelect(cat: Category) {
     setLoadingId(cat.id);
-    onNext(cat.name, cat.id);
+    onNext(cat.name, cat.id, cat.icon_name);
   }
 
   return (

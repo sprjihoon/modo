@@ -34,6 +34,7 @@ export interface RepairItem {
 export interface ClothingItem {
   clothingType: string;
   clothingCategoryId?: string;
+  iconName?: string;
   repairItems: RepairItem[];
   imagesWithPins: ImageWithPins[];
 }
@@ -66,6 +67,7 @@ function normalizeDraft(raw: unknown): OrderDraft {
   const single: ClothingItem = {
     clothingType: (d.clothingType as string) ?? "",
     clothingCategoryId: d.clothingCategoryId as string | undefined,
+    iconName: d.iconName as string | undefined,
     repairItems: Array.isArray(d.repairItems)
       ? (d.repairItems as RepairItem[])
       : [],
@@ -106,6 +108,7 @@ export function OrderNewClient() {
   const [stagingClothingCategoryId, setStagingClothingCategoryId] = useState<
     string | undefined
   >(undefined);
+  const [stagingIconName, setStagingIconName] = useState<string | undefined>(undefined);
   const [stagingImagesWithPins, setStagingImagesWithPins] = useState<
     ImageWithPins[]
   >([]);
@@ -313,6 +316,7 @@ export function OrderNewClient() {
   function startAddClothing() {
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
+    setStagingIconName(undefined);
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
     setSubCategoryPhase("pre");
@@ -321,9 +325,10 @@ export function OrderNewClient() {
     pushMode("addClothing");
   }
 
-  function handleClothingDone(type: string, categoryId?: string) {
+  function handleClothingDone(type: string, categoryId?: string, iconName?: string) {
     setStagingClothingType(type);
     setStagingClothingCategoryId(categoryId);
+    setStagingIconName(iconName);
     setSubCategoryPhase("pre");
     setSubCategoryDirection("forward");
     pushMode("addSubCategory");
@@ -376,6 +381,9 @@ export function OrderNewClient() {
     if (type && categoryId) {
       setStagingClothingType(type);
       setStagingClothingCategoryId(categoryId);
+    }
+    if (selection?.iconName) {
+      setStagingIconName(selection.iconName);
     }
 
     if (subCategoryPhase === "pre") {
@@ -437,12 +445,14 @@ export function OrderNewClient() {
     const newItem: ClothingItem = {
       clothingType: stagingClothingType,
       clothingCategoryId: stagingClothingCategoryId,
+      iconName: stagingIconName,
       repairItems: items,
       imagesWithPins: stagingImagesWithPins,
     };
     setDraft((prev) => ({ ...prev, items: [...prev.items, newItem] }));
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
+    setStagingIconName(undefined);
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
     modeHistoryRef.current = [];
@@ -452,6 +462,7 @@ export function OrderNewClient() {
   function cancelAddClothing() {
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
+    setStagingIconName(undefined);
     setStagingImagesWithPins([]);
     setStagingRepairItems([]);
     setSubCategoryPhase("pre");

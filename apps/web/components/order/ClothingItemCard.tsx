@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Trash2, Scissors } from "lucide-react";
 import type { ClothingItem } from "./OrderNewClient";
+import { InlineSvg } from "@/components/ui/InlineSvg";
 
 interface Props {
   index: number;
@@ -14,12 +15,19 @@ function formatPrice(n: number) {
   return `${n.toLocaleString("ko-KR")}원`;
 }
 
+function getIconSrc(iconName?: string): string | null {
+  if (!iconName) return null;
+  if (iconName.startsWith("http")) return iconName;
+  return `/icons/${iconName.toLowerCase().replace(/\.svg$/, "")}.svg`;
+}
+
 export function ClothingItemCard({ index, item, onRemove }: Props) {
   const thumb = item.imagesWithPins[0]?.imageUrl ?? null;
   const repairTotal = item.repairItems.reduce(
     (sum, r) => sum + (r.price ?? 0) * (r.quantity ?? 1),
     0
   );
+  const iconSrc = getIconSrc(item.iconName);
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
@@ -34,6 +42,19 @@ export function ClothingItemCard({ index, item, onRemove }: Props) {
               className="object-cover"
               unoptimized
             />
+          ) : iconSrc ? (
+            iconSrc.startsWith("http") ? (
+              <img
+                src={iconSrc}
+                alt={item.clothingType}
+                className="w-10 h-10 object-contain"
+              />
+            ) : (
+              <InlineSvg
+                src={iconSrc}
+                className="w-10 h-10 flex items-center justify-center text-gray-400 [&>svg]:w-full [&>svg]:h-full"
+              />
+            )
           ) : (
             <Scissors className="w-6 h-6 text-gray-300" />
           )}

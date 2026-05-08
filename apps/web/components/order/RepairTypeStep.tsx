@@ -827,7 +827,6 @@ export function RepairTypeStep({
               const displayName = type.sub_type
                 ? `${type.name} (${type.sub_type})`
                 : type.name;
-              const iconSrc = getIconSrc(type.icon_name) || getIconSrc(categoryIconName ?? undefined);
 
               return (
                 <button
@@ -841,35 +840,6 @@ export function RepairTypeStep({
                       : "border-gray-100 bg-white"
                   )}
                 >
-                  {/* 아이콘 (등록된 경우에만 표시, 없으면 카테고리 아이콘 폴백) */}
-                  {iconSrc && (
-                    <div
-                      className={cn(
-                        "w-24 h-24 rounded-xl flex items-center justify-center transition-colors overflow-hidden",
-                        active ? "bg-[#00C896]" : "bg-[#00C896]/10"
-                      )}
-                    >
-                      {iconSrc.startsWith("http") ? (
-                        <img
-                          src={iconSrc}
-                          alt={type.name}
-                          className={cn(
-                            "w-full h-full object-contain p-1",
-                            active ? "brightness-0 invert" : ""
-                          )}
-                        />
-                      ) : (
-                        <InlineSvg
-                          src={iconSrc}
-                          className={cn(
-                            "w-full h-full flex items-center justify-center p-1 [&>svg]:w-full [&>svg]:h-full",
-                            active ? "text-white" : "text-[#00C896]"
-                          )}
-                        />
-                      )}
-                    </div>
-                  )}
-
                   {/* 이름 */}
                   <p
                     className={cn(
