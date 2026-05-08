@@ -198,6 +198,7 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
                           child: CategoryIconWidget(
                             iconName: iconName,
                             size: 40,
+                            color: _brandColor,
                           ),
                         ),
                       ),
