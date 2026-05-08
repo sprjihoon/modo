@@ -16,7 +16,7 @@ import '../../features/home/presentation/pages/easy_guide_page.dart';
 import '../../features/orders/presentation/pages/order_list_page.dart';
 import '../../features/orders/presentation/pages/order_detail_page.dart';
 import '../../features/orders/presentation/pages/tracking_page.dart';
-import '../../features/orders/presentation/pages/create_order_page.dart';
+import '../../features/orders/presentation/pages/order_flow_page.dart';
 import '../../features/orders/presentation/pages/select_clothing_type_page.dart';
 import '../../features/orders/presentation/pages/select_repair_type_page.dart';
 import '../../features/orders/presentation/pages/select_repair_parts_page.dart';
@@ -169,11 +169,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       
-      // Create Order
+      // Create Order (legacy - redirects to new flow)
       GoRoute(
         path: '/create-order',
         name: 'create-order',
-        builder: (context, state) => const CreateOrderPage(),
+        builder: (context, state) => const OrderFlowPage(),
+      ),
+
+      // New Order Flow (unified orchestrator matching web)
+      GoRoute(
+        path: '/order-flow',
+        name: 'order-flow',
+        builder: (context, state) => const OrderFlowPage(),
       ),
       
       // Cart (장바구니)

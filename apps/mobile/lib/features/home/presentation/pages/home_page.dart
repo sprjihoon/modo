@@ -530,7 +530,7 @@ class _HomePageState extends ConsumerState<HomePage>
                   onPressed: () {
                     Navigator.of(context).pop();
                     // 의류 종류 선택 화면으로 이동
-                    context.push('/select-clothing-type', extra: <String>[]);
+                    context.push('/order-flow');
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF00C896),

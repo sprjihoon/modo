@@ -161,7 +161,7 @@ class _EasyGuidePageState extends State<EasyGuidePage> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: () => context.push('/create-order'),
+                onPressed: () => context.push('/order-flow'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _brand,
                   foregroundColor: Colors.white,

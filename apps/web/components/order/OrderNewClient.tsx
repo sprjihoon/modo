@@ -165,6 +165,11 @@ export function OrderNewClient() {
     if (prev === "addSubCategory" && modeRef.current === "addRepair") {
       prev = modeHistoryRef.current.pop() ?? "list";
     }
+    // addPhoto에서 뒤로갈 때 SubCategoryStep이 pass-through(자식 없음)이면
+    // "backward" 방향으로 설정해 onBack()을 호출하도록 함 (무한 루프 방지)
+    if (prev === "addSubCategory" && modeRef.current === "addPhoto") {
+      setSubCategoryDirection("backward");
+    }
     if (prev != null) {
       setMode(prev);
     } else {

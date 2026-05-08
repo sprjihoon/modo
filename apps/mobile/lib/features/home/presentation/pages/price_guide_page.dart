@@ -512,7 +512,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
         height: 52,
         child: ElevatedButton(
           onPressed: () =>
-              context.push('/select-clothing-type', extra: <String>[]),
+              context.push('/order-flow'),
           style: ElevatedButton.styleFrom(
             backgroundColor: _kBrand,
             foregroundColor: Colors.white,
