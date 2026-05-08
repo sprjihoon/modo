@@ -61,18 +61,25 @@ export function preloadAllSvgs() {
   preloaded = true;
 
   const supabase = createClient();
-  supabase
-    .from("repair_categories")
-    .select("icon_name")
-    .eq("is_active", true)
-    .then(({ data }) => {
-      if (!data) return;
-      const srcs = data
-        .map((row) => row.icon_name ? toIconSrc(row.icon_name) : null)
-        .filter((s): s is string => !!s && !s.startsWith("http"));
-      const unique = [...new Set(srcs)];
-      unique.forEach(fetchAndCacheSvg);
-    });
+
+  const collectSrcs = (rows: { icon_name?: string | null }[]): string[] =>
+    rows
+      .map((row) => (row.icon_name ? toIconSrc(row.icon_name) : null))
+      .filter((s): s is string => !!s && !s.startsWith("http"));
+
+  Promise.all([
+    supabase.from("repair_categories").select("icon_name").eq("is_active", true),
+    supabase.from("repair_types").select("icon_name").eq("is_active", true),
+    supabase.from("repair_sub_parts").select("icon_name"),
+  ]).then(([categories, repairTypes, subParts]) => {
+    const all = [
+      ...collectSrcs(categories.data ?? []),
+      ...collectSrcs(repairTypes.data ?? []),
+      ...collectSrcs(subParts.data ?? []),
+    ];
+    const unique = [...new Set(all)];
+    unique.forEach(fetchAndCacheSvg);
+  });
 }
 
 /**
