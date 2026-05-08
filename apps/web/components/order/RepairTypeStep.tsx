@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, X, Minus, Plus, Trash2, ChevronRight } from "lucide-react";
+import { ChevronLeft, X, Minus, Plus, Trash2, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RepairItem } from "./OrderNewClient";
 import { InlineSvg } from "@/components/ui/InlineSvg";
@@ -76,6 +76,7 @@ export function RepairTypeStep({
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [subPartsLoading, setSubPartsLoading] = useState(false);
   const [categoryIconName, setCategoryIconName] = useState<string | null>(null);
+  const [showGrid, setShowGrid] = useState(false);
 
   // 세부 부위 인라인 뷰 상태 (모달 대신 화면 전환)
   const [subPartsView, setSubPartsView] = useState<{
@@ -820,67 +821,86 @@ export function RepairTypeStep({
           </div>
         ) : repairTypes.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">수선 항목이 없습니다</p>
-        ) : (
-          <div className="grid grid-cols-3 gap-3">
-            {repairTypes.map((type) => {
-              const active = isRepairTypeActive(type);
-              const displayName = type.sub_type
-                ? `${type.name} (${type.sub_type})`
-                : type.name;
+        ) : selectedItems.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowGrid(true)}
+            className={cn(
+              "w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-[#00C896] text-[#00C896] rounded-2xl text-sm font-bold active:bg-[#00C896]/5",
+              showGrid && "hidden"
+            )}
+          >
+            <Plus className="w-4 h-4" />
+            수선 항목 추가
+          </button>
+        ) : null}
 
-              return (
-                <button
-                  key={type.id}
-                  onClick={() => handleTapRepairType(type)}
-                  disabled={subPartsLoading}
-                  className={cn(
-                    "relative flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all text-center min-h-[110px]",
-                    active
-                      ? "border-[#00C896] bg-[#00C896]/5"
-                      : "border-gray-100 bg-white"
-                  )}
-                >
-                  {/* 이름 */}
-                  <p
+        {!isLoading && !loadError && repairTypes.length > 0 && (selectedItems.length === 0 || showGrid) && (
+          <>
+            {selectedItems.length > 0 && (
+              <p className="text-xs text-gray-500 mb-3">추가할 항목을 선택해주세요</p>
+            )}
+            <div className="grid grid-cols-3 gap-3">
+              {repairTypes.map((type) => {
+                const active = isRepairTypeActive(type);
+                const displayName = type.sub_type
+                  ? `${type.name} (${type.sub_type})`
+                  : type.name;
+
+                return (
+                  <button
+                    key={type.id}
+                    onClick={() => handleTapRepairType(type)}
+                    disabled={subPartsLoading}
                     className={cn(
-                      "text-sm font-bold leading-tight",
-                      active ? "text-[#00C896]" : "text-gray-800"
+                      "relative flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all text-center min-h-[110px]",
+                      active
+                        ? "border-[#00C896] bg-[#00C896]/5"
+                        : "border-gray-100 bg-white"
                     )}
                   >
-                    {displayName}
-                  </p>
+                    {/* 이름 */}
+                    <p
+                      className={cn(
+                        "text-sm font-bold leading-tight",
+                        active ? "text-[#00C896]" : "text-gray-800"
+                      )}
+                    >
+                      {displayName}
+                    </p>
 
-                  {/* 가격 */}
-                  <p className="text-xs text-gray-400">
-                    {type.price_range || formatPrice(type.price)}
-                  </p>
+                    {/* 가격 */}
+                    <p className="text-xs text-gray-400">
+                      {type.price_range || formatPrice(type.price)}
+                    </p>
 
-                  {/* 세부항목/치수 있음 표시 */}
-                  {(type.has_sub_parts || type.requires_measurement) && !active && (
-                    <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-                  )}
+                    {/* 세부항목/치수 있음 표시 */}
+                    {(type.has_sub_parts || type.requires_measurement) && !active && (
+                      <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                    )}
 
-                  {/* 선택 완료 체크 */}
-                  {active && (
-                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#00C896] flex items-center justify-center">
-                      <svg
-                        className="w-3 h-3 text-white"
-                        viewBox="0 0 12 12"
-                        fill="currentColor"
-                      >
-                        <path
-                          d="M2 6l3 3 5-5"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          fill="none"
-                        />
-                      </svg>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                    {/* 선택 완료 체크 */}
+                    {active && (
+                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#00C896] flex items-center justify-center">
+                        <svg
+                          className="w-3 h-3 text-white"
+                          viewBox="0 0 12 12"
+                          fill="currentColor"
+                        >
+                          <path
+                            d="M2 6l3 3 5-5"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            fill="none"
+                          />
+                        </svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
