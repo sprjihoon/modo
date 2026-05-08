@@ -151,7 +151,13 @@ export default function PriceGuidePage() {
           {sections.map((section) => {
             if (section.type === "direct_price") {
               return (
-                <ItemList key={section.item.id} items={[section.item]} priceLabel={priceLabel} />
+                <div key={section.item.id}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-1 h-4 rounded-full bg-[#00C896]/50" />
+                    <span className="text-sm font-semibold text-gray-600">{section.item.name}</span>
+                  </div>
+                  <ItemList items={[section.item]} priceLabel={priceLabel} />
+                </div>
               );
             }
             const sub = section.sub;
@@ -175,9 +181,15 @@ export default function PriceGuidePage() {
             );
           })}
           {/* 대카테고리 직속 항목 (소카테고리에 속하지 않는 항목) */}
-          {directItems.length > 0 && (
-            <ItemList items={directItems} priceLabel={priceLabel} />
-          )}
+          {directItems.length > 0 && directItems.map((item) => (
+            <div key={item.id}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-1 h-4 rounded-full bg-[#00C896]/50" />
+                <span className="text-sm font-semibold text-gray-600">{item.name}</span>
+              </div>
+              <ItemList items={[item]} priceLabel={priceLabel} />
+            </div>
+          ))}
           {main.sub_categories.length === 0 && main.repair_types.length === 0 && (
             <EmptyState />
           )}

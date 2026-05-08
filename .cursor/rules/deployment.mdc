@@ -1,0 +1,27 @@
+---
+description: Vercel 배포 구성 및 Git 워크플로우
+alwaysApply: true
+---
+
+# 배포 환경
+
+- 레포: `sprjihoon/modo` (GitHub)
+- `main` 브랜치에 push하면 Vercel에서 자동 배포됨
+
+## 올바른 Vercel 프로젝트
+
+| 프로젝트 | 도메인 | 앱 |
+|---------|--------|-----|
+| **modo** | admin.modo.mom | 어드민 (apps/admin) |
+| **modo-web** | modo.mom | 고객용 웹 (apps/web) |
+
+## 삭제/무관한 프로젝트 (절대 사용 금지)
+
+- `admin` (admin-henna-three-47.vercel.app) - 삭제된 프로젝트
+- `web` (web-jade-iota-lcc7pe2ga8.vercel.app) - 삭제된 프로젝트
+
+## 배포 규칙
+
+- 코드 수정 후 `main`에 push하면 modo / modo-web에 자동 배포
+- 별도의 Vercel CLI 배포나 수동 배포 불필요
+- 삭제된 admin/web 프로젝트에 절대 배포하지 않을 것
