@@ -248,11 +248,11 @@ export function OrderNewClient() {
         window.history.pushState({ orderFlowGuard: true }, "");
         setShowExitDialog(true);
       } else if (currentMode === "list") {
-        // list에서는 브라우저 기본 동작 (이전 페이지로)
         if (popstateHandlerRef.current) {
           window.removeEventListener("popstate", popstateHandlerRef.current);
           popstateHandlerRef.current = null;
         }
+        window.history.back();
       } else {
         window.history.pushState({ orderFlowGuard: true }, "");
         popMode();
