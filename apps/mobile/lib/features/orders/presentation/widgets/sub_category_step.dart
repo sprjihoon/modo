@@ -108,28 +108,20 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _brandColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  widget.categoryName,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: _brandColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
               const Text(
                 '수선 부위를 선택해주세요',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${widget.categoryName} · 수선 항목을 선택해주세요',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade400,
                 ),
               ),
             ],
@@ -174,33 +166,20 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: hasDirectPrice
-                        ? _brandColor.withOpacity(0.05)
-                        : Colors.grey.shade50,
+                    color: Colors.white,
                     border: Border.all(
-                      color: hasDirectPrice
-                          ? _brandColor.withOpacity(0.3)
-                          : Colors.grey.shade200,
+                      color: Colors.grey.shade200,
+                      width: 2,
                     ),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: _brandColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: CategoryIconWidget(
-                            iconName: iconName,
-                            size: 40,
-                            color: _brandColor,
-                          ),
-                        ),
+                      CategoryIconWidget(
+                        iconName: iconName,
+                        size: 60,
+                        color: Colors.grey.shade500,
                       ),
                       const SizedBox(height: 12),
                       Padding(
@@ -208,10 +187,10 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
                         child: Text(
                           name,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade700,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -220,11 +199,10 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
                       if (hasDirectPrice) ...[
                         const SizedBox(height: 4),
                         Text(
-                          _formatPrice(directPrice),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: _brandColor,
-                            fontWeight: FontWeight.w600,
+                          sub['price_range'] as String? ?? _formatPrice(directPrice),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade400,
                           ),
                         ),
                       ],
