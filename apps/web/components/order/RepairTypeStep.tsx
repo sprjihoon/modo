@@ -188,6 +188,24 @@ export function RepairTypeStep({
         setAutoOpenedSubParts(true);
         await openSubPartsView(subPartsTypes[0]);
         setIsLoading(false);
+      } else if (mapped.length === 1 && !mapped[0].has_sub_parts) {
+        // 수선 항목이 1개뿐이면 자동 선택 후 바로 다음 단계로
+        const single = mapped[0];
+        if (single.requires_measurement) {
+          setAutoOpenedSubParts(false);
+          setIsLoading(false);
+          handleTapRepairType(single);
+        } else {
+          addSimpleItem(single);
+          setIsLoading(false);
+          onNext([{
+            name: single.sub_type ? `${single.name} (${single.sub_type})` : single.name,
+            price: single.price,
+            priceRange: single.price_range || formatPrice(single.price),
+            quantity: 1,
+            detail: "",
+          }]);
+        }
       } else {
         setAutoOpenedSubParts(false);
         setIsLoading(false);
