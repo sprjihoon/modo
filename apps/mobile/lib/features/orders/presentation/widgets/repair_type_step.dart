@@ -442,7 +442,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                     crossAxisCount: 3,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.75,
+                    childAspectRatio: 0.65,
                   ),
                   itemCount: _subParts.length,
                   itemBuilder: (_, idx) {
@@ -462,24 +462,31 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isSelected ? _brandColor.withOpacity(0.05) : Colors.grey.shade50,
-                          border: Border.all(color: isSelected ? _brandColor : Colors.grey.shade200, width: isSelected ? 2 : 1),
+                          color: isSelected ? _brandColor.withValues(alpha: 0.05) : Colors.grey.shade50,
+                          border: Border.all(
+                            color: isSelected ? _brandColor : Colors.grey.shade100,
+                            width: 2,
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                              width: 56,
-                              height: 56,
+                              width: 80,
+                              height: 80,
                               decoration: BoxDecoration(
-                                color: isSelected ? _brandColor : _brandColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
+                                color: isSelected ? _brandColor : _brandColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: Center(
                                 child: isSelected
-                                    ? const Icon(Icons.check, color: Colors.white, size: 28)
-                                    : CategoryIconWidget(iconName: part.iconName, size: 28, color: _brandColor),
+                                    ? const Icon(Icons.check, color: Colors.white, size: 32)
+                                    : CategoryIconWidget(
+                                        iconName: part.iconName,
+                                        size: 56,
+                                        preserveColors: true,
+                                      ),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -488,14 +495,14 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? _brandColor : Colors.black87,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected ? _brandColor : Colors.grey.shade700,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                             if (part.price > 0)
-                              Text(_formatPrice(part.price), style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                              Text(_formatPrice(part.price), style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
                           ],
                         ),
                       ),
