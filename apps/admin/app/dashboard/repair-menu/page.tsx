@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Upload, X, Image, FolderOpen, Folder } from "lucide-react";
+import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ChevronRight, ArrowUp, ArrowDown, Upload, X, Image, FolderOpen, Folder } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
 
@@ -258,7 +258,15 @@ export default function RepairMenuPage() {
             <div key={main.id} className="border-2 border-gray-200 rounded-xl overflow-hidden">
               {/* 대카테고리 헤더 */}
               <div className="flex items-center justify-between px-5 py-4 bg-gray-50 border-b border-gray-200">
-                <div className="flex items-center gap-3">
+                <div
+                  className="flex items-center gap-3 cursor-pointer select-none flex-1"
+                  onClick={() => toggleCategory(main.id)}
+                >
+                  {expandedCategories.has(main.id) ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
                   <FolderOpen className="h-5 w-5 text-primary" />
                   <div>
                     <span className="text-lg font-bold">{main.name}</span>
@@ -303,6 +311,7 @@ export default function RepairMenuPage() {
               </div>
 
               {/* 세부항목/소카테고리 목록 */}
+              {expandedCategories.has(main.id) && (
               <div className="p-4 bg-white">
                 {(main.sub_categories || []).length === 0 ? (
                   <div className="py-6 text-center text-muted-foreground text-sm border border-dashed rounded-lg">
@@ -346,6 +355,7 @@ export default function RepairMenuPage() {
                   );
                 })()}
               </div>
+              )}
             </div>
           ))}
 
