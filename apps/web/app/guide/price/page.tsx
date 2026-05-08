@@ -19,6 +19,8 @@ interface RepairType {
   description?: string;
   category_id?: string;
   has_sub_parts?: boolean;
+  show_all_option?: boolean;
+  all_option_price?: number | null;
   sub_parts?: SubPart[];
 }
 
@@ -320,6 +322,22 @@ function ItemList({
             </div>
             {hasSubParts && (
               <div className="bg-gray-50/50 border-t border-gray-50">
+                {r.show_all_option !== false && (() => {
+                  const allPrice = r.all_option_price && r.all_option_price > 0 ? r.all_option_price : r.price;
+                  const allLabel = allPrice && allPrice > 0 ? formatPrice(allPrice) : "가격 문의";
+                  return (
+                    <div className="flex items-center justify-between px-4 py-2.5 pl-8 border-b border-gray-50">
+                      <p className="text-xs text-gray-500 font-medium">전체</p>
+                      <span
+                        className={`text-xs font-semibold shrink-0 ml-3 ${
+                          allPrice && allPrice > 0 ? "text-[#00C896]" : "text-gray-400"
+                        }`}
+                      >
+                        {allLabel}
+                      </span>
+                    </div>
+                  );
+                })()}
                 {r.sub_parts!.map((sp, idx) => {
                   const spPrice = sp.price && sp.price > 0 ? sp.price : r.price;
                   const spLabel = spPrice && spPrice > 0 ? formatPrice(spPrice) : "가격 문의";

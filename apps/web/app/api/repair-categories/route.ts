@@ -31,7 +31,7 @@ export async function GET() {
 
     const { data: types, error: typeError } = await supabase
       .from("repair_types")
-      .select("id, name, description, price, category_id, display_order, has_sub_parts")
+      .select("id, name, description, price, category_id, display_order, has_sub_parts, show_all_option, all_option_price")
       .order("display_order", { ascending: true });
 
     if (typeError) {
