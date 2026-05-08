@@ -226,7 +226,10 @@ export function OrderNewClient() {
         e.preventDefault();
         setShowExitDialog(true);
       } else if (currentMode === "list") {
-        // list에서는 그냥 이전 페이지로 (가드 없음)
+        if (draftRef.current.items.length > 0) {
+          e.preventDefault();
+          setShowExitDialog(true);
+        }
       } else {
         e.preventDefault();
         popMode();
@@ -248,11 +251,16 @@ export function OrderNewClient() {
         window.history.pushState({ orderFlowGuard: true }, "");
         setShowExitDialog(true);
       } else if (currentMode === "list") {
-        if (popstateHandlerRef.current) {
-          window.removeEventListener("popstate", popstateHandlerRef.current);
-          popstateHandlerRef.current = null;
+        if (draftRef.current.items.length > 0) {
+          window.history.pushState({ orderFlowGuard: true }, "");
+          setShowExitDialog(true);
+        } else {
+          if (popstateHandlerRef.current) {
+            window.removeEventListener("popstate", popstateHandlerRef.current);
+            popstateHandlerRef.current = null;
+          }
+          window.history.back();
         }
-        window.history.back();
       } else {
         window.history.pushState({ orderFlowGuard: true }, "");
         popMode();
