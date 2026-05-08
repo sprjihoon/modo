@@ -1571,7 +1571,7 @@ function EditRepairTypeDialog({
   };
 
   const handleSubmit = async () => {
-    if (!name || !price) {
+    if (!name || (!price && !hasSubParts)) {
       alert('필수 항목을 입력해주세요');
       return;
     }
@@ -1597,7 +1597,7 @@ function EditRepairTypeDialog({
           name,
           icon_name: iconName || null,
           description: description || null,
-          price: parseInt(price),
+          price: price ? parseInt(price) : 0,
           requires_measurement: requiresMeasurement,
           requires_multiple_inputs: requiresMeasurement ? requiresMultipleInputs : false,
           input_count: (requiresMeasurement && requiresMultipleInputs) ? 2 : 1,
@@ -1732,17 +1732,21 @@ function EditRepairTypeDialog({
             />
           </div>
           <div>
-            <Label htmlFor="edit-price">가격 *</Label>
+            <Label htmlFor="edit-price">가격 {hasSubParts ? '(선택)' : '*'}</Label>
             <Input
               id="edit-price"
               type="number"
-              placeholder="15000"
+              placeholder={hasSubParts ? "세부 부위별 가격 사용 시 비워두세요" : "15000"}
               value={price}
               onChange={(e) => setPrice(e.target.value)}
             />
-            {hasSubParts && (
+            {hasSubParts ? (
               <p className="text-xs text-amber-700 mt-1">
-                세부 부위별 개별 가격이 0원이거나 미입력인 경우, 이 가격이 기본값으로 사용됩니다.
+                세부 부위별 개별 가격이 설정되므로 입력하지 않아도 됩니다. 입력 시 &quot;전체&quot; 옵션의 기본 가격으로 사용됩니다.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-1">
+                단위: 원
               </p>
             )}
           </div>
@@ -2128,7 +2132,7 @@ function EditRepairTypeDialog({
           <Button variant="outline" onClick={() => setOpen(false)}>
             취소
           </Button>
-          <Button onClick={handleSubmit} disabled={!name || !price || isLoading}>
+          <Button onClick={handleSubmit} disabled={!name || (!price && !hasSubParts) || isLoading}>
             {isLoading ? "저장 중..." : "저장"}
           </Button>
         </DialogFooter>
@@ -2243,7 +2247,7 @@ function AddRepairTypeDialog({
   };
 
   const handleSubmit = async () => {
-    if (!name || !price) {
+    if (!name || (!price && !hasSubParts)) {
       alert('필수 항목을 입력해주세요');
       return;
     }
@@ -2264,7 +2268,7 @@ function AddRepairTypeDialog({
           name,
           icon_name: iconName || null,
           description: description || null,
-          price: parseInt(price),
+          price: price ? parseInt(price) : 0,
           display_order: 999,
           requires_measurement: requiresMeasurement,
           requires_multiple_inputs: requiresMeasurement ? requiresMultipleInputs : false,
@@ -2424,17 +2428,17 @@ function AddRepairTypeDialog({
             />
           </div>
           <div>
-            <Label htmlFor="price">가격 *</Label>
+            <Label htmlFor="price">가격 {hasSubParts ? '(선택)' : '*'}</Label>
             <Input
               id="price"
               type="number"
-              placeholder="15000"
+              placeholder={hasSubParts ? "세부 부위별 가격 사용 시 비워두세요" : "15000"}
               value={price}
               onChange={(e) => setPrice(e.target.value)}
             />
             {hasSubParts ? (
               <p className="text-xs text-amber-700 mt-1">
-                세부 부위별 개별 가격이 0원이거나 미입력인 경우, 이 가격이 기본값으로 사용됩니다.
+                세부 부위별 개별 가격이 설정되므로 입력하지 않아도 됩니다. 입력 시 &quot;전체&quot; 옵션의 기본 가격으로 사용됩니다.
               </p>
             ) : (
               <p className="text-xs text-muted-foreground mt-1">
@@ -2842,7 +2846,7 @@ function AddRepairTypeDialog({
           <Button variant="outline" onClick={() => setOpen(false)}>
             취소
           </Button>
-          <Button onClick={handleSubmit} disabled={!name || !price || isLoading}>
+          <Button onClick={handleSubmit} disabled={!name || (!price && !hasSubParts) || isLoading}>
             {isLoading ? "추가 중..." : "추가"}
           </Button>
         </DialogFooter>

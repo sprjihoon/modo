@@ -113,20 +113,33 @@ export default function PriceGuidePage() {
       const main = mainCategories.find((m) => m.id === selectedId);
       if (!main) return null;
 
-      // 직접가격 항목 (대카테고리 바로 아래, repair_types 없음, price 있음)
-      const directPriceItems = main.sub_categories
-        .filter((s) => s.price != null && s.repair_types.length === 0)
-        .map((s) => ({ id: s.id, name: s.name, price: s.price ?? undefined } as RepairType));
-
-      // 일반 소카테고리 (중간 그룹핑 역할)
-      const regularSubs = main.sub_categories
-        .filter((s) => !(s.price != null && s.repair_types.length === 0));
-
       // 대카테고리 자체 가격 항목
       const mainPriceItem: RepairType[] =
         main.price != null && main.price > 0
           ? [{ id: main.id, name: main.name, price: main.price }]
           : [];
+
+      // 모든 섹션을 display_order 기준으로 통합 정렬하여 관리자 페이지 순서 반영
+      type Section =
+        | { type: "direct_price"; item: RepairType; order: number }
+        | { type: "sub_group"; sub: SubCategory; order: number };
+
+      const sections: Section[] = main.sub_categories.map((sub) => {
+        const isDirectPrice = sub.price != null && sub.repair_types.length === 0;
+        if (isDirectPrice) {
+          return {
+            type: "direct_price" as const,
+            item: { id: sub.id, name: sub.name, price: sub.price ?? undefined } as RepairType,
+            order: sub.display_order,
+          };
+        }
+        return { type: "sub_group" as const, sub, order: sub.display_order };
+      });
+
+      sections.sort((a, b) => a.order - b.order);
+
+      // 대카테고리 직속 항목도 display_order 기준으로 적절한 위치에 삽입
+      const directItems = main.repair_types;
 
       return (
         <div className="space-y-5">
@@ -134,16 +147,14 @@ export default function PriceGuidePage() {
           {mainPriceItem.length > 0 && (
             <ItemList items={mainPriceItem} priceLabel={priceLabel} />
           )}
-          {/* 대카테고리 직속 항목 */}
-          {main.repair_types.length > 0 && (
-            <ItemList items={main.repair_types} priceLabel={priceLabel} />
-          )}
-          {/* 직접가격 항목 (소카테고리 헤더 없이 하나의 카드로) */}
-          {directPriceItems.length > 0 && (
-            <ItemList items={directPriceItems} priceLabel={priceLabel} />
-          )}
-          {/* 소카테고리별 그룹 */}
-          {regularSubs.map((sub) => {
+          {/* display_order 기준 통합 렌더링 */}
+          {sections.map((section) => {
+            if (section.type === "direct_price") {
+              return (
+                <ItemList key={section.item.id} items={[section.item]} priceLabel={priceLabel} />
+              );
+            }
+            const sub = section.sub;
             const items: RepairType[] = [];
             if (sub.price != null) {
               items.push({ id: sub.id, name: "전체", price: sub.price ?? undefined });
@@ -163,6 +174,10 @@ export default function PriceGuidePage() {
               </div>
             );
           })}
+          {/* 대카테고리 직속 항목 (소카테고리에 속하지 않는 항목) */}
+          {directItems.length > 0 && (
+            <ItemList items={directItems} priceLabel={priceLabel} />
+          )}
           {main.sub_categories.length === 0 && main.repair_types.length === 0 && (
             <EmptyState />
           )}

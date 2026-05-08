@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       sub_parts,
     } = body;
 
-    if (!category_id || !name || !price) {
+    if (!category_id || !name || (!price && !has_sub_parts)) {
       return NextResponse.json(
         { success: false, error: '필수 항목이 누락되었습니다' },
         { status: 400 }
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         name,
         icon_name: icon_name || null,
         description: description || null,
-        price: parseInt(price),
+        price: price ? parseInt(price) : 0,
         display_order: display_order || 999,
         requires_measurement: requires_measurement ?? true,
         requires_multiple_inputs: requires_multiple_inputs || false,
@@ -118,7 +118,7 @@ export async function PUT(request: NextRequest) {
       sub_parts,
     } = body;
 
-    if (!id || !name || !price) {
+    if (!id || !name || (!price && !has_sub_parts)) {
       return NextResponse.json(
         { success: false, error: '필수 항목이 누락되었습니다' },
         { status: 400 }
@@ -131,7 +131,7 @@ export async function PUT(request: NextRequest) {
         name,
         icon_name: icon_name || null,
         description: description || null,
-        price: parseInt(price),
+        price: price ? parseInt(price) : 0,
         requires_measurement: requires_measurement ?? true,
         requires_multiple_inputs: requires_multiple_inputs || false,
         input_count: input_count || 1,
