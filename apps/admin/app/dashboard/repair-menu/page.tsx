@@ -1460,6 +1460,7 @@ function EditRepairTypeDialog({
   const [allOptionPrice, setAllOptionPrice] = useState(repairType.all_option_price != null ? String(repairType.all_option_price) : "");
   const [subPartsTitle, setSubPartsTitle] = useState(repairType.sub_parts_title || "");
   const [subParts, setSubParts] = useState<Array<{id?: string, name: string, icon?: string, price?: number}>>([]);
+  const [editingSubPartIndex, setEditingSubPartIndex] = useState<number | null>(null);
   const [newSubPartName, setNewSubPartName] = useState("");
   const [newSubPartIcon, setNewSubPartIcon] = useState("");
   const [newSubPartPrice, setNewSubPartPrice] = useState("");
@@ -1739,6 +1740,11 @@ function EditRepairTypeDialog({
               value={price}
               onChange={(e) => setPrice(e.target.value)}
             />
+            {hasSubParts && (
+              <p className="text-xs text-amber-700 mt-1">
+                세부 부위별 개별 가격이 0원이거나 미입력인 경우, 이 가격이 기본값으로 사용됩니다.
+              </p>
+            )}
           </div>
 
           {/* 고급 옵션 */}
@@ -1878,17 +1884,17 @@ function EditRepairTypeDialog({
               {hasSubParts && (
                 <div className="pl-6 space-y-3 bg-amber-50 p-3 rounded-lg">
                   <p className="text-xs font-medium text-amber-900 mb-2">
-                    🎯 세부 부위 목록 (예: 앞섶, 뒤판, 왼팔, 오른팔)
+                    세부 부위 목록 (예: 앞섶, 뒤판, 왼팔, 오른팔)
                   </p>
                   <p className="text-[11px] text-amber-800 -mt-1 mb-2">
-                    ※ 부위 가격은 상위 항목 가격에 더해지지 않고, 그 자체가 결제 단가가 됩니다 (0원이면 상위 항목 가격으로 폴백).
+                    ※ 부위 가격이 0원이거나 미입력이면 위의 기본 가격이 적용됩니다.
                   </p>
 
                   {isLoadingSubParts && (
                     <p className="text-xs text-gray-500">로딩 중...</p>
                   )}
                   
-                  {/* 세부 부위 추가 입력 */}
+                  {/* 세부 부위 추가/수정 입력 */}
                   <div className="space-y-2">
                     <div className="space-y-2">
                       <Input
@@ -1940,29 +1946,70 @@ function EditRepairTypeDialog({
                         className="h-9 text-sm"
                       />
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        if (newSubPartName.trim()) {
-                          setSubParts([
-                            ...subParts,
-                            {
-                              name: newSubPartName.trim(),
-                              icon: newSubPartIcon.trim() || undefined,
-                              price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
+                    {editingSubPartIndex !== null ? (
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            if (newSubPartName.trim()) {
+                              const updated = [...subParts];
+                              updated[editingSubPartIndex] = {
+                                ...updated[editingSubPartIndex],
+                                name: newSubPartName.trim(),
+                                icon: newSubPartIcon.trim() || undefined,
+                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
+                              };
+                              setSubParts(updated);
+                              setNewSubPartName("");
+                              setNewSubPartIcon("");
+                              setNewSubPartPrice("");
+                              setEditingSubPartIndex(null);
                             }
-                          ]);
-                          setNewSubPartName("");
-                          setNewSubPartIcon("");
-                          setNewSubPartPrice("");
-                        }
-                      }}
-                    >
-                      + 세부 부위 추가
-                    </Button>
+                          }}
+                        >
+                          수정 완료
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setNewSubPartName("");
+                            setNewSubPartIcon("");
+                            setNewSubPartPrice("");
+                            setEditingSubPartIndex(null);
+                          }}
+                        >
+                          취소
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          if (newSubPartName.trim()) {
+                            setSubParts([
+                              ...subParts,
+                              {
+                                name: newSubPartName.trim(),
+                                icon: newSubPartIcon.trim() || undefined,
+                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
+                              }
+                            ]);
+                            setNewSubPartName("");
+                            setNewSubPartIcon("");
+                            setNewSubPartPrice("");
+                          }
+                        }}
+                      >
+                        + 세부 부위 추가
+                      </Button>
+                    )}
                   </div>
 
                   {/* 추가된 세부 부위 목록 */}
@@ -1974,7 +2021,11 @@ function EditRepairTypeDialog({
                       {subParts.map((part, index) => (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-2 bg-white rounded border"
+                          className={`flex items-center justify-between p-2 rounded border ${
+                            editingSubPartIndex === index
+                              ? 'bg-blue-50 border-blue-300'
+                              : 'bg-white'
+                          }`}
                         >
                           <div className="flex items-center gap-2 flex-1">
                             {part.icon && part.icon.startsWith('http') && (
@@ -1989,24 +2040,81 @@ function EditRepairTypeDialog({
                                   {part.icon}
                                 </span>
                               )}
-                              {part.price && part.price > 0 && (
+                              {part.price && part.price > 0 ? (
                                 <p className="text-xs font-medium text-green-600">
                                   {part.price.toLocaleString()}원 (최종 단가)
+                                </p>
+                              ) : (
+                                <p className="text-xs text-gray-400">
+                                  상위 가격 사용
                                 </p>
                               )}
                             </div>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSubParts(subParts.filter((_, i) => i !== index));
-                            }}
-                            className="h-7 w-7 p-0"
-                          >
-                            ×
-                          </Button>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={index === 0}
+                              onClick={() => {
+                                const updated = [...subParts];
+                                [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+                                setSubParts(updated);
+                              }}
+                              className="h-7 w-7 p-0"
+                              title="위로"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={index === subParts.length - 1}
+                              onClick={() => {
+                                const updated = [...subParts];
+                                [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+                                setSubParts(updated);
+                              }}
+                              className="h-7 w-7 p-0"
+                              title="아래로"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setNewSubPartName(part.name);
+                                setNewSubPartIcon(part.icon || "");
+                                setNewSubPartPrice(part.price ? String(part.price) : "");
+                                setEditingSubPartIndex(index);
+                              }}
+                              className="h-7 w-7 p-0"
+                              title="수정"
+                            >
+                              <Edit className="h-3 w-3 text-blue-600" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (editingSubPartIndex === index) {
+                                  setEditingSubPartIndex(null);
+                                  setNewSubPartName("");
+                                  setNewSubPartIcon("");
+                                  setNewSubPartPrice("");
+                                }
+                                setSubParts(subParts.filter((_, i) => i !== index));
+                              }}
+                              className="h-7 w-7 p-0"
+                            >
+                              ×
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2059,6 +2167,7 @@ function AddRepairTypeDialog({
   const [allOptionPrice, setAllOptionPrice] = useState("");
   const [subPartsTitle, setSubPartsTitle] = useState("");
   const [subParts, setSubParts] = useState<Array<{name: string, icon?: string, price?: number}>>([]);
+  const [editingSubPartIndex, setEditingSubPartIndex] = useState<number | null>(null);
   const [newSubPartName, setNewSubPartName] = useState("");
   const [newSubPartIcon, setNewSubPartIcon] = useState("");
   const [newSubPartPrice, setNewSubPartPrice] = useState("");
@@ -2191,6 +2300,7 @@ function AddRepairTypeDialog({
       setAllOptionPrice("");
       setSubPartsTitle("");
       setSubParts([]);
+      setEditingSubPartIndex(null);
       setNewSubPartName("");
       setNewSubPartIcon("");
       setNewSubPartPrice("");
@@ -2322,9 +2432,15 @@ function AddRepairTypeDialog({
               value={price}
               onChange={(e) => setPrice(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              단위: 원
-            </p>
+            {hasSubParts ? (
+              <p className="text-xs text-amber-700 mt-1">
+                세부 부위별 개별 가격이 0원이거나 미입력인 경우, 이 가격이 기본값으로 사용됩니다.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-1">
+                단위: 원
+              </p>
+            )}
           </div>
 
           {/* 고급 옵션 */}
@@ -2489,13 +2605,13 @@ function AddRepairTypeDialog({
               {hasSubParts && (
                 <div className="pl-6 space-y-3 bg-amber-50 p-3 rounded-lg">
                   <p className="text-xs font-medium text-amber-900 mb-2">
-                    🎯 세부 부위 목록 (예: 앞섶, 뒤판, 왼팔, 오른팔)
+                    세부 부위 목록 (예: 앞섶, 뒤판, 왼팔, 오른팔)
                   </p>
                   <p className="text-[11px] text-amber-800 -mt-1 mb-2">
-                    ※ 부위 가격은 상위 항목 가격에 더해지지 않고, 그 자체가 결제 단가가 됩니다 (0원이면 상위 항목 가격으로 폴백).
+                    ※ 부위 가격이 0원이거나 미입력이면 위의 기본 가격이 적용됩니다.
                   </p>
 
-                  {/* 세부 부위 추가 입력 */}
+                  {/* 세부 부위 추가/수정 입력 */}
                   <div className="space-y-2">
                     <Input
                       placeholder="부위명 (예: 앞섶)"
@@ -2545,29 +2661,69 @@ function AddRepairTypeDialog({
                       onChange={(e) => setNewSubPartPrice(e.target.value)}
                       className="h-9 text-sm"
                     />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        if (newSubPartName.trim()) {
-                          setSubParts([
-                            ...subParts, 
-                            { 
-                              name: newSubPartName.trim(),
-                              icon: newSubPartIcon.trim() || undefined,
-                              price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
+                    {editingSubPartIndex !== null ? (
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            if (newSubPartName.trim()) {
+                              const updated = [...subParts];
+                              updated[editingSubPartIndex] = {
+                                name: newSubPartName.trim(),
+                                icon: newSubPartIcon.trim() || undefined,
+                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
+                              };
+                              setSubParts(updated);
+                              setNewSubPartName("");
+                              setNewSubPartIcon("");
+                              setNewSubPartPrice("");
+                              setEditingSubPartIndex(null);
                             }
-                          ]);
-                          setNewSubPartName("");
-                          setNewSubPartIcon("");
-                          setNewSubPartPrice("");
-                        }
-                      }}
-                    >
-                      + 세부 부위 추가
-                    </Button>
+                          }}
+                        >
+                          수정 완료
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setNewSubPartName("");
+                            setNewSubPartIcon("");
+                            setNewSubPartPrice("");
+                            setEditingSubPartIndex(null);
+                          }}
+                        >
+                          취소
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          if (newSubPartName.trim()) {
+                            setSubParts([
+                              ...subParts, 
+                              { 
+                                name: newSubPartName.trim(),
+                                icon: newSubPartIcon.trim() || undefined,
+                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
+                              }
+                            ]);
+                            setNewSubPartName("");
+                            setNewSubPartIcon("");
+                            setNewSubPartPrice("");
+                          }
+                        }}
+                      >
+                        + 세부 부위 추가
+                      </Button>
+                    )}
                   </div>
 
                   {/* 추가된 세부 부위 목록 */}
@@ -2579,7 +2735,11 @@ function AddRepairTypeDialog({
                       {subParts.map((part, index) => (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-2 bg-white rounded border"
+                          className={`flex items-center justify-between p-2 rounded border ${
+                            editingSubPartIndex === index
+                              ? 'bg-blue-50 border-blue-300'
+                              : 'bg-white'
+                          }`}
                         >
                           <div className="flex items-center gap-2 flex-1">
                             {part.icon && part.icon.startsWith('http') && (
@@ -2594,24 +2754,81 @@ function AddRepairTypeDialog({
                                   {part.icon}
                                 </span>
                               )}
-                              {part.price && part.price > 0 && (
+                              {part.price && part.price > 0 ? (
                                 <p className="text-xs font-medium text-green-600">
                                   {part.price.toLocaleString()}원 (최종 단가)
+                                </p>
+                              ) : (
+                                <p className="text-xs text-gray-400">
+                                  상위 가격 사용
                                 </p>
                               )}
                             </div>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSubParts(subParts.filter((_, i) => i !== index));
-                            }}
-                            className="h-7 w-7 p-0"
-                          >
-                            ×
-                          </Button>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={index === 0}
+                              onClick={() => {
+                                const updated = [...subParts];
+                                [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+                                setSubParts(updated);
+                              }}
+                              className="h-7 w-7 p-0"
+                              title="위로"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={index === subParts.length - 1}
+                              onClick={() => {
+                                const updated = [...subParts];
+                                [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+                                setSubParts(updated);
+                              }}
+                              className="h-7 w-7 p-0"
+                              title="아래로"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setNewSubPartName(part.name);
+                                setNewSubPartIcon(part.icon || "");
+                                setNewSubPartPrice(part.price ? String(part.price) : "");
+                                setEditingSubPartIndex(index);
+                              }}
+                              className="h-7 w-7 p-0"
+                              title="수정"
+                            >
+                              <Edit className="h-3 w-3 text-blue-600" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (editingSubPartIndex === index) {
+                                  setEditingSubPartIndex(null);
+                                  setNewSubPartName("");
+                                  setNewSubPartIcon("");
+                                  setNewSubPartPrice("");
+                                }
+                                setSubParts(subParts.filter((_, i) => i !== index));
+                              }}
+                              className="h-7 w-7 p-0"
+                            >
+                              ×
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>

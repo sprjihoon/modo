@@ -527,7 +527,7 @@ export function RepairTypeStep({
                     >
                       <div
                         className={cn(
-                          "w-20 h-20 rounded-lg flex items-center justify-center overflow-hidden",
+                          "w-24 h-24 rounded-lg flex items-center justify-center overflow-hidden",
                           isSelected ? "bg-[#00C896]" : "bg-[#00C896]/10"
                         )}
                       >
@@ -845,7 +845,7 @@ export function RepairTypeStep({
                   {iconSrc && (
                     <div
                       className={cn(
-                        "w-20 h-20 rounded-xl flex items-center justify-center transition-colors overflow-hidden",
+                        "w-24 h-24 rounded-xl flex items-center justify-center transition-colors overflow-hidden",
                         active ? "bg-[#00C896]" : "bg-[#00C896]/10"
                       )}
                     >

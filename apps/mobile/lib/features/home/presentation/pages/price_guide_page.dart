@@ -599,50 +599,125 @@ class _RepairItemRow extends StatelessWidget {
 
   const _RepairItemRow({required this.item, required this.label});
 
+  String _formatSubPartPrice(num? spPrice, num? parentPrice) {
+    final price = (spPrice != null && spPrice > 0) ? spPrice : parentPrice;
+    if (price != null && price > 0) {
+      final n = price.toInt();
+      final str = n.toString().replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (m) => '${m[1]},',
+      );
+      return '₩$str';
+    }
+    return '가격 문의';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isInquiry = label == '가격 문의';
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    final hasSubParts = item.hasSubParts && item.subParts.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF333333),
+                      ),
+                    ),
+                    if (item.description != null &&
+                        item.description!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        item.description!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFAAAAAA),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (!hasSubParts) ...[
+                const SizedBox(width: 12),
                 Text(
-                  item.name,
-                  style: const TextStyle(
+                  label,
+                  style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF333333),
+                    fontWeight: FontWeight.bold,
+                    color: isInquiry ? const Color(0xFFAAAAAA) : _kBrand,
                   ),
                 ),
-                if (item.description != null &&
-                    item.description!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    item.description!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFFAAAAAA),
+              ],
+            ],
+          ),
+        ),
+        if (hasSubParts)
+          Container(
+            color: const Color(0xFFFAFAFA),
+            child: Column(
+              children: [
+                for (var i = 0; i < item.subParts.length; i++) ...[
+                  if (i > 0)
+                    const Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Color(0xFFF3F3F3),
+                      indent: 32,
+                      endIndent: 16,
                     ),
-                  ),
+                  Builder(builder: (_) {
+                    final sp = item.subParts[i];
+                    final spLabel = _formatSubPartPrice(sp.price, item.price);
+                    final spIsInquiry = spLabel == '가격 문의';
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ).copyWith(left: 32),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              sp.name,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF666666),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            spLabel,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: spIsInquiry
+                                  ? const Color(0xFFAAAAAA)
+                                  : _kBrand,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: isInquiry ? const Color(0xFFAAAAAA) : _kBrand,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

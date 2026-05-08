@@ -149,6 +149,8 @@ export function PaymentClient() {
   // 결제 위젯 호출 직전에 isPaymentInProgressRef = true 로 두어 가드 비활성화.
   useEffect(() => {
     const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.type === "home") return;
       if (isPaymentInProgressRef.current) return;
       if (!intent) return;
       e.preventDefault();

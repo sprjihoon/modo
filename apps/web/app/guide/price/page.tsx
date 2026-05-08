@@ -6,12 +6,20 @@ import { Scissors } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { formatPrice } from "@/lib/utils";
 
+interface SubPart {
+  id: string;
+  name: string;
+  price?: number;
+}
+
 interface RepairType {
   id: string;
   name: string;
   price?: number;
   description?: string;
   category_id?: string;
+  has_sub_parts?: boolean;
+  sub_parts?: SubPart[];
 }
 
 interface SubCategory {
@@ -262,22 +270,52 @@ function ItemList({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
       {items.map((r) => {
+        const hasSubParts = r.has_sub_parts && r.sub_parts && r.sub_parts.length > 0;
         const label = priceLabel(r);
         return (
-          <div key={r.id} className="flex items-center justify-between px-4 py-3.5">
-            <div>
-              <p className="text-sm text-gray-700 font-medium">{r.name}</p>
-              {r.description && (
-                <p className="text-xs text-gray-400 mt-0.5">{r.description}</p>
+          <div key={r.id}>
+            <div className="flex items-center justify-between px-4 py-3.5">
+              <div>
+                <p className="text-sm text-gray-700 font-medium">{r.name}</p>
+                {r.description && (
+                  <p className="text-xs text-gray-400 mt-0.5">{r.description}</p>
+                )}
+              </div>
+              {!hasSubParts && (
+                <span
+                  className={`text-sm font-bold shrink-0 ml-3 ${
+                    r.price && r.price > 0 ? "text-[#00C896]" : "text-gray-400"
+                  }`}
+                >
+                  {label}
+                </span>
               )}
             </div>
-            <span
-              className={`text-sm font-bold shrink-0 ml-3 ${
-                r.price && r.price > 0 ? "text-[#00C896]" : "text-gray-400"
-              }`}
-            >
-              {label}
-            </span>
+            {hasSubParts && (
+              <div className="bg-gray-50/50 border-t border-gray-50">
+                {r.sub_parts!.map((sp, idx) => {
+                  const spPrice = sp.price && sp.price > 0 ? sp.price : r.price;
+                  const spLabel = spPrice && spPrice > 0 ? formatPrice(spPrice) : "가격 문의";
+                  return (
+                    <div
+                      key={sp.id}
+                      className={`flex items-center justify-between px-4 py-2.5 pl-8 ${
+                        idx < r.sub_parts!.length - 1 ? "border-b border-gray-50" : ""
+                      }`}
+                    >
+                      <p className="text-xs text-gray-500">{sp.name}</p>
+                      <span
+                        className={`text-xs font-semibold shrink-0 ml-3 ${
+                          spPrice && spPrice > 0 ? "text-[#00C896]" : "text-gray-400"
+                        }`}
+                      >
+                        {spLabel}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })}

@@ -1,6 +1,27 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:logger/logger.dart';
 
+/// 세부 부위 항목 (sub_part)
+class RepairSubPart {
+  final String id;
+  final String name;
+  final num? price;
+
+  const RepairSubPart({
+    required this.id,
+    required this.name,
+    this.price,
+  });
+
+  factory RepairSubPart.fromMap(Map<String, dynamic> m) {
+    return RepairSubPart(
+      id: m['id'].toString(),
+      name: (m['name'] as String?) ?? '',
+      price: m['price'] as num?,
+    );
+  }
+}
+
 /// 가격표 항목 (수선 종류)
 class RepairTypeItem {
   final String id;
@@ -8,6 +29,8 @@ class RepairTypeItem {
   final String? description;
   final num? price;
   final String? categoryId;
+  final bool hasSubParts;
+  final List<RepairSubPart> subParts;
 
   const RepairTypeItem({
     required this.id,
@@ -15,15 +38,22 @@ class RepairTypeItem {
     this.description,
     this.price,
     this.categoryId,
+    this.hasSubParts = false,
+    this.subParts = const [],
   });
 
   factory RepairTypeItem.fromMap(Map<String, dynamic> m) {
+    final rawSubParts = m['sub_parts'] as List<dynamic>?;
     return RepairTypeItem(
       id: m['id'].toString(),
       name: (m['name'] as String?) ?? '',
       description: m['description'] as String?,
       price: m['price'] as num?,
       categoryId: m['category_id']?.toString(),
+      hasSubParts: m['has_sub_parts'] == true,
+      subParts: rawSubParts
+          ?.map((sp) => RepairSubPart.fromMap(sp as Map<String, dynamic>))
+          .toList() ?? const [],
     );
   }
 }
@@ -200,14 +230,51 @@ class RepairService {
       // 2. 항목 조회
       final typeResponse = await _supabase
           .from('repair_types')
-          .select('id, name, description, price, category_id, display_order')
+          .select('id, name, description, price, category_id, display_order, has_sub_parts')
           .eq('is_active', true)
           .order('display_order', ascending: true);
-      final allTypes = (typeResponse as List)
-          .map((e) => RepairTypeItem.fromMap(Map<String, dynamic>.from(e as Map)))
+      final rawTypes = (typeResponse as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
 
-      // 3. 계층 구조 조립
+      // 3. 세부 부위(sub_parts) 조회
+      final typesWithSubParts = rawTypes
+          .where((t) => t['has_sub_parts'] == true)
+          .map((t) => t['id'].toString())
+          .toList();
+
+      Map<String, List<Map<String, dynamic>>> subPartsMap = {};
+      if (typesWithSubParts.isNotEmpty) {
+        try {
+          final spResponse = await _supabase
+              .from('repair_sub_parts')
+              .select('id, repair_type_id, name, price, display_order')
+              .inFilter('repair_type_id', typesWithSubParts)
+              .order('display_order', ascending: true);
+          for (final sp in (spResponse as List)) {
+            final m = Map<String, dynamic>.from(sp as Map);
+            final key = m['repair_type_id'].toString();
+            subPartsMap.putIfAbsent(key, () => []);
+            subPartsMap[key]!.add({
+              'id': m['id'].toString(),
+              'name': m['name'],
+              'price': m['price'],
+            });
+          }
+        } catch (e) {
+          _logger.w('세부 부위 조회 실패 (무시): $e');
+        }
+      }
+
+      final allTypes = rawTypes.map((t) {
+        final id = t['id'].toString();
+        return RepairTypeItem.fromMap({
+          ...t,
+          'sub_parts': subPartsMap[id] ?? [],
+        });
+      }).toList();
+
+      // 4. 계층 구조 조립
       if (hasParentColumn) {
         final mainCatsRaw =
             allCats.where((c) => c['parent_category_id'] == null).toList();
@@ -322,7 +389,7 @@ class RepairService {
         }
       }
 
-      // 4. flat 구조
+      // 5. flat 구조
       final flat = allCats.map((cat) {
         final catId = cat['id'].toString();
         return RepairSubCategory(

@@ -214,6 +214,9 @@ export function OrderNewClient() {
   // ── 뒤로가기 처리: modu_before_navigate ─────────────────────────────────
   useEffect(() => {
     const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.type === "home") return;
+
       const currentMode = modeRef.current;
 
       if (currentMode === "pickup") {

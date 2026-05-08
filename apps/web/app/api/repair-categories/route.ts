@@ -31,7 +31,7 @@ export async function GET() {
 
     const { data: types, error: typeError } = await supabase
       .from("repair_types")
-      .select("id, name, description, price, category_id, display_order")
+      .select("id, name, description, price, category_id, display_order, has_sub_parts")
       .order("display_order", { ascending: true });
 
     if (typeError) {
@@ -39,6 +39,33 @@ export async function GET() {
     }
 
     const repairTypes = types ?? [];
+
+    // 세부 부위(sub_parts) 조회 — 가격이 있는 항목만 포함
+    const typesWithSubParts = repairTypes.filter((t) => t.has_sub_parts);
+    let subPartsMap: Record<string, any[]> = {};
+
+    if (typesWithSubParts.length > 0) {
+      const { data: subParts, error: spError } = await supabase
+        .from("repair_sub_parts")
+        .select("id, repair_type_id, name, price, display_order")
+        .in("repair_type_id", typesWithSubParts.map((t) => t.id))
+        .order("display_order", { ascending: true });
+
+      if (spError) {
+        console.error("repair_sub_parts error:", spError.message);
+      }
+
+      for (const sp of subParts ?? []) {
+        const key = sp.repair_type_id;
+        if (!subPartsMap[key]) subPartsMap[key] = [];
+        subPartsMap[key].push({ id: sp.id, name: sp.name, price: sp.price, display_order: sp.display_order });
+      }
+    }
+
+    const enrichedRepairTypes = repairTypes.map((t) => ({
+      ...t,
+      sub_parts: subPartsMap[t.id] ?? [],
+    }));
     const allCats = categories ?? [];
 
     // parent_category_id 컬럼 존재 여부 확인
@@ -61,7 +88,7 @@ export async function GET() {
             // 3단계: 이 소카테고리의 자식 카테고리 (세부항목)
             const thirdLevel = subCats.filter((s) => s.parent_category_id === sub.id);
 
-            const directRepairTypes = repairTypes.filter((t) => t.category_id === sub.id);
+            const directRepairTypes = enrichedRepairTypes.filter((t) => t.category_id === sub.id);
 
             // 3단계 카테고리를 repair_type 형태로 변환
             const thirdLevelItems = thirdLevel.map((item) => ({
@@ -71,11 +98,12 @@ export async function GET() {
               price: item.price ?? null,
               category_id: sub.id,
               display_order: item.display_order,
+              sub_parts: [],
             }));
 
             // 3단계 항목의 repair_types 포함
             const thirdLevelRepairTypes = thirdLevel.flatMap((item) =>
-              repairTypes.filter((t) => t.category_id === item.id)
+              enrichedRepairTypes.filter((t) => t.category_id === item.id)
             );
 
             return {
@@ -87,7 +115,7 @@ export async function GET() {
           return {
             ...main,
             sub_categories,
-            repair_types: repairTypes.filter((t) => t.category_id === main.id),
+            repair_types: enrichedRepairTypes.filter((t) => t.category_id === main.id),
           };
         });
 
@@ -97,10 +125,10 @@ export async function GET() {
           .filter((s) => !allKnownParentIds.has(s.parent_category_id))
           .map((cat) => ({
             ...cat,
-            repair_types: repairTypes.filter((t) => t.category_id === cat.id),
+            repair_types: enrichedRepairTypes.filter((t) => t.category_id === cat.id),
           }));
 
-        const uncategorized = repairTypes.filter(
+        const uncategorized = enrichedRepairTypes.filter(
           (t) => !t.category_id || !allCats.find((c) => c.id === t.category_id)
         );
 
@@ -116,10 +144,10 @@ export async function GET() {
     // flat 구조 (기존 방식 or 마이그레이션 전)
     const result = allCats.map((cat) => ({
       ...cat,
-      repair_types: repairTypes.filter((t) => t.category_id === cat.id),
+      repair_types: enrichedRepairTypes.filter((t) => t.category_id === cat.id),
     }));
 
-    const uncategorized = repairTypes.filter(
+    const uncategorized = enrichedRepairTypes.filter(
       (t) => !t.category_id || !allCats.find((c) => c.id === t.category_id)
     );
 
