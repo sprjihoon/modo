@@ -126,6 +126,30 @@ export function RepairTypeStep({
     return () => { childBackRef.current = null; };
   });
 
+  // 수선 항목이 1개뿐이고 선택 완료 시 자동으로 다음 단계 진행
+  const autoProceededRef = useRef(false);
+  useEffect(() => {
+    if (
+      repairTypes.length === 1 &&
+      selectedItems.length > 0 &&
+      !measureView &&
+      !subPartsView &&
+      !isLoading &&
+      !autoProceededRef.current
+    ) {
+      autoProceededRef.current = true;
+      onNext(
+        selectedItems.map((i) => ({
+          name: i.name,
+          price: i.price,
+          priceRange: i.priceRange,
+          quantity: i.quantity,
+          detail: i.detail,
+        }))
+      );
+    }
+  }, [selectedItems, repairTypes, measureView, subPartsView, isLoading, onNext]);
+
   useEffect(() => {
     loadRepairTypes();
     loadCategoryIcon();

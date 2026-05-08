@@ -93,6 +93,18 @@ export function ClothingItemCard({ index, item, onRemove }: Props) {
               </span>
             )}
           </div>
+
+          {item.repairItems.some((r) => r.detail) && (
+            <div className="mt-1.5 space-y-0.5">
+              {item.repairItems
+                .filter((r) => r.detail)
+                .map((r, i) => (
+                  <p key={i} className="text-[10px] text-gray-500">
+                    {r.detail}
+                  </p>
+                ))}
+            </div>
+          )}
         </div>
 
         <button

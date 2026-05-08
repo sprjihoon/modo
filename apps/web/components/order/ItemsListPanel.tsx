@@ -82,10 +82,6 @@ export function ItemsListPanel({
         <>
           <div className="mx-4 mt-2 p-4 bg-[#00C896]/5 border border-[#00C896]/20 rounded-2xl space-y-1.5">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">총 의류</span>
-              <span className="font-semibold text-gray-800">{items.length}벌</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">총 수선 항목</span>
               <span className="font-semibold text-gray-800">
                 {totalRepairItems}개
