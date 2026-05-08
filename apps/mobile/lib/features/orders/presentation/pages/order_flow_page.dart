@@ -25,6 +25,7 @@ enum _FlowMode {
 enum _SubCategoryPhase { pre, post }
 
 class SubCategorySelection {
+  final String id;
   final String name;
   final int? directPrice;
   final String? priceRange;
@@ -33,6 +34,7 @@ class SubCategorySelection {
   final String? iconName;
 
   const SubCategorySelection({
+    required this.id,
     required this.name,
     this.directPrice,
     this.priceRange,
@@ -164,8 +166,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
         handleRepairDone([item]);
       }
     } else {
-      _subCategoryPhase = _SubCategoryPhase.post;
-      _pushMode(_FlowMode.addSubCategory);
+      _pushMode(_FlowMode.addRepair);
     }
   }
 
@@ -404,6 +405,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
           _stagingClothingType,
           _stagingCategoryId,
           SubCategorySelection(
+            id: selection.id,
             name: selection.name,
             directPrice: selection.directPrice,
             priceRange: selection.priceRange,
@@ -432,9 +434,10 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
   }
 
   Widget _buildRepairStep() {
+    final effectiveCategoryId = _stagingSubCategory?.id ?? _stagingCategoryId;
     return RepairTypeStepWidget(
       clothingType: _stagingClothingType,
-      clothingCategoryId: _stagingCategoryId,
+      clothingCategoryId: effectiveCategoryId,
       onNext: (items) => handleRepairDone(items),
     );
   }
