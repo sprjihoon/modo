@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 interface InlineSvgProps {
   src: string;
@@ -11,6 +12,7 @@ interface InlineSvgProps {
 
 const svgCache = new Map<string, string>();
 const failedSrcs = new Set<string>();
+let preloaded = false;
 
 function normalizeSvg(raw: string): string | null {
   const match = raw.match(/<svg[\s\S]*<\/svg>/i);
@@ -23,6 +25,53 @@ function normalizeSvg(raw: string): string | null {
         .replace(/fill\s*:\s*(?!none\b)[^;"]*/gi, "fill: currentColor")
         .replace(/stroke\s*:\s*(?!none\b)[^;"]*/gi, "stroke: currentColor");
       return `style="${updated}"`;
+    });
+}
+
+function fetchAndCacheSvg(src: string) {
+  if (svgCache.has(src) || failedSrcs.has(src)) return;
+  fetch(src)
+    .then((res) => {
+      if (!res.ok) throw new Error("fetch failed");
+      const ct = res.headers.get("content-type") ?? "";
+      if (ct.includes("text/html")) throw new Error("html response");
+      return res.text();
+    })
+    .then((text) => {
+      const normalized = normalizeSvg(text);
+      if (normalized) {
+        svgCache.set(src, normalized);
+      } else {
+        failedSrcs.add(src);
+      }
+    })
+    .catch(() => {
+      failedSrcs.add(src);
+    });
+}
+
+function toIconSrc(iconName: string): string | null {
+  if (!iconName) return null;
+  if (iconName.startsWith("http")) return iconName;
+  return `/icons/${iconName.toLowerCase().replace(/\.svg$/, "")}.svg`;
+}
+
+export function preloadAllSvgs() {
+  if (preloaded) return;
+  preloaded = true;
+
+  const supabase = createClient();
+  supabase
+    .from("repair_categories")
+    .select("icon_name")
+    .eq("is_active", true)
+    .then(({ data }) => {
+      if (!data) return;
+      const srcs = data
+        .map((row) => row.icon_name ? toIconSrc(row.icon_name) : null)
+        .filter((s): s is string => !!s && !s.startsWith("http"));
+      const unique = [...new Set(srcs)];
+      unique.forEach(fetchAndCacheSvg);
     });
 }
 
