@@ -38,12 +38,14 @@ class CategoryIconWidget extends StatelessWidget {
   final String? iconName;
   final double size;
   final Color? color;
+  final bool preserveColors;
 
   const CategoryIconWidget({
     super.key,
     this.iconName,
     this.size = 32,
     this.color,
+    this.preserveColors = false,
   });
 
   /// icon_name이 URL인지 확인
@@ -51,12 +53,11 @@ class CategoryIconWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // color가 null이면 기본 grey.shade600 으로 ColorFilter 적용 (웹의 text-gray-500 동작과 동일)
-    // color가 지정된 경우 해당 색상으로 ColorFilter 적용 (예: 선택 시 Colors.white)
     final effectiveColor = color ?? Colors.grey.shade600;
-    final colorFilter = ColorFilter.mode(effectiveColor, BlendMode.srcIn);
+    final colorFilter = preserveColors
+        ? null
+        : ColorFilter.mode(effectiveColor, BlendMode.srcIn);
 
-    // icon_name이 없으면 기본 아이콘
     if (iconName == null || iconName!.isEmpty) {
       return Icon(
         Icons.checkroom,
@@ -65,10 +66,8 @@ class CategoryIconWidget extends StatelessWidget {
       );
     }
 
-    // 카테고리명 → 기본 아이콘 매핑 (SVG 파일이 없을 때 fallback)
     final fallbackIcon = _getFallbackIcon(iconName!);
 
-    // URL인 경우 네트워크에서 로드 (캐시 비활성화)
     if (_isUrl) {
       return SvgPicture(
         NoCacheSvgLoader(iconName!),
@@ -93,7 +92,6 @@ class CategoryIconWidget extends StatelessWidget {
       );
     }
 
-    // 로컬 파일인 경우 assets에서 로드
     final svgPath = 'assets/icons/${iconName!.toLowerCase()}.svg';
 
     return SvgPicture.asset(

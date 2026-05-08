@@ -179,7 +179,7 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
                       CategoryIconWidget(
                         iconName: iconName,
                         size: 60,
-                        color: Colors.grey.shade500,
+                        preserveColors: true,
                       ),
                       const SizedBox(height: 12),
                       Padding(
