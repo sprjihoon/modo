@@ -369,11 +369,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/toss-payment',
         name: 'toss-payment',
         builder: (context, state) {
-          final data = state.extra as Map<String, dynamic>;
+          final data = (state.extra as Map<String, dynamic>?) ?? const {};
+          final orderId = (data['orderId'] as String?) ?? '';
+          final orderName = (data['orderName'] as String?) ?? '수선';
+          final amount = (data['amount'] as int?) ?? 0;
           return TossPaymentPage(
-            orderId: data['orderId'] as String,
-            amount: data['amount'] as int,
-            orderName: data['orderName'] as String,
+            orderId: orderId,
+            amount: amount,
+            orderName: orderName,
             customerName: data['customerName'] as String?,
             customerEmail: data['customerEmail'] as String?,
             customerPhone: data['customerPhone'] as String?,

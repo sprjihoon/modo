@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { X, Shirt } from "lucide-react";
+import { X } from "lucide-react";
 
 interface OrderStartDialogProps {
   open: boolean;
@@ -57,7 +57,13 @@ export function OrderStartDialog({ open, onClose }: OrderStartDialogProps) {
         {/* 아이콘 */}
         <div className="flex justify-center mb-8">
           <div className="w-40 h-40 bg-gray-50 rounded-2xl border-2 border-gray-100 flex items-center justify-center">
-            <Shirt className="w-20 h-20 text-[#00C896]/30" />
+            <svg
+              className="w-20 h-20"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M21.6 18.2L13 11.75v-1.55c1.09-.53 1.77-1.64 1.72-2.89-.05-1.27-.89-2.37-2.12-2.7C10.54 4.09 8.5 5.51 8.5 7.5H10.5c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1c-.55 0-1 .45-1 1v2.75L2.4 18.2c-.47.36-.19 1.08.4 1.08h18.4c.59 0 .87-.72.4-1.08z" />
+            </svg>
           </div>
         </div>
 

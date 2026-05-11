@@ -50,7 +50,7 @@ dependencies:
   webview_flutter: ^4.4.2
   
   # Payment - TossPayments
-  tosspayments_widget_sdk_flutter: ^2.1.2
+  tosspayments_widget_sdk_flutter: ^2.2.0
   
   # HTTP & API
   dio: ^5.4.0

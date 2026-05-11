@@ -1,8 +1,157 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 
-/// 캐시를 비활성화한 SVG 네트워크 로더
+/// SVG 텍스트 캐시 (키 → 정규화된 SVG 문자열)
+/// 앱 시작 시마다 초기화되므로 정규화 로직 변경 시 자동 반영됨.
+final Map<String, String> _svgNormalizedCache = {};
+
+/// CSS <style> 블록의 클래스 정의를 인라인 스타일로 변환.
+/// flutter_svg는 CSS <style> 블록을 완전히 지원하지 않으므로
+/// class="st0" → style="fill:#DD6564;" 형태로 인라인화해야 올바르게 렌더링됨.
+String _inlineSvgStyles(String svg) {
+  final styleMatch = RegExp(
+    r'<style[^>]*>([\s\S]*?)</style>',
+    caseSensitive: false,
+  ).firstMatch(svg);
+  if (styleMatch == null) return svg;
+
+  final styleContent = styleMatch.group(1)!;
+  final classRules = RegExp(r'\.([a-zA-Z_][\w-]*)\s*\{([^}]+)\}');
+  final classStyles = <String, String>{};
+
+  for (final match in classRules.allMatches(styleContent)) {
+    classStyles[match.group(1)!] = match.group(2)!.trim();
+  }
+
+  for (final entry in classStyles.entries) {
+    svg = svg.replaceAll('class="${entry.key}"', 'style="${entry.value}"');
+  }
+
+  svg = svg.replaceAll(
+    RegExp(r'<style[^>]*>[\s\S]*?</style>', caseSensitive: false),
+    '',
+  );
+
+  return svg;
+}
+
+/// 웹의 InlineSvg.normalizeSvg와 동일한 로직:
+/// fill/stroke를 currentColor로 변환하되 "none" 값은 보존.
+String _normalizeSvgColors(String svg) {
+  svg = _inlineSvgStyles(svg);
+
+  svg = svg.replaceAllMapped(
+    RegExp(r'fill="(?!none)[^"]*"', caseSensitive: false),
+    (_) => 'fill="currentColor"',
+  );
+  svg = svg.replaceAllMapped(
+    RegExp(r'stroke="(?!none)[^"]*"', caseSensitive: false),
+    (_) => 'stroke="currentColor"',
+  );
+  svg = svg.replaceAllMapped(
+    RegExp(r'style="([^"]*)"', caseSensitive: false),
+    (m) {
+      var style = m.group(1)!;
+      style = style.replaceAllMapped(
+        RegExp(r'fill\s*:\s*(?!none\b)[^;"]*', caseSensitive: false),
+        (_) => 'fill: currentColor',
+      );
+      style = style.replaceAllMapped(
+        RegExp(r'stroke\s*:\s*(?!none\b)[^;"]*', caseSensitive: false),
+        (_) => 'stroke: currentColor',
+      );
+      return 'style="$style"';
+    },
+  );
+  return svg;
+}
+
+/// 네트워크 SVG를 정규화(fill/stroke→currentColor)하여 로드하는 로더.
+/// SvgTheme(currentColor: color)와 함께 사용하면 웹과 동일한 렌더링 결과를 얻음.
+class _NormalizedNetworkSvgLoader extends SvgLoader<String> {
+  final String url;
+
+  _NormalizedNetworkSvgLoader(this.url);
+
+  @override
+  Future<String> prepareMessage(BuildContext? context) async {
+    if (_svgNormalizedCache.containsKey(url)) return _svgNormalizedCache[url]!;
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    );
+    if (response.statusCode == 200) {
+      final normalized = _normalizeSvgColors(response.body);
+      _svgNormalizedCache[url] = normalized;
+      return normalized;
+    }
+    throw Exception('Failed to load SVG: ${response.statusCode}');
+  }
+
+  @override
+  String provideSvg(String? message) => message ?? '';
+}
+
+/// 로컬 asset SVG를 정규화하여 로드하는 로더
+class _NormalizedAssetSvgLoader extends SvgLoader<String> {
+  final String assetPath;
+
+  _NormalizedAssetSvgLoader(this.assetPath);
+
+  @override
+  Future<String> prepareMessage(BuildContext? context) async {
+    if (_svgNormalizedCache.containsKey(assetPath)) return _svgNormalizedCache[assetPath]!;
+    final raw = await rootBundle.loadString(assetPath);
+    final normalized = _normalizeSvgColors(raw);
+    _svgNormalizedCache[assetPath] = normalized;
+    return normalized;
+  }
+
+  @override
+  String provideSvg(String? message) => message ?? '';
+}
+
+/// 네트워크 SVG의 CSS <style> 블록만 인라인화 (색상 원본 유지).
+/// flutter_svg가 CSS class를 지원하지 않으므로 인라인 변환은 필수이지만,
+/// 빨간색 마킹 등 원본 색상을 보존해야 하는 경우 이 로더를 사용.
+class _CssInlinedNetworkSvgLoader extends SvgLoader<String> {
+  final String url;
+
+  _CssInlinedNetworkSvgLoader(this.url);
+
+  @override
+  Future<String> prepareMessage(BuildContext? context) async {
+    final cacheKey = 'inlined:$url';
+    if (_svgNormalizedCache.containsKey(cacheKey)) return _svgNormalizedCache[cacheKey]!;
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    );
+    if (response.statusCode == 200) {
+      final inlined = _inlineSvgStyles(response.body);
+      _svgNormalizedCache[cacheKey] = inlined;
+      return inlined;
+    }
+    throw Exception('Failed to load SVG: ${response.statusCode}');
+  }
+
+  @override
+  String provideSvg(String? message) => message ?? '';
+}
+
+/// 캐시를 비활성화한 SVG 네트워크 로더 (원본 그대로)
 class NoCacheSvgLoader extends SvgLoader<String> {
   final String url;
 
@@ -54,9 +203,7 @@ class CategoryIconWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveColor = color ?? Colors.grey.shade600;
-    final colorFilter = preserveColors
-        ? null
-        : ColorFilter.mode(effectiveColor, BlendMode.srcIn);
+    final svgTheme = SvgTheme(currentColor: effectiveColor);
 
     if (iconName == null || iconName!.isEmpty) {
       return Icon(
@@ -69,11 +216,16 @@ class CategoryIconWidget extends StatelessWidget {
     final fallbackIcon = _getFallbackIcon(iconName!);
 
     if (_isUrl) {
+      // preserveColors: CSS인라인만 수행, 원본 색상 유지 (빨간 마킹 등 보존)
+      // !preserveColors: CSS인라인 + 전체 색상을 currentColor로 단색화
+      final loader = preserveColors
+          ? _CssInlinedNetworkSvgLoader(iconName!)
+          : _NormalizedNetworkSvgLoader(iconName!);
       return SvgPicture(
-        NoCacheSvgLoader(iconName!),
+        loader,
         width: size,
         height: size,
-        colorFilter: colorFilter,
+        theme: svgTheme,
         placeholderBuilder: (context) => SizedBox(
           width: size,
           height: size,
@@ -94,11 +246,26 @@ class CategoryIconWidget extends StatelessWidget {
 
     final svgPath = 'assets/icons/${iconName!.toLowerCase()}.svg';
 
-    return SvgPicture.asset(
-      svgPath,
+    if (preserveColors) {
+      return SvgPicture.asset(
+        svgPath,
+        width: size,
+        height: size,
+        theme: svgTheme,
+        placeholderBuilder: (context) => Icon(
+          fallbackIcon,
+          size: size,
+          color: effectiveColor,
+        ),
+      );
+    }
+
+    // 로컬 asset SVG도 정규화하여 웹과 동일한 렌더링
+    return SvgPicture(
+      _NormalizedAssetSvgLoader(svgPath),
       width: size,
       height: size,
-      colorFilter: colorFilter,
+      theme: svgTheme,
       placeholderBuilder: (context) => Icon(
         fallbackIcon,
         size: size,
@@ -202,10 +369,10 @@ class NetworkCategoryIconWidget extends StatelessWidget {
     }
 
     return SvgPicture(
-      NoCacheSvgLoader(iconUrl!),
+      _NormalizedNetworkSvgLoader(iconUrl!),
       width: size,
       height: size,
-      colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
+      theme: SvgTheme(currentColor: effectiveColor),
       placeholderBuilder: (context) => SizedBox(
         width: size,
         height: size,

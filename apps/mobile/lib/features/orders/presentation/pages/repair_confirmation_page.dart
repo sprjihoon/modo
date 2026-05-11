@@ -735,7 +735,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: CachedNetworkImage(
-                                    imageUrl: itemImages.first['imagePath'] as String,
+                                    imageUrl: (itemImages.first['imagePath'] as String?) ?? (itemImages.first['imageUrl'] as String?) ?? '',
                                     width: 80,
                                     height: 80,
                                     fit: BoxFit.cover,

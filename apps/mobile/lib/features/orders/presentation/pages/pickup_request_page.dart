@@ -76,8 +76,36 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   bool _isLoadingAddress = true;
   bool _isValidatingPromoCode = false;
   
-  // 수거 희망일 (내일부터 선택 가능)
+  // 수거 희망일 (내일부터 선택 가능, 초기값: 다음 영업일)
   DateTime? _selectedPickupDate;
+
+  // 한국 법정공휴일 (토·일은 별도 처리)
+  static final Set<String> _krHolidays = {
+    '2025-01-01', '2025-01-28', '2025-01-29', '2025-01-30',
+    '2025-03-01', '2025-05-05', '2025-05-06', '2025-05-15',
+    '2025-06-06', '2025-08-15', '2025-10-03', '2025-10-05',
+    '2025-10-06', '2025-10-07', '2025-10-08', '2025-10-09', '2025-12-25',
+    '2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18',
+    '2026-03-01', '2026-05-05', '2026-05-24', '2026-06-06',
+    '2026-08-15', '2026-08-16', '2026-09-24', '2026-09-25', '2026-09-26',
+    '2026-10-03', '2026-10-09', '2026-12-25',
+  };
+
+  static bool _isUnavailable(DateTime date) {
+    if (date.weekday == DateTime.saturday || date.weekday == DateTime.sunday) {
+      return true;
+    }
+    final key = date.toIso8601String().split('T')[0];
+    return _krHolidays.contains(key);
+  }
+
+  static DateTime _getNextWeekday() {
+    var d = DateTime.now().add(const Duration(days: 1));
+    while (_isUnavailable(d)) {
+      d = d.add(const Duration(days: 1));
+    }
+    return DateTime(d.year, d.month, d.day);
+  }
   
   // 프로모션 코드 관련
   Map<String, dynamic>? _appliedPromotion;
@@ -93,6 +121,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _selectedPickupDate = _getNextWeekday();
     CustomerEventService.trackPickupRequestStart();
     _loadDefaultAddress();
     _loadShippingSettings();
@@ -235,9 +264,10 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
 
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedPickupDate ?? tomorrow,
+      initialDate: _selectedPickupDate ?? _getNextWeekday(),
       firstDate: tomorrow,
       lastDate: maxDate,
+      selectableDayPredicate: (date) => !_isUnavailable(date),
       locale: const Locale('ko', 'KR'),
       helpText: '수거 희망일 선택',
       cancelText: '취소',

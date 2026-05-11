@@ -161,7 +161,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       setState(() {
         _orderData = virtual;
         _isIntentFlow = true;
-        _intentId = intent['id'] as String;
+        _intentId = intent['id']?.toString();
       });
     } catch (e) {
       if (mounted) {
@@ -175,6 +175,15 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   /// 토스페이먼츠 결제 페이지로 이동
   Future<void> _goToTossPayment() async {
     if (_orderData == null) return;
+
+    if (_isIntentFlow && (_intentId == null || _intentId!.isEmpty)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('결제 정보를 불러오지 못했습니다. 다시 시도해주세요.')),
+        );
+      }
+      return;
+    }
 
     final amount = (_orderData!['total_price'] as num?)?.toInt() ?? 0;
     final orderName = (_orderData!['item_name'] as String?) ?? '수선';
@@ -504,7 +513,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             (_orderData!['item_description'] as String?) ?? '-',
           ),
           if ((_orderData!['notes'] as String?)?.isNotEmpty == true)
-            _buildInfoRow('요청사항', _orderData!['notes'] as String),
+            _buildInfoRow('요청사항', (_orderData!['notes'] as String?) ?? ''),
         ],
       ),
     );
@@ -771,7 +780,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           ...imagesWithPins.asMap().entries.map((entry) {
             final index = entry.key;
             final imageData = entry.value as Map<String, dynamic>;
-            final imagePath = imageData['imagePath'] as String;
+            final imagePath = (imageData['imagePath'] as String?)
+                ?? (imageData['imageUrl'] as String?)
+                ?? (imageData['url'] as String?)
+                ?? '';
             final pins = (imageData['pins'] as List?)?.map((p) {
               if (p is Map<String, dynamic>) {
                 return ImagePin.fromJson(p);

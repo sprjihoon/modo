@@ -381,8 +381,13 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        // Header with bottom border (web-style)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+          ),
           child: Text(
             type.subPartsTitle ?? '세부 부위를 선택해주세요',
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -398,7 +403,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                 decoration: BoxDecoration(
                   color: Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(color: Colors.grey.shade100),
                 ),
                 child: Row(
                   children: [
@@ -407,21 +412,21 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                       height: 40,
                       decoration: BoxDecoration(
                         color: _brandColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Center(child: CategoryIconWidget(iconName: type.iconName, size: 24, color: _brandColor)),
+                      child: Center(child: CategoryIconWidget(iconName: type.iconName, size: 28, color: _brandColor)),
                     ),
                     const SizedBox(width: 12),
-                    Text(widget.clothingType.isNotEmpty ? widget.clothingType : type.displayName,
+                    Text(type.displayName,
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
               // All / Specific radio
               if (type.showAllOption) ...[
-                const Text('수선 범위를 선택해주세요', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                Text('수선 범위를 선택해주세요', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -430,11 +435,19 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                     _buildRadioButton('특정 부위 선택', 'specific'),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
               ],
 
               // Sub-part grid
-              if (_subPartsMode == 'specific')
+              if (_subPartsMode == 'specific') ...[
+                if (type.showAllOption)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      '${type.subPartsTitle ?? '세부 부위를 선택해주세요'}${type.allowMultipleSubParts ? ' (다중 선택 가능)' : ''}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    ),
+                  ),
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -442,7 +455,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                     crossAxisCount: 3,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.65,
+                    childAspectRatio: 0.58,
                   ),
                   itemCount: _subParts.length,
                   itemBuilder: (_, idx) {
@@ -461,6 +474,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: isSelected ? _brandColor.withValues(alpha: 0.05) : Colors.grey.shade50,
                           border: Border.all(
@@ -473,21 +487,23 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
-                              width: 80,
-                              height: 80,
+                              width: 96,
+                              height: 96,
                               decoration: BoxDecoration(
                                 color: isSelected ? _brandColor : _brandColor.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Center(
-                                child: isSelected
-                                    ? const Icon(Icons.check, color: Colors.white, size: 32)
-                                    : CategoryIconWidget(
+                              clipBehavior: Clip.antiAlias,
+                              child: isSelected
+                                  ? const Center(child: Icon(Icons.check, color: Colors.white, size: 32))
+                                  : Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: CategoryIconWidget(
                                         iconName: part.iconName,
-                                        size: 56,
+                                        size: 88,
                                         preserveColors: true,
                                       ),
-                              ),
+                                    ),
                             ),
                             const SizedBox(height: 8),
                             Text(
@@ -509,11 +525,12 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                     );
                   },
                 ),
+              ],
             ],
           ),
         ),
 
-        // Confirm button
+        // Bottom button (web-style flat)
         Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           decoration: BoxDecoration(
@@ -524,26 +541,35 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
             top: false,
             child: SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: canConfirm ? _confirmSubParts : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _brandColor,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade200,
-                  disabledForegroundColor: Colors.grey.shade400,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: Text(
-                  _subPartsMode == 'all'
-                      ? '전체 선택으로 확인'
-                      : _subPartsSelectedIds.isNotEmpty
-                          ? '${_subPartsSelectedIds.length}개 선택 확인'
-                          : '부위를 선택해주세요',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-              ),
+              child: canConfirm
+                  ? ElevatedButton(
+                      onPressed: _confirmSubParts,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _brandColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        _subPartsMode == 'all'
+                            ? '전체 선택으로 확인'
+                            : '${_subPartsSelectedIds.length}개 선택 확인',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '부위를 선택해주세요',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade400),
+                      ),
+                    ),
             ),
           ),
         ),
@@ -600,21 +626,26 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        // Header with bottom border (web-style)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+          ),
           child: const Text('치수를 입력해주세요', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Item card
+              // Item card - show repair type name like web
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(color: Colors.grey.shade100),
                 ),
                 child: Row(
                   children: [
@@ -623,20 +654,22 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                       height: 40,
                       decoration: BoxDecoration(
                         color: _brandColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Center(child: CategoryIconWidget(iconName: type.iconName, size: 24, color: _brandColor)),
+                      child: Center(child: CategoryIconWidget(iconName: type.iconName, size: 28, color: _brandColor)),
                     ),
                     const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(widget.clothingType.isNotEmpty ? widget.clothingType : type.displayName,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                        if ((_measureOverridePrice ?? type.price) > 0)
-                          Text(_formatPrice(_measureOverridePrice ?? type.price),
-                              style: const TextStyle(fontSize: 12, color: _brandColor)),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(type.displayName,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          if ((_measureOverridePrice ?? type.price) > 0)
+                            Text(_formatPrice(_measureOverridePrice ?? type.price),
+                                style: const TextStyle(fontSize: 12, color: _brandColor)),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -660,12 +693,12 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
           ),
         ),
 
-        // Buttons
+        // Bottom buttons (web-style)
         Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey.shade100)),
+            border: Border(top: BorderSide(color: Colors.grey.shade50)),
           ),
           child: SafeArea(
             top: false,
@@ -679,27 +712,41 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                       _measureValues = [];
                     }),
                     style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.grey.shade500,
+                      side: BorderSide(color: Colors.grey.shade200),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('이전'),
+                    child: const Text('이전', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 2,
-                  child: ElevatedButton(
-                    onPressed: hasAnyValue ? _confirmMeasurement : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _brandColor,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey.shade200,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 0,
-                    ),
-                    child: const Text('확인', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
+                  child: hasAnyValue
+                      ? ElevatedButton(
+                          onPressed: _confirmMeasurement,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _brandColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          child: const Text('확인', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: _brandColor.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            '확인',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -736,7 +783,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                 borderSide: const BorderSide(color: _brandColor, width: 2),
               ),
             ),
-            onChanged: (v) => _measureValues[index] = v,
+            onChanged: (v) => setState(() { _measureValues[index] = v; }),
           ),
         ],
       ),
@@ -841,28 +888,29 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
 
               const SizedBox(height: 12),
 
-              // Repair type grid
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _isLoading
-                    ? _buildLoadingGrid()
-                    : _loadError
-                        ? _buildErrorState()
-                        : _repairTypes.isEmpty
-                            ? const Center(child: Text('수선 항목이 없습니다'))
-                            : GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 10,
-                                  childAspectRatio: 0.9,
+              // Repair type grid (hidden when items are already selected)
+              if (_selectedItems.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _isLoading
+                      ? _buildLoadingGrid()
+                      : _loadError
+                          ? _buildErrorState()
+                          : _repairTypes.isEmpty
+                              ? const Center(child: Text('수선 항목이 없습니다'))
+                              : GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 10,
+                                    childAspectRatio: 0.9,
+                                  ),
+                                  itemCount: _repairTypes.length,
+                                  itemBuilder: (_, idx) => _buildRepairTypeCard(_repairTypes[idx]),
                                 ),
-                                itemCount: _repairTypes.length,
-                                itemBuilder: (_, idx) => _buildRepairTypeCard(_repairTypes[idx]),
-                              ),
-              ),
+                ),
               const SizedBox(height: 80),
             ],
           ),
