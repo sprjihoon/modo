@@ -62,13 +62,13 @@ export function OrderStartDialog({ open, onClose }: OrderStartDialogProps) {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M14 5a2 2 0 0 1-4 0 2 2 0 0 1 4 0z" />
-              <path d="M12 7v1" />
-              <path d="M12 8L3 18h18L12 8" />
+              <circle cx="12" cy="4.5" r="2" />
+              <line x1="12" y1="6.5" x2="12" y2="8.5" />
+              <path d="M12 8.5L3 18h18L12 8.5" />
             </svg>
           </div>
         </div>
