@@ -60,9 +60,15 @@ export function OrderStartDialog({ open, onClose }: OrderStartDialogProps) {
             <svg
               className="w-24 h-24 text-[#00C896]/30"
               viewBox="0 0 24 24"
-              fill="currentColor"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <path d="M21.6 18.2L13 11.75v-1.55c1.09-.53 1.77-1.64 1.72-2.89-.05-1.27-.89-2.37-2.12-2.7C10.54 4.09 8.5 5.51 8.5 7.5H10.5c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1c-.55 0-1 .45-1 1v2.75L2.4 18.2c-.47.36-.19 1.08.4 1.08h18.4c.59 0 .87-.72.4-1.08z" />
+              <path d="M14 5a2 2 0 0 1-4 0 2 2 0 0 1 4 0z" />
+              <path d="M12 7v1" />
+              <path d="M12 8L3 18h18L12 8" />
             </svg>
           </div>
         </div>
