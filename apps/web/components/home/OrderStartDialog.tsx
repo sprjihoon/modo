@@ -56,9 +56,9 @@ export function OrderStartDialog({ open, onClose }: OrderStartDialogProps) {
 
         {/* 아이콘 */}
         <div className="flex justify-center mb-8">
-          <div className="w-40 h-40 bg-gray-50 rounded-2xl border-2 border-gray-100 flex items-center justify-center">
+          <div className="w-48 h-48 bg-gray-50 rounded-2xl border-2 border-gray-200 flex items-center justify-center">
             <svg
-              className="w-20 h-20"
+              className="w-24 h-24 text-[#00C896]/30"
               viewBox="0 0 24 24"
               fill="currentColor"
             >
