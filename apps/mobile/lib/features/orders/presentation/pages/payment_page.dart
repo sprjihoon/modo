@@ -107,7 +107,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
 
       // intent.payload 를 _orderData 와 호환되는 형태로 매핑
       // 누락된 필드는 build() 에서 null cast 로 터지지 않도록 안전 기본값을 채워둔다.
-      final repairParts = (payload['repairParts'] as List?) ?? const [];
+      final repairParts = (payload['repairParts'] as List?)
+          ?? (payload['repairItems'] as List?)
+          ?? const [];
       final itemDescriptionFallback = repairParts.isEmpty
           ? '수선 서비스'
           : repairParts.map((e) {
@@ -156,6 +158,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         'promotion_discount_amount':
             (payload['promotionDiscountAmount'] as num?)?.toInt() ?? 0,
         'original_total_price': payload['originalTotalPrice'],
+        'repair_parts': repairParts,
+        'clothing_type': payload['clothingType'] ?? '',
       };
 
       setState(() {
@@ -519,7 +523,25 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     );
   }
 
+  String _formatPrice(int price) {
+    return price.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
+
   Widget _buildPriceSection(String formattedAmount) {
+    final repairParts = (_orderData!['repair_parts'] as List?) ?? [];
+    final clothingType = (_orderData!['clothing_type'] as String?) ?? '';
+    final basePrice = (_orderData!['base_price'] as num?)?.toInt() ?? 0;
+    final shippingFee = (_orderData!['shipping_fee'] as num?)?.toInt() ?? 0;
+    final shippingDiscount =
+        (_orderData!['shipping_discount_amount'] as num?)?.toInt() ?? 0;
+    final remoteAreaFee =
+        (_orderData!['remote_area_fee'] as num?)?.toInt() ?? 0;
+    final promoDiscount =
+        (_orderData!['promotion_discount_amount'] as num?)?.toInt() ?? 0;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -549,27 +571,49 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
             ],
           ),
           const SizedBox(height: 16),
-          _buildInfoRow(
-            '기본 금액',
-            '₩${((_orderData!['base_price'] as num?)?.toInt() ?? 0)
-                .toString()
-                .replaceAllMapped(
-                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                  (Match m) => '${m[1]},',
-                )}',
-          ),
-          if (_orderData!['promotion_discount_amount'] != null && 
-              (_orderData!['promotion_discount_amount'] as int) > 0) ...[
-            const SizedBox(height: 12),
+
+          // 수선 세부항목
+          if (repairParts.isNotEmpty) ...[
+            ...repairParts.map((part) {
+              final p = part as Map;
+              final name = p['name']?.toString() ?? '수선';
+              final price = ((p['price'] as num?)?.toInt() ?? 0);
+              final qty = ((p['quantity'] as num?)?.toInt() ?? 1);
+              final label =
+                  clothingType.isNotEmpty ? '$clothingType - $name' : name;
+              return _buildInfoRow(
+                qty > 1 ? '$label x$qty' : label,
+                '₩${_formatPrice(price * qty)}',
+              );
+            }),
+          ] else ...[
+            _buildInfoRow('수선비', '₩${_formatPrice(basePrice)}'),
+          ],
+
+          // 배송비
+          if (shippingFee > 0)
+            _buildInfoRow('배송비', '₩${_formatPrice(shippingFee)}'),
+
+          // 배송비 할인
+          if (shippingDiscount > 0)
             _buildInfoRow(
-              '프로모션 할인',
-              '-₩${_orderData!['promotion_discount_amount'].toString().replaceAllMapped(
-                RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                (Match m) => '${m[1]},',
-              )}',
+              '배송비 할인',
+              '-₩${_formatPrice(shippingDiscount)}',
               isDiscount: true,
             ),
-          ],
+
+          // 도서산간 추가비
+          if (remoteAreaFee > 0)
+            _buildInfoRow('도서산간 추가비', '₩${_formatPrice(remoteAreaFee)}'),
+
+          // 프로모션 할인
+          if (promoDiscount > 0)
+            _buildInfoRow(
+              '프로모션 할인',
+              '-₩${_formatPrice(promoDiscount)}',
+              isDiscount: true,
+            ),
+
           Divider(height: 24, color: Colors.grey.shade200),
           Container(
             padding: const EdgeInsets.all(16),

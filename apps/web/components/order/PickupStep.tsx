@@ -280,7 +280,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
       <div className="px-4 py-4 border-b border-gray-100">
         <h2 className="text-lg font-bold text-gray-900">수거 정보를 입력해주세요</h2>
         <p className="text-sm text-gray-400 mt-0.5">
-          의류 {clothingCount}벌 · 수선 항목 {totalRepairItemsCount}개
+          수선 항목 {totalRepairItemsCount}개
         </p>
       </div>
 
