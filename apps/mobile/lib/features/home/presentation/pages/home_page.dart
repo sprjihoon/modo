@@ -10,6 +10,8 @@ import '../../../../services/order_service.dart';
 import '../../../../services/customer_event_service.dart';
 import '../../../../services/banner_service.dart';
 import '../../../../services/order_limit_service.dart';
+import '../../../../services/repair_service.dart';
+import '../../../../core/widgets/category_icon_widget.dart';
 import '../../../../app.dart';
 import '../widgets/extra_charge_alert_banner.dart';
 import '../../../orders/presentation/widgets/order_limit_dialog.dart';
@@ -62,6 +64,17 @@ class _HomePageState extends ConsumerState<HomePage>
     WidgetsBinding.instance.addObserver(this);
     CustomerEventService.trackPageView(pageTitle: '홈', pageUrl: '/home');
     _ordersFuture = _getCachedOrders();
+    _warmIconCache();
+  }
+
+  /// 수선 카테고리/타입/서브파트 SVG 아이콘을 백그라운드로 프리로드
+  void _warmIconCache() async {
+    try {
+      final urls = await RepairService().getAllIconUrls();
+      if (urls.isNotEmpty) {
+        await warmSvgCache(urls);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -292,7 +305,7 @@ class _HomePageState extends ConsumerState<HomePage>
           // 로딩 중엔 기존 캐시 데이터로 판단해서 버튼 텍스트 깜빡임 방지
           final hasOrders =
               snapshot.connectionState == ConnectionState.waiting
-                  ? (_cachedOrders?.isNotEmpty ?? false)
+                  ? (_cachedOrders?.isNotEmpty ?? true)
                   : snapshot.hasData && (snapshot.data?.isNotEmpty ?? false);
           final buttonText = hasOrders ? '수거신청 하기' : '첫 수거신청 하기';
 
@@ -676,7 +689,7 @@ class _HomePageState extends ConsumerState<HomePage>
             // 로딩 중엔 기존 캐시 데이터로 판단해서 버튼 텍스트 깜빡임 방지
             final hasOrders =
                 orderSnapshot.connectionState == ConnectionState.waiting
-                    ? (_cachedOrders?.isNotEmpty ?? false)
+                    ? (_cachedOrders?.isNotEmpty ?? true)
                     : orderSnapshot.hasData &&
                         (orderSnapshot.data?.isNotEmpty ?? false);
 

@@ -246,7 +246,7 @@ export function HomePageClient() {
         style={{ right: "unset", transform: "translateX(-50%)", left: "50%" }}
       >
         <Plus className="w-4 h-4" />
-        {orders.length > 0 ? "수선신청 하기" : "첫 수선신청 하기"}
+        {isLoading ? "수선신청 하기" : orders.length > 0 ? "수선신청 하기" : "첫 수선신청 하기"}
       </button>
 
       {/* 수거신청 다이얼로그 */}

@@ -7,6 +7,36 @@ import 'package:http/http.dart' as http;
 /// 앱 시작 시마다 초기화되므로 정규화 로직 변경 시 자동 반영됨.
 final Map<String, String> _svgNormalizedCache = {};
 
+/// 주어진 URL 목록의 SVG를 미리 fetch + normalize하여 캐시에 채움.
+/// 홈 화면 로드 시 호출하면 수선 신청 화면 진입 시 아이콘이 즉시 표시됨.
+Future<void> warmSvgCache(List<String> urls) async {
+  final uncached = urls
+      .where((u) => u.startsWith('http') && !_svgNormalizedCache.containsKey(u))
+      .toSet()
+      .toList();
+  if (uncached.isEmpty) return;
+
+  const batchSize = 5;
+  for (var i = 0; i < uncached.length; i += batchSize) {
+    final batch = uncached.sublist(
+      i,
+      (i + batchSize > uncached.length) ? uncached.length : i + batchSize,
+    );
+    await Future.wait(batch.map((url) async {
+      try {
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode == 200) {
+          _svgNormalizedCache[url] = _normalizeSvgColors(response.body);
+          final inlinedKey = 'inlined:$url';
+          if (!_svgNormalizedCache.containsKey(inlinedKey)) {
+            _svgNormalizedCache[inlinedKey] = _inlineSvgStyles(response.body);
+          }
+        }
+      } catch (_) {}
+    }));
+  }
+}
+
 /// CSS <style> 블록의 클래스 정의를 인라인 스타일로 변환.
 /// flutter_svg는 CSS <style> 블록을 완전히 지원하지 않으므로
 /// class="st0" → style="fill:#DD6564;" 형태로 인라인화해야 올바르게 렌더링됨.

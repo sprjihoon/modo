@@ -421,6 +421,41 @@ class RepairService {
     }
   }
 
+  /// 모든 수선 카테고리/타입/서브파트의 icon_name URL 목록 반환 (프리로드용)
+  Future<List<String>> getAllIconUrls() async {
+    try {
+      final urls = <String>{};
+      final categories = await _supabase
+          .from('repair_categories')
+          .select('icon_name')
+          .not('icon_name', 'is', null);
+      for (final row in categories) {
+        final v = row['icon_name'] as String?;
+        if (v != null && v.startsWith('http')) urls.add(v);
+      }
+      final types = await _supabase
+          .from('repair_types')
+          .select('icon_name')
+          .not('icon_name', 'is', null);
+      for (final row in types) {
+        final v = row['icon_name'] as String?;
+        if (v != null && v.startsWith('http')) urls.add(v);
+      }
+      final subParts = await _supabase
+          .from('repair_sub_parts')
+          .select('icon_name')
+          .not('icon_name', 'is', null);
+      for (final row in subParts) {
+        final v = row['icon_name'] as String?;
+        if (v != null && v.startsWith('http')) urls.add(v);
+      }
+      return urls.toList();
+    } catch (e) {
+      _logger.e('아이콘 URL 조회 실패: $e');
+      return [];
+    }
+  }
+
   /// 수선 종류 검색
   Future<List<Map<String, dynamic>>> searchRepairTypes(String query) async {
     try {
