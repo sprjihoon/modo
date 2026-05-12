@@ -97,7 +97,7 @@ export function OrderNewClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [mode, setMode] = useState<Mode>("list");
+  const [mode, setMode] = useState<Mode>("addClothing");
   const [draft, setDraft] = useState<OrderDraft>({ items: [] });
   // 장바구니에서 이어서 진행 중일 경우 원본 cart_drafts.id (완료시 삭제)
   const [resumingCartId, setResumingCartId] = useState<string | null>(null);
@@ -235,6 +235,12 @@ export function OrderNewClient() {
           e.preventDefault();
           setShowExitDialog(true);
         }
+      } else if (
+        currentMode === "addClothing" &&
+        modeHistoryRef.current.length === 0 &&
+        draftRef.current.items.length === 0
+      ) {
+        // 초기 상태 (빈 목록) - 자연스럽게 이탈 허용
       } else {
         e.preventDefault();
         popMode();
@@ -266,6 +272,17 @@ export function OrderNewClient() {
           }
           window.history.back();
         }
+      } else if (
+        currentMode === "addClothing" &&
+        modeHistoryRef.current.length === 0 &&
+        draftRef.current.items.length === 0
+      ) {
+        // 초기 상태 (빈 목록) - 이탈 허용
+        if (popstateHandlerRef.current) {
+          window.removeEventListener("popstate", popstateHandlerRef.current);
+          popstateHandlerRef.current = null;
+        }
+        window.history.back();
       } else {
         window.history.pushState({ orderFlowGuard: true }, "");
         popMode();
@@ -480,6 +497,14 @@ export function OrderNewClient() {
     setStagingRepairItems([]);
     setSubCategoryPhase("pre");
     modeHistoryRef.current = [];
+    if (draftRef.current.items.length === 0) {
+      if (popstateHandlerRef.current) {
+        window.removeEventListener("popstate", popstateHandlerRef.current);
+        popstateHandlerRef.current = null;
+      }
+      router.back();
+      return;
+    }
     setMode("list");
   }
 

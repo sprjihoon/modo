@@ -68,7 +68,7 @@ class OrderFlowPage extends ConsumerStatefulWidget {
 class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
   static const _brandColor = Color(0xFF00C896);
 
-  _FlowMode _currentMode = _FlowMode.list;
+  _FlowMode _currentMode = _FlowMode.addClothing;
   final List<_FlowMode> _modeHistory = [];
 
   OrderDraft _draft = const OrderDraft();
@@ -309,6 +309,11 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
     if (_modeHistory.isNotEmpty) {
       _popMode();
       return false;
+    }
+
+    // 초기 상태(아이템 없는 첫 의류 선택 화면)에서는 바로 이탈 허용
+    if (_draft.items.isEmpty && _currentMode == _FlowMode.addClothing) {
+      return true;
     }
 
     if (_draft.items.isNotEmpty || _currentMode != _FlowMode.list) {
