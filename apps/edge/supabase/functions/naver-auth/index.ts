@@ -290,12 +290,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // action_link에서 token_hash 추출
-    const actionUrl = new URL(linkData.properties.action_link);
-    const tokenHash = actionUrl.searchParams.get("token_hash");
+    // hashed_token 직접 추출 (action_link URL 파싱 불필요)
+    const tokenHash = linkData.properties.hashed_token;
 
     if (!tokenHash) {
-      console.error("❌ token_hash 추출 실패:", linkData.properties.action_link);
+      console.error("❌ hashed_token 추출 실패:", linkData.properties);
       return new Response(
         JSON.stringify({ error: "인증 토큰을 생성할 수 없습니다." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
