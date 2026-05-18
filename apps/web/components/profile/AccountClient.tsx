@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Phone, Mail, Lock, Save, Edit2, Eye, EyeOff } from "lucide-react";
+import { User, Phone, Mail, Lock, Save, Edit2, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface UserProfile {
@@ -28,6 +28,11 @@ export function AccountClient() {
   const [showNewPw, setShowNewPw] = useState(false);
   const [isSavingPw, setIsSavingPw] = useState(false);
   const [pwError, setPwError] = useState("");
+
+  // 회원탈퇴
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [withdrawConfirm, setWithdrawConfirm] = useState("");
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -104,6 +109,22 @@ export function AccountClient() {
       setPwError("비밀번호 변경에 실패했습니다");
     } finally {
       setIsSavingPw(false);
+    }
+  }
+
+  async function handleWithdraw() {
+    if (withdrawConfirm !== "탈퇴") return;
+    setIsWithdrawing(true);
+    try {
+      const res = await fetch("/api/auth/withdraw", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/?withdrawn=1");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "탈퇴 처리에 실패했습니다.");
+      setIsWithdrawing(false);
     }
   }
 
@@ -222,6 +243,51 @@ export function AccountClient() {
               className="w-full py-3 bg-[#00C896] text-white text-sm font-bold rounded-xl disabled:opacity-60"
             >
               {isSavingPw ? "변경 중..." : "비밀번호 변경"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 회원탈퇴 */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <button
+          onClick={() => { setShowWithdraw((v) => !v); setWithdrawConfirm(""); }}
+          className="w-full flex items-center gap-3 px-5 py-4 active:bg-gray-50"
+        >
+          <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center">
+            <AlertTriangle className="w-4 h-4 text-red-400" />
+          </div>
+          <p className="flex-1 text-left text-sm font-medium text-gray-800">회원탈퇴</p>
+          <span className="text-xs text-gray-400">{showWithdraw ? "닫기" : "탈퇴하기"}</span>
+        </button>
+
+        {showWithdraw && (
+          <div className="px-5 pb-5 border-t border-gray-50 pt-4 space-y-3">
+            <div className="bg-red-50 rounded-xl p-4 space-y-1">
+              <p className="text-xs font-bold text-red-600">탈퇴 전 꼭 확인해주세요</p>
+              <p className="text-xs text-red-500">• 계정 및 모든 개인정보가 삭제됩니다.</p>
+              <p className="text-xs text-red-500">• 진행 중인 수선 주문이 있는 경우 취소될 수 있습니다.</p>
+              <p className="text-xs text-red-500">• 보유 포인트는 환급되지 않습니다.</p>
+              <p className="text-xs text-red-500">• 탈퇴 후 복구가 불가능합니다.</p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 mb-1.5 block">
+                확인을 위해 <span className="text-red-500 font-bold">탈퇴</span>를 입력해주세요
+              </label>
+              <input
+                type="text"
+                value={withdrawConfirm}
+                onChange={(e) => setWithdrawConfirm(e.target.value)}
+                placeholder="탈퇴"
+                className="w-full px-3 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-red-300"
+              />
+            </div>
+            <button
+              onClick={handleWithdraw}
+              disabled={withdrawConfirm !== "탈퇴" || isWithdrawing}
+              className="w-full py-3 bg-red-500 text-white text-sm font-bold rounded-xl disabled:opacity-40"
+            >
+              {isWithdrawing ? "탈퇴 처리 중..." : "회원탈퇴"}
             </button>
           </div>
         )}
