@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 // 허용된 관리자 도메인 목록 (환경변수로 추가 지정 가능)
 const ALLOWED_ADMIN_DOMAINS = new Set([
   "admin.modo.mom",
+  "admin.modorepair.com",
 ]);
 
 // Vercel 프리뷰는 특정 프로젝트 prefix만 허용

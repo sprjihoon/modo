@@ -5,6 +5,9 @@ const ALLOWED_ORIGINS = new Set([
   'https://modo.mom',
   'https://admin.modo.mom',
   'https://www.modo.mom',
+  'https://modorepair.com',
+  'https://www.modorepair.com',
+  'https://admin.modorepair.com',
 ]);
 
 /**
