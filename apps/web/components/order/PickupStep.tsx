@@ -560,7 +560,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
             )}
           />
           <p className="text-xs text-gray-400 mt-1.5">
-            희망일은 참고용이며, 실제 수거일은 우체국 일정에 따라 결정됩니다.{" "}
+            선택하신 날짜가 우체국 수거 신청에 반영되며, 실제 방문일은 우체국 일정에 따라 달라질 수 있습니다.{" "}
             <span className="text-red-400 font-medium">토·일요일 및 공휴일은 수거 불가합니다.</span>
           </p>
         </div>

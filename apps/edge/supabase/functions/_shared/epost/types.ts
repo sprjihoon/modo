@@ -45,6 +45,9 @@ export interface InsertOrderParams {
   ordTel?: string;          // 주문자 전화번호
   ordMob?: string;          // 주문자 휴대전화번호
   delivMsg?: string;        // 배송 메시지
+  retVisitYmd?: string;     // 반품 희망 방문일자 (YYYYMMDD, reqType=2 반품소포 시)
+  retReason?: string;       // 반품 사유
+  retOrigRegiNo?: string;   // 반품 원등기번호
   insuYn?: 'Y' | 'N';       // 안심소포 여부
   insuAmt?: number;         // 안심소포 보험가액
   testYn?: 'Y' | 'N';       // 테스트 여부 (개발용)

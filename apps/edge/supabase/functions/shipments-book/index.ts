@@ -34,6 +34,26 @@ interface ShipmentBookRequest {
   test_mode?: boolean;          // 테스트 모드
 }
 
+/** orders.pickup_date → 우체국 retVisitYmd (YYYYMMDD) */
+function formatRetVisitYmd(pickupDate: string | null | undefined): string | undefined {
+  if (!pickupDate) return undefined;
+  const trimmed = pickupDate.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed.replace(/-/g, '');
+  }
+  if (/^\d{8}$/.test(trimmed)) {
+    return trimmed;
+  }
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return `${y}${m}${d}`;
+  }
+  return undefined;
+}
+
 Deno.serve(async (req) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
@@ -111,7 +131,8 @@ Deno.serve(async (req) => {
         delivery_address,
         delivery_address_detail,
         delivery_zipcode,
-        delivery_phone
+        delivery_phone,
+        pickup_date
       `)
       .eq('id', order_id)
       .single();
@@ -448,9 +469,7 @@ Deno.serve(async (req) => {
     // epostParams 생성
     // 참고: testYn은 실제 API 호출 시 URL 파라미터로 사용되지만, regData에는 포함하지 않음
     
-    // 🔍 수거예약일 설정 및 검증
-    // 우체국 API는 resDate를 응답으로 반환하지만, 요청 시 날짜를 지정할 수 있는 파라미터가 있을 수 있습니다.
-    // 현재는 우체국 API가 자동으로 설정하지만, 응답에서 받은 resDate를 확인하여 이상한 날짜인지 검증합니다.
+    // 🔍 수거예약일 검증: 응답 resDate 기준 (요청 retVisitYmd와 다를 수 있음)
     // 참고: 오늘 예약하면 보통 내일 픽업이 정상이며, 일요일은 픽업 안됨
     const today = new Date();
     const todayYmd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
@@ -475,6 +494,18 @@ Deno.serve(async (req) => {
     // 🔀 shipment_type에 따라 발송/수거 구분
     const isPickup = shipment_type === 'pickup'; // true: 수거, false: 발송
     const isDelivery = shipment_type === 'delivery';
+
+    // 반품소포 수거 희망일 → retVisitYmd (미입력 시 우체국 기본값: 내일)
+    const retVisitYmd = isPickup
+      ? formatRetVisitYmd(existingOrder.pickup_date)
+      : undefined;
+
+    if (isPickup) {
+      console.log('📅 수거 희망일(retVisitYmd):', {
+        orders_pickup_date: existingOrder.pickup_date,
+        retVisitYmd: retVisitYmd ?? '(미전송 → 우체국 기본: 내일)',
+      });
+    }
 
     console.log('🚚 송장 유형:', {
       shipment_type,
@@ -560,6 +591,7 @@ Deno.serve(async (req) => {
       inqTelCn: isPickup 
         ? (pickupInfo.phone ? pickupInfo.phone.replace(/-/g, '').substring(0, 12) : undefined)
         : CENTER_PHONE,
+      ...(isPickup && retVisitYmd ? { retVisitYmd } : {}),
     };
     
     // 🎯 sender/receiver 디버그 로그 (Payload 전송 직전)

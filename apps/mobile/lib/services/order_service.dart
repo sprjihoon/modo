@@ -151,7 +151,7 @@ class OrderService {
     int? originalTotalPrice, // 할인 전 원래 금액
     String? recipientName, // 수취인 이름
     String? recipientPhone, // 수취인 전화번호
-    DateTime? pickupDate, // 수거 희망일 (DB 저장용, 우체국 API는 날짜 지정 불가)
+    DateTime? pickupDate, // 수거 희망일 (orders.pickup_date → 우체국 retVisitYmd)
   }) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -227,7 +227,7 @@ class OrderService {
         'notes': notes,
       };
 
-      // 수거 희망일 추가 (우체국 API는 날짜 직접 지정 불가, DB 저장 후 알림 용도)
+      // 수거 희망일 (수거 예약 시 shipments-book이 retVisitYmd로 우체국에 전달)
       if (pickupDate != null) {
         orderData['pickup_date'] = pickupDate.toIso8601String().split('T')[0];
       }

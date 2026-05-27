@@ -1126,7 +1126,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '희망일은 참고용이며, 실제 수거일은 우체국 일정에 따라 결정됩니다.',
+                      '선택하신 날짜가 우체국 수거 신청에 반영되며, 실제 방문일은 우체국 일정에 따라 달라질 수 있습니다.',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade500,

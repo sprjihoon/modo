@@ -13,10 +13,13 @@ export async function mockInsertOrder(params: InsertOrderParams): Promise<Insert
   console.warn('⚠️ Mock 소포신청을 사용합니다 (실제 우체국 API 호출 없음)');
 
   const now = new Date();
-  const yy = now.getFullYear().toString().slice(-2);
-  const mm = (now.getMonth() + 1).toString().padStart(2, '0');
-  const dd = now.getDate().toString().padStart(2, '0');
-  const dateStr = yy + mm + dd;
+  const ymd = params.retVisitYmd && /^\d{8}$/.test(params.retVisitYmd)
+    ? params.retVisitYmd
+    : `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  const dateStr = ymd.slice(2);
+  const timePart = String(now.getHours()).padStart(2, '0')
+    + String(now.getMinutes()).padStart(2, '0')
+    + String(now.getSeconds()).padStart(2, '0');
 
   return {
     reqNo: `${dateStr}64036480${Math.floor(Math.random() * 90 + 10)}`,
@@ -24,7 +27,7 @@ export async function mockInsertOrder(params: InsertOrderParams): Promise<Insert
     regiNo: `601${dateStr}${Math.floor(Math.random() * 90000 + 10000)}`, // 우체국 등기번호 형식
     orderNo: params.orderNo,
     regiPoNm: '나주우체국',
-    resDate: now.toISOString().replace(/[^0-9]/g, '').substring(0, 14),
+    resDate: `${ymd}${timePart}`,
     price: '3300',
     vTelNo: `0505${Math.floor(Math.random() * 9000000 + 1000000)}`,
   };
