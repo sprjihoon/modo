@@ -11,6 +11,7 @@ import '../widgets/clothing_type_step.dart';
 import '../widgets/sub_category_step.dart' as sub_cat;
 import '../widgets/image_pin_step.dart';
 import '../widgets/repair_type_step.dart';
+import '../widgets/order_flow_progress.dart';
 
 enum _FlowMode {
   list,
@@ -350,9 +351,40 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
             }
           },
         ),
-        body: _buildCurrentStep(),
+        body: Column(
+          children: [
+            OrderFlowProgress(
+              currentStep: getOrderFlowStepIndex(
+                mode: _toProgressMode(_currentMode),
+                subCategoryPhase: _subCategoryPhase == _SubCategoryPhase.pre
+                    ? OrderFlowSubCategoryPhase.pre
+                    : OrderFlowSubCategoryPhase.post,
+              ),
+            ),
+            Expanded(child: _buildCurrentStep()),
+          ],
+        ),
       ),
     );
+  }
+
+  OrderFlowStepMode _toProgressMode(_FlowMode mode) {
+    switch (mode) {
+      case _FlowMode.list:
+        return OrderFlowStepMode.list;
+      case _FlowMode.addClothing:
+        return OrderFlowStepMode.addClothing;
+      case _FlowMode.addSubCategory:
+        return OrderFlowStepMode.addSubCategory;
+      case _FlowMode.addPhoto:
+        return OrderFlowStepMode.addPhoto;
+      case _FlowMode.addMeasurement:
+        return OrderFlowStepMode.addMeasurement;
+      case _FlowMode.addRepair:
+        return OrderFlowStepMode.addRepair;
+      case _FlowMode.pickup:
+        return OrderFlowStepMode.pickup;
+    }
   }
 
   Widget _buildCurrentStep() {

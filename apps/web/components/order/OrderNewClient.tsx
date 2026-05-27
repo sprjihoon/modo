@@ -10,6 +10,10 @@ import { MeasurementStep, MeasurementConfig } from "./MeasurementStep";
 import { ImagePinStep } from "./ImagePinStep";
 import { PickupStep } from "./PickupStep";
 import { ItemsListPanel } from "./ItemsListPanel";
+import {
+  OrderFlowProgress,
+  getOrderFlowStepIndex,
+} from "./OrderFlowProgress";
 import { addCartItem, removeCartItem } from "@/lib/cart";
 import { Analytics } from "@/lib/analytics";
 
@@ -598,8 +602,11 @@ export function OrderNewClient() {
 
 
 
+  const currentFlowStep = getOrderFlowStepIndex(mode, subCategoryPhase);
+
   return (
     <div>
+      <OrderFlowProgress currentStep={currentFlowStep} />
 
       <div>
         {mode === "list" && (

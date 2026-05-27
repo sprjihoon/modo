@@ -13,6 +13,7 @@ import '../../../../services/shipping_settings_service.dart';
 import '../../providers/repair_items_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../../../services/customer_event_service.dart';
+import '../widgets/order_flow_progress.dart';
 
 /// 수거신청 페이지
 class PickupRequestPage extends ConsumerStatefulWidget {
@@ -1087,6 +1088,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       ),
       body: Column(
         children: [
+          const OrderFlowProgress(currentStep: 3),
           Expanded(
             child: SingleChildScrollView(
               child: Padding(
