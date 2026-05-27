@@ -71,7 +71,7 @@ export function ItemsListPanel({
         <button
           type="button"
           onClick={onAddItem}
-          className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-[#00C896] text-[#00C896] rounded-2xl text-sm font-bold active:bg-[#00C896]/5"
+          className="touch-target w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-[#00C896] text-[#00C896] rounded-2xl text-sm font-bold active:bg-[#00C896]/5"
         >
           <Plus className="w-4 h-4" />
           {items.length === 0 ? "의류 추가하기" : "의류 추가"}
@@ -93,7 +93,7 @@ export function ItemsListPanel({
                 {formatPrice(totalRepairPrice)}~
               </span>
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 mt-1">
               배송비는 다음 단계에서 추가됩니다.
             </p>
           </div>
@@ -102,7 +102,7 @@ export function ItemsListPanel({
             <button
               type="button"
               onClick={onSaveToCart}
-              className="flex items-center justify-center gap-1 px-4 py-4 border border-[#00C896] text-[#00C896] rounded-xl text-sm font-bold active:bg-[#00C896]/5"
+              className="touch-target flex items-center justify-center gap-1 px-4 py-4 border border-[#00C896] text-[#00C896] rounded-xl text-sm font-bold active:bg-[#00C896]/5"
             >
               <ShoppingCart className="w-4 h-4" />
               담기
@@ -110,7 +110,7 @@ export function ItemsListPanel({
             <button
               type="button"
               onClick={onProceedToPickup}
-              className="flex-1 py-4 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 flex items-center justify-center gap-1"
+              className="touch-target flex-1 py-4 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 flex items-center justify-center gap-1"
             >
               수거 정보 입력
               <ChevronRight className="w-4 h-4" />

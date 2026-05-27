@@ -242,7 +242,7 @@ export function HomePageClient() {
       {/* 수거신청 FAB */}
       <button
         onClick={handleOrderStart}
-        className="fixed bottom-20 right-1/2 translate-x-1/2 z-40 flex items-center gap-2 bg-[#00C896] text-white font-bold px-6 py-3.5 rounded-full shadow-lg shadow-[#00C896]/30 active:shadow-none active:bg-[#00A07B] transition-all"
+        className="touch-target fixed bottom-20 right-1/2 translate-x-1/2 z-40 flex items-center gap-2 bg-[#00C896] text-white font-bold px-6 py-3.5 rounded-full shadow-lg shadow-[#00C896]/30 active:shadow-none active:bg-[#00A07B] transition-all"
         style={{ right: "unset", transform: "translateX(-50%)", left: "50%" }}
       >
         <Plus className="w-4 h-4" />

@@ -86,7 +86,7 @@ export function AddAddressClient() {
             placeholder="예: 집, 회사, 부모님댁"
             value={form.label}
             onChange={(e) => set("label", e.target.value)}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
         </div>
 
@@ -102,7 +102,7 @@ export function AddAddressClient() {
             value={form.recipientName}
             onChange={(e) => set("recipientName", e.target.value)}
             required
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
           <input
             type="tel"
@@ -110,7 +110,7 @@ export function AddAddressClient() {
             value={form.recipientPhone}
             onChange={(e) => set("recipientPhone", e.target.value)}
             required
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
         </div>
 
@@ -126,7 +126,7 @@ export function AddAddressClient() {
               placeholder="우편번호"
               value={form.zipcode}
               readOnly
-              className="w-28 px-4 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 text-gray-600"
+              className="w-28 px-4 py-3 border border-gray-200 rounded-xl text-base bg-gray-50 text-gray-600"
             />
             <AddressSearchButton
               onSelect={(zipcode, addr) => {
@@ -140,14 +140,14 @@ export function AddAddressClient() {
             value={form.address}
             readOnly
             required
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 text-gray-600"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base bg-gray-50 text-gray-600"
           />
           <input
             type="text"
             placeholder="상세 주소 (동/호수 등)"
             value={form.addressDetail}
             onChange={(e) => set("addressDetail", e.target.value)}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
         </div>
 
@@ -184,7 +184,7 @@ export function AddAddressClient() {
         <button
           type="submit"
           disabled={isSaving}
-          className="w-full py-4 bg-[#00C896] text-white text-sm font-bold rounded-xl disabled:opacity-60 active:brightness-95"
+          className="touch-target w-full py-4 bg-[#00C896] text-white text-sm font-bold rounded-xl disabled:opacity-60 active:brightness-95"
         >
           {isSaving ? "저장 중..." : "배송지 저장"}
         </button>

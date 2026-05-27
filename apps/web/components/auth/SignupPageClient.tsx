@@ -98,7 +98,7 @@ export function SignupPageClient() {
             placeholder="이름 *"
             value={form.name}
             onChange={(e) => handleChange("name", e.target.value)}
-            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
         </div>
 
@@ -110,7 +110,7 @@ export function SignupPageClient() {
             placeholder="이메일 *"
             value={form.email}
             onChange={(e) => handleChange("email", e.target.value)}
-            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
             autoComplete="email"
           />
         </div>
@@ -123,7 +123,7 @@ export function SignupPageClient() {
             placeholder="전화번호 (선택)"
             value={form.phone}
             onChange={(e) => handleChange("phone", e.target.value)}
-            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
         </div>
 
@@ -135,7 +135,7 @@ export function SignupPageClient() {
             placeholder="비밀번호 (8자 이상) *"
             value={form.password}
             onChange={(e) => handleChange("password", e.target.value)}
-            className="w-full pl-11 pr-12 py-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full pl-11 pr-12 py-4 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
           <button
             type="button"
@@ -154,7 +154,7 @@ export function SignupPageClient() {
             placeholder="비밀번호 확인 *"
             value={form.passwordConfirm}
             onChange={(e) => handleChange("passwordConfirm", e.target.value)}
-            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
         </div>
 

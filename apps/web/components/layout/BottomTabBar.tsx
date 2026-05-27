@@ -8,11 +8,11 @@ import { useEffect, useState } from "react";
 import { fetchCartItems } from "@/lib/cart";
 
 const tabs = [
-  { href: "/", icon: Home, label: "홈" },
+  { href: "/", icon: Home, label: "�??" },
   { href: "/orders", icon: Package, label: "주문" },
-  { href: "/cart", icon: ShoppingCart, label: "장바구니" },
-  { href: "/notifications", icon: Bell, label: "알림" },
-  { href: "/profile", icon: User, label: "마이" },
+  { href: "/cart", icon: ShoppingCart, label: "�?��?구�??" },
+  { href: "/notifications", icon: Bell, label: "�??림" },
+  { href: "/profile", icon: User, label: "�?이" },
 ];
 
 export function BottomTabBar() {
@@ -54,14 +54,14 @@ export function BottomTabBar() {
                   strokeWidth={active ? 2.5 : 2}
                 />
                 {isCart && cartBadge > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 border border-white">
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-0.5 border border-white">
                     {cartBadge > 9 ? "9+" : cartBadge}
                   </span>
                 )}
               </div>
               <span
                 className={cn(
-                  "text-[10px] font-medium",
+                  "text-xs font-medium",
                   active ? "text-[#00C896]" : "text-gray-400"
                 )}
               >

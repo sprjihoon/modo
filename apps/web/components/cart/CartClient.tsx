@@ -129,11 +129,11 @@ export function CartClient() {
                         )}
                       </p>
                       {d.pickupAddress && (
-                        <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">
                           📍 {d.pickupAddress}
                         </p>
                       )}
-                      <p className="text-[10px] text-gray-300 mt-1">
+                      <p className="text-xs text-gray-300 mt-1">
                         {formatDate(item.savedAt)} 저장
                       </p>
                     </div>
@@ -149,13 +149,13 @@ export function CartClient() {
                     {allRepairItems.slice(0, 4).map((r, i) => (
                       <span
                         key={i}
-                        className="text-[11px] bg-[#00C896]/8 text-[#00C896] px-2 py-0.5 rounded-full border border-[#00C896]/20"
+                        className="text-xs bg-[#00C896]/8 text-[#00C896] px-2 py-0.5 rounded-full border border-[#00C896]/20"
                       >
                         {r.name}
                       </span>
                     ))}
                     {allRepairItems.length > 4 && (
-                      <span className="text-[11px] text-gray-400 px-2 py-0.5">
+                      <span className="text-xs text-gray-400 px-2 py-0.5">
                         +{allRepairItems.length - 4}개
                       </span>
                     )}

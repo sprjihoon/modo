@@ -78,7 +78,7 @@ export function ResetPasswordClient() {
             placeholder="새 비밀번호 (8자 이상)"
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError(""); }}
-            className="w-full pl-11 pr-12 py-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full pl-11 pr-12 py-4 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
           <button
             type="button"
@@ -96,7 +96,7 @@ export function ResetPasswordClient() {
             placeholder="새 비밀번호 확인"
             value={passwordConfirm}
             onChange={(e) => { setPasswordConfirm(e.target.value); setError(""); }}
-            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
         </div>
 

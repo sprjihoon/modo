@@ -772,7 +772,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                     </div>
                     <p
                       className={cn(
-                        "text-[10px] mt-1.5 text-center leading-tight font-medium",
+                        "text-xs mt-1.5 text-center leading-tight font-medium",
                         isCurrent
                           ? "text-[#00C896] font-bold"
                           : isCompleted
@@ -992,7 +992,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                       onChange={(e) => setEditNotes(e.target.value)}
                       placeholder="배송 시 요청사항 (예: 문 앞에 놓아주세요)"
                       rows={3}
-                      className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl outline-none focus:border-[#00C896] transition-colors resize-none"
+                      className="w-full px-4 py-3 text-base border border-gray-200 rounded-xl outline-none focus:border-[#00C896] transition-colors resize-none"
                     />
                   </div>
 
@@ -1091,7 +1091,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 : "text-gray-400"
             )} />
             <p className="text-sm font-bold text-gray-800">배송 추적</p>
-            <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
               {shipment?.carrier ?? "우체국 택배"}
             </span>
           </div>
@@ -1100,7 +1100,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             {/* 회수 송장번호 */}
             {shipment?.pickup_tracking_no && (
               <div>
-                <p className="text-[10px] text-gray-400 font-medium mb-1.5">회수 송장번호</p>
+                <p className="text-xs text-gray-400 font-medium mb-1.5">회수 송장번호</p>
                 {order.status === "BOOKED" ? (
                   <Link
                     href={`/orders/${orderId}/tracking?tracking_no=${shipment.pickup_tracking_no}`}
@@ -1119,7 +1119,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                     <p className="text-sm font-mono font-bold text-gray-500 tracking-widest">
                       {shipment.pickup_tracking_no}
                     </p>
-                    <span className="text-[10px] text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full">수거 완료</span>
+                    <span className="text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full">수거 완료</span>
                   </div>
                 )}
               </div>
@@ -1128,7 +1128,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             {/* 발송 송장번호 */}
             {shipment?.delivery_tracking_no && (
               <div>
-                <p className="text-[10px] text-gray-400 font-medium mb-1.5">발송 송장번호</p>
+                <p className="text-xs text-gray-400 font-medium mb-1.5">발송 송장번호</p>
                 {(order.status === "READY_TO_SHIP" || order.status === "DELIVERED") ? (
                   <Link
                     href={`/orders/${orderId}/tracking?tracking_no=${shipment.delivery_tracking_no}`}
@@ -1147,7 +1147,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                     <p className="text-sm font-mono font-bold text-gray-500 tracking-widest">
                       {shipment.delivery_tracking_no}
                     </p>
-                    <span className="text-[10px] text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full">배송 준비 중</span>
+                    <span className="text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full">배송 준비 중</span>
                   </div>
                 )}
               </div>
@@ -1160,7 +1160,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 className="flex items-center justify-between p-3 rounded-xl bg-[#00C896]/5 border border-[#00C896]/20 active:bg-[#00C896]/10"
               >
                 <div>
-                  <p className="text-[10px] text-[#00C896] font-semibold mb-1">송장번호</p>
+                  <p className="text-xs text-[#00C896] font-semibold mb-1">송장번호</p>
                   <p className="text-sm font-mono font-bold text-gray-800 tracking-widest">{order.tracking_no}</p>
                 </div>
                 <div className="flex items-center gap-1 text-[#00C896] text-xs font-bold">
@@ -1210,7 +1210,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
               /* 전후 비교: 입고/출고 영상 세로 배치 */
               <div className="flex flex-col">
                 <div>
-                  <p className="text-white/60 text-[10px] font-medium px-3 pt-2 pb-1">
+                  <p className="text-white/60 text-xs font-medium px-3 pt-2 pb-1">
                     {activeVideo.title}
                   </p>
                   <div className="aspect-video w-full">
@@ -1224,7 +1224,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                   </div>
                 </div>
                 <div className="border-t border-white/10">
-                  <p className="text-white/60 text-[10px] font-medium px-3 pt-2 pb-1">
+                  <p className="text-white/60 text-xs font-medium px-3 pt-2 pb-1">
                     {activeVideo.comparisonTitle}
                   </p>
                   <div className="aspect-video w-full">
@@ -1289,7 +1289,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 {isCancelling ? "취소 중..." : buttonLabel}
               </button>
               {cancelIsPostPickup && (
-                <p className="text-[11px] text-gray-400 text-center px-2">
+                <p className="text-xs text-gray-400 text-center px-2">
                   의류가 이미 입고된 상태입니다. 취소 시 왕복 배송비
                   {" "}
                   <span className="font-semibold text-gray-500">
@@ -1486,7 +1486,7 @@ function VideoCard({
           {title}
         </p>
         {!hasVideo && (
-          <p className="text-[10px] text-gray-400 mt-0.5">준비 중</p>
+          <p className="text-xs text-gray-400 mt-0.5">준비 중</p>
         )}
       </div>
     </button>

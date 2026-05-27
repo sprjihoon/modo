@@ -424,7 +424,7 @@ export function PaymentClient() {
             <p className="text-xs font-bold text-yellow-800 mb-2">
               🧪 테스트 모드 (관리자 설정 ON)
             </p>
-            <p className="text-[11px] text-yellow-700 mb-3 leading-snug">
+            <p className="text-xs text-yellow-700 mb-3 leading-snug">
               결제 게이트웨이를 우회해서 주문 생성 + 우체국 수거예약을
               호출합니다. 운영 환경에서는 끄세요.
             </p>

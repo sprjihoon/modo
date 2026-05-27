@@ -390,7 +390,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
               className="w-full h-full object-cover"
             />
             {img.pins.length > 0 && (
-              <div className="absolute top-1 left-1 bg-[#00C896] text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              <div className="absolute top-1 left-1 bg-[#00C896] text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                 {img.pins.length}
               </div>
             )}
@@ -418,7 +418,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
             ) : (
               <>
                 <Camera className="w-5 h-5" />
-                <span className="text-[10px]">
+                <span className="text-xs">
                   사진 추가 ({images.length}/{MAX_IMAGES})
                 </span>
               </>
@@ -437,7 +437,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
       </div>
 
       {reachedImageLimit && (
-        <p className="px-4 text-[11px] text-gray-400">
+        <p className="px-4 text-xs text-gray-400">
           사진은 최대 {MAX_IMAGES}장까지 첨부할 수 있어요
         </p>
       )}
@@ -458,7 +458,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
             </p>
             <div className="flex items-center gap-1">
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
                   reachedPinLimit
                     ? "bg-orange-100 text-orange-600"
                     : "bg-[#00C896]/10 text-[#00C896]"
@@ -530,7 +530,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
                   {showLabel && !isDragging && (
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1 whitespace-nowrap max-w-[160px]">
                       <div
-                        className={`px-2 py-0.5 rounded-md bg-white text-[11px] font-medium text-gray-800 shadow-md border truncate ${
+                        className={`px-2 py-0.5 rounded-md bg-white text-xs font-medium text-gray-800 shadow-md border truncate ${
                           isEditing ? "border-orange-400" : "border-gray-300"
                         }`}
                       >
@@ -579,7 +579,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
                 {toasts.map((t) => (
                   <div
                     key={t.id}
-                    className={`px-3 py-1.5 rounded-full text-[11px] font-semibold shadow-md ${
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold shadow-md ${
                       t.type === "warning"
                         ? "bg-orange-500 text-white"
                         : t.type === "success"
@@ -652,7 +652,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
             <div className="mt-3 space-y-2">
               <p className="text-xs font-semibold text-gray-600 flex items-center gap-1">
                 표시된 수선 부위
-                <span className="text-[10px] text-gray-400 font-normal">
+                <span className="text-xs text-gray-400 font-normal">
                   · 핀을 드래그해 위치를 옮길 수 있어요
                 </span>
               </p>
@@ -696,7 +696,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
           )}
 
           {activeImage.pins.length > 0 && (
-            <div className="mt-2 flex items-center gap-1 text-[11px] text-gray-400">
+            <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
               <Move className="w-3 h-3" />
               핀을 길게 눌러 드래그하면 위치를 변경할 수 있어요
             </div>

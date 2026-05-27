@@ -180,7 +180,7 @@ export function SubCategoryStep({
                   {cat.name}
                 </span>
                 {cat.price != null && (
-                  <span className="text-[10px] text-gray-400">
+                  <span className="text-xs text-gray-400">
                     {cat.price_range || `${cat.price.toLocaleString("ko-KR")}원`}
                   </span>
                 )}

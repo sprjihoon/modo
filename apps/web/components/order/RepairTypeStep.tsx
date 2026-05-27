@@ -608,7 +608,7 @@ export function RepairTypeStep({
                         {part.name}
                       </p>
                       {part.price > 0 && (
-                        <p className="text-[10px] text-gray-400">
+                        <p className="text-xs text-gray-400">
                           {formatPrice(part.price)}
                         </p>
                       )}
@@ -633,7 +633,7 @@ export function RepairTypeStep({
             onClick={confirmInlineSubParts}
             disabled={!canConfirm}
             className={cn(
-              "flex-1 py-4 rounded-xl text-sm font-bold transition-colors",
+              "touch-target flex-1 py-4 rounded-xl text-sm font-bold transition-colors",
               canConfirm
                 ? "bg-[#00C896] text-white"
                 : "bg-gray-100 text-gray-400"
@@ -737,14 +737,14 @@ export function RepairTypeStep({
         <div className="px-4 py-4 border-t border-gray-50 flex gap-3">
           <button
             onClick={() => setMeasureView(null)}
-            className="flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
+            className="touch-target flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
           >
             이전
           </button>
           <button
             onClick={() => confirmMeasurement(measureValues)}
             disabled={!hasAnyValue}
-            className="flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
+            className="touch-target flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
           >
             확인
           </button>

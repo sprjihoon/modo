@@ -113,7 +113,7 @@ export function LoginPageClient() {
             placeholder="이메일"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
             autoComplete="email"
           />
         </div>
@@ -126,7 +126,7 @@ export function LoginPageClient() {
             placeholder="비밀번호"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full pl-11 pr-12 py-4 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full pl-11 pr-12 py-4 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
             autoComplete="current-password"
           />
           <button
@@ -180,7 +180,7 @@ export function LoginPageClient() {
         {/* 카카오 */}
         <button
           onClick={handleKakaoLogin}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm text-gray-800"
+          className="touch-target w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm text-gray-800"
           style={{ backgroundColor: "#FEE500" }}
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -192,7 +192,7 @@ export function LoginPageClient() {
         {/* 네이버 */}
         <button
           onClick={handleNaverLogin}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm text-white"
+          className="touch-target w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm text-white"
           style={{ backgroundColor: "#03C75A" }}
         >
           <span className="text-base font-black leading-none">N</span>
@@ -202,7 +202,7 @@ export function LoginPageClient() {
         {/* 구글 */}
         <button
           onClick={handleGoogleLogin}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm text-gray-700 border border-gray-200 bg-white"
+          className="touch-target w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm text-gray-700 border border-gray-200 bg-white"
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -216,7 +216,7 @@ export function LoginPageClient() {
         {/* 애플 */}
         <button
           onClick={handleAppleLogin}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm text-white bg-black"
+          className="touch-target w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-semibold text-sm text-white bg-black"
         >
           <svg width="16" height="18" viewBox="0 0 16 18" fill="none">
             <path d="M13.17 9.62c-.02-2.16 1.77-3.2 1.85-3.26-1.01-1.47-2.57-1.67-3.13-1.7-1.34-.13-2.6.78-3.28.78-.67 0-1.72-.76-2.83-.74C4.27 4.72 2.8 5.57 2 6.9 .33 9.6 1.54 13.6 3.16 15.77c.81 1.16 1.77 2.46 3.03 2.41 1.21-.05 1.67-.78 3.13-.78 1.46 0 1.87.78 3.15.76 1.31-.03 2.14-1.19 2.94-2.35.92-1.35 1.3-2.66 1.32-2.72-.03-.01-2.54-.97-2.56-3.47zM10.95 2.9C11.6 2.1 12.06 1 11.91 0 10.97.04 9.84.62 9.17 1.41 8.57 2.12 8.03 3.26 8.21 4.33c1.05.08 2.12-.54 2.74-1.43z" fill="white"/>

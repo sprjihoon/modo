@@ -693,14 +693,14 @@ export function OrderNewClient() {
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => setShowExitDialog(false)}
-                className="w-full py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80"
+                className="touch-target w-full py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80"
               >
                 계속 결제하기
               </button>
               <button
                 onClick={handleExitSaveToCart}
                 disabled={draft.items.length === 0}
-                className="w-full py-3.5 border border-[#00C896] text-[#00C896] text-sm font-bold rounded-xl active:bg-[#00C896]/5 disabled:opacity-40 flex items-center justify-center gap-2"
+                className="touch-target w-full py-3.5 border border-[#00C896] text-[#00C896] text-sm font-bold rounded-xl active:bg-[#00C896]/5 disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="w-4 h-4" />
                 장바구니에 담기

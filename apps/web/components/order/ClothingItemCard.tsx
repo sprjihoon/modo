@@ -62,7 +62,7 @@ export function ClothingItemCard({ index, item, onRemove }: Props) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] bg-[#00C896]/10 text-[#00C896] font-bold px-1.5 py-0.5 rounded">
+            <span className="text-xs bg-[#00C896]/10 text-[#00C896] font-bold px-1.5 py-0.5 rounded">
               의류 {index + 1}
             </span>
             <p className="text-sm font-bold text-gray-900 truncate">
@@ -82,13 +82,13 @@ export function ClothingItemCard({ index, item, onRemove }: Props) {
             {item.repairItems.slice(0, 4).map((r, i) => (
               <span
                 key={i}
-                className="text-[10px] bg-[#00C896]/8 text-[#00C896] px-1.5 py-0.5 rounded-full border border-[#00C896]/20"
+                className="text-xs bg-[#00C896]/8 text-[#00C896] px-1.5 py-0.5 rounded-full border border-[#00C896]/20"
               >
                 {r.name}
               </span>
             ))}
             {item.repairItems.length > 4 && (
-              <span className="text-[10px] text-gray-400 px-1.5 py-0.5">
+              <span className="text-xs text-gray-400 px-1.5 py-0.5">
                 +{item.repairItems.length - 4}개
               </span>
             )}
@@ -99,7 +99,7 @@ export function ClothingItemCard({ index, item, onRemove }: Props) {
               {item.repairItems
                 .filter((r) => r.detail)
                 .map((r, i) => (
-                  <p key={i} className="text-[10px] text-gray-500">
+                  <p key={i} className="text-xs text-gray-500">
                     {r.detail}
                   </p>
                 ))}

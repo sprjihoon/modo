@@ -79,7 +79,7 @@ export function OrderFlowProgress({
           <span
             key={label}
             className={cn(
-              "flex-1 text-center text-[10px] leading-tight transition-colors",
+              "flex-1 text-center text-xs leading-tight transition-colors",
               idx === clampedStep
                 ? "text-[#00C896] font-bold"
                 : idx < clampedStep

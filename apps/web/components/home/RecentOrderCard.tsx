@@ -63,7 +63,7 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
               )}
             </div>
             {isPendingCustomer && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-bold border-2 border-white">
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white">
                 !
               </span>
             )}
@@ -73,13 +73,13 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1 flex-wrap">
               {isPendingCustomer && (
-                <span className="text-[11px] font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded">
+                <span className="text-xs font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded">
                   추가결제
                 </span>
               )}
               <span
                 className={cn(
-                  "text-[11px] font-bold px-1.5 py-0.5 rounded",
+                  "text-xs font-bold px-1.5 py-0.5 rounded",
                   statusInfo.color,
                   statusInfo.bgColor
                 )}
@@ -87,7 +87,7 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
                 {statusInfo.label}
               </span>
               {dateStr && (
-                <span className="text-[11px] text-gray-400">{dateStr}</span>
+                <span className="text-xs text-gray-400">{dateStr}</span>
               )}
             </div>
 
@@ -134,9 +134,9 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
               ))}
             </div>
             <div className="flex justify-between mt-1">
-              <span className="text-[10px] text-gray-400">수거예약</span>
-              <span className="text-[10px] text-[#00C896] font-semibold">{statusInfo.label}</span>
-              <span className="text-[10px] text-gray-400">배송완료</span>
+              <span className="text-xs text-gray-400">수거예약</span>
+              <span className="text-xs text-[#00C896] font-semibold">{statusInfo.label}</span>
+              <span className="text-xs text-gray-400">배송완료</span>
             </div>
           </div>
         )}

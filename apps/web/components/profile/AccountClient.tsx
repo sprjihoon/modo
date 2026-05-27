@@ -324,7 +324,7 @@ function FieldInput({
           className="flex-1 text-sm text-gray-800 bg-transparent outline-none disabled:text-gray-500"
         />
       </div>
-      {hint && <p className="text-[11px] text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
     </div>
   );
 }

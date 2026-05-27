@@ -309,7 +309,7 @@ export function TrackingClient({
             <CheckCircle className="w-4 h-4 text-[#00C896]" />
             <p className="text-sm font-bold text-gray-800">배송 추적 이력</p>
             {isCachedEvents && (
-              <span className="ml-auto text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+              <span className="ml-auto text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                 마지막 조회 기록
               </span>
             )}
@@ -341,7 +341,7 @@ export function TrackingClient({
                       )}>
                         {event.status}
                       </p>
-                      <p className="text-[10px] text-gray-400 shrink-0 mt-0.5">
+                      <p className="text-xs text-gray-400 shrink-0 mt-0.5">
                         {formatTrackingDateTime(event.date, event.time)}
                       </p>
                     </div>

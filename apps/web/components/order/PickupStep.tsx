@@ -405,7 +405,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
                               {addr.label ?? addr.recipient_name}
                             </span>
                             {addr.is_default && (
-                              <span className="text-[10px] text-[#00C896] bg-[#00C896]/10 px-1.5 rounded">기본</span>
+                              <span className="text-xs text-[#00C896] bg-[#00C896]/10 px-1.5 rounded">기본</span>
                             )}
                           </div>
                           <p className="text-xs text-gray-500 truncate">{addr.address}</p>
@@ -437,7 +437,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
                 value={address}
                 readOnly={!!address}
                 onChange={(e) => { if (!e.target.value) { setAddress(""); clearSelectedAddress(); } }}
-                className="flex-1 px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors bg-gray-50 text-gray-700"
+                className="flex-1 px-4 py-3.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors bg-gray-50 text-gray-700"
               />
               <AddressSearchButton
                 onSelect={(zip, addr) => {
@@ -447,7 +447,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
                   if (selectedAddressId) clearSelectedAddress();
                 }}
                 label="검색"
-                className="px-4 py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 whitespace-nowrap"
+                className="px-4 py-3.5 min-h-[48px] bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 whitespace-nowrap inline-flex items-center justify-center"
               />
             </div>
             <input
@@ -455,7 +455,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
               placeholder="상세 주소 (동/호수 등)"
               value={addressDetail}
               onChange={(e) => setAddressDetail(e.target.value)}
-              className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+              className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
             />
           </div>
         </div>
@@ -472,7 +472,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
             placeholder="010-1234-5678"
             value={pickupPhone}
             onChange={(e) => setPickupPhone(e.target.value)}
-            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
           />
           <p className="text-xs text-gray-400 mt-1">
             우체국 수거 기사가 이 번호로 연락드립니다. 저장된 주소를 선택하면 자동으로 채워집니다.
@@ -510,7 +510,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
                   value={deliveryAddress}
                   readOnly={!!deliveryAddress}
                   onChange={(e) => { if (!e.target.value) setDeliveryAddress(""); }}
-                  className="flex-1 px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] bg-gray-50 text-gray-700"
+                  className="flex-1 px-4 py-3.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] bg-gray-50 text-gray-700"
                 />
                 <AddressSearchButton
                   onSelect={(zip, addr) => {
@@ -519,7 +519,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
                     setDeliveryZipcode(zip);
                   }}
                   label="검색"
-                  className="px-4 py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 whitespace-nowrap"
+                  className="px-4 py-3.5 min-h-[48px] bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 whitespace-nowrap inline-flex items-center justify-center"
                 />
               </div>
               <input
@@ -527,7 +527,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
                 placeholder="상세 주소"
                 value={deliveryAddressDetail}
                 onChange={(e) => setDeliveryAddressDetail(e.target.value)}
-                className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors"
+                className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
               />
             </div>
           )}
@@ -553,7 +553,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
               setPickupDate(val);
             }}
             className={cn(
-              "w-full px-4 py-3.5 border rounded-xl text-sm outline-none transition-colors",
+              "w-full px-4 py-3.5 border rounded-xl text-base outline-none transition-colors",
               pickupDate && disabledDates.includes(pickupDate)
                 ? "border-red-300 focus:border-red-400"
                 : "border-gray-200 focus:border-[#00C896]"
@@ -576,7 +576,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896] transition-colors resize-none"
+            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors resize-none"
           />
           <p className="text-xs text-gray-400 mt-1.5">
             공용현관 비번, 수거 방법 등을 입력하면 우체국 집배원에게 전달됩니다.
@@ -667,7 +667,7 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
           onClick={handleSubmit}
           disabled={isSubmitting || !agreedToExtraCharge}
           className={cn(
-            "flex-1 py-4 rounded-xl text-sm font-bold transition-colors",
+            "touch-target flex-1 py-4 rounded-xl text-sm font-bold transition-colors",
             agreedToExtraCharge
               ? "bg-[#00C896] text-white active:opacity-80"
               : "bg-gray-200 text-gray-400 cursor-not-allowed"

@@ -109,14 +109,14 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
       <div className="px-4 py-4 border-t border-gray-50 flex gap-3">
         <button
           onClick={onBack}
-          className="flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
+          className="touch-target flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
         >
           이전
         </button>
         <button
           onClick={() => onConfirm(values)}
           disabled={!hasAnyValue}
-          className="flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
+          className="touch-target flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
         >
           확인
         </button>

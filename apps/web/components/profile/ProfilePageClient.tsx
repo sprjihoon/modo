@@ -194,7 +194,7 @@ export function ProfilePageClient() {
           subtitle="친구와 함께 혜택 받기"
           href="/profile/invite"
           badge={
-            <span className="text-[10px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded text-center">
+            <span className="text-xs font-bold text-white bg-red-500 px-1.5 py-0.5 rounded text-center">
               HOT
             </span>
           }

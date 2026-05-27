@@ -119,13 +119,13 @@ export function AddressesClient() {
               {/* 상단: 라벨 + 기본배송지 뱃지 */}
               <div className="flex items-center gap-2 mb-2">
                 {addr.is_default && (
-                  <span className="flex items-center gap-1 text-[11px] font-bold text-[#00C896] bg-[#00C896]/10 px-2 py-0.5 rounded-full">
+                  <span className="flex items-center gap-1 text-xs font-bold text-[#00C896] bg-[#00C896]/10 px-2 py-0.5 rounded-full">
                     <CheckCircle className="w-3 h-3" />
                     기본 배송지
                   </span>
                 )}
                 {addr.label && (
-                  <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                     {addr.label}
                   </span>
                 )}
