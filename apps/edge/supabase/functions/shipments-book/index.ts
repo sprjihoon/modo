@@ -34,24 +34,46 @@ interface ShipmentBookRequest {
   test_mode?: boolean;          // 테스트 모드
 }
 
-/** orders.pickup_date → 우체국 retVisitYmd (YYYYMMDD) */
+/** orders.pickup_date → 우체국 retVisitYmd (YYYYMMDD)
+ *  과거 날짜 또는 일요일이면 undefined 반환 → 우체국 기본값(내일) 사용
+ */
 function formatRetVisitYmd(pickupDate: string | null | undefined): string | undefined {
   if (!pickupDate) return undefined;
   const trimmed = pickupDate.trim();
+
+  let ymd: string | undefined;
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed.replace(/-/g, '');
+    ymd = trimmed.replace(/-/g, '');
+  } else if (/^\d{8}$/.test(trimmed)) {
+    ymd = trimmed;
+  } else {
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      ymd = `${y}${m}${d}`;
+    }
   }
-  if (/^\d{8}$/.test(trimmed)) {
-    return trimmed;
+
+  if (!ymd) return undefined;
+
+  // 오늘(KST) 기준으로 과거 날짜면 우체국 기본값 사용
+  const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const todayYmd = `${nowKst.getUTCFullYear()}${String(nowKst.getUTCMonth() + 1).padStart(2, '0')}${String(nowKst.getUTCDate()).padStart(2, '0')}`;
+  if (ymd <= todayYmd) {
+    console.log(`⚠️ retVisitYmd(${ymd})가 오늘(${todayYmd}) 이하이므로 미전송 → 우체국 기본값(내일) 사용`);
+    return undefined;
   }
-  const parsed = new Date(trimmed);
-  if (!Number.isNaN(parsed.getTime())) {
-    const y = parsed.getFullYear();
-    const m = String(parsed.getMonth() + 1).padStart(2, '0');
-    const d = String(parsed.getDate()).padStart(2, '0');
-    return `${y}${m}${d}`;
+
+  // 일요일(0)이면 우체국 기본값 사용 (일요일 수거 불가)
+  const dateObj = new Date(`${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`);
+  if (dateObj.getDay() === 0) {
+    console.log(`⚠️ retVisitYmd(${ymd})가 일요일이므로 미전송 → 우체국 기본값(내일) 사용`);
+    return undefined;
   }
-  return undefined;
+
+  return ymd;
 }
 
 Deno.serve(async (req) => {
