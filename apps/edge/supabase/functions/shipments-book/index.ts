@@ -35,7 +35,12 @@ interface ShipmentBookRequest {
 }
 
 /** orders.pickup_date → 우체국 retVisitYmd (YYYYMMDD)
- *  과거 날짜 또는 일요일이면 undefined 반환 → 우체국 기본값(내일) 사용
+ *
+ *  우체국 API는 retVisitYmd에 +1일을 더해 희망방문일로 반영한다.
+ *  예) retVisitYmd=20260603 → 우체국 전산: 2026-06-04
+ *  따라서 사용자 희망 수거일에서 1일을 뺀 값을 전송한다.
+ *
+ *  계산된 전송일이 오늘(KST) 이전이면 undefined 반환 → 우체국 기본값(내일) 사용
  */
 function formatRetVisitYmd(pickupDate: string | null | undefined): string | undefined {
   if (!pickupDate) return undefined;
@@ -49,31 +54,33 @@ function formatRetVisitYmd(pickupDate: string | null | undefined): string | unde
   } else {
     const parsed = new Date(trimmed);
     if (!Number.isNaN(parsed.getTime())) {
-      const y = parsed.getFullYear();
-      const m = String(parsed.getMonth() + 1).padStart(2, '0');
-      const d = String(parsed.getDate()).padStart(2, '0');
+      const y = parsed.getUTCFullYear();
+      const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getUTCDate()).padStart(2, '0');
       ymd = `${y}${m}${d}`;
     }
   }
 
   if (!ymd) return undefined;
 
-  // 오늘(KST) 기준으로 과거 날짜면 우체국 기본값 사용
+  // 우체국 +1일 보정: 희망 수거일에서 1일을 빼서 전송
+  const desiredDate = new Date(`${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}T00:00:00Z`);
+  desiredDate.setUTCDate(desiredDate.getUTCDate() - 1);
+  const sendY = desiredDate.getUTCFullYear();
+  const sendM = String(desiredDate.getUTCMonth() + 1).padStart(2, '0');
+  const sendD = String(desiredDate.getUTCDate()).padStart(2, '0');
+  const sendYmd = `${sendY}${sendM}${sendD}`;
+
+  // 전송일이 오늘(KST) 이전이면 우체국 기본값(내일) 사용
   const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const todayYmd = `${nowKst.getUTCFullYear()}${String(nowKst.getUTCMonth() + 1).padStart(2, '0')}${String(nowKst.getUTCDate()).padStart(2, '0')}`;
-  if (ymd <= todayYmd) {
-    console.log(`⚠️ retVisitYmd(${ymd})가 오늘(${todayYmd}) 이하이므로 미전송 → 우체국 기본값(내일) 사용`);
+  if (sendYmd < todayYmd) {
+    console.log(`⚠️ 전송일(${sendYmd})이 오늘(${todayYmd}) 이전이므로 미전송 → 우체국 기본값(내일) 사용`);
     return undefined;
   }
 
-  // 일요일(0)이면 우체국 기본값 사용 (일요일 수거 불가)
-  const dateObj = new Date(`${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`);
-  if (dateObj.getDay() === 0) {
-    console.log(`⚠️ retVisitYmd(${ymd})가 일요일이므로 미전송 → 우체국 기본값(내일) 사용`);
-    return undefined;
-  }
-
-  return ymd;
+  console.log(`📅 retVisitYmd 보정: 희망수거일(${ymd}) → 전송값(${sendYmd}) (우체국 +1일 보정)`);
+  return sendYmd;
 }
 
 Deno.serve(async (req) => {
