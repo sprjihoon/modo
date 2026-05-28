@@ -131,10 +131,15 @@ export function PaymentClient() {
       if (!res.ok) {
         throw new Error(data?.error ?? "테스트 결제 처리 실패");
       }
-      // 일반 결제와 동일하게 success 페이지로 보낸다 (orderId 만 알면 됨)
-      router.replace(
-        `/payment/success?orderId=${encodeURIComponent(data.orderId)}&test=1`
-      );
+      // 실제 우체국 API 여부와 송장번호를 URL에 포함
+      const params = new URLSearchParams({
+        orderId: data.orderId,
+        test: "1",
+        ...(testMode === false && { realEpost: "1" }),
+        ...(data.trackingNo && { trackingNo: data.trackingNo }),
+        ...(data.bookErrorMessage && { epostError: data.bookErrorMessage }),
+      });
+      router.replace(`/payment/success?${params.toString()}`);
     } catch (e) {
       isPaymentInProgressRef.current = false;
       setError(

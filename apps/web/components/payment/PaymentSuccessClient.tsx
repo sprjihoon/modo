@@ -19,6 +19,12 @@ export function PaymentSuccessClient() {
 
   // 테스트 우회 결제 여부 (skip-payment API 경유)
   const isTest = searchParams.get("test") === "1";
+  // 실제 우체국 API 호출 여부 (testMode=false로 skip-payment 경유)
+  const isRealEpost = searchParams.get("realEpost") === "1";
+  // skip-payment에서 받은 송장번호 (있으면 성공)
+  const urlTrackingNo = searchParams.get("trackingNo") ?? "";
+  // skip-payment에서 받은 우체국 에러 메시지
+  const epostError = searchParams.get("epostError") ?? "";
 
   // 추가결제 여부 및 실제 DB 주문 UUID
   const isExtraCharge = searchParams.get("isExtraCharge") === "true";
@@ -239,6 +245,8 @@ export function PaymentSuccessClient() {
   const successTitle = isTest
     ? isCouponOrder
       ? "쿠폰으로 주문이 처리되었습니다!"
+      : isRealEpost
+      ? "수거 예약이 완료되었습니다!"
       : "테스트 모드로 주문이 처리되었습니다!"
     : isExtraCharge
     ? "추가 결제가 완료되었습니다!"
@@ -251,6 +259,8 @@ export function PaymentSuccessClient() {
           isTest
             ? isCouponOrder
               ? "bg-purple-50"
+              : isRealEpost
+              ? "bg-[#00C896]/10"
               : "bg-yellow-50"
             : "bg-[#00C896]/10"
         }`}
@@ -260,6 +270,8 @@ export function PaymentSuccessClient() {
             isTest
               ? isCouponOrder
                 ? "text-purple-500"
+                : isRealEpost
+                ? "text-[#00C896]"
                 : "text-yellow-500"
               : "text-[#00C896]"
           }`}
@@ -273,6 +285,8 @@ export function PaymentSuccessClient() {
               isTest
                 ? isCouponOrder
                   ? "text-purple-500"
+                  : isRealEpost
+                  ? "text-[#00C896]"
                   : "text-yellow-500"
                 : "text-[#00C896]"
             }`}
@@ -285,6 +299,24 @@ export function PaymentSuccessClient() {
         )}
       </div>
       {isTest ? (
+        isRealEpost ? (
+          <div className="w-full p-4 bg-[#00C896]/10 rounded-2xl text-left">
+            <p className="text-sm font-semibold text-[#00875A] mb-1">📦 실제 우체국 수거 예약 완료</p>
+            {urlTrackingNo ? (
+              <p className="text-xs text-gray-700 leading-relaxed">
+                송장번호: <span className="font-bold text-gray-900">{urlTrackingNo}</span>
+              </p>
+            ) : epostError ? (
+              <p className="text-xs text-red-600 leading-relaxed">
+                ⚠️ 우체국 수거예약 실패: {epostError}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-600 leading-relaxed">
+                우체국 수거 예약이 진행 중입니다. 주문 상세에서 송장번호를 확인하세요.
+              </p>
+            )}
+          </div>
+        ) : (
         <div
           className={`w-full p-4 rounded-2xl text-left ${
             isCouponOrder ? "bg-purple-50" : "bg-yellow-50"
@@ -304,9 +336,10 @@ export function PaymentSuccessClient() {
           >
             {isCouponOrder
               ? "쿠폰 할인이 적용되어 주문이 처리되었습니다. 수선 작업을 진행합니다."
-              : "테스트 모드로 주문이 생성되었습니다. 실제 결제는 이루어지지 않았습니다."}
+              : "테스트 결제로 주문이 생성되었습니다. 실제 Toss 결제는 이루어지지 않았습니다."}
           </p>
         </div>
+        )
       ) : isExtraCharge ? (
         <div className="w-full p-4 bg-orange-50 rounded-2xl text-left">
           <p className="text-sm font-semibold text-orange-800 mb-1">✅ 추가 결제 완료</p>
