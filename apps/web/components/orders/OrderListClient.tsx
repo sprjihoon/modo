@@ -45,7 +45,7 @@ export function OrderListClient() {
 
   useEffect(() => {
     if (activeTab === "") {
-      setFiltered(orders);
+      setFiltered(orders.filter((o) => o.status !== "CANCELLED"));
     } else if (activeTab === "active") {
       setFiltered(orders.filter((o) => !["DELIVERED", "CANCELLED"].includes(o.status)));
     } else {

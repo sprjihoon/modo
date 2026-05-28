@@ -288,8 +288,11 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
       );
     }
 
-    List<Map<String, dynamic>> filteredOrders = _allOrders;
-    
+    // 전체 탭(statusFilter == null)에서는 수거취소(CANCELLED) 숨김
+    List<Map<String, dynamic>> filteredOrders = statusFilter == null
+        ? _allOrders.where((o) => (o['status'] as String?) != 'CANCELLED').toList()
+        : _allOrders;
+
     if (statusFilter != null) {
       // statusFilter: 0=BOOKED, 1=INBOUND, 2=PROCESSING, 3=READY_TO_SHIP, 4=DELIVERED, 5=CANCELLED
       final statusMap = {
@@ -298,7 +301,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
         2: 'PROCESSING',
         3: 'READY_TO_SHIP',
         4: 'DELIVERED',
-        5: 'CANCELLED', // 취소 탭 추가
+        5: 'CANCELLED',
       };
       final targetStatus = statusMap[statusFilter];
       if (targetStatus != null) {
