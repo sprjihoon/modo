@@ -8,11 +8,11 @@ import { useEffect, useState } from "react";
 import { fetchCartItems } from "@/lib/cart";
 
 const tabs = [
-  { href: "/", icon: Home, label: "Ì??" },
+  { href: "/", icon: Home, label: "ÔøΩ??" },
   { href: "/orders", icon: Package, label: "Ï£ºÎ¨∏" },
-  { href: "/cart", icon: ShoppingCart, label: "Ï?•Î∞?Íµ¨Î??" },
-  { href: "/notifications", icon: Bell, label: "Ï??Î¶º" },
-  { href: "/profile", icon: User, label: "Îß?Ïù¥" },
+  { href: "/cart", icon: ShoppingCart, label: "ÔøΩ?ÔøΩÔøΩ?Íµ¨ÔøΩ??" },
+  { href: "/notifications", icon: Bell, label: "ÔøΩ??Î¶º" },
+  { href: "/profile", icon: User, label: "ÔøΩ?Ïù¥" },
 ];
 
 export function BottomTabBar() {
