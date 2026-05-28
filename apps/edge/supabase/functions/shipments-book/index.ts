@@ -138,6 +138,7 @@ Deno.serve(async (req) => {
     const supabase = createSupabaseClient(req);
 
     // 주문 존재 여부 확인 (user_id, order_number, 주소 정보 함께 가져오기)
+    // pickup_date 는 SELECT 실패 방지를 위해 별도로 시도
     const { data: existingOrder, error: orderCheckError } = await supabase
       .from('orders')
       .select(`
@@ -153,15 +154,29 @@ Deno.serve(async (req) => {
         delivery_address,
         delivery_address_detail,
         delivery_zipcode,
-        delivery_phone,
-        pickup_date
+        delivery_phone
       `)
       .eq('id', order_id)
       .single();
 
     if (orderCheckError || !existingOrder) {
+      console.error('❌ 주문 조회 실패:', orderCheckError);
       return errorResponse('Order not found', 404, 'ORDER_NOT_FOUND');
     }
+
+    // pickup_date 별도 조회 (컬럼이 없어도 주문 조회가 실패하지 않도록)
+    let pickupDateValue: string | null = null;
+    try {
+      const { data: dateRow } = await supabase
+        .from('orders')
+        .select('pickup_date')
+        .eq('id', order_id)
+        .single();
+      pickupDateValue = dateRow?.pickup_date ?? null;
+    } catch {
+      console.warn('⚠️ pickup_date 조회 실패 (컬럼 없음?) - retVisitYmd 미전송');
+    }
+    const existingOrderWithDate = { ...existingOrder, pickup_date: pickupDateValue };
 
     // 이미 tracking_no가 있으면 중복 요청
     if (existingOrder.tracking_no) {
@@ -519,12 +534,12 @@ Deno.serve(async (req) => {
 
     // 반품소포 수거 희망일 → retVisitYmd (미입력 시 우체국 기본값: 내일)
     const retVisitYmd = isPickup
-      ? formatRetVisitYmd(existingOrder.pickup_date)
+      ? formatRetVisitYmd(existingOrderWithDate.pickup_date)
       : undefined;
 
     if (isPickup) {
       console.log('📅 수거 희망일(retVisitYmd):', {
-        orders_pickup_date: existingOrder.pickup_date,
+        orders_pickup_date: existingOrderWithDate.pickup_date,
         retVisitYmd: retVisitYmd ?? '(미전송 → 우체국 기본: 내일)',
       });
     }
