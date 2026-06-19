@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import { InlineSvg } from "@/components/ui/InlineSvg";
+import { MeasureGuideClient } from "@/components/guide/MeasureGuideClient";
 
 export interface MeasurementGroup {
   key: string;
@@ -32,7 +32,7 @@ function getIconSrc(iconName?: string): string | null {
 }
 
 export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepProps) {
-  const router = useRouter();
+  const [showGuide, setShowGuide] = useState(false);
   const { itemName, subType, labels, groups, price, iconName } = config;
   const iconSrc = getIconSrc(iconName);
   const effectiveGroups = groups && groups.length > 0 ? groups : [{ key: "_single", title: "" }];
@@ -78,7 +78,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
 
         {/* 치수 재는 방법 안내 */}
         <button
-          onClick={() => router.push("/guide/measure")}
+          onClick={() => setShowGuide(true)}
           className="w-full flex items-center justify-between px-4 py-3 bg-[#00C896]/8 border border-[#00C896]/30 rounded-xl"
         >
           <span className="text-sm font-semibold text-[#00C896]">치수 재는 방법이 궁금하신가요?</span>
@@ -133,6 +133,27 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           확인
         </button>
       </div>
+
+      {/* 치수 재는 방법 모달 */}
+      {showGuide && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowGuide(false)} />
+          <div className="relative mt-auto w-full bg-white rounded-t-3xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0">
+              <h2 className="text-base font-bold text-gray-900">치수 재는 방법</h2>
+              <button
+                onClick={() => setShowGuide(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"
+              >
+                <X className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <MeasureGuideClient />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
