@@ -133,6 +133,7 @@ const TYPES: MeasureType[] = [
         desc: "목선 끝에서부터 밑단 끝까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
         img: "sweaterFront",
         line: { x1: 129, y1: 22, x2: 129, y2: 155 },
+        dailyImage: "/images/measure/guide/total-length-top-daily.png",
       },
     ],
     notes: [],
