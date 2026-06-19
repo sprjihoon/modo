@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, X } from "lucide-react";
+import { X } from "lucide-react";
 import { InlineSvg } from "@/components/ui/InlineSvg";
 import { MeasureGuideClient } from "@/components/guide/MeasureGuideClient";
 
@@ -76,15 +76,6 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           </div>
         </div>
 
-        {/* 치수 재는 방법 안내 */}
-        <button
-          onClick={() => setShowGuide(true)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-[#00C896]/8 border border-[#00C896]/30 rounded-xl"
-        >
-          <span className="text-sm font-semibold text-[#00C896]">치수 재는 방법이 궁금하신가요?</span>
-          <ChevronRight className="w-4 h-4 text-[#00C896]" />
-        </button>
-
         {/* 입력 필드 */}
         {effectiveGroups.map((group, gIdx) => (
           <div key={group.key} className="space-y-3">
@@ -115,6 +106,23 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
             })}
           </div>
         ))}
+
+        {/* 치수 재는 방법 텍스트 링크 */}
+        <div className="flex items-center justify-center gap-0 pt-1 pb-2">
+          <button
+            onClick={() => setShowGuide(true)}
+            className="text-sm text-gray-400 px-3 py-1"
+          >
+            길이 재는 법
+          </button>
+          <span className="text-gray-300 text-sm">|</span>
+          <button
+            onClick={() => setShowGuide(true)}
+            className="text-sm text-gray-400 px-3 py-1"
+          >
+            길이 측정 방법
+          </button>
+        </div>
       </div>
 
       {/* 하단 버튼 */}
