@@ -206,10 +206,12 @@ const TYPES: MeasureType[] = [
     foldNote: "아우터, 상의, 원피스 공통",
     measurePart: "전체 팔통",
     fold: {
+      foldImage: "/images/measure/guide/arm-width-fold.png",
       lime: { left: "8%", top: "36%", width: "20%", height: "45%" },
       dot: { left: "12%", top: "43%" },
     },
     measure: {
+      compareImage: "/images/measure/guide/arm-width-compare.png",
       img: "sweaterFront",
       lime: { x: 18, y: 68, w: 18, h: 58 },
       blueDot: { cx: 22, cy: 72 },
