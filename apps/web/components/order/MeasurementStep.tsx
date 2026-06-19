@@ -108,14 +108,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
         ))}
 
         {/* 치수 재는 방법 텍스트 링크 */}
-        <div className="flex items-center justify-center gap-0 pt-1 pb-2">
-          <button
-            onClick={() => setShowGuide(true)}
-            className="text-sm text-gray-400 px-3 py-1"
-          >
-            길이 재는 법
-          </button>
-          <span className="text-gray-300 text-sm">|</span>
+        <div className="flex items-center justify-center pt-1 pb-2">
           <button
             onClick={() => setShowGuide(true)}
             className="text-sm text-gray-400 px-3 py-1"
