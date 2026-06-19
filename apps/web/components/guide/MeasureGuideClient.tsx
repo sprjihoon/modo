@@ -148,6 +148,7 @@ const TYPES: MeasureType[] = [
     foldNote: "아우터, 상의, 원피스 공통",
     measurePart: "전체 품",
     fold: {
+      foldImage: "/images/measure/guide/width-top-fold.png",
       lime: { left: "10%", top: "36%", width: "78%", height: "14%" },
       dot: { left: "12%", top: "43%" },
     },
