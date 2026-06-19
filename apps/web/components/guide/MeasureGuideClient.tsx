@@ -189,6 +189,7 @@ const TYPES: MeasureType[] = [
         desc: "겨드랑이 선에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
         img: "sweaterFront",
         line: { x1: 78, y1: 76, x2: 180, y2: 76 },
+        dailyImage: "/images/measure/guide/width-top-daily.png",
       },
     ],
     notes: [],
