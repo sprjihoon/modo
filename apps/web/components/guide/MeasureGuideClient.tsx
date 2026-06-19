@@ -253,6 +253,7 @@ const TYPES: MeasureType[] = [
     foldNote: "바지, 치마 공통",
     measurePart: "허리와 힙",
     fold: {
+      foldImage: "/images/measure/guide/waist-hip-fold.png",
       lime: { left: "8%", top: "18%", width: "82%", height: "14%" },
       dot: { left: "12%", top: "26%" },
     },
