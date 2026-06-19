@@ -137,9 +137,9 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
 
       {/* 치수 재는 방법 모달 */}
       {showGuide && (
-        <div className="fixed inset-0 z-50 flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowGuide(false)} />
-          <div className="relative mt-auto w-full bg-white rounded-t-3xl max-h-[90vh] flex flex-col">
+          <div className="relative w-full max-w-[600px] bg-white rounded-2xl max-h-[90vh] flex flex-col shadow-xl">
             <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0">
               <h2 className="text-base font-bold text-gray-900">치수 재는 방법</h2>
               <button
