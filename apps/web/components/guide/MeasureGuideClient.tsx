@@ -358,31 +358,22 @@ const TYPES: MeasureType[] = [
 // ─── Fold Illustration (HTML/CSS) ────────────────────────────────────────────
 
 function FoldIllustration({ type }: { type: MeasureType }) {
+  // sweater-tilted.png is now lime-green colored → no CSS overlay needed
   const backImg = type.clothing === "top" ? IMG_SRC.sweaterTilted : IMG_SRC.pantsFront;
   const frontImg = type.clothing === "top" ? IMG_SRC.sweaterFront : IMG_SRC.pantsFront;
 
   return (
     <div className="bg-gray-50 rounded-2xl overflow-hidden">
       <div className="flex items-center justify-center gap-3 px-4 pt-4 pb-2">
-        {/* 수선할 의류 (back) */}
-        <div className="relative w-[42%]">
+        {/* 수선할 의류 */}
+        <div className="w-[42%]">
           <img src={backImg} alt="수선할 의류" className="w-full" />
-          <div
-            className="absolute rounded-sm pointer-events-none"
-            style={{
-              left: type.fold.lime.left,
-              top: type.fold.lime.top,
-              width: type.fold.lime.width,
-              height: type.fold.lime.height,
-              background: LIME_BG,
-            }}
-          />
         </div>
 
         {/* Arrow */}
         <span className="text-gray-400 text-lg shrink-0">▶</span>
 
-        {/* 평소 잘 맞는 의류 (front) */}
+        {/* 평소 잘 맞는 의류 with alignment dot */}
         <div className="relative w-[42%]">
           <img src={frontImg} alt="평소 잘 맞는 의류" className="w-full" />
           <div
@@ -535,8 +526,8 @@ function DailyIllustration({ item }: { item: DailyItem }) {
 function SupplyItem({ src, label }: { src: string; label: string }) {
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <div className="w-16 h-16 flex items-center justify-center bg-white rounded-xl">
-        <img src={src} alt={label} className="w-14 h-14 object-contain" />
+      <div className="w-16 h-16 flex items-center justify-center bg-white rounded-xl p-1">
+        <img src={src} alt={label} className="max-w-full max-h-full object-contain" />
       </div>
       <span className="text-xs text-gray-500 font-medium text-center">{label}</span>
     </div>
