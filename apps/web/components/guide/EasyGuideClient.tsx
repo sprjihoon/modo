@@ -128,7 +128,14 @@ export function EasyGuideClient({ intro, steps }: EasyGuideClientProps) {
         </div>
       </div>
 
-      <div className="px-4 pb-8">
+      <div className="px-4 pb-8 space-y-3">
+        <button
+          onClick={() => router.push("/guide/measure")}
+          className="w-full py-3.5 bg-white border border-[#00C896] text-[#00C896] text-sm font-bold rounded-xl flex items-center justify-center gap-2 active:brightness-95 transition-all"
+        >
+          치수 재는 방법 알아보기
+          <ChevronRight className="w-4 h-4" />
+        </button>
         <button
           onClick={() => router.push("/order/new")}
           className="w-full py-4 bg-[#00C896] text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 active:brightness-95 transition-all"
