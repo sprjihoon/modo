@@ -53,6 +53,8 @@ interface DailyItem {
   desc: string;
   img: ImgKey;
   line: { x1: number; y1: number; x2: number; y2: number };
+  /** pre-made daily illustration image (takes priority when set) */
+  dailyImage?: string;
 }
 
 interface MeasureType {
@@ -237,6 +239,7 @@ const TYPES: MeasureType[] = [
         desc: "벨트 선에서부터 밑단 끝 까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
         img: "pantsFront",
         line: { x1: 125, y1: 14, x2: 125, y2: 172 },
+        dailyImage: "/images/measure/guide/total-length-bottom-daily.png",
       },
     ],
     notes: [
@@ -267,6 +270,7 @@ const TYPES: MeasureType[] = [
         desc: "허리 및 엉덩이 옆 선에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
         img: "pantsFront",
         line: { x1: 88, y1: 52, x2: 175, y2: 52 },
+        dailyImage: "/images/measure/guide/waist-hip-daily.png",
       },
     ],
     notes: ["허리, 힙 일부만 줄이실 경우 줄이고 싶은 부위의 cm 입력이 필요합니다."],
@@ -294,6 +298,7 @@ const TYPES: MeasureType[] = [
         desc: "허벅지 좌우 끝점까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
         img: "pantsFront",
         line: { x1: 88, y1: 96, x2: 175, y2: 96 },
+        dailyImage: "/images/measure/guide/leg-width-daily.png",
       },
     ],
     notes: ["허벅지, 종아리, 발목(밑동)을 다르게 줄이실 경우 부위 별 cm 입력이 필요합니다."],
@@ -321,6 +326,7 @@ const TYPES: MeasureType[] = [
         desc: "지퍼 벨트 선에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
         img: "pantsFront",
         line: { x1: 125, y1: 14, x2: 125, y2: 96 },
+        dailyImage: "/images/measure/guide/rise-daily.png",
       },
     ],
     notes: [
@@ -351,6 +357,7 @@ const TYPES: MeasureType[] = [
         desc: "벨트 선에서부터 밑단 끝 까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
         img: "pantsFront",
         line: { x1: 125, y1: 14, x2: 125, y2: 172 },
+        dailyImage: "/images/measure/guide/bottom-length-daily.png",
       },
     ],
     notes: [
@@ -509,23 +516,23 @@ function DailyIllustration({ item }: { item: DailyItem }) {
 
   return (
     <div className="bg-gray-50 rounded-2xl overflow-hidden">
-      <svg viewBox="0 0 290 200" className="w-full">
-        <image href={IMG_SRC[item.img]} x={imgX} y={imgY} width={imgW} height={imgH} />
-        {/* measurement line */}
-        <line
-          x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-          stroke={BLUE} strokeWidth={2.5} strokeLinecap="round"
-        />
-        {/* start dot */}
-        <circle cx={l.x1} cy={l.y1} r={6} fill={BLUE} />
-        {/* end dot */}
-        <circle cx={l.x2} cy={l.y2} r={6} fill={RED} />
-        {/* ruler */}
-        <image
-          href="/images/measure/ruler.png"
-          x={rulerX} y={Math.max(rulerY, 10)} width={46} height={16}
-        />
-      </svg>
+      {item.dailyImage ? (
+        <img src={item.dailyImage} alt={item.label} className="w-4/5 mx-auto block" />
+      ) : (
+        <svg viewBox="0 0 290 200" className="w-full">
+          <image href={IMG_SRC[item.img]} x={imgX} y={imgY} width={imgW} height={imgH} />
+          <line
+            x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+            stroke={BLUE} strokeWidth={2.5} strokeLinecap="round"
+          />
+          <circle cx={l.x1} cy={l.y1} r={6} fill={BLUE} />
+          <circle cx={l.x2} cy={l.y2} r={6} fill={RED} />
+          <image
+            href="/images/measure/ruler.png"
+            x={rulerX} y={Math.max(rulerY, 10)} width={46} height={16}
+          />
+        </svg>
+      )}
       <p className="text-sm font-semibold text-gray-700 text-center pb-1 px-3">{item.label}</p>
       <p className="text-xs text-gray-500 text-center pb-3 px-4 leading-relaxed">{item.desc}</p>
     </div>
