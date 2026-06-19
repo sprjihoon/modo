@@ -153,6 +153,7 @@ const TYPES: MeasureType[] = [
       dot: { left: "12%", top: "43%" },
     },
     measure: {
+      compareImage: "/images/measure/guide/width-top-compare.png",
       img: "sweaterFront",
       lime: { x: 18, y: 68, w: 100, h: 16 },
       blueDot: { cx: 22, cy: 76 },
