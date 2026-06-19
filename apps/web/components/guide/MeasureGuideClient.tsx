@@ -371,7 +371,7 @@ function FoldIllustration({ type }: { type: MeasureType }) {
     <div className="bg-gray-50 rounded-2xl overflow-hidden">
       {type.fold.foldImage ? (
         /* pre-made illustration image */
-        <img src={type.fold.foldImage} alt="접기 방법" className="w-full" />
+        <img src={type.fold.foldImage} alt="접기 방법" className="w-4/5 mx-auto block" />
       ) : (
         /* fallback: two images side by side */
         <div className="flex items-center justify-center gap-3 px-4 pt-4 pb-2">
@@ -448,7 +448,7 @@ function MeasureIllustration({ type }: { type: MeasureType }) {
   const { measure } = type;
 
   if (measure.compareImage) {
-    return <img src={measure.compareImage} alt="측정 방법" className="w-full" />;
+    return <img src={measure.compareImage} alt="측정 방법" className="w-4/5 mx-auto block" />;
   }
 
   const isBottom = type.clothing === "bottom";
@@ -537,7 +537,7 @@ function DailyIllustration({ item }: { item: DailyItem }) {
 function SupplyItem({ src, label }: { src: string; label: string }) {
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <div className="w-16 h-16 flex items-center justify-center bg-white rounded-xl p-1">
+      <div className="w-20 h-20 flex items-center justify-center bg-white rounded-xl p-1">
         <img src={src} alt={label} className="max-w-full max-h-full object-contain" />
       </div>
       <span className="text-xs text-gray-500 font-medium text-center">{label}</span>
@@ -691,7 +691,8 @@ export function MeasureGuideClient() {
             아래 수선 부위별 치수 재는 안내를 차근차근 따라서 단면 치수를 측정해주세요.
           </p>
 
-          {/* Dropdown */}
+          {/* Dropdown (compare 탭에서만 표시) */}
+          {tab === "compare" && (
           <div className="relative mb-4">
             <button
               onClick={() => setDropdownOpen((v) => !v)}
@@ -725,6 +726,7 @@ export function MeasureGuideClient() {
               </div>
             )}
           </div>
+          )}
 
           {tab === "compare" ? (
             <CompareContent type={current} />
