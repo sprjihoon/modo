@@ -285,6 +285,7 @@ const TYPES: MeasureType[] = [
     foldNote: "바지, 치마 공통",
     measurePart: "전체 통",
     fold: {
+      foldImage: "/images/measure/guide/leg-width-fold.png",
       lime: { left: "12%", top: "48%", width: "74%", height: "14%" },
       dot: { left: "12%", top: "55%" },
     },
