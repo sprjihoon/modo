@@ -119,7 +119,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
       </div>
 
       {/* 하단 버튼 */}
-      <div className="px-4 py-4 border-t border-gray-50 flex gap-3">
+      <div className="sticky bottom-0 bg-white px-4 py-4 border-t border-gray-50 flex gap-3">
         <button
           onClick={onBack}
           className="touch-target flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
