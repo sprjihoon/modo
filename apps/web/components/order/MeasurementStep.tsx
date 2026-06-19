@@ -17,6 +17,7 @@ export interface MeasurementConfig {
   groups?: MeasurementGroup[];
   price?: number;
   iconName?: string;
+  notes?: string | null;
 }
 
 interface MeasurementStepProps {
@@ -41,6 +42,9 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
 
   const displayName = subType ? `${itemName} (${subType})` : itemName;
   const hasAnyValue = values.some((v) => v.trim() !== "");
+  const noteLines = config.notes
+    ? config.notes.split("\n").map((l) => l.trim()).filter(Boolean)
+    : [];
 
   return (
     <div className="flex flex-col min-h-0">
@@ -117,6 +121,20 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           </button>
         </div>
       </div>
+
+      {/* 수선 유형 안내 사항 */}
+      {noteLines.length > 0 && (
+        <div className="px-4 pb-4">
+          <ul className="space-y-2">
+            {noteLines.map((line, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs text-gray-500 leading-relaxed">
+                <span className="mt-0.5 shrink-0">•</span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* 하단 버튼 */}
       <div className="sticky bottom-0 bg-white px-4 py-4 border-t border-gray-50 flex gap-3">

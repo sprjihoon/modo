@@ -382,6 +382,7 @@ export function OrderNewClient() {
           labels,
           price: prePhaseSelection.directPrice,
           iconName: prePhaseSelection.iconName ?? undefined,
+          notes: prePhaseSelection.description ?? undefined,
         });
         pushMode("addMeasurement");
       } else {
@@ -436,6 +437,7 @@ export function OrderNewClient() {
             labels,
             price: effectiveSelection.directPrice,
             iconName: effectiveSelection.iconName ?? undefined,
+            notes: effectiveSelection.description ?? undefined,
           });
           pushMode("addMeasurement");
         } else {

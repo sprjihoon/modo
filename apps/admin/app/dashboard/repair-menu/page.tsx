@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ChevronRight, ArrowUp, ArrowDown, Upload, X, Image, FolderOpen, Folder } from "lucide-react";
@@ -968,12 +969,14 @@ function EditCategoryDialog({
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="edit-cat-description">설명 (선택)</Label>
-                    <Input
+                    <Label htmlFor="edit-cat-description">안내 문구 (선택, 줄바꿈으로 항목 구분)</Label>
+                    <Textarea
                       id="edit-cat-description"
-                      placeholder="예: 줄이고자 하는 단면 치수를 입력해주세요."
+                      placeholder={"예: 트림이 있는 경우 트림 길이보다 더 줄이면 기본 마감으로 처리됩니다.\n기계 주름이 있는 경우 밑단 마감 시 주름이 펼쳐질 수 있습니다."}
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
+                      rows={4}
+                      className="resize-none"
                     />
                   </div>
                   <div className="flex items-center gap-2">
@@ -1033,12 +1036,14 @@ function EditCategoryDialog({
               {/* 설명은 직접가격 여부 무관하게 설정 가능 */}
               {!hasDirectPrice && (
                 <div>
-                  <Label htmlFor="edit-cat-desc-only">설명 (선택)</Label>
-                  <Input
+                  <Label htmlFor="edit-cat-desc-only">안내 문구 (선택, 줄바꿈으로 항목 구분)</Label>
+                  <Textarea
                     id="edit-cat-desc-only"
                     placeholder="예: 카테고리 안내 문구"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    className="resize-none"
                   />
                 </div>
               )}
@@ -1354,12 +1359,14 @@ function AddCategoryDialog({
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="add-cat-desc">설명 (선택)</Label>
-                    <Input
+                    <Label htmlFor="add-cat-desc">안내 문구 (선택, 줄바꿈으로 항목 구분)</Label>
+                    <Textarea
                       id="add-cat-desc"
-                      placeholder="예: 줄이고자 하는 단면 치수를 입력해주세요."
+                      placeholder={"예: 트림이 있는 경우 트림 길이보다 더 줄이면 기본 마감으로 처리됩니다.\n기계 주름이 있는 경우 밑단 마감 시 주름이 펼쳐질 수 있습니다."}
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
+                      rows={4}
+                      className="resize-none"
                     />
                   </div>
                   <div className="flex items-center gap-2">
@@ -1733,12 +1740,14 @@ function EditRepairTypeDialog({
           </div>
 
           <div>
-            <Label htmlFor="edit-description">설명 (선택)</Label>
-            <Input
+            <Label htmlFor="edit-description">안내 문구 (선택, 줄바꿈으로 항목 구분)</Label>
+            <Textarea
               id="edit-description"
-              placeholder="예: 소매 또는 총장 기장 줄임"
+              placeholder={"예: 트림이 있는 경우 트림 길이보다 더 줄이면 기본 마감으로 처리됩니다.\n기계 주름이 있는 경우 밑단 마감 시 주름이 펼쳐질 수 있습니다."}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              className="resize-none"
             />
           </div>
           <div>
@@ -2429,12 +2438,14 @@ function AddRepairTypeDialog({
           </div>
 
           <div>
-            <Label htmlFor="description">설명 (선택)</Label>
-            <Input
+            <Label htmlFor="description">안내 문구 (선택, 줄바꿈으로 항목 구분)</Label>
+            <Textarea
               id="description"
-              placeholder="예: 소매 또는 총장 기장 줄임"
+              placeholder={"예: 트림이 있는 경우 트림 길이보다 더 줄이면 기본 마감으로 처리됩니다.\n기계 주름이 있는 경우 밑단 마감 시 주름이 펼쳐질 수 있습니다."}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              className="resize-none"
             />
           </div>
           <div>
