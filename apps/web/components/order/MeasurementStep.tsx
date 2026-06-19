@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 import { InlineSvg } from "@/components/ui/InlineSvg";
 
 export interface MeasurementGroup {
@@ -30,6 +32,7 @@ function getIconSrc(iconName?: string): string | null {
 }
 
 export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepProps) {
+  const router = useRouter();
   const { itemName, subType, labels, groups, price, iconName } = config;
   const iconSrc = getIconSrc(iconName);
   const effectiveGroups = groups && groups.length > 0 ? groups : [{ key: "_single", title: "" }];
@@ -72,6 +75,15 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
             )}
           </div>
         </div>
+
+        {/* 치수 재는 방법 안내 */}
+        <button
+          onClick={() => router.push("/guide/measure")}
+          className="w-full flex items-center justify-between px-4 py-3 bg-[#00C896]/8 border border-[#00C896]/30 rounded-xl"
+        >
+          <span className="text-sm font-semibold text-[#00C896]">치수 재는 방법이 궁금하신가요?</span>
+          <ChevronRight className="w-4 h-4 text-[#00C896]" />
+        </button>
 
         {/* 입력 필드 */}
         {effectiveGroups.map((group, gIdx) => (
