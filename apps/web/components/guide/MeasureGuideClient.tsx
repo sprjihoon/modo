@@ -22,6 +22,8 @@ const IMG_SRC: Record<ImgKey, string> = {
 
 // Fold illustration uses CSS percentage-based positioning
 interface FoldConfig {
+  /** pre-made fold illustration image (takes priority when set) */
+  foldImage?: string;
   /** lime overlay on back garment (% of image: left top width height) */
   lime: { left: string; top: string; width: string; height: string };
   /** alignment dot on front garment (% of image: left top) */
@@ -75,6 +77,7 @@ const TYPES: MeasureType[] = [
     foldNote: "아우터, 상의, 원피스 공통",
     measurePart: "소매기장",
     fold: {
+      foldImage: "/images/measure/guide/sleeve-length-fold.png",
       lime: { left: "68%", top: "34%", width: "24%", height: "50%" },
       dot: { left: "87%", top: "42%" },
     },
@@ -358,42 +361,42 @@ const TYPES: MeasureType[] = [
 // ─── Fold Illustration (HTML/CSS) ────────────────────────────────────────────
 
 function FoldIllustration({ type }: { type: MeasureType }) {
-  // sweater-tilted.png is now lime-green colored → no CSS overlay needed
   const backImg = type.clothing === "top" ? IMG_SRC.sweaterTilted : IMG_SRC.pantsFront;
   const frontImg = type.clothing === "top" ? IMG_SRC.sweaterFront : IMG_SRC.pantsFront;
 
   return (
     <div className="bg-gray-50 rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-center gap-3 px-4 pt-4 pb-2">
-        {/* 수선할 의류 */}
-        <div className="w-[42%]">
-          <img src={backImg} alt="수선할 의류" className="w-full" />
-        </div>
-
-        {/* Arrow */}
-        <span className="text-gray-400 text-lg shrink-0">▶</span>
-
-        {/* 평소 잘 맞는 의류 with alignment dot */}
-        <div className="relative w-[42%]">
-          <img src={frontImg} alt="평소 잘 맞는 의류" className="w-full" />
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              left: type.fold.dot.left,
-              top: type.fold.dot.top,
-              transform: "translate(-50%, -50%)",
-            }}
-          >
+      {type.fold.foldImage ? (
+        /* pre-made illustration image */
+        <img src={type.fold.foldImage} alt="접기 방법" className="w-full" />
+      ) : (
+        /* fallback: two images side by side */
+        <div className="flex items-center justify-center gap-3 px-4 pt-4 pb-2">
+          <div className="w-[42%]">
+            <img src={backImg} alt="수선할 의류" className="w-full" />
+          </div>
+          <span className="text-gray-400 text-lg shrink-0">▶</span>
+          <div className="relative w-[42%]">
+            <img src={frontImg} alt="평소 잘 맞는 의류" className="w-full" />
             <div
-              className="w-5 h-5 rounded-full flex items-center justify-center"
-              style={{ background: BLUE }}
+              className="absolute pointer-events-none"
+              style={{
+                left: type.fold.dot.left,
+                top: type.fold.dot.top,
+                transform: "translate(-50%, -50%)",
+              }}
             >
-              <div className="w-3 h-3 rounded-full" style={{ background: RED }} />
+              <div
+                className="w-5 h-5 rounded-full flex items-center justify-center"
+                style={{ background: BLUE }}
+              >
+                <div className="w-3 h-3 rounded-full" style={{ background: RED }} />
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <p className="text-xs text-center text-gray-500 pb-3 px-3 leading-relaxed">
+      )}
+      <p className="text-xs text-center text-gray-500 py-3 px-3 leading-relaxed">
         수선할 의류가 밑에 평소 잘맞는 의류가 위에 오도록
         <br />
         포개주셔야합니다. ({type.foldNote})
