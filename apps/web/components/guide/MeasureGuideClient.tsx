@@ -230,10 +230,12 @@ const TYPES: MeasureType[] = [
     foldNote: "바지, 치마 공통",
     measurePart: "총 기장",
     fold: {
+      foldImage: "/images/measure/guide/total-length-bottom-fold.png",
       lime: { left: "10%", top: "4%", width: "78%", height: "14%" },
       dot: { left: "50%", top: "10%" },
     },
     measure: {
+      compareImage: "/images/measure/guide/total-length-bottom-compare.png",
       img: "pantsFront",
       lime: { x: 28, y: 10, w: 20, h: 160 },
       blueDot: { cx: 78, cy: 16 },
