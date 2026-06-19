@@ -587,15 +587,20 @@ function CompareContent({ type }: { type: MeasureType }) {
 
 // ─── Daily Method Content ────────────────────────────────────────────────────
 
-function DailyContent({ type }: { type: MeasureType }) {
+function DailyContent() {
+  const allNotes = Array.from(
+    new Set(TYPES.flatMap((t) => t.notes))
+  );
   return (
-    <div className="space-y-4">
-      {type.daily.map((item, i) => (
-        <DailyIllustration key={i} item={item} />
-      ))}
-      {type.notes.length > 0 && (
+    <div className="space-y-6">
+      {TYPES.flatMap((type) =>
+        type.daily.map((item, i) => (
+          <DailyIllustration key={`${type.id}-${i}`} item={item} />
+        ))
+      )}
+      {allNotes.length > 0 && (
         <ul className="space-y-1.5">
-          {type.notes.map((n, i) => (
+          {allNotes.map((n, i) => (
             <li key={i} className="flex items-start gap-1.5 text-sm text-gray-600 leading-relaxed">
               <span className="shrink-0 mt-0.5">·</span>
               <span>{n}</span>
@@ -731,7 +736,7 @@ export function MeasureGuideClient() {
           {tab === "compare" ? (
             <CompareContent type={current} />
           ) : (
-            <DailyContent type={current} />
+            <DailyContent />
           )}
         </section>
       </div>
