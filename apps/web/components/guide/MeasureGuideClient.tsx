@@ -183,15 +183,7 @@ const TYPES: MeasureType[] = [
       blueDot: { cx: 22, cy: 76 },
       smallCircle: { cx: 128, cy: 76 },
     },
-    daily: [
-      {
-        label: "전체 품 측정",
-        desc: "겨드랑이 선에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "sweaterFront",
-        line: { x1: 78, y1: 76, x2: 180, y2: 76 },
-        dailyImage: "/images/measure/guide/width-top-daily.png",
-      },
-    ],
+    daily: [],
     notes: [],
   },
   {
@@ -211,14 +203,7 @@ const TYPES: MeasureType[] = [
       blueDot: { cx: 22, cy: 72 },
       smallCircle: { cx: 24, cy: 124 },
     },
-    daily: [
-      {
-        label: "전체 팔통 측정",
-        desc: "겨드랑이 끝 점에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "sweaterFront",
-        line: { x1: 78, y1: 76, x2: 78, y2: 132 },
-      },
-    ],
+    daily: [],
     notes: [],
   },
   {
