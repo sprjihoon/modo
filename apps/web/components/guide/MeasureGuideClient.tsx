@@ -161,6 +161,7 @@ const TYPES: MeasureType[] = [
         desc: "한쪽 목선에서부터 소매 재단선 까지의 길이를 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
         img: "sweaterFront",
         line: { x1: 122, y1: 28, x2: 78, y2: 46 },
+        dailyImage: "/images/measure/guide/shoulder-daily.png",
       },
     ],
     notes: ["어깨 길이를 줄이게 되면, 그만큼 소매 기장도 함께 줄어듭니다."],
