@@ -258,6 +258,7 @@ const TYPES: MeasureType[] = [
       dot: { left: "12%", top: "26%" },
     },
     measure: {
+      compareImage: "/images/measure/guide/waist-hip-compare.png",
       img: "pantsFront",
       lime: { x: 28, y: 44, w: 100, h: 16 },
       blueDot: { cx: 32, cy: 52 },
