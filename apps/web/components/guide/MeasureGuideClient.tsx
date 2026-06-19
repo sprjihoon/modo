@@ -36,6 +36,8 @@ interface FoldConfig {
 // pants  img: x=28 y=10 w=100 h=168
 // big circle: cx=292 cy=115 r=66
 interface MeasureConfig {
+  /** pre-made compare illustration image (takes priority when set) */
+  compareImage?: string;
   img: ImgKey;
   lime: { x: number; y: number; w: number; h: number };
   blueDot: { cx: number; cy: number };
@@ -82,6 +84,7 @@ const TYPES: MeasureType[] = [
       dot: { left: "87%", top: "42%" },
     },
     measure: {
+      compareImage: "/images/measure/guide/sleeve-length-compare.png",
       img: "sweaterSide",
       lime: { x: 118, y: 68, w: 22, h: 58 },
       blueDot: { cx: 122, cy: 72 },
@@ -443,6 +446,11 @@ function MagnifierCircle({ cx, cy, r }: { cx: number; cy: number; r: number }) {
 
 function MeasureIllustration({ type }: { type: MeasureType }) {
   const { measure } = type;
+
+  if (measure.compareImage) {
+    return <img src={measure.compareImage} alt="측정 방법" className="w-full" />;
+  }
+
   const isBottom = type.clothing === "bottom";
   const imgX = isBottom ? 28 : 18;
   const imgY = isBottom ? 10 : 12;
