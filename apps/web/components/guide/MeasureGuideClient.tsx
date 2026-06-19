@@ -315,6 +315,7 @@ const TYPES: MeasureType[] = [
     foldNote: "바지, 치마 공통",
     measurePart: "밑위",
     fold: {
+      foldImage: "/images/measure/guide/rise-fold.png",
       lime: { left: "42%", top: "4%", width: "16%", height: "48%" },
       dot: { left: "50%", top: "10%" },
     },
