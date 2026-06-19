@@ -241,7 +241,15 @@ const TYPES: MeasureType[] = [
       blueDot: { cx: 78, cy: 16 },
       smallCircle: { cx: 36, cy: 172 },
     },
-    daily: [],
+    daily: [
+      {
+        label: "하의 총 기장 측정",
+        desc: "벨트 선에서부터 밑단 끝 까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
+        img: "pantsFront",
+        line: { x1: 125, y1: 14, x2: 125, y2: 172 },
+        dailyImage: "/images/measure/guide/bottom-length-daily.png",
+      },
+    ],
     notes: [
       "밑위 길이가 같은 바지로 비교를 하셔야 합니다.",
       "밑위가 다른 경우, 직접 입고 기장을 접어서 측정해야 정확한 측정이 가능합니다.",
@@ -338,38 +346,6 @@ const TYPES: MeasureType[] = [
     notes: [
       "밑위 길이가 같은 바지로 비교를 하셔야 합니다.",
       "밑위가 다른 경우, 직접 입고 기장을 접어서 측정해야 정확한 측정이 가능합니다.",
-    ],
-  },
-  {
-    id: "bottom-length",
-    name: "하의 총 기장 줄임",
-    clothing: "bottom",
-    foldBaseline: "벨트 선",
-    foldNote: "바지, 치마 공통",
-    measurePart: "하의 총 기장",
-    fold: {
-      lime: { left: "75%", top: "4%", width: "16%", height: "90%" },
-      dot: { left: "50%", top: "10%" },
-    },
-    measure: {
-      img: "pantsFront",
-      lime: { x: 108, y: 10, w: 18, h: 160 },
-      blueDot: { cx: 78, cy: 16 },
-      smallCircle: { cx: 116, cy: 172 },
-    },
-    daily: [
-      {
-        label: "하의 총 기장 측정",
-        desc: "벨트 선에서부터 밑단 끝 까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "pantsFront",
-        line: { x1: 125, y1: 14, x2: 125, y2: 172 },
-        dailyImage: "/images/measure/guide/bottom-length-daily.png",
-      },
-    ],
-    notes: [
-      "어깨 길이를 줄이게 되면, 그만큼 소매 기장도 함께 줄어듭니다.",
-      "허리, 힙 일부만 줄이실 경우 줄이고 싶은 부위의 cm 입력이 필요합니다.",
-      "허벅지, 종아리, 발목(밑동)을 다르게 줄이실 경우 부위 별 cm 입력이 필요합니다.",
     ],
   },
 ];
