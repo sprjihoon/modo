@@ -23,6 +23,7 @@ class RepairDetailInputPage extends ConsumerStatefulWidget {
   final String? repairTypeId; // 수선 종류 ID (세부 부위 조회용)
   final bool? allowMultipleSubParts; // 세부 부위 다중 선택 허용 여부
   final String? iconName; // 카테고리 아이콘명 (SVG)
+  final String? description; // 수선 유형 안내 문구
 
   const RepairDetailInputPage({
     required this.repairPart,
@@ -38,6 +39,7 @@ class RepairDetailInputPage extends ConsumerStatefulWidget {
     this.repairTypeId,
     this.allowMultipleSubParts,
     this.iconName,
+    this.description,
   });
 
   @override
@@ -507,91 +509,59 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                         ? _buildSubPartInputFields()
                         : _buildDefaultInputFields()),
 
-                    // 안내 메시지
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00C896).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline,
-                            color: Color(0xFF00C896),
-                            size: 18,
+                    // 도움말 링크
+                    Center(
+                      child: TextButton(
+                        onPressed: () {
+                          // TODO: 길이 측정 방법 보여주기
+                        },
+                        child: Text(
+                          '길이 측정 방법',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade400,
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '톨러가 아닌 단면 기준의 cm를 알려주세요.',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // DB description 안내 문구 (줄바꿈 구분 bullet 리스트)
+                    if (widget.description != null && widget.description!.trim().isNotEmpty) ...[
+                      ...widget.description!
+                          .split('\n')
+                          .map((line) => line.trim())
+                          .where((line) => line.isNotEmpty)
+                          .map(
+                            (line) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '• ',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade500,
+                                      height: 1.6,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      line,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade500,
+                                        height: 1.6,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // 도움말 링크
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            // TODO: 단면치수란? 설명 보여주기
-                          },
-                          child: const Text(
-                            '단면치수란?',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.black54,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          width: 1,
-                          height: 12,
-                          color: Colors.grey.shade300,
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            // TODO: 길이 측정 방법 보여주기
-                          },
-                          child: const Text(
-                            '길이 측정 방법',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.black54,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-
-                    // 하단 안내
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '* 팔 통 줄임 단면 수치가 클 경우 의류 디자인에 따라 알솜/가슴통까지 자연스럽게 줄어듭게 됩니다.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
+                      const SizedBox(height: 8),
+                    ],
                   ],
                 ),
               ),

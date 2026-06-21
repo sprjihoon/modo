@@ -47,7 +47,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
     : [];
 
   return (
-    <div className="flex flex-col min-h-0">
+    <div className="flex flex-col h-full min-h-0">
       {/* 헤더 */}
       <div className="px-4 py-4 border-b border-gray-100">
         <h2 className="text-lg font-bold text-gray-900">치수를 입력해주세요</h2>

@@ -317,6 +317,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             repairTypeId: data['repairTypeId'] as String?,
             allowMultipleSubParts: data['allowMultipleSubParts'] as bool?,
             iconName: data['iconName'] as String?,
+            description: data['description'] as String?,
           );
         },
       ),

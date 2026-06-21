@@ -607,10 +607,10 @@ export function OrderNewClient() {
   const currentFlowStep = getOrderFlowStepIndex(mode, subCategoryPhase);
 
   return (
-    <div>
+    <div className="h-full flex flex-col">
       <OrderFlowProgress currentStep={currentFlowStep} />
 
-      <div>
+      <div className="flex-1 flex flex-col min-h-0">
         {mode === "list" && (
           <ItemsListPanel
             items={draft.items}

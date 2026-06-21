@@ -152,6 +152,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
           'imageUrls': widget.imageUrls,
           'imagesWithPins': widget.imagesWithPins,
           'iconName': iconName,
+          'description': category['description'] as String?,
         },
       );
     } else {
@@ -232,6 +233,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
         'imageUrls': widget.imageUrls,
         'imagesWithPins': widget.imagesWithPins,
         'iconName': _selectedSubCategoryIcon ?? repairType['icon_name'],
+        'description': repairType['description'] as String?,
       },
     );
   }
