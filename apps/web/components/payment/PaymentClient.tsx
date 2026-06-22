@@ -444,18 +444,20 @@ export function PaymentClient() {
         )}
       </div>
 
-      {/* 하단 고정: 아코디언 푸터 + 결제 버튼 */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+      {/* 결제 버튼 — 푸터 위에 별도 고정 */}
+      <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 px-5 py-2">
+        <button
+          onClick={handlePayment}
+          disabled={isRequesting || testRequesting !== null}
+          className="touch-target w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-full shadow-lg shadow-[#00C896]/30 disabled:opacity-50 active:bg-[#00A07B] active:shadow-none transition-all"
+        >
+          {isRequesting ? "결제 진행 중..." : `${formatPrice(intent.total_price)} 결제하기`}
+        </button>
+      </div>
+
+      {/* 푸터 — 최하단 고정 */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-20 bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
         <CompanyFooter />
-        <div className="px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] border-t border-gray-100">
-          <button
-            onClick={handlePayment}
-            disabled={isRequesting || testRequesting !== null}
-            className="w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-xl disabled:opacity-50 active:brightness-95 transition-all"
-          >
-            {isRequesting ? "결제 진행 중..." : `${formatPrice(intent.total_price)} 결제하기`}
-          </button>
-        </div>
       </div>
 
       {showExitDialog && (
