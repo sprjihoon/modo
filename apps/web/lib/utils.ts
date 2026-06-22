@@ -35,9 +35,10 @@ export function getOAuthCallbackUrl(redirectTo = "/"): string {
   return `${base}?redirectTo=${encodeURIComponent(redirectTo)}`;
 }
 
-/** 네이버 로그인 콜백 URL (네이버 개발자 콘솔 Callback URL과 일치해야 함) */
+/** 네이버 로그인 콜백 URL — 네이버 개발자 콘솔에 등록된 고정 URL이어야 함.
+ *  window.location.origin을 쓰면 프리뷰/로컬 도메인이 전달되어 disp_stat=207 오류 발생. */
 export function getNaverCallbackUrl(): string {
-  return `${getAuthOrigin()}/auth/naver/callback`;
+  return `${getSiteUrl()}/auth/naver/callback`;
 }
 
 /** 비밀번호 재설정 완료 후 돌아올 URL */
