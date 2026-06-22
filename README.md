@@ -8,8 +8,8 @@
 
 **모두의수선**은 고객이 집에서 의류 수선을 신청하고, 택배 수거 → 전문 수선 → 배송 완료까지 비대면으로 처리하는 서비스입니다.
 
-- 고객은 **웹(modo.mom)** 또는 **Flutter 앱**으로 수선을 접수합니다.
-- 관리자·운영자는 **admin.modo.mom**에서 주문·배송·정산·콘텐츠를 관리합니다.
+- 고객은 **웹([modo.io.kr](https://modo.io.kr))** 또는 **Flutter 앱**으로 수선을 접수합니다.
+- 관리자·운영자는 **admin.modorepair.com** (또는 admin.modo.mom)에서 주문·배송·정산·콘텐츠를 관리합니다.
 - 결제는 **토스페이먼츠(Toss Payments)** 위젯으로 처리하며, 물류는 **우체국 택배 API**와 연동됩니다.
 - 입고·출고 영상은 **Cloudflare Stream**에 업로드되어 고객에게 투명하게 공유됩니다.
 
@@ -20,8 +20,8 @@
 ```
 modo/
 ├── apps/
-│   ├── web/             # Next.js 14 고객 웹앱 (modo.mom)
-│   ├── admin/           # Next.js 14 관리자·운영 콘솔 (admin.modo.mom)
+│   ├── web/             # Next.js 14 고객 웹앱 (modo.io.kr)
+│   ├── admin/           # Next.js 14 관리자·운영 콘솔 (admin.modorepair.com)
 │   ├── mobile/          # Flutter 고객용 앱 (iOS / Android)
 │   ├── edge/            # Supabase Edge Functions (Deno)
 │   └── sql/             # Postgres DDL 및 마이그레이션
@@ -36,8 +36,12 @@ modo/
 
 | 서비스 | URL | Vercel 프로젝트 | 설명 |
 |--------|-----|----------------|------|
-| **고객 웹** | [modo.mom](https://modo.mom) | modo-web | Next.js 고객 포털 (`apps/web`) |
-| **관리자** | [admin.modo.mom](https://admin.modo.mom) | modo | 관리자·운영 콘솔 (`apps/admin`) |
+| **고객 웹 (메인)** | [modo.io.kr](https://modo.io.kr) | modo-web | Next.js 고객 포털 (`apps/web`) |
+| 고객 웹 (레거시) | [modorepair.com](https://modorepair.com), [modo.mom](https://modo.mom) | modo-web | 기존 도메인 — 전환 기간 유지 |
+| **관리자** | [admin.modorepair.com](https://admin.modorepair.com) | modo | 관리자·운영 콘솔 (`apps/admin`) |
+| 관리자 (레거시) | [admin.modo.mom](https://admin.modo.mom) | modo | 기존 admin 도메인 |
+
+> 고객 웹 DNS: 카페24 `modo.io.kr` → Vercel `modo-web` (A `76.76.21.21`, www CNAME `cname.vercel-dns.com`)
 
 ---
 
@@ -69,27 +73,35 @@ modo/
 
 ## ✅ 구현 현황
 
+> **최종 업데이트:** 2026-06-22 — 메인 도메인 `modo.io.kr` 전환, PG 심사 대응 약관·푸터, `payment_intents` 결제 흐름
+
 ### `apps/web` (고객 웹)
 
 | 기능 | 상태 | 설명 |
 |------|------|------|
 | 이메일 회원가입 / 로그인 | ✅ 완료 | Supabase Auth, 콜백 라우트 |
-| 비밀번호 찾기 / 재설정 | ✅ 완료 | 이메일 링크 기반 |
+| 소셜 로그인 | ✅ 완료 | 카카오, 구글, 네이버, 애플 |
+| 비밀번호 찾기 / 재설정 | ✅ 완료 | 이메일 링크 기반 (`modo.io.kr`) |
 | 홈 화면 | ✅ 완료 | 배너 슬라이더, 최근 주문, 추가결제 알림 |
 | 수선 접수 (4단계 마법사) | ✅ 완료 | 의류선택 → 수선항목 → 사진+핀 → 수거정보 |
-| 결제 (토스페이먼츠) | ✅ 완료 | 위젯 결제, 승인(Edge Function) |
+| 장바구니 | ✅ 완료 | `/cart` — 주문 draft 저장, 이어서 수거신청 |
+| 결제 (`payment_intents`) | ✅ 완료 | intent 생성 → `/payment` → Toss 결제창 → Edge 승인 |
+| 결제 페이지 사업자·약관 | ✅ 완료 | 푸터 표시 (PG 심사 대응) |
 | 추가 결제 | ✅ 완료 | `/orders/[id]/extra-charge` |
 | 주문 목록 | ✅ 완료 | 상태 탭 필터 (전체/진행중/완료/취소) |
 | 주문 상세 | ✅ 완료 | 6단계 타임라인, 입출고 영상, 배송 추적 |
+| 주문 취소 / 반송 | ✅ 완료 | 수거 전 전액 환불 · 입고 후 배송비 차감 부분 환불 |
 | 배송 추적 | ✅ 완료 | 우체국 송장번호 연동 |
 | 알림 | ✅ 완료 | 읽음 처리 포함 |
 | 공지사항 | ✅ 완료 | 아코디언 펼치기 |
+| 이용약관 / 개인정보 / 환불정책 | ✅ 완료 | `/terms`, `/privacy-policy`, `/refund-policy` (DB `app_contents`) |
+| 사업자 정보 푸터 | ✅ 완료 | `company_info` — anon 읽기 허용 (PG 심사) |
 | 마이페이지 | ✅ 완료 | 프로필, 포인트 표시 |
 | 회원정보 수정 | ✅ 완료 | `/profile/account` |
 | 배송지 관리 | ✅ 완료 | `/profile/addresses` |
 | 결제 내역 | ✅ 완료 | `/profile/payment-history` |
 | 포인트 내역 | ✅ 완료 | `/profile/points` |
-| 친구 초대 | ✅ 완료 | 초대 코드, 공유 기능 |
+| 친구 초대 | ✅ 완료 | 초대 코드, `getSiteUrl()` 공유 링크 |
 | 고객센터 | ✅ 완료 | 카카오 채널, 이메일, FAQ |
 | 설정 | ✅ 완료 | 알림 토글, 약관, 탈퇴 |
 | 가격표 | ✅ 완료 | `/guide/price` (수선 종류별 가격) |
@@ -99,11 +111,30 @@ modo/
 | 앱 다운로드 유도 | ✅ 완료 | iOS / Android 스토어 링크 |
 | 미들웨어 (세션 보호) | ✅ 완료 | 비로그인 시 `/login` 리다이렉트 |
 
-### 주문 상태 타임라인 (6단계)
+### 토스페이먼츠 · PG 심사 준비
+
+| 항목 | 상태 | 설명 |
+|------|------|------|
+| 메인 도메인 | ✅ | `https://modo.io.kr` (Vercel `modo-web`) |
+| 약관·개인정보·환불정책 DB | ✅ | PG 심사 대응 전면 개정 (토스페이먼츠 위탁 명시) |
+| 결제 승인 / 취소 / 환불 | ✅ | Edge `payments-confirm-toss`, `payments-cancel` + admin API |
+| 웹훅 | ✅ | `admin` `/api/pay/webhook` |
+| 토스 전자결제 신청 | ⏳ 대기 | 라이브 키·실결제 테스트 후 신청 예정 |
+
+### `apps/mobile` (Flutter 앱)
+
+| 기능 | 상태 | 설명 |
+|------|------|------|
+| 수선 접수 · 주문 관리 | ✅ 완료 | 웹과 동일 플로우 |
+| Toss 결제 위젯 | ✅ 완료 | 약관 동의 위젯 포함 |
+| 비밀번호 재설정 redirect | ✅ 완료 | `modo.io.kr/auth/reset-password` |
+| 푸터 사업자 정보 | ✅ 완료 | `CompanyFooter` + `company_info` |
+
+### 주문 상태 타임라인
 
 | 상태 | 레이블 | 설명 |
 |------|--------|------|
-| `PENDING_PAYMENT` | 결제대기 | 결제 전 상태 |
+| `PENDING_PAYMENT` | 결제대기 | ⚠️ 레거시 — 신규 흐름은 `payment_intents` 사용 |
 | `BOOKED` | 수거예약 | 결제 완료, 수거 예약됨 |
 | `PICKED_UP` | 수거완료 | 택배 기사 수거 완료 |
 | `INBOUND` | 입고완료 | 수선센터 입고 |
@@ -136,13 +167,13 @@ modo/
 ### 데이터 흐름
 
 ```
-[고객 웹/앱] → 수선 접수 → Supabase DB (orders)
+[고객 웹/앱] → 수선 접수 → payment_intent 생성 (payload + 금액)
                    ↓
-           토스페이먼츠 결제 위젯
+           토스페이먼츠 결제 (웹: 결제창 / 앱·admin: 위젯)
                    ↓
         Edge Function: payments-confirm-toss
                    ↓
-          status = BOOKED (수거 예약됨)
+          orders insert + status = BOOKED (수거 예약됨)
                    ↓
       [관리자] 수거예약 + 우체국 송장 발행
                    ↓
@@ -162,7 +193,7 @@ modo/
 - **고객**: Supabase Auth (email/OAuth), RLS로 본인 데이터만 접근
 - **관리자 DASHBOARD**: `users.role = ADMIN` 필수
 - **운영 OPS**: `SUPER_ADMIN / ADMIN / MANAGER / WORKER` 허용
-- **도메인 분리**: admin 미들웨어에서 `admin.modo.mom` 이외 요청은 `modo.mom`으로 리다이렉트
+- **도메인 분리**: admin 미들웨어에서 허용 admin 도메인만 서비스 (`admin.modorepair.com`, `admin.modo.mom`)
 
 ---
 
@@ -220,7 +251,7 @@ flutter run
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 익명 키 |
 | `NEXT_PUBLIC_TOSS_CLIENT_KEY` | 토스페이먼츠 클라이언트 키 |
-| `NEXT_PUBLIC_APP_URL` | 서비스 URL (e.g. https://modo.mom) |
+| `NEXT_PUBLIC_APP_URL` | 서비스 URL (e.g. https://modo.io.kr) |
 | `NEXT_PUBLIC_IOS_APP_URL` | App Store 링크 |
 | `NEXT_PUBLIC_ANDROID_APP_URL` | Play Store 링크 |
 | `NEXT_PUBLIC_APP_DEEP_LINK` | 앱 딥링크 스킴 |
@@ -234,6 +265,7 @@ flutter run
 - [데이터베이스 스키마](docs/database-schema.md)
 - [배포 가이드](docs/deployment.md)
 - [관리자 환경 설정](apps/admin/ADMIN_ENV_SETUP.md)
+- [토스페이먼츠 연동 가이드](apps/admin/TOSS_PAYMENT_SETUP.md)
 
 ---
 
