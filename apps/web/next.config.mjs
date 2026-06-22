@@ -34,14 +34,20 @@ const nextConfig = {
   // lockfile 이 잘못 탐지되어 워크스페이스 루트가 잘못 추론되는 문제 방지.
   outputFileTracingRoot: __dirname,
   async redirects() {
-    return [
-      {
-        source: '/:path*',
-        has: [{ type: 'host', value: 'www.modo.io.kr' }],
-        destination: 'https://modo.io.kr/:path*',
-        permanent: true,
-      },
+  /** 레거시 고객 도메인 → 메인 도메인 (OAuth 콜백·공유 링크 일관성) */
+    const legacyHosts = [
+      'www.modo.io.kr',
+      'modo.mom',
+      'www.modo.mom',
+      'modorepair.com',
+      'www.modorepair.com',
     ];
+    return legacyHosts.map((host) => ({
+      source: '/:path*',
+      has: [{ type: 'host', value: host }],
+      destination: 'https://modo.io.kr/:path*',
+      permanent: true,
+    }));
   },
   async headers() {
     return [

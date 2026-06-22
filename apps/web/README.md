@@ -47,7 +47,7 @@
 | 기능 | 상태 | 비고 |
 |------|------|------|
 | 내 정보 보기/수정 | ✅ | 이름, 전화번호 |
-| 배송지 관리 | ✅ | 추가/삭제/기본 설정 |
+| 배송지 관리 | ✅ | 추가/수정/삭제/기본 설정 |
 | 결제 내역 | ✅ | 결제완료 주문 목록 |
 | 포인트 내역 | ✅ | `point_transactions` 테이블 |
 | 공지사항 | ✅ | `announcements` 테이블 |
@@ -149,8 +149,9 @@ vercel deploy --prod --yes --archive=tgz
 
 **도메인 설정:**
 - `modo.io.kr` → `apps/web` (고객 웹 — 메인)
-- `modo.mom`, `modorepair.com` → 레거시·리다이렉트용 (선택)
+- `modo.mom`, `modorepair.com` → 레거시·리다이렉트용 (선택, `modo.io.kr`로 301)
 - `admin.modo.mom`, `admin.modorepair.com` → `apps/admin` (관리자 페이지)
+- 소셜 로그인·OAuth 콘솔 설정: [`docs/DOMAIN_OAUTH_SETUP.md`](../../docs/DOMAIN_OAUTH_SETUP.md)
 
 ---
 

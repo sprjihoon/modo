@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MapPin, Plus, Star, Trash2, CheckCircle } from "lucide-react";
+import { MapPin, Plus, Star, Trash2, CheckCircle, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -25,47 +25,69 @@ export function AddressesClient() {
   const [userId, setUserId] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
 
-  const loadAddresses = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
+  const loadAddresses = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!opts?.silent) setIsLoading(true);
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push("/login");
+          return;
+        }
 
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("id")
-        .eq("auth_id", user.id)
-        .maybeSingle();
-      const uid = userRow?.id ?? null;
-      if (!uid) { setIsLoading(false); return; } // users 레코드 없으면 빈 목록
-      setUserId(uid);
+        const { data: userRow } = await supabase
+          .from("users")
+          .select("id")
+          .eq("auth_id", user.id)
+          .maybeSingle();
+        const uid = userRow?.id ?? null;
+        if (!uid) {
+          setAddresses([]);
+          return;
+        }
+        setUserId(uid);
 
-      const { data } = await supabase
-        .from("addresses")
-        .select("*")
-        .eq("user_id", uid)
-        .order("is_default", { ascending: false })
-        .order("created_at", { ascending: false });
+        const { data } = await supabase
+          .from("addresses")
+          .select("*")
+          .eq("user_id", uid)
+          .order("is_default", { ascending: false })
+          .order("created_at", { ascending: false });
 
-      setAddresses(data ?? []);
-    } catch { /* ignore */ }
-    finally { setIsLoading(false); }
-  }, [router]);
+        setAddresses(data ?? []);
+      } catch {
+        /* ignore */
+      } finally {
+        if (!opts?.silent) setIsLoading(false);
+      }
+    },
+    [router]
+  );
 
-  useEffect(() => { loadAddresses(); }, [loadAddresses]);
+  useEffect(() => {
+    loadAddresses();
+  }, [loadAddresses]);
 
   async function setDefault(id: string) {
     if (!userId) return;
     setActionId(id);
     try {
       const supabase = createClient();
-      await supabase.from("addresses").update({ is_default: false }).eq("user_id", userId).eq("is_default", true);
-      await supabase.from("addresses").update({ is_default: true }).eq("id", id).eq("user_id", userId);
-      setAddresses((prev) =>
-        prev.map((a) => ({ ...a, is_default: a.id === id }))
-      );
-    } finally { setActionId(null); }
+      await supabase
+        .from("addresses")
+        .update({ is_default: false })
+        .eq("user_id", userId)
+        .eq("is_default", true);
+      await supabase
+        .from("addresses")
+        .update({ is_default: true })
+        .eq("id", id)
+        .eq("user_id", userId);
+      await loadAddresses({ silent: true });
+    } finally {
+      setActionId(null);
+    }
   }
 
   async function deleteAddress(id: string) {
@@ -74,9 +96,18 @@ export function AddressesClient() {
     setActionId(id);
     try {
       const supabase = createClient();
-      await supabase.from("addresses").delete().eq("id", id).eq("user_id", userId);
-      setAddresses((prev) => prev.filter((a) => a.id !== id));
-    } finally { setActionId(null); }
+      const { error } = await supabase
+        .from("addresses")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", userId);
+      if (error) throw error;
+      await loadAddresses({ silent: true });
+    } catch {
+      alert("배송지 삭제에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setActionId(null);
+    }
   }
 
   if (isLoading) {
@@ -91,7 +122,6 @@ export function AddressesClient() {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* 안내 */}
       <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 border-b border-blue-100">
         <MapPin className="w-4 h-4 text-blue-500 shrink-0" />
         <p className="text-xs text-blue-700">
@@ -99,7 +129,6 @@ export function AddressesClient() {
         </p>
       </div>
 
-      {/* 주소 목록 */}
       <div className="p-4 space-y-3">
         {addresses.length === 0 ? (
           <div className="py-14 text-center">
@@ -116,7 +145,6 @@ export function AddressesClient() {
                 addr.is_default ? "border-[#00C896] shadow-sm" : "border-gray-100"
               )}
             >
-              {/* 상단: 라벨 + 기본배송지 뱃지 */}
               <div className="flex items-center gap-2 mb-2">
                 {addr.is_default && (
                   <span className="flex items-center gap-1 text-xs font-bold text-[#00C896] bg-[#00C896]/10 px-2 py-0.5 rounded-full">
@@ -131,14 +159,12 @@ export function AddressesClient() {
                 )}
               </div>
 
-              {/* 수령인 */}
               <div className="flex items-center gap-2 mb-1.5">
                 <p className="text-sm font-bold text-gray-900">{addr.recipient_name}</p>
                 <span className="text-gray-200">|</span>
                 <p className="text-sm text-gray-500">{addr.recipient_phone}</p>
               </div>
 
-              {/* 주소 */}
               <p className="text-sm text-gray-700">{addr.address}</p>
               {addr.address_detail && (
                 <p className="text-sm text-gray-500 mt-0.5">{addr.address_detail}</p>
@@ -147,10 +173,17 @@ export function AddressesClient() {
                 <p className="text-xs text-gray-400 mt-0.5">[{addr.zipcode}]</p>
               )}
 
-              {/* 액션 버튼 */}
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
+                <Link
+                  href={`/profile/addresses/${addr.id}/edit`}
+                  className="flex items-center gap-1 text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5 active:bg-gray-50"
+                >
+                  <Pencil className="w-3 h-3" />
+                  수정
+                </Link>
                 {!addr.is_default && (
                   <button
+                    type="button"
                     onClick={() => setDefault(addr.id)}
                     disabled={actionId === addr.id}
                     className="flex items-center gap-1 text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5 active:bg-gray-50 disabled:opacity-50"
@@ -161,6 +194,7 @@ export function AddressesClient() {
                 )}
                 <div className="flex-1" />
                 <button
+                  type="button"
                   onClick={() => deleteAddress(addr.id)}
                   disabled={actionId === addr.id}
                   className="flex items-center gap-1 text-xs text-red-400 border border-red-100 rounded-lg px-3 py-1.5 active:bg-red-50 disabled:opacity-50"
@@ -174,7 +208,6 @@ export function AddressesClient() {
         )}
       </div>
 
-      {/* 배송지 추가 버튼 */}
       <div className="px-4 pb-6">
         <Link
           href="/profile/addresses/add"

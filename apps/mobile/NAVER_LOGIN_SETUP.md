@@ -52,6 +52,17 @@
 | 다운로드 URL | Google Play URL (앱 등록 후) |
 | 패키지 이름 | `com.example.modu_repair` (실제 패키지명으로 변경) |
 
+#### PC 웹 (고객 웹 로그인)
+
+웹(`apps/web`)에서 네이버 로그인을 사용합니다. **메인 도메인 `modo.io.kr`**에 맞춰 등록하세요.
+
+| 항목 | 값 |
+|------|-----|
+| 서비스 URL | `https://modo.io.kr` |
+| Callback URL | `https://modo.io.kr/auth/naver/callback` |
+
+자세한 OAuth 전체 체크리스트: `docs/DOMAIN_OAUTH_SETUP.md`
+
 ### 1-5. 발급받은 키 확인
 
 애플리케이션 등록 완료 후 다음 정보를 확인:

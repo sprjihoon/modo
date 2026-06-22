@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  getNaverCallbackUrl,
+  getOAuthCallbackUrl,
+} from "@/lib/utils";
 
 const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID || "b7QJILomSlfsFL7RuAQs";
 
@@ -58,7 +62,7 @@ export function LoginPageClient() {
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?redirectTo=${redirectTo}`,
+        redirectTo: getOAuthCallbackUrl(redirectTo),
       },
     });
   }
@@ -68,13 +72,13 @@ export function LoginPageClient() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?redirectTo=${redirectTo}`,
+        redirectTo: getOAuthCallbackUrl(redirectTo),
       },
     });
   }
 
   async function handleNaverLogin() {
-    const callbackUrl = `${window.location.origin}/auth/naver/callback`;
+    const callbackUrl = getNaverCallbackUrl();
     const state = Math.random().toString(36).substring(2);
     sessionStorage.setItem("naver_redirect_to", redirectTo);
     const naverOAuthUrl =
@@ -90,7 +94,7 @@ export function LoginPageClient() {
     await supabase.auth.signInWithOAuth({
       provider: "apple",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?redirectTo=${redirectTo}`,
+        redirectTo: getOAuthCallbackUrl(redirectTo),
       },
     });
   }

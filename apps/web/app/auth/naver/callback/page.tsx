@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getNaverCallbackUrl } from "@/lib/utils";
 import { Suspense } from "react";
 
 function NaverCallbackContent() {
@@ -29,7 +30,7 @@ function NaverCallbackContent() {
 
   async function handleCallback(code: string, redirectTo: string) {
     try {
-      const redirectUri = `${window.location.origin}/auth/naver/callback`;
+      const redirectUri = getNaverCallbackUrl();
 
       const res = await fetch("/api/auth/naver", {
         method: "POST",

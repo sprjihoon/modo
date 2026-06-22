@@ -21,6 +21,30 @@ export function getSiteUrl(): string {
   return "https://modo.io.kr";
 }
 
+/** OAuth·비밀번호 재설정 등에 쓰는 현재 사이트 origin (클라이언트: 방문 도메인, SSR: getSiteUrl) */
+export function getAuthOrigin(): string {
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return getSiteUrl();
+}
+
+/** Supabase OAuth (카카오·구글·애플) 콜백 URL */
+export function getOAuthCallbackUrl(redirectTo = "/"): string {
+  const base = `${getAuthOrigin()}/auth/callback`;
+  return `${base}?redirectTo=${encodeURIComponent(redirectTo)}`;
+}
+
+/** 네이버 로그인 콜백 URL (네이버 개발자 콘솔 Callback URL과 일치해야 함) */
+export function getNaverCallbackUrl(): string {
+  return `${getAuthOrigin()}/auth/naver/callback`;
+}
+
+/** 비밀번호 재설정 완료 후 돌아올 URL */
+export function getPasswordResetUrl(): string {
+  return `${getAuthOrigin()}/auth/reset-password`;
+}
+
 export const ORDER_STATUS_MAP: Record<
   string,
   { label: string; color: string; bgColor: string }

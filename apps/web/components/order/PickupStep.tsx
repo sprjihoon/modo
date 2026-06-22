@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   MapPin, Calendar, MessageSquare, ChevronDown, CheckCircle,
   Plus, Info, Truck,
@@ -196,15 +197,25 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
         .order("created_at", { ascending: false });
       if (data && data.length > 0) {
         setSavedAddresses(data);
-        // draft 에서 이미 주소가 복원된 경우 자동 선택을 건너뛴다.
-        if (!draft.pickupAddress) {
-          const defaultAddr = data.find((a) => a.is_default) ?? data[0];
-          setSelectedAddressId(defaultAddr.id);
-          setAddress(defaultAddr.address);
-          setAddressDetail(defaultAddr.address_detail ?? "");
-          setPickupZipcode(defaultAddr.zipcode ?? "");
-          setPickupPhone(defaultAddr.recipient_phone ?? "");
-        }
+        setSelectedAddressId((currentId) => {
+          const stillExists =
+            currentId != null && data.some((a) => a.id === currentId);
+          if (!draft.pickupAddress) {
+            if (!currentId || !stillExists) {
+              const defaultAddr = data.find((a) => a.is_default) ?? data[0];
+              setAddress(defaultAddr.address);
+              setAddressDetail(defaultAddr.address_detail ?? "");
+              setPickupZipcode(defaultAddr.zipcode ?? "");
+              setPickupPhone(defaultAddr.recipient_phone ?? "");
+              return defaultAddr.id;
+            }
+          }
+          if (currentId && !stillExists) return null;
+          return currentId;
+        });
+      } else {
+        setSavedAddresses([]);
+        setSelectedAddressId(null);
       }
     } catch { /* ignore */ }
   }, [draft.pickupAddress]);
@@ -212,6 +223,9 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
   useEffect(() => {
     loadSavedAddresses();
     loadShippingSettings();
+    const onFocus = () => loadSavedAddresses();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [loadSavedAddresses, loadShippingSettings]);
 
   // 수선 금액이 변하면 배송비 프로모션도 다시 평가하여 정확한 표시.
@@ -420,14 +434,13 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
                       </div>
                     </button>
                   ))}
-                  <a
+                  <Link
                     href="/profile/addresses/add"
-                    target="_blank"
                     className="flex items-center gap-2 px-4 py-3 bg-gray-50 text-xs text-gray-500 font-semibold active:bg-gray-100"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     새 배송지 추가
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>

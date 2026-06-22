@@ -130,7 +130,7 @@ async function main() {
   }
 
   console.log("\n✅ 완료!");
-  console.log(`\n🌐 웹에서 확인: https://modo.mom/orders/[이다해 주문 UUID]`);
+  console.log(`\n🌐 웹에서 확인: https://modo.io.kr/orders/[이다해 주문 UUID]`);
   console.log(`   (admin 대시보드에서 이다해 주문의 UUID를 찾아 접속하세요)`);
 }
 

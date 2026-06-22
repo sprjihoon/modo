@@ -8,6 +8,7 @@ import { formatPrice } from "@/lib/utils";
 import { Scissors, MapPin, CreditCard, AlertCircle, X, ShoppingCart } from "lucide-react";
 import { Analytics } from "@/lib/analytics";
 import { addCartItem } from "@/lib/cart";
+import { CompanyFooter } from "@/components/layout/CompanyFooter";
 import type { OrderDraft } from "@/components/order/OrderNewClient";
 
 interface TossPaymentInstance {
@@ -299,17 +300,21 @@ export function PaymentClient() {
 
   if (isLoading) {
     return (
-      <div className="p-4 space-y-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />
-        ))}
-      </div>
+      <>
+        <div className="p-4 space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />
+          ))}
+        </div>
+        <CompanyFooter />
+      </>
     );
   }
 
   if (error || !intent) {
     return (
-      <div className="m-4 p-6 bg-white border border-gray-100 rounded-2xl text-center shadow-sm">
+      <>
+        <div className="m-4 p-6 bg-white border border-gray-100 rounded-2xl text-center shadow-sm">
         <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
         <p className="text-sm font-bold text-gray-800 mb-1">결제 정보를 불러올 수 없습니다</p>
         <p className="text-xs text-gray-500 mb-4 whitespace-pre-line">{error}</p>
@@ -327,7 +332,9 @@ export function PaymentClient() {
             홈으로
           </button>
         </div>
-      </div>
+        </div>
+        <CompanyFooter />
+      </>
     );
   }
 
@@ -342,7 +349,7 @@ export function PaymentClient() {
   return (
     <>
       <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
-      <div className="pb-36">
+      <div>
         <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <Scissors className="w-4 h-4 text-[#00C896]" />
@@ -456,7 +463,11 @@ export function PaymentClient() {
           </div>
         )}
 
-        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 pb-6 pt-3 bg-white border-t border-gray-100">
+        <CompanyFooter />
+        {/* 고정 결제 버튼 영역 높이 — 푸터가 버튼에 가리지 않도록 */}
+        <div className="h-24" aria-hidden />
+
+        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 px-4 pb-6 pt-3 bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
           <button
             onClick={handlePayment}
             disabled={isRequesting || testRequesting !== null}

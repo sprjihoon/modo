@@ -189,13 +189,14 @@ NEXT_PUBLIC_USE_DIRECT_FILE_UPLOAD=false
 
 | 프로젝트명 | 커스텀 도메인 | Git 연결 | 앱 |
 |-----------|-------------|----------|-----|
-| modo | admin.modo.mom | sprjihoon/modo (main) | `apps/admin` |
-| modo-web | modo.mom | sprjihoon/modo (main) | `apps/web` |
+| modo | admin.modo.mom (또는 admin.modorepair.com) | sprjihoon/modo (main) | `apps/admin` |
+| modo-web | **modo.io.kr** (+ 레거시 modo.mom, modorepair.com) | sprjihoon/modo (main) | `apps/web` |
 
 **참고:**
 - admin 미들웨어의 Vercel 프리뷰 허용 prefix: `modo-admin` (`ADMIN_VERCEL_PROJECT_PREFIX` 환경변수로 변경 가능)
-- Supabase 인증 redirect URL: `modo.mom`, `admin.modo.mom`, `localhost:3000`
-- CORS 허용 origin: `modo.mom`, `admin.modo.mom`, `www.modo.mom`
+- Supabase Site URL: `https://modo.io.kr`
+- Supabase Redirect URLs: `https://modo.io.kr/**`, 레거시 도메인, `modorepair://**`, localhost — `docs/DOMAIN_OAUTH_SETUP.md` 참고
+- CORS 허용 origin: `modo.io.kr`, 레거시 고객·admin 도메인 (`apps/edge/supabase/functions/_shared/cors.ts`)
 
 ---
 

@@ -24,14 +24,24 @@ site_url = "https://modo.io.kr"
 additional_redirect_urls = [
   "https://modo.io.kr",
   "https://www.modo.io.kr",
+  "https://modo.io.kr/**",
+  "https://www.modo.io.kr/**",
   "https://modo.mom",
   "https://www.modo.mom",
+  "https://modo.mom/**",
+  "https://www.modo.mom/**",
   "https://modorepair.com",
   "https://www.modorepair.com",
+  "https://modorepair.com/**",
+  "https://www.modorepair.com/**",
   "https://admin.modo.mom",
   "https://admin.modorepair.com",
+  "modorepair://login-callback",
+  "modorepair://**",
   "http://localhost:3000",
-  "http://localhost:3001"
+  "http://localhost:3000/**",
+  "http://localhost:3001",
+  "http://localhost:3001/**"
 ]
 
 [auth.email]
