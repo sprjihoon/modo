@@ -445,7 +445,7 @@ export function PaymentClient() {
       </div>
 
       {/* 결제 버튼 — 푸터 위에 별도 고정 */}
-      <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 px-5 py-2">
+      <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full max-w-[600px] z-30 px-5 py-2">
         <button
           onClick={handlePayment}
           disabled={isRequesting || testRequesting !== null}
@@ -456,7 +456,7 @@ export function PaymentClient() {
       </div>
 
       {/* 푸터 — 최하단 고정 */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-20 bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] z-20 bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
         <CompanyFooter />
       </div>
 
