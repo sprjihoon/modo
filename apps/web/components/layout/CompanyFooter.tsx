@@ -17,7 +17,12 @@ interface CompanyInfo {
   phone?: string;
 }
 
-export function CompanyFooter() {
+interface CompanyFooterProps {
+  /** payment: 결제 페이지 — 사업자 정보·약관 링크 항상 표시 (PG 심사용) */
+  variant?: "accordion" | "payment";
+}
+
+export function CompanyFooter({ variant = "accordion" }: CompanyFooterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [info, setInfo] = useState<CompanyInfo | null>(null);
 
@@ -44,6 +49,65 @@ export function CompanyFooter() {
     info?.company_name?.split("(")[0].trim() ??
     "모두의수선";
 
+  const policyLinks = (
+    <div className="flex flex-wrap gap-x-3 gap-y-1">
+      <Link
+        href="/terms"
+        className="text-xs text-gray-600 underline underline-offset-2"
+      >
+        이용약관
+      </Link>
+      <Link
+        href="/privacy-policy"
+        className="text-xs text-gray-600 underline underline-offset-2"
+      >
+        개인정보처리방침
+      </Link>
+      <Link
+        href="/refund-policy"
+        className="text-xs text-gray-600 underline underline-offset-2"
+      >
+        결제 · 취소 · 환불 정책
+      </Link>
+    </div>
+  );
+
+  if (variant === "payment") {
+    return (
+      <div className="px-4 py-3 bg-white text-xs text-gray-600 space-y-1.5">
+        <p className="text-sm font-semibold text-gray-800">{title}</p>
+        {info?.company_name && (
+          <p>
+            <span className="text-gray-500">회사명</span> {info.company_name}
+          </p>
+        )}
+        {info?.ceo_name && (
+          <p>
+            <span className="text-gray-500">대표</span> {info.ceo_name}
+          </p>
+        )}
+        {info?.business_number && (
+          <p>
+            <span className="text-gray-500">사업자등록번호</span>{" "}
+            {info.business_number}
+          </p>
+        )}
+        {info?.online_business_number && (
+          <p>
+            <span className="text-gray-500">통신판매업신고</span>{" "}
+            {info.online_business_number}
+          </p>
+        )}
+        {info?.phone && (
+          <p>
+            <span className="text-gray-500">고객센터</span> {info.phone}
+          </p>
+        )}
+        <div className="pt-1">{policyLinks}</div>
+      </div>
+    );
+  }
+
   const rows: { label: string; value: string }[] = [
     { label: "회사명", value: info?.company_name ?? "" },
     { label: "대표자", value: info?.ceo_name ?? "" },
@@ -57,8 +121,8 @@ export function CompanyFooter() {
 
   return (
     <div className="border-t border-gray-200 bg-white">
-      {/* 아코디언 헤더 */}
       <button
+        type="button"
         onClick={() => setIsExpanded((prev) => !prev)}
         className="w-full flex items-center justify-between px-4 py-3"
       >
@@ -69,7 +133,6 @@ export function CompanyFooter() {
         />
       </button>
 
-      {/* 아코디언 내용 */}
       {isExpanded && (
         <div className="px-4 pb-4 space-y-2">
           {rows.map(({ label, value }) => (
@@ -80,28 +143,7 @@ export function CompanyFooter() {
               <span className="text-xs text-gray-800 flex-1">{value}</span>
             </div>
           ))}
-
-          {/* 링크 */}
-          <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
-            <Link
-              href="/terms"
-              className="text-xs text-gray-600 underline underline-offset-2"
-            >
-              이용약관
-            </Link>
-            <Link
-              href="/privacy-policy"
-              className="text-xs text-gray-600 underline underline-offset-2"
-            >
-              개인정보처리방침
-            </Link>
-            <Link
-              href="/refund-policy"
-              className="text-xs text-gray-600 underline underline-offset-2"
-            >
-              결제 · 취소 · 환불 정책
-            </Link>
-          </div>
+          <div className="pt-2">{policyLinks}</div>
         </div>
       )}
     </div>

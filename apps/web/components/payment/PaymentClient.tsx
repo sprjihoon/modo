@@ -300,14 +300,11 @@ export function PaymentClient() {
 
   if (isLoading) {
     return (
-      <>
-        <div className="p-4 space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />
-          ))}
-        </div>
-        <CompanyFooter />
-      </>
+      <div className="p-4 space-y-3 pb-8">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />
+        ))}
+      </div>
     );
   }
 
@@ -333,7 +330,7 @@ export function PaymentClient() {
           </button>
         </div>
         </div>
-        <CompanyFooter />
+        <CompanyFooter variant="payment" />
       </>
     );
   }
@@ -349,7 +346,7 @@ export function PaymentClient() {
   return (
     <>
       <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
-      <div>
+      <div className="pb-56">
         <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <Scissors className="w-4 h-4 text-[#00C896]" />
@@ -463,11 +460,11 @@ export function PaymentClient() {
           </div>
         )}
 
-        <CompanyFooter />
-        {/* 고정 결제 버튼 영역 높이 — 푸터가 버튼에 가리지 않도록 */}
-        <div className="h-24" aria-hidden />
+      </div>
 
-        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 px-4 pb-6 pt-3 bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+        <CompanyFooter variant="payment" />
+        <div className="px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] border-t border-gray-100">
           <button
             onClick={handlePayment}
             disabled={isRequesting || testRequesting !== null}
