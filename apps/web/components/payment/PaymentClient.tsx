@@ -73,20 +73,15 @@ function getClientKey(): string {
 export function PaymentClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  // 신규 흐름: intentId 만 사용 (PENDING_PAYMENT 폐지)
   const intentId = searchParams.get("intentId") ?? "";
 
   const [intent, setIntent] = useState<PaymentIntent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 관리자 설정 — 켜져 있을 때만 결제 우회 테스트 버튼 노출
   const [showTestButtons, setShowTestButtons] = useState(false);
-  const [testRequesting, setTestRequesting] = useState<"mock" | "real" | null>(
-    null
-  );
+  const [testRequesting, setTestRequesting] = useState<"mock" | "real" | null>(null);
 
-  // 이탈 가드: 결제 직전 → "결제 안 끝내고 나가실래요?" 확인
   const [showExitDialog, setShowExitDialog] = useState(false);
   const popstateHandlerRef = useRef<(() => void) | null>(null);
   const isPaymentInProgressRef = useRef(false);
@@ -122,7 +117,7 @@ export function PaymentClient() {
     setTestRequesting(testMode ? "mock" : "real");
     setError(null);
     try {
-      isPaymentInProgressRef.current = true; // 이탈 가드 비활성화
+      isPaymentInProgressRef.current = true;
       const res = await fetch("/api/admin/test/skip-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -132,7 +127,6 @@ export function PaymentClient() {
       if (!res.ok) {
         throw new Error(data?.error ?? "테스트 결제 처리 실패");
       }
-      // 실제 우체국 API 여부와 송장번호를 URL에 포함
       const params = new URLSearchParams({
         orderId: data.orderId,
         test: "1",
@@ -150,9 +144,6 @@ export function PaymentClient() {
     }
   }
 
-  // ── 이탈 방지 ──────────────────────────────────────────────────────────
-  // OrderNewClient 와 동일한 패턴: modu_before_navigate / popstate / beforeunload
-  // 결제 위젯 호출 직전에 isPaymentInProgressRef = true 로 두어 가드 비활성화.
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -214,7 +205,6 @@ export function PaymentClient() {
         throw new Error("결제 시간이 만료되었습니다. 주문을 다시 시작해주세요.");
       }
       setIntent(data as PaymentIntent);
-      // 결제 페이지 진입 = 결제 시작 이벤트
       Analytics.paymentStart(data.id, data.total_price);
     } catch (e) {
       setError(e instanceof Error ? e.message : "주문 정보를 불러올 수 없습니다.");
@@ -241,18 +231,16 @@ export function PaymentClient() {
       const customerKey = user?.id ?? `anon_${Date.now()}`;
 
       const tossPayments = TossPayments(getClientKey());
-
       const payment = tossPayments.payment({ customerKey });
       const intAmount = Math.max(1, Math.round(intent.total_price));
 
-      // Toss 위젯 호출 직전 — 이탈 가드 비활성화 (Toss 가 자체 navigate 함)
       isPaymentInProgressRef.current = true;
 
       const p = intent.payload;
       await payment.requestPayment({
         method: "CARD",
         amount: { currency: "KRW", value: intAmount },
-        orderId: intent.id, // intent_id 를 Toss orderId 로 사용
+        orderId: intent.id,
         orderName: p.itemName ?? "모두의수선 수선 서비스",
         successUrl: `${window.location.origin}/payment/success`,
         failUrl: `${window.location.origin}/payment/fail`,
@@ -310,8 +298,7 @@ export function PaymentClient() {
 
   if (error || !intent) {
     return (
-      <>
-        <div className="m-4 p-6 bg-white border border-gray-100 rounded-2xl text-center shadow-sm">
+      <div className="m-4 p-6 bg-white border border-gray-100 rounded-2xl text-center shadow-sm">
         <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
         <p className="text-sm font-bold text-gray-800 mb-1">결제 정보를 불러올 수 없습니다</p>
         <p className="text-xs text-gray-500 mb-4 whitespace-pre-line">{error}</p>
@@ -329,9 +316,7 @@ export function PaymentClient() {
             홈으로
           </button>
         </div>
-        </div>
-        <CompanyFooter variant="payment" />
-      </>
+      </div>
     );
   }
 
@@ -346,7 +331,9 @@ export function PaymentClient() {
   return (
     <>
       <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
-      <div className="pb-56">
+
+      {/* 본문 — 하단 고정 영역 높이만큼 여백 */}
+      <div className="pb-36">
         <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <Scissors className="w-4 h-4 text-[#00C896]" />
@@ -443,27 +430,23 @@ export function PaymentClient() {
                 disabled={testRequesting !== null || isRequesting}
                 className="flex-1 py-2.5 text-xs font-bold rounded-lg border border-yellow-400 bg-white text-yellow-800 disabled:opacity-50 active:bg-yellow-100"
               >
-                {testRequesting === "mock"
-                  ? "처리 중..."
-                  : "Mock 수거예약 (test_mode=true)"}
+                {testRequesting === "mock" ? "처리 중..." : "Mock 수거예약 (test_mode=true)"}
               </button>
               <button
                 onClick={() => handleTestSkipPayment(false)}
                 disabled={testRequesting !== null || isRequesting}
                 className="flex-1 py-2.5 text-xs font-bold rounded-lg bg-yellow-500 text-white disabled:opacity-50 active:brightness-95"
               >
-                {testRequesting === "real"
-                  ? "처리 중..."
-                  : "실제 우체국 API"}
+                {testRequesting === "real" ? "처리 중..." : "실제 우체국 API"}
               </button>
             </div>
           </div>
         )}
-
       </div>
 
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
-        <CompanyFooter variant="payment" />
+      {/* 하단 고정: 아코디언 푸터 + 결제 버튼 */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+        <CompanyFooter />
         <div className="px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] border-t border-gray-100">
           <button
             onClick={handlePayment}
