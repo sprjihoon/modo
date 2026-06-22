@@ -12,8 +12,8 @@ alwaysApply: true
 
 | 프로젝트 | 도메인 | 앱 |
 |---------|--------|-----|
-| **modo** | admin.modo.mom | 어드민 (apps/admin) |
-| **modo-web** | modo.mom | 고객용 웹 (apps/web) |
+| **modo** | admin.modo.mom (또는 admin.modorepair.com) | 어드민 (apps/admin) |
+| **modo-web** | **modo.io.kr** (고객 메인) · modo.mom / modorepair.com (레거시) | 고객용 웹 (apps/web) |
 
 ## 삭제/무관한 프로젝트 (절대 사용 금지)
 

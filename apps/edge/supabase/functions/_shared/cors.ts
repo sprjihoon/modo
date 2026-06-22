@@ -2,11 +2,16 @@
  * CORS 허용 출처 목록
  */
 const ALLOWED_ORIGINS = new Set([
+  // Primary customer domain
+  'https://modo.io.kr',
+  'https://www.modo.io.kr',
+  // Legacy / alternate customer domains (redirect or transition)
   'https://modo.mom',
-  'https://admin.modo.mom',
   'https://www.modo.mom',
   'https://modorepair.com',
   'https://www.modorepair.com',
+  // Admin consoles
+  'https://admin.modo.mom',
   'https://admin.modorepair.com',
 ]);
 
@@ -22,7 +27,7 @@ export function getCorsHeaders(req?: Request): Record<string, string> {
     origin.startsWith('http://127.0.0.1');
 
   return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : 'https://modo.mom',
+    'Access-Control-Allow-Origin': isAllowed ? origin : 'https://modo.io.kr',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Vary': 'Origin',

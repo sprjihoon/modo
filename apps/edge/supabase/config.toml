@@ -20,11 +20,18 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "https://modo.mom"
+site_url = "https://modo.io.kr"
 additional_redirect_urls = [
+  "https://modo.io.kr",
+  "https://www.modo.io.kr",
   "https://modo.mom",
+  "https://www.modo.mom",
+  "https://modorepair.com",
+  "https://www.modorepair.com",
   "https://admin.modo.mom",
-  "http://localhost:3000"
+  "https://admin.modorepair.com",
+  "http://localhost:3000",
+  "http://localhost:3001"
 ]
 
 [auth.email]

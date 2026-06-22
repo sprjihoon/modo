@@ -1,6 +1,6 @@
 # 모두의수선 - 고객 웹 서비스 (`apps/web`)
 
-> **도메인:** [https://modo.mom](https://modo.mom)  
+> **도메인:** [https://modo.io.kr](https://modo.io.kr)  
 > **기술 스택:** Next.js 14 (App Router), TypeScript, Tailwind CSS, Supabase
 
 ---
@@ -129,7 +129,7 @@ NAVER_CLIENT_SECRET=M_cxR3WuTs
 Vercel 프로덕션 환경 변수 (별도 설정 필요):
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_APP_URL=https://modo.mom`
+- `NEXT_PUBLIC_APP_URL=https://modo.io.kr`
 - `NEXT_PUBLIC_TOSS_CLIENT_KEY` (운영키)
 - `NEXT_PUBLIC_NAVER_CLIENT_ID`
 - `NAVER_CLIENT_ID`
@@ -146,8 +146,9 @@ vercel deploy --prod --yes --archive=tgz
 ```
 
 **도메인 설정:**
-- `modo.mom` → `apps/web` (고객 웹 서비스)
-- `admin.modo.mom` → `apps/admin` (관리자 페이지)
+- `modo.io.kr` → `apps/web` (고객 웹 — 메인)
+- `modo.mom`, `modorepair.com` → 레거시·리다이렉트용 (선택)
+- `admin.modo.mom`, `admin.modorepair.com` → `apps/admin` (관리자 페이지)
 
 ---
 

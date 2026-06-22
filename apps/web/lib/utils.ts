@@ -14,6 +14,13 @@ export function formatDate(dateStr: string): string {
   return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, "0")}.${String(dt.getDate()).padStart(2, "0")}`;
 }
 
+/** 고객 웹 공식 URL (환경변수 미설정 시 https://modo.io.kr) */
+export function getSiteUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  return "https://modo.io.kr";
+}
+
 export const ORDER_STATUS_MAP: Record<
   string,
   { label: string; color: string; bgColor: string }

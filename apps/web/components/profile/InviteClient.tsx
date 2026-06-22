@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Gift, Copy, Share2, Users, Coins } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { getSiteUrl } from "@/lib/utils";
 
 export function InviteClient() {
   const [inviteCode, setInviteCode] = useState("");
@@ -51,7 +52,7 @@ export function InviteClient() {
   }
 
   async function shareInvite() {
-    const text = `모두의수선 초대 코드: ${inviteCode}\n친구와 함께 수선 혜택을 받아보세요!\nhttps://modo.mom`;
+    const text = `모두의수선 초대 코드: ${inviteCode}\n친구와 함께 수선 혜택을 받아보세요!\n${getSiteUrl()}`;
     if (navigator.share) {
       await navigator.share({ title: "모두의수선 초대", text });
     } else {

@@ -33,6 +33,16 @@ const nextConfig = {
   // 상위 디렉토리(`%USERPROFILE%/Documents/package-lock.json`)에서
   // lockfile 이 잘못 탐지되어 워크스페이스 루트가 잘못 추론되는 문제 방지.
   outputFileTracingRoot: __dirname,
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.modo.io.kr' }],
+        destination: 'https://modo.io.kr/:path*',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
