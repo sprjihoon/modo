@@ -10,7 +10,7 @@ import {
   getOAuthCallbackUrl,
 } from "@/lib/utils";
 
-const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID || "b7QJILomSlfsFL7RuAQs";
+const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
 
 export function LoginPageClient() {
   const router = useRouter();
@@ -78,6 +78,10 @@ export function LoginPageClient() {
   }
 
   async function handleNaverLogin() {
+    if (!NAVER_CLIENT_ID) {
+      setError("네이버 로그인 설정이 누락되었습니다. 관리자에게 문의해주세요.");
+      return;
+    }
     const callbackUrl = getNaverCallbackUrl();
     const state = Math.random().toString(36).substring(2);
     sessionStorage.setItem("naver_redirect_to", redirectTo);

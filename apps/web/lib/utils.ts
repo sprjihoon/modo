@@ -41,9 +41,9 @@ export function getNaverCallbackUrl(): string {
   return `${getSiteUrl()}/auth/naver/callback`;
 }
 
-/** 비밀번호 재설정 완료 후 돌아올 URL */
+/** 비밀번호 재설정 완료 후 돌아올 URL — 이메일 링크는 항상 프로덕션 URL이어야 함 */
 export function getPasswordResetUrl(): string {
-  return `${getAuthOrigin()}/auth/reset-password`;
+  return `${getSiteUrl()}/auth/reset-password`;
 }
 
 export const ORDER_STATUS_MAP: Record<
