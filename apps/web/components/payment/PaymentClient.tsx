@@ -99,6 +99,11 @@ export function PaymentClient() {
   }, [intentId]);
 
   async function loadTestButtonsFlag() {
+    // 운영 환경에서는 테스트 버튼을 절대 노출하지 않음 (PG 심사 안전장치)
+    if (process.env.NODE_ENV === "production") {
+      setShowTestButtons(false);
+      return;
+    }
     try {
       const supabase = createClient();
       const { data } = await supabase
@@ -457,7 +462,7 @@ export function PaymentClient() {
 
       {/* 푸터 — 최하단 고정 */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] z-20 bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
-        <CompanyFooter />
+        <CompanyFooter variant="payment" />
       </div>
 
       {showExitDialog && (
