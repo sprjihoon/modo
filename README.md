@@ -68,20 +68,21 @@ modo/
 - **Video CDN**: Cloudflare Stream
 - **Logistics**: 우체국 API
 - **Push Notification**: Firebase Cloud Messaging (FCM)
+- **이메일 발송**: Resend (`noreply@modo.mom`) — 비밀번호 재설정 등 트랜잭션 메일
 
 ---
 
 ## ✅ 구현 현황
 
-> **최종 업데이트:** 2026-06-22 — 메인 도메인 `modo.io.kr` 전환, PG 심사 대응 약관·푸터, `payment_intents` 결제 흐름
+> **최종 업데이트:** 2026-06-23 — 소셜로그인 콜백 URL 수정 (네이버 `disp_stat=207` 해결), Resend SMTP 비밀번호 재설정 설정 완료, Supabase Site URL `modo.io.kr` 확정
 
 ### `apps/web` (고객 웹)
 
 | 기능 | 상태 | 설명 |
 |------|------|------|
 | 이메일 회원가입 / 로그인 | ✅ 완료 | Supabase Auth, 콜백 라우트 |
-| 소셜 로그인 | ✅ 완료 | 카카오, 구글, 네이버, 애플 |
-| 비밀번호 찾기 / 재설정 | ✅ 완료 | 이메일 링크 기반 (`modo.io.kr`) |
+| 소셜 로그인 | ✅ 완료 | 카카오·구글·네이버 (콜백 URL 고정), 애플 미설정 |
+| 비밀번호 찾기 / 재설정 | ✅ 완료 | Resend SMTP (`noreply@modo.mom`) → `modo.io.kr/auth/reset-password` |
 | 홈 화면 | ✅ 완료 | 배너 슬라이더, 최근 주문, 추가결제 알림 |
 | 수선 접수 (4단계 마법사) | ✅ 완료 | 의류선택 → 수선항목 → 사진+핀 → 수거정보 |
 | 장바구니 | ✅ 완료 | `/cart` — 주문 draft 저장, 이어서 수거신청 |
@@ -255,6 +256,9 @@ flutter run
 | `NEXT_PUBLIC_IOS_APP_URL` | App Store 링크 |
 | `NEXT_PUBLIC_ANDROID_APP_URL` | Play Store 링크 |
 | `NEXT_PUBLIC_APP_DEEP_LINK` | 앱 딥링크 스킴 |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase 서비스 롤 키 (서버사이드 전용) |
+| `NAVER_CLIENT_ID` | 네이버 OAuth 앱 Client ID |
+| `NAVER_CLIENT_SECRET` | 네이버 OAuth 앱 Client Secret |
 
 ---
 
