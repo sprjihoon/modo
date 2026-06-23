@@ -23,7 +23,7 @@ interface CompanyFooterProps {
 }
 
 export function CompanyFooter({ variant = "accordion" }: CompanyFooterProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [info, setInfo] = useState<CompanyInfo | null>(null);
 
   useEffect(() => {
