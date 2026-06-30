@@ -1,9 +1,8 @@
-// 토스페이먼츠 결제 취소
+// 포트원 V2 결제 취소
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const TOSS_SECRET_KEY = Deno.env.get('TOSS_SECRET_KEY') || ''
-const TOSS_API_URL = 'https://api.tosspayments.com/v1/payments'
+const PORTONE_API_SECRET = Deno.env.get('PORTONE_API_SECRET') || ''
 
 serve(async (req) => {
   const corsHeaders = {
@@ -16,29 +15,31 @@ serve(async (req) => {
   }
 
   try {
-    // 환경변수 확인
-    if (!TOSS_SECRET_KEY) {
-      throw new Error('TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.')
+    if (!PORTONE_API_SECRET) {
+      throw new Error('PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.')
     }
 
-    const {
-      payment_key,
-      cancel_reason,
-      cancel_amount,
-    } = await req.json()
+    const { payment_id, cancel_reason, cancel_amount } = await req.json()
 
-    // 토스페이먼츠 결제 취소 API 호출
-    const response = await fetch(`${TOSS_API_URL}/${payment_key}/cancel`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${btoa(TOSS_SECRET_KEY + ':')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        cancelReason: cancel_reason,
-        ...(cancel_amount && { cancelAmount: cancel_amount }),
-      }),
-    })
+    if (!payment_id || !cancel_reason) {
+      throw new Error('필수 파라미터가 누락되었습니다. (payment_id, cancel_reason)')
+    }
+
+    // 포트원 V2 결제 취소 API
+    const cancelBody: Record<string, unknown> = { reason: cancel_reason }
+    if (cancel_amount) cancelBody.amount = cancel_amount
+
+    const response = await fetch(
+      `https://api.portone.io/payments/${encodeURIComponent(payment_id)}/cancel`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `PortOne ${PORTONE_API_SECRET}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(cancelBody),
+      }
+    )
 
     const data = await response.json()
 
@@ -46,39 +47,33 @@ serve(async (req) => {
       throw new Error(data.message || '결제 취소 실패')
     }
 
-    // Supabase에 취소 기록 업데이트
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    const isTotalCancel = !cancel_amount
+    const newStatus = isTotalCancel ? 'CANCELED' : 'PARTIAL_CANCELED'
+
     await supabaseClient
-      .from('payments')
-      .update({
-        status: 'CANCELLED',
-        cancelled_at: new Date().toISOString(),
-        cancel_reason: cancel_reason,
-      })
-      .eq('payment_key', payment_key)
+      .from('orders')
+      .update({ payment_status: newStatus, canceled_at: new Date().toISOString() })
+      .eq('payment_id', payment_id)
 
     return new Response(
       JSON.stringify({
         success: true,
         data: {
-          status: data.status,
-          cancelled_at: data.canceledAt,
+          status: data.payment?.status,
+          canceled_at: new Date().toISOString(),
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
+      JSON.stringify({ success: false, error: error.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })
-

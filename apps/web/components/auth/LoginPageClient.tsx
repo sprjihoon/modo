@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
@@ -11,6 +11,7 @@ import {
 } from "@/lib/utils";
 
 const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
+const SAVED_CREDENTIALS_KEY = "modo_web_saved_credentials";
 
 export function LoginPageClient() {
   const router = useRouter();
@@ -20,8 +21,23 @@ export function LoginPageClient() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SAVED_CREDENTIALS_KEY);
+      if (saved) {
+        const { email: savedEmail, password: savedPassword } = JSON.parse(saved);
+        setEmail(savedEmail || "");
+        setPassword(savedPassword || "");
+        setRememberMe(true);
+      }
+    } catch {
+      localStorage.removeItem(SAVED_CREDENTIALS_KEY);
+    }
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -46,6 +62,12 @@ export function LoginPageClient() {
           setError("로그인에 실패했습니다. 다시 시도해주세요.");
         }
         return;
+      }
+
+      if (rememberMe) {
+        localStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+      } else {
+        localStorage.removeItem(SAVED_CREDENTIALS_KEY);
       }
 
       router.push(redirectTo);
@@ -148,6 +170,24 @@ export function LoginPageClient() {
               <Eye className="w-4 h-4" />
             )}
           </button>
+        </div>
+
+        {/* 아이디/비밀번호 저장 */}
+        <div className="flex items-center gap-2">
+          <input
+            id="rememberMe"
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            disabled={isLoading}
+            className="w-4 h-4 rounded border-gray-300 accent-[#00C896] cursor-pointer"
+          />
+          <label
+            htmlFor="rememberMe"
+            className="text-sm text-gray-500 cursor-pointer select-none"
+          >
+            아이디/비밀번호 저장
+          </label>
         </div>
 
         {/* 에러 메시지 */}

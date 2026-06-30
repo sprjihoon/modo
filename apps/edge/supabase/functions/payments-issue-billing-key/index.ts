@@ -1,12 +1,10 @@
-// 토스페이먼츠 빌링키 발급
+// 포트원 V2 빌링키 발급
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const TOSS_SECRET_KEY = Deno.env.get('TOSS_SECRET_KEY') || ''
-const TOSS_API_URL = 'https://api.tosspayments.com/v1/billing/authorizations/card'
+const PORTONE_API_SECRET = Deno.env.get('PORTONE_API_SECRET') || ''
+const PORTONE_CHANNEL_KEY_BILLING = Deno.env.get('PORTONE_CHANNEL_KEY_BILLING') || ''
 
 serve(async (req) => {
-  // CORS headers
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -17,9 +15,8 @@ serve(async (req) => {
   }
 
   try {
-    // 환경변수 확인
-    if (!TOSS_SECRET_KEY) {
-      throw new Error('TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.')
+    if (!PORTONE_API_SECRET) {
+      throw new Error('PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.')
     }
 
     const {
@@ -32,21 +29,27 @@ serve(async (req) => {
       customer_name,
     } = await req.json()
 
-    // 토스페이먼츠 API 호출
-    const response = await fetch(TOSS_API_URL, {
+    // 포트원 V2 빌링키 발급 API
+    const response = await fetch('https://api.portone.io/billing-keys', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${btoa(TOSS_SECRET_KEY + ':')}`,
+        Authorization: `PortOne ${PORTONE_API_SECRET}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        customerKey: customer_id,
-        cardNumber: card_number,
-        cardExpirationYear: expiry_year,
-        cardExpirationMonth: expiry_month,
-        cardPassword: card_password,
-        customerIdentityNumber: identity_number,
-        customerName: customer_name,
+        channelKey: PORTONE_CHANNEL_KEY_BILLING,
+        customer: { id: customer_id, name: { full: customer_name } },
+        method: {
+          card: {
+            credential: {
+              number: card_number,
+              expiryYear: expiry_year,
+              expiryMonth: expiry_month,
+              birthOrBusinessRegistrationNumber: identity_number,
+              passwordTwoDigits: card_password,
+            },
+          },
+        },
       }),
     })
 
@@ -60,21 +63,17 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         data: {
-          billing_key: data.billingKey,
-          card_company: data.card?.company || '알 수 없음',
-          card_type: data.card?.cardType || '신용',
+          billing_key: data.billingKeyInfo?.billingKey,
+          card_company: data.billingKeyInfo?.methods?.[0]?.card?.issuer || '알 수 없음',
+          card_type: data.billingKeyInfo?.methods?.[0]?.card?.cardType || '신용',
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
+      JSON.stringify({ success: false, error: error.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })
-

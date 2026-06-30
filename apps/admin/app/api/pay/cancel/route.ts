@@ -3,51 +3,29 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// 토스페이먼츠 시크릿 키 (환경변수 필수)
-function getTossSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
-  if (!key) {
-    throw new Error('TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.');
-  }
+function getPortoneApiSecret(): string {
+  const key = process.env.PORTONE_API_SECRET;
+  if (!key) throw new Error("PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.");
   return key;
 }
 
 interface CancelRequest {
-  paymentKey: string;
+  paymentId: string;
   cancelReason: string;
-  cancelAmount?: number; // 부분 취소 시 금액 (전액 취소 시 생략)
-  refundReceiveAccount?: {
-    // 가상계좌 환불 계좌 (가상계좌 결제 취소 시 필수)
-    bank: string;
-    accountNumber: string;
-    holderName: string;
-  };
+  cancelAmount?: number;
 }
 
-/**
- * 토스페이먼츠 결제 취소 API
- * 
- * 사용 예시:
- * POST /api/pay/cancel
- * {
- *   "paymentKey": "tgen_20240101...",
- *   "cancelReason": "고객 요청에 의한 취소",
- *   "cancelAmount": 5000  // 부분 취소 시 (선택)
- * }
- */
 export async function POST(request: NextRequest) {
   try {
     const body: CancelRequest = await request.json();
-    const { paymentKey, cancelReason, cancelAmount, refundReceiveAccount } = body;
+    const { paymentId, cancelReason, cancelAmount } = body;
 
-    // 필수 파라미터 검증
-    if (!paymentKey) {
+    if (!paymentId) {
       return NextResponse.json(
-        { error: "INVALID_REQUEST", message: "paymentKey가 필요합니다." },
+        { error: "INVALID_REQUEST", message: "paymentId가 필요합니다." },
         { status: 400 }
       );
     }
-
     if (!cancelReason) {
       return NextResponse.json(
         { error: "INVALID_REQUEST", message: "취소 사유(cancelReason)가 필요합니다." },
@@ -57,111 +35,73 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // Basic 인증 헤더 생성
-    const encodedSecretKey = Buffer.from(`${getTossSecretKey()}:`).toString("base64");
+    const cancelBody: Record<string, unknown> = { reason: cancelReason };
+    if (cancelAmount) cancelBody.amount = cancelAmount;
 
-    // 토스페이먼츠 결제 취소 API 호출
-    const cancelBody: any = {
-      cancelReason,
-    };
-
-    // 부분 취소인 경우 금액 추가
-    if (cancelAmount) {
-      cancelBody.cancelAmount = cancelAmount;
-    }
-
-    // 가상계좌 환불 계좌 정보
-    if (refundReceiveAccount) {
-      cancelBody.refundReceiveAccount = refundReceiveAccount;
-    }
-
-    const tossResponse = await fetch(
-      `https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`,
+    const portoneRes = await fetch(
+      `https://api.portone.io/payments/${encodeURIComponent(paymentId)}/cancel`,
       {
         method: "POST",
         headers: {
-          Authorization: `Basic ${encodedSecretKey}`,
+          Authorization: `PortOne ${getPortoneApiSecret()}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(cancelBody),
       }
     );
 
-    const tossData = await tossResponse.json();
+    const portoneData = await portoneRes.json();
 
-    if (!tossResponse.ok) {
-      console.error("토스페이먼츠 결제 취소 실패:", tossData);
+    if (!portoneRes.ok) {
+      console.error("포트원 결제 취소 실패:", portoneData);
       return NextResponse.json(
-        {
-          error: tossData.code || "CANCEL_FAILED",
-          message: tossData.message || "결제 취소에 실패했습니다.",
-        },
-        { status: tossResponse.status }
+        { error: portoneData.code || "CANCEL_FAILED", message: portoneData.message || "결제 취소에 실패했습니다." },
+        { status: portoneRes.status }
       );
     }
 
-    console.log("✅ 결제 취소 성공:", tossData.orderId);
+    console.log("✅ 결제 취소 성공:", paymentId);
 
-    // DB 업데이트
-    const orderId = tossData.orderId;
-    const isTotalCancel = !cancelAmount || cancelAmount === tossData.totalAmount;
+    const isTotalCancel = !cancelAmount;
     const newStatus = isTotalCancel ? "CANCELED" : "PARTIAL_CANCELED";
 
-    // extra_charge_requests 업데이트 시도
     const { data: extraChargeReq } = await supabase
       .from("extra_charge_requests")
-      .update({
-        status: newStatus,
-        canceled_at: new Date().toISOString(),
-      })
-      .eq("id", orderId)
+      .update({ status: newStatus, canceled_at: new Date().toISOString() })
+      .eq("id", paymentId)
       .select()
       .single();
 
-    // 일반 orders 업데이트
     if (!extraChargeReq) {
       await supabase
         .from("orders")
-        .update({
-          payment_status: newStatus,
-          canceled_at: new Date().toISOString(),
-        })
-        .eq("id", orderId);
+        .update({ payment_status: newStatus, canceled_at: new Date().toISOString() })
+        .eq("payment_id", paymentId);
     }
 
-    // 취소 로그 저장
     try {
       await supabase.from("payment_logs").insert({
-        order_id: orderId,
-        payment_key: paymentKey,
-        amount: cancelAmount || tossData.totalAmount,
+        payment_id: paymentId,
+        amount: cancelAmount,
         status: "CANCELED",
-        provider: "TOSS",
-        response_data: tossData,
-        created_at: new Date().toISOString(),
+        provider: "PORTONE",
+        response_data: portoneData,
       });
-    } catch (logError) {
-      console.log("취소 로그 저장 실패:", logError);
+    } catch (e) {
+      console.log("취소 로그 저장 실패:", e);
     }
 
-    // 응답
     return NextResponse.json({
       success: true,
-      orderId: tossData.orderId,
-      paymentKey: tossData.paymentKey,
-      status: tossData.status,
-      canceledAmount: tossData.cancels?.[0]?.cancelAmount,
-      canceledAt: tossData.cancels?.[0]?.canceledAt,
-      cancelReason: tossData.cancels?.[0]?.cancelReason,
-      totalAmount: tossData.totalAmount,
-      balanceAmount: tossData.balanceAmount, // 남은 금액 (부분취소 시)
+      paymentId,
+      status: portoneData.payment?.status,
+      canceledAt: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("결제 취소 처리 오류:", error);
     return NextResponse.json(
-      { error: "INTERNAL_ERROR", message: error.message || "서버 오류가 발생했습니다." },
+      { error: "INTERNAL_ERROR", message: (error as Error).message || "서버 오류가 발생했습니다." },
       { status: 500 }
     );
   }
 }
-

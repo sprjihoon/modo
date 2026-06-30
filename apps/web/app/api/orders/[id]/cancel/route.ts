@@ -16,9 +16,9 @@ const PRE_PICKUP_STATUSES = new Set([
 ]);
 const POST_PICKUP_STATUSES = new Set(["PICKED_UP", "INBOUND"]);
 
-function getTossSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
-  if (!key) throw new Error("TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.");
+function getPortoneApiSecret(): string {
+  const key = process.env.PORTONE_API_SECRET;
+  if (!key) throw new Error("PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.");
   return key;
 }
 
@@ -64,7 +64,7 @@ export async function POST(
     const { data: order, error: orderErr } = await admin
       .from("orders")
       .select(
-        "id, status, payment_status, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number, tracking_no"
+        "id, status, payment_status, payment_id, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number, tracking_no"
       )
       .eq("id", orderId)
       .maybeSingle();
@@ -108,12 +108,12 @@ export async function POST(
       );
     }
 
-    const paymentKey = (order as { payment_key: string | null }).payment_key;
+    const paymentId = (order as { payment_id: string | null }).payment_id;
     const paymentStatus = (order as { payment_status: string | null }).payment_status;
     const totalPrice = Number(
       (order as { total_price: number | null }).total_price ?? 0
     );
-    const hasValidPayment = !!paymentKey && PAID_STATUSES.has(paymentStatus ?? "");
+    const hasValidPayment = !!paymentId && PAID_STATUSES.has(paymentStatus ?? "");
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -145,42 +145,39 @@ export async function POST(
 
       if (hasValidPayment && refundAmount > 0) {
         try {
-          const encodedKey = Buffer.from(`${getTossSecretKey()}:`).toString(
-            "base64"
-          );
-          const tossRes = await fetch(
-            `https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`,
+          const portoneRes = await fetch(
+            `https://api.portone.io/payments/${encodeURIComponent(paymentId!)}/cancel`,
             {
               method: "POST",
               headers: {
-                Authorization: `Basic ${encodedKey}`,
+                Authorization: `PortOne ${getPortoneApiSecret()}`,
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                cancelReason:
+                reason:
                   reason ||
                   `고객 요청 - 입고 후 취소 (왕복 배송비 ${returnFee.toLocaleString()}원${
                     remoteAreaFee > 0
                       ? ` + 도서산간 ${remoteAreaFee.toLocaleString()}원`
                       : ""
                   } 차감)`,
-                cancelAmount: refundAmount,
+                amount: refundAmount,
               }),
             }
           );
-          const tossData = await tossRes.json();
-          if (!tossRes.ok) {
-            refundError = tossData?.message || "부분환불 실패";
+          const portoneData = await portoneRes.json();
+          if (!portoneRes.ok) {
+            refundError = portoneData?.message || "부분환불 실패";
           } else {
-            refundResult = tossData;
+            refundResult = portoneData;
             try {
               await admin.from("payment_logs").insert({
                 order_id: orderId,
-                payment_key: paymentKey,
+                payment_id: paymentId,
                 amount: refundAmount,
                 status: "PARTIAL_CANCELED",
-                provider: "TOSS",
-                response_data: tossData,
+                provider: "PORTONE",
+                response_data: portoneData,
               });
             } catch {
               /* log table 미존재 시 무시 */
@@ -362,26 +359,25 @@ export async function POST(
 
     if (hasValidPayment) {
       try {
-        const encodedKey = Buffer.from(`${getTossSecretKey()}:`).toString("base64");
-        const tossRes = await fetch(
-          `https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`,
+        const portoneRes = await fetch(
+          `https://api.portone.io/payments/${encodeURIComponent(paymentId!)}/cancel`,
           {
             method: "POST",
             headers: {
-              Authorization: `Basic ${encodedKey}`,
+              Authorization: `PortOne ${getPortoneApiSecret()}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              cancelReason: reason || "고객 요청 - 수거 예약 취소",
+              reason: reason || "고객 요청 - 수거 예약 취소",
             }),
           }
         );
-        const tossData = await tossRes.json();
+        const portoneData = await portoneRes.json();
 
-        if (!tossRes.ok) {
-          paymentCancelError = tossData?.message || "카드 취소 실패";
+        if (!portoneRes.ok) {
+          paymentCancelError = portoneData?.message || "카드 취소 실패";
         } else {
-          paymentCancelResult = tossData;
+          paymentCancelResult = portoneData;
           await admin
             .from("orders")
             .update({
@@ -395,11 +391,11 @@ export async function POST(
           try {
             await admin.from("payment_logs").insert({
               order_id: orderId,
-              payment_key: paymentKey,
-              amount: totalPrice ?? tossData.totalAmount,
+              payment_id: paymentId,
+              amount: totalPrice,
               status: "CANCELED",
-              provider: "TOSS",
-              response_data: tossData,
+              provider: "PORTONE",
+              response_data: portoneData,
             });
           } catch {
             /* log table 미존재 시 무시 */

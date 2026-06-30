@@ -69,7 +69,7 @@ serve(async (req) => {
       user_id: internalUserId,
       status: 'PAID',
       payment_status: 'PAID',
-      payment_key: null,
+      payment_id: null,
       paid_at: new Date().toISOString(),
       order_number: orderNumber,
       item_name: pickup.itemName,

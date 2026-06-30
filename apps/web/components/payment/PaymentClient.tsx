@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
 import { Scissors, MapPin, CreditCard, AlertCircle, X, ShoppingCart } from "lucide-react";
@@ -10,26 +9,6 @@ import { Analytics } from "@/lib/analytics";
 import { addCartItem } from "@/lib/cart";
 import { CompanyFooter } from "@/components/layout/CompanyFooter";
 import type { OrderDraft } from "@/components/order/OrderNewClient";
-
-interface TossPaymentInstance {
-  requestPayment: (params: {
-    method: string;
-    amount: { currency: string; value: number };
-    orderId: string;
-    orderName: string;
-    successUrl: string;
-    failUrl: string;
-    customerName?: string;
-    customerEmail?: string;
-    customerMobilePhone?: string;
-  }) => Promise<void>;
-}
-
-interface TossPaymentsConstructor {
-  (clientKey: string): {
-    payment: (options: { customerKey: string }) => TossPaymentInstance;
-  };
-}
 
 interface IntentPayload {
   itemName: string;
@@ -59,15 +38,22 @@ interface PaymentIntent {
   consumed_at: string | null;
 }
 
-function getClientKey(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY?.trim();
-  if (fromEnv) return fromEnv;
+function getStoreId(): string {
+  const id = process.env.NEXT_PUBLIC_PORTONE_STORE_ID?.trim();
+  if (id) return id;
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "NEXT_PUBLIC_TOSS_CLIENT_KEY 환경변수가 설정되지 않았습니다. (운영 환경)"
-    );
+    throw new Error("NEXT_PUBLIC_PORTONE_STORE_ID 환경변수가 설정되지 않았습니다. (운영 환경)");
   }
-  return "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq";
+  return "store-869df247-ae7f-4504-962a-299e69a6e255";
+}
+
+function getChannelKey(): string {
+  const key = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY?.trim();
+  if (key) return key;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("NEXT_PUBLIC_PORTONE_CHANNEL_KEY 환경변수가 설정되지 않았습니다. (운영 환경)");
+  }
+  return "";
 }
 
 export function PaymentClient() {
@@ -223,36 +209,41 @@ export function PaymentClient() {
     setIsRequesting(true);
     setError(null);
     try {
-      const TossPayments = (
-        window as unknown as { TossPayments?: TossPaymentsConstructor }
-      ).TossPayments;
-
-      if (!TossPayments) {
-        throw new Error("결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.");
-      }
+      const PortOne = await import("@portone/browser-sdk/v2");
 
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      const customerKey = user?.id ?? `anon_${Date.now()}`;
-
-      const tossPayments = TossPayments(getClientKey());
-      const payment = tossPayments.payment({ customerKey });
-      const intAmount = Math.max(1, Math.round(intent.total_price));
 
       isPaymentInProgressRef.current = true;
 
       const p = intent.payload;
-      await payment.requestPayment({
-        method: "CARD",
-        amount: { currency: "KRW", value: intAmount },
-        orderId: intent.id,
+      const intAmount = Math.max(1, Math.round(intent.total_price));
+
+      const response = await PortOne.requestPayment({
+        storeId: getStoreId(),
+        channelKey: getChannelKey(),
+        paymentId: intent.id,
         orderName: p.itemName ?? "모두의수선 수선 서비스",
-        successUrl: `${window.location.origin}/payment/success`,
-        failUrl: `${window.location.origin}/payment/fail`,
-        ...(p.customerName ? { customerName: p.customerName } : {}),
-        ...(p.customerEmail ? { customerEmail: p.customerEmail } : {}),
-        ...(p.customerPhone ? { customerMobilePhone: p.customerPhone.replace(/-/g, "") } : {}),
+        totalAmount: intAmount,
+        currency: "CURRENCY_KRW",
+        payMethod: "CARD",
+        redirectUrl: `${window.location.origin}/payment/success`,
+        ...(p.customerName ? { customer: {
+          fullName: p.customerName,
+          email: p.customerEmail ?? undefined,
+          phoneNumber: p.customerPhone?.replace(/-/g, "") ?? undefined,
+        }} : {}),
       });
+
+      // redirectUrl 방식이면 여기에 도달하지 않음 (페이지 이동)
+      // 반환값 방식(PC)일 때만 실행
+      if (response && response.code !== undefined) {
+        if (response.code !== "FAILURE_TYPE_PG") {
+          setError(response.message ?? "결제 요청 중 오류가 발생했습니다.");
+        }
+        isPaymentInProgressRef.current = false;
+        setIsRequesting(false);
+      }
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };
       if (err?.code !== "USER_CANCEL") {
@@ -335,8 +326,6 @@ export function PaymentClient() {
 
   return (
     <>
-      <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
-
       {/* 본문 — 하단 고정 영역 높이만큼 여백 */}
       <div className="pb-36">
         <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">

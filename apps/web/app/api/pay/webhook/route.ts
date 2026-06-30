@@ -1,15 +1,15 @@
 /**
- * 토스페이먼츠 웹훅 엔드포인트
+ * 포트원 V2 웹훅 엔드포인트
  *
- * 토스페이먼츠 개발자센터 > 웹훅 URL 등록:
+ * 포트원 콘솔 > 결제 연동 > 연동 관리 > 결제알림(Webhook) 관리에서 등록:
  *   https://modo.io.kr/api/pay/webhook
  *
- * 처리 이벤트:
- *   - PAYMENT_STATUS_CHANGED : 가상계좌 입금 완료 등 결제 상태 변경
- *   - DEPOSIT_CALLBACK       : 가상계좌 입금 콜백 (레거시)
- *
- * 토스페이먼츠는 웹훅 시크릿을 별도로 제공하지 않으므로
- * paymentKey로 토스 API에 재조회하여 실제 상태를 검증한다.
+ * 포트원 V2 웹훅 이벤트:
+ *   - Transaction.Paid             : 결제 승인
+ *   - Transaction.VirtualAccountIssued : 가상계좌 발급
+ *   - Transaction.Cancelled        : 결제 취소
+ *   - Transaction.PartialCancelled : 부분 취소
+ *   - Transaction.Failed           : 결제 실패
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -23,17 +23,16 @@ function getSupabaseAdmin() {
   });
 }
 
-function getTossSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
-  if (!key) throw new Error("TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.");
+function getPortoneApiSecret(): string {
+  const key = process.env.PORTONE_API_SECRET;
+  if (!key) throw new Error("PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.");
   return key;
 }
 
-async function fetchTossPayment(paymentKey: string) {
-  const encoded = Buffer.from(`${getTossSecretKey()}:`).toString("base64");
+async function fetchPortonePayment(paymentId: string) {
   const res = await fetch(
-    `https://api.tosspayments.com/v1/payments/${encodeURIComponent(paymentKey)}`,
-    { headers: { Authorization: `Basic ${encoded}` } }
+    `https://api.portone.io/payments/${encodeURIComponent(paymentId)}`,
+    { headers: { Authorization: `PortOne ${getPortoneApiSecret()}` } }
   );
   if (!res.ok) return null;
   return res.json();
@@ -41,89 +40,114 @@ async function fetchTossPayment(paymentKey: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => null);
-    if (!body) {
+    const rawBody = await request.text();
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
-    const { eventType, createdAt, data } = body as {
-      eventType?: string;
-      createdAt?: string;
-      data?: { paymentKey?: string; orderId?: string; status?: string };
-    };
+    const webhookSecret = process.env.PORTONE_WEBHOOK_SECRET;
 
-    const paymentKey = data?.paymentKey;
-    const tossOrderId = data?.orderId;
-
-    if (!paymentKey || !tossOrderId) {
-      return NextResponse.json({ error: "paymentKey or orderId missing" }, { status: 400 });
+    // 웹훅 시그니처 검증 (포트원 Standard Webhooks)
+    if (webhookSecret) {
+      try {
+        const { Webhook } = await import("@portone/server-sdk");
+        await Webhook.verify(webhookSecret, rawBody, Object.fromEntries(request.headers));
+      } catch (e) {
+        console.warn("포트원 웹훅 시그니처 검증 실패:", e);
+        return NextResponse.json({ error: "Webhook verification failed" }, { status: 400 });
+      }
     }
 
-    console.log(`[webhook] eventType=${eventType} orderId=${tossOrderId} paymentKey=${paymentKey} createdAt=${createdAt}`);
+    const type = body.type as string | undefined;
+    const data = body.data as Record<string, unknown> | undefined;
+    const paymentId = data?.paymentId as string | undefined;
 
-    // 토스 API로 실제 상태 재확인 (위변조 방지)
-    const payment = await fetchTossPayment(paymentKey);
-    if (!payment) {
-      console.error("[webhook] 토스 결제 조회 실패:", paymentKey);
-      return NextResponse.json({ error: "결제 조회 실패" }, { status: 400 });
-    }
+    console.log(`[webhook] type=${type} paymentId=${paymentId}`);
 
-    const actualStatus: string = payment.status;
-    const admin = getSupabaseAdmin();
-
-    // UUID 추출 (orderId가 UUID 또는 MODO_<uuid>_* 형태일 수 있음)
-    const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-    const match = tossOrderId.match(UUID_RE);
-    const dbOrderId = match ? match[0] : null;
-
-    if (!dbOrderId) {
-      console.warn("[webhook] UUID 추출 불가 — orderId:", tossOrderId);
+    if (!paymentId) {
       return NextResponse.json({ ok: true, skipped: true });
     }
 
-    // 가상계좌 입금 완료
-    if (actualStatus === "DONE" || actualStatus === "PAID") {
-      const { error } = await admin
-        .from("orders")
-        .update({
-          payment_status: "PAID",
-          status: "PAID",
-          payment_key: paymentKey,
-          paid_at: payment.approvedAt ?? new Date().toISOString(),
-        })
-        .eq("id", dbOrderId)
-        .in("payment_status", ["WAITING_FOR_DEPOSIT", "PENDING"]);
-
-      if (error) {
-        console.error("[webhook] DB 업데이트 실패:", error);
-      } else {
-        console.log("[webhook] 가상계좌 입금 완료 처리:", dbOrderId);
-      }
-
-      // 결제 로그 기록
-      try {
-        await admin.from("payment_logs").insert({
-          order_id: dbOrderId,
-          payment_key: paymentKey,
-          amount: payment.totalAmount,
-          method: payment.method,
-          status: "SUCCESS",
-          provider: "TOSS",
-          response_data: payment,
-          approved_at: payment.approvedAt,
-        });
-      } catch { /* 로그 테이블 미존재 시 무시 */ }
+    // 포트원 API로 실제 상태 재확인 (위변조 방지)
+    const payment = await fetchPortonePayment(paymentId);
+    if (!payment) {
+      console.error("[webhook] 포트원 결제 조회 실패:", paymentId);
+      return NextResponse.json({ error: "결제 조회 실패" }, { status: 400 });
     }
 
-    // 결제 취소/실패 동기화
-    if (actualStatus === "CANCELED" || actualStatus === "ABORTED" || actualStatus === "EXPIRED") {
-      await admin
-        .from("orders")
-        .update({ payment_status: "CANCELED" })
-        .eq("id", dbOrderId)
-        .eq("payment_key", paymentKey);
+    const admin = getSupabaseAdmin();
 
-      console.log(`[webhook] 결제 취소/만료 동기화: ${dbOrderId} → ${actualStatus}`);
+    switch (type) {
+      case "Transaction.Paid": {
+        const { error } = await admin
+          .from("orders")
+          .update({
+            payment_status: "PAID",
+            status: "PAID",
+            payment_id: paymentId,
+            paid_at: payment.paidAt ?? payment.approvedAt ?? new Date().toISOString(),
+          })
+          .eq("payment_id", paymentId)
+          .in("payment_status", ["WAITING_FOR_DEPOSIT", "PENDING"]);
+
+        if (error) {
+          console.error("[webhook] DB 업데이트 실패:", error);
+        } else {
+          console.log("[webhook] 결제 완료 처리:", paymentId);
+        }
+
+        try {
+          await admin.from("payment_logs").insert({
+            payment_id: paymentId,
+            amount: payment.amount?.total,
+            method: payment.method?.type,
+            status: "SUCCESS",
+            provider: "PORTONE",
+            response_data: payment,
+            approved_at: payment.paidAt ?? payment.approvedAt,
+          });
+        } catch { /* 로그 실패 무시 */ }
+        break;
+      }
+
+      case "Transaction.VirtualAccountIssued": {
+        await admin
+          .from("orders")
+          .update({
+            payment_status: "WAITING_FOR_DEPOSIT",
+            payment_id: paymentId,
+          })
+          .eq("payment_id", paymentId);
+        console.log("[webhook] 가상계좌 발급:", paymentId);
+        break;
+      }
+
+      case "Transaction.Cancelled":
+      case "Transaction.PartialCancelled": {
+        const newStatus = type === "Transaction.PartialCancelled" ? "PARTIAL_CANCELED" : "CANCELED";
+        await admin
+          .from("orders")
+          .update({ payment_status: newStatus, canceled_at: new Date().toISOString() })
+          .eq("payment_id", paymentId);
+        console.log(`[webhook] 결제 취소: ${paymentId} → ${newStatus}`);
+        break;
+      }
+
+      case "Transaction.Failed": {
+        await admin
+          .from("orders")
+          .update({ payment_status: "FAILED" })
+          .eq("payment_id", paymentId);
+        console.log("[webhook] 결제 실패:", paymentId);
+        break;
+      }
+
+      default:
+        // 알 수 없는 타입은 조용히 무시
+        console.log("[webhook] 처리되지 않은 이벤트:", type);
     }
 
     return NextResponse.json({ ok: true });

@@ -3,170 +3,105 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// 토스페이먼츠 시크릿 키 (환경변수 필수)
-function getTossSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
-  if (!key) {
-    throw new Error('TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.');
-  }
+function getPortoneApiSecret(): string {
+  const key = process.env.PORTONE_API_SECRET;
+  if (!key) throw new Error("PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.");
   return key;
 }
 
 interface RouteParams {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 }
 
 /**
- * 결제 상세 조회 API (DB + 토스페이먼츠)
- * 
+ * 결제 상세 조회 API (DB + 포트원 V2)
+ *
  * GET /api/payments/[orderId]
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: orderId } = await params;
     const supabase = await createClient();
-    
-    // 1. DB에서 주문 정보 조회
+
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .select(`
-        id,
-        created_at,
-        customer_name,
-        customer_phone,
-        customer_email,
-        total_price,
-        payment_status,
-        payment_method,
-        payment_key,
-        paid_at,
-        canceled_at,
-        status,
-        item_name,
-        clothing_type,
-        repair_type
+        id, created_at, customer_name, customer_phone, customer_email,
+        total_price, payment_status, payment_method, payment_id,
+        paid_at, canceled_at, status, item_name, clothing_type, repair_type
       `)
       .eq("id", orderId)
       .single();
-    
+
     if (orderError || !order) {
       return NextResponse.json(
         { success: false, error: "주문을 찾을 수 없습니다." },
         { status: 404 }
       );
     }
-    
-    // 2. 토스페이먼츠 결제 정보 조회 (payment_key가 있는 경우)
-    let tossPayment = null;
-    if (order.payment_key) {
+
+    // 포트원 V2 결제 상세 조회
+    let portonePayment = null;
+    const paymentId = (order as { payment_id?: string | null }).payment_id;
+    if (paymentId) {
       try {
-        const encodedSecretKey = Buffer.from(`${getTossSecretKey()}:`).toString("base64");
-        const tossResponse = await fetch(
-          `https://api.tosspayments.com/v1/payments/${order.payment_key}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Basic ${encodedSecretKey}`,
-            },
-          }
+        const portoneRes = await fetch(
+          `https://api.portone.io/payments/${encodeURIComponent(paymentId)}`,
+          { headers: { Authorization: `PortOne ${getPortoneApiSecret()}` } }
         );
-        
-        if (tossResponse.ok) {
-          const tossData = await tossResponse.json();
-          tossPayment = {
-            paymentKey: tossData.paymentKey,
-            orderId: tossData.orderId,
-            orderName: tossData.orderName,
-            status: tossData.status,
-            totalAmount: tossData.totalAmount,
-            balanceAmount: tossData.balanceAmount,
-            suppliedAmount: tossData.suppliedAmount,
-            vat: tossData.vat,
-            method: tossData.method,
-            requestedAt: tossData.requestedAt,
-            approvedAt: tossData.approvedAt,
-            card: tossData.card ? {
-              company: tossData.card.company,
-              number: tossData.card.number,
-              installmentPlanMonths: tossData.card.installmentPlanMonths,
-              isInterestFree: tossData.card.isInterestFree,
-              approveNo: tossData.card.approveNo,
-              cardType: tossData.card.cardType,
-              ownerType: tossData.card.ownerType,
-            } : null,
-            virtualAccount: tossData.virtualAccount ? {
-              accountNumber: tossData.virtualAccount.accountNumber,
-              bank: tossData.virtualAccount.bank,
-              customerName: tossData.virtualAccount.customerName,
-              dueDate: tossData.virtualAccount.dueDate,
-              expired: tossData.virtualAccount.expired,
-            } : null,
-            transfer: tossData.transfer ? {
-              bank: tossData.transfer.bank,
-            } : null,
-            easyPay: tossData.easyPay ? {
-              provider: tossData.easyPay.provider,
-              amount: tossData.easyPay.amount,
-              discountAmount: tossData.easyPay.discountAmount,
-            } : null,
-            cancels: tossData.cancels?.map((cancel: any) => ({
-              cancelAmount: cancel.cancelAmount,
-              cancelReason: cancel.cancelReason,
-              canceledAt: cancel.canceledAt,
-              transactionKey: cancel.transactionKey,
-              refundableAmount: cancel.refundableAmount,
-            })) || [],
-            receipt: tossData.receipt,
-            currency: tossData.currency,
+        if (portoneRes.ok) {
+          const d = await portoneRes.json();
+          portonePayment = {
+            paymentId: d.id,
+            status: d.status,
+            orderName: d.orderName,
+            totalAmount: d.amount?.total,
+            currency: d.currency,
+            method: d.method?.type,
+            paidAt: d.paidAt,
+            requestedAt: d.requestedAt,
+            customer: d.customer,
+            cancellations: d.cancellations ?? [],
           };
         }
-      } catch (tossError) {
-        console.error("토스페이먼츠 조회 실패:", tossError);
-        // 토스 조회 실패해도 DB 정보는 반환
+      } catch (e) {
+        console.error("포트원 결제 조회 실패:", e);
       }
     }
-    
-    // 3. 결제 로그 조회
+
     const { data: paymentLogs } = await supabase
       .from("payment_logs")
       .select("*")
       .eq("order_id", orderId)
       .order("created_at", { ascending: false });
-    
-    // 4. 응답 데이터 구성
+
     const payment = {
       id: order.id,
       orderId: order.id,
-      customerName: order.customer_name || "고객명 없음",
-      customerPhone: order.customer_phone,
-      customerEmail: order.customer_email,
-      amount: order.total_price || 0,
-      method: order.payment_method || "CARD",
-      status: order.payment_status || "PENDING",
-      paymentKey: order.payment_key,
-      orderStatus: order.status,
-      itemName: order.item_name || `${order.clothing_type || ""} - ${order.repair_type || ""}`,
-      createdAt: order.created_at,
-      paidAt: order.paid_at,
-      canceledAt: order.canceled_at,
-      // 토스 정보 병합
-      tossPayment,
-      // 결제 로그
+      customerName: (order as any).customer_name || "고객명 없음",
+      customerPhone: (order as any).customer_phone,
+      customerEmail: (order as any).customer_email,
+      amount: (order as any).total_price || 0,
+      method: (order as any).payment_method || "CARD",
+      status: (order as any).payment_status || "PENDING",
+      paymentId,
+      orderStatus: (order as any).status,
+      itemName:
+        (order as any).item_name ||
+        `${(order as any).clothing_type || ""} - ${(order as any).repair_type || ""}`,
+      createdAt: (order as any).created_at,
+      paidAt: (order as any).paid_at,
+      canceledAt: (order as any).canceled_at,
+      portonePayment,
       logs: paymentLogs || [],
     };
-    
-    return NextResponse.json({
-      success: true,
-      payment,
-    });
-  } catch (error: any) {
+
+    return NextResponse.json({ success: true, payment });
+  } catch (error: unknown) {
     console.error("결제 상세 조회 오류:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "서버 오류가 발생했습니다." },
+      { success: false, error: (error as Error).message || "서버 오류가 발생했습니다." },
       { status: 500 }
     );
   }
 }
-

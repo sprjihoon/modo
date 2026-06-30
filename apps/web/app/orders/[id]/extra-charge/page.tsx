@@ -6,29 +6,10 @@ import {
   ChevronLeft, CreditCard, AlertCircle, CheckCircle,
   AlertTriangle, ArrowRight, RotateCcw,
 } from "lucide-react";
-import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { Analytics } from "@/lib/analytics";
-
-interface TossPaymentInstance {
-  requestPayment: (params: {
-    method: string;
-    amount: { currency: string; value: number };
-    orderId: string;
-    orderName: string;
-    successUrl: string;
-    failUrl: string;
-    customerName?: string;
-  }) => Promise<void>;
-}
-
-interface TossPaymentsConstructor {
-  (clientKey: string): {
-    payment: (options: { customerKey: string }) => TossPaymentInstance;
-  };
-}
 
 interface ExtraChargeData {
   managerPrice?: number;
@@ -46,15 +27,22 @@ interface OrderData {
   remote_area_fee?: number;
 }
 
-function getClientKey(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY?.trim();
-  if (fromEnv) return fromEnv;
+function getStoreId(): string {
+  const id = process.env.NEXT_PUBLIC_PORTONE_STORE_ID?.trim();
+  if (id) return id;
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "NEXT_PUBLIC_TOSS_CLIENT_KEY 환경변수가 설정되지 않았습니다. (운영 환경)"
-    );
+    throw new Error("NEXT_PUBLIC_PORTONE_STORE_ID 환경변수가 설정되지 않았습니다. (운영 환경)");
   }
-  return "test_ck_Z61JOxRQVEE40z1ooEkwVW0X9bAq";
+  return "store-869df247-ae7f-4504-962a-299e69a6e255";
+}
+
+function getChannelKey(): string {
+  const key = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY?.trim();
+  if (key) return key;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("NEXT_PUBLIC_PORTONE_CHANNEL_KEY 환경변수가 설정되지 않았습니다. (운영 환경)");
+  }
+  return "";
 }
 
 export default function ExtraChargePage() {
@@ -129,34 +117,32 @@ export default function ExtraChargePage() {
     setIsRequesting(true);
     setError(null);
     try {
-      const TossPayments = (
-        window as unknown as { TossPayments?: TossPaymentsConstructor }
-      ).TossPayments;
-
-      if (!TossPayments) {
-        throw new Error("결제 모듈이 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.");
-      }
+      const PortOne = await import("@portone/browser-sdk/v2");
 
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      const customerKey = user?.id ?? `anon_${Date.now()}`;
-
-      const tossPayments = TossPayments(getClientKey());
-      const payment = tossPayments.payment({ customerKey });
       const extraData = order.extra_charge_data as ExtraChargeData | undefined;
       const amount = Math.max(1, Math.round(extraData?.managerPrice ?? 0));
-      const tossOrderId = `EXTRA_${order.id}_${Date.now()}`;
+      // 추가결제 paymentId: EXTRA_{orderId}_{timestamp}
+      const extraPaymentId = `EXTRA_${order.id}_${Date.now()}`;
       const successUrl = `${window.location.origin}/payment/success?originalOrderId=${order.id}&isExtraCharge=true`;
-      const failUrl = `${window.location.origin}/payment/fail?orderId=${order.id}`;
 
-      await payment.requestPayment({
-        method: "CARD",
-        amount: { currency: "KRW", value: amount },
-        orderId: tossOrderId,
+      const response = await PortOne.requestPayment({
+        storeId: getStoreId(),
+        channelKey: getChannelKey(),
+        paymentId: extraPaymentId,
         orderName: `${order.item_name ?? "수선 서비스"} 추가 결제`,
-        successUrl,
-        failUrl,
+        totalAmount: amount,
+        currency: "CURRENCY_KRW",
+        payMethod: "CARD",
+        redirectUrl: successUrl,
       });
+
+      if (response && response.code !== undefined) {
+        if (response.code !== "FAILURE_TYPE_PG") {
+          setError(response.message ?? "결제 요청 중 오류가 발생했습니다.");
+        }
+        setIsRequesting(false);
+      }
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };
       if (err?.code !== "USER_CANCEL") {
@@ -332,7 +318,6 @@ export default function ExtraChargePage() {
 
   return (
     <PageLayout showAppBanner={false}>
-      <Script src="https://js.tosspayments.com/v2/standard" strategy="afterInteractive" />
       <Header onBack={() => router.back()} />
 
       <div className="pb-56">

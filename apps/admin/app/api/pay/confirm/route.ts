@@ -3,17 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// 토스페이먼츠 시크릿 키 (환경변수 필수)
-function getTossSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
-  if (!key) {
-    throw new Error('TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.');
-  }
+function getPortoneApiSecret(): string {
+  const key = process.env.PORTONE_API_SECRET;
+  if (!key) throw new Error("PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.");
   return key;
 }
 
 interface PaymentConfirmRequest {
-  paymentKey: string;
+  paymentId: string;
   orderId: string;
   amount: number;
 }
@@ -21,10 +18,9 @@ interface PaymentConfirmRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: PaymentConfirmRequest = await request.json();
-    const { paymentKey, orderId, amount } = body;
+    const { paymentId, orderId, amount } = body;
 
-    // 필수 파라미터 검증
-    if (!paymentKey || !orderId || !amount) {
+    if (!paymentId || !orderId || !amount) {
       return NextResponse.json(
         { error: "INVALID_REQUEST", message: "필수 파라미터가 누락되었습니다." },
         { status: 400 }
@@ -33,18 +29,15 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // 서버에 저장된 주문 정보와 금액 일치 여부 확인 (데이터 무결성 검증)
-    // extra_charge_requests 테이블에서 주문 정보 조회
-    const { data: orderData, error: orderError } = await supabase
+    const { data: orderData } = await supabase
       .from("extra_charge_requests")
       .select("*")
       .eq("id", orderId)
       .single();
 
-    // 주문이 없으면 일반 orders 테이블에서 조회
     let isExtraCharge = !!orderData;
     let originalAmount = orderData?.amount;
-    
+
     if (!orderData) {
       const { data: normalOrder, error: normalOrderError } = await supabase
         .from("orders")
@@ -63,7 +56,6 @@ export async function POST(request: NextRequest) {
       isExtraCharge = false;
     }
 
-    // 금액 검증 (클라이언트에서 조작 방지)
     if (originalAmount && originalAmount !== amount) {
       return NextResponse.json(
         { error: "AMOUNT_MISMATCH", message: "결제 금액이 일치하지 않습니다." },
@@ -71,120 +63,97 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 토스페이먼츠 결제 승인 API 호출
-    // Basic 인증: base64(시크릿키 + ":")
-    const encodedSecretKey = Buffer.from(`${getTossSecretKey()}:`).toString("base64");
+    // 포트원 V2: 결제 단건 조회로 검증
+    const portoneRes = await fetch(
+      `https://api.portone.io/payments/${encodeURIComponent(paymentId)}`,
+      { headers: { Authorization: `PortOne ${getPortoneApiSecret()}` } }
+    );
+    const portoneData = await portoneRes.json();
 
-    const tossResponse = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${encodedSecretKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        paymentKey,
-        orderId,
-        amount,
-      }),
-    });
-
-    const tossData = await tossResponse.json();
-
-    if (!tossResponse.ok) {
-      console.error("토스페이먼츠 결제 승인 실패:", tossData);
+    if (!portoneRes.ok) {
+      console.error("포트원 결제 조회 실패:", portoneData);
       return NextResponse.json(
-        { 
-          error: tossData.code || "PAYMENT_FAILED", 
-          message: tossData.message || "결제 승인에 실패했습니다." 
-        },
-        { status: tossResponse.status }
+        { error: portoneData.code || "PAYMENT_FAILED", message: portoneData.message || "결제 검증에 실패했습니다." },
+        { status: portoneRes.status }
       );
     }
 
-    // 결제 성공 시 DB 업데이트
+    if (portoneData.status !== "PAID") {
+      return NextResponse.json(
+        { error: "PAYMENT_NOT_PAID", message: `결제가 완료되지 않았습니다. (status: ${portoneData.status})` },
+        { status: 400 }
+      );
+    }
+
+    if (portoneData.amount?.total !== amount) {
+      return NextResponse.json(
+        { error: "AMOUNT_MISMATCH", message: "포트원 결제 금액이 일치하지 않습니다." },
+        { status: 400 }
+      );
+    }
+
+    const paidAt = portoneData.paidAt ?? portoneData.approvedAt ?? new Date().toISOString();
+    const payMethod = portoneData.method?.type ?? "CARD";
+
     if (isExtraCharge) {
-      // 추가 비용 결제인 경우
-      const { error: updateError } = await supabase
+      await supabase
         .from("extra_charge_requests")
         .update({
           status: "PAID",
-          payment_key: paymentKey,
-          customer_response_at: new Date().toISOString(),
+          payment_id: paymentId,
+          customer_response_at: paidAt,
         })
         .eq("id", orderId);
 
-      if (updateError) {
-        console.error("DB 업데이트 실패:", updateError);
-        // 결제는 성공했지만 DB 업데이트 실패 - 로깅하고 성공 응답
-      }
-
-      // 작업자에게 알림 전송
       if (orderData?.worker_id) {
         await supabase.from("notifications").insert({
           user_id: orderData.worker_id,
           type: "EXTRA_CHARGE_RESPONSE",
           title: "추가 비용 결제 완료",
           body: `고객이 추가 비용 ${amount.toLocaleString()}원을 결제했습니다.`,
-          metadata: {
-            requestId: orderId,
-            orderId: orderData.order_id,
-            paymentKey,
-          },
+          metadata: { requestId: orderId, orderId: orderData.order_id, paymentId },
         });
       }
     } else {
-      // 일반 주문 결제인 경우
-      const { error: updateError } = await supabase
+      await supabase
         .from("orders")
         .update({
-          status: "PAID",  // 주문 상태도 함께 업데이트
+          status: "PAID",
           payment_status: "PAID",
-          payment_key: paymentKey,
-          paid_at: new Date().toISOString(),
+          payment_id: paymentId,
+          paid_at: paidAt,
         })
         .eq("id", orderId);
-
-      if (updateError) {
-        console.error("주문 업데이트 실패:", updateError);
-      }
     }
 
-    // 결제 내역 저장 (별도 테이블이 있다면)
     try {
       await supabase.from("payment_logs").insert({
         order_id: isExtraCharge ? orderData?.order_id : orderId,
-        payment_key: paymentKey,
-        amount: tossData.totalAmount,
-        method: tossData.method,
+        payment_id: paymentId,
+        amount: portoneData.amount?.total,
+        method: payMethod,
         status: "SUCCESS",
-        provider: "TOSS",
-        response_data: tossData,
-        approved_at: tossData.approvedAt,
+        provider: "PORTONE",
+        response_data: portoneData,
+        approved_at: paidAt,
       });
-    } catch (logError) {
-      // 로그 저장 실패는 무시
-      console.log("결제 로그 저장 실패 (테이블이 없을 수 있음):", logError);
+    } catch (e) {
+      console.log("결제 로그 저장 실패:", e);
     }
 
-    // 클라이언트에 결제 정보 반환
     return NextResponse.json({
       success: true,
-      orderId: tossData.orderId,
-      paymentKey: tossData.paymentKey,
-      method: tossData.method,
-      totalAmount: tossData.totalAmount,
-      approvedAt: tossData.approvedAt,
-      receipt: tossData.receipt,
-      card: tossData.card,
-      virtualAccount: tossData.virtualAccount,
-      transfer: tossData.transfer,
+      orderId,
+      paymentId,
+      method: payMethod,
+      totalAmount: portoneData.amount?.total,
+      approvedAt: paidAt,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("결제 승인 처리 오류:", error);
     return NextResponse.json(
-      { error: "INTERNAL_ERROR", message: error.message || "서버 오류가 발생했습니다." },
+      { error: "INTERNAL_ERROR", message: (error as Error).message || "서버 오류가 발생했습니다." },
       { status: 500 }
     );
   }
 }
-

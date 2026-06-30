@@ -49,8 +49,8 @@ dependencies:
   # WebView (for Daum Postcode)
   webview_flutter: ^4.4.2
   
-  # Payment - TossPayments
-  tosspayments_widget_sdk_flutter: ^2.2.0
+  # Payment - PortOne V2
+  portone_flutter: ^1.0.3
   
   # HTTP & API
   dio: ^5.4.0

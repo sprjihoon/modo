@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../data/providers/auth_provider.dart';
@@ -21,8 +22,13 @@ class _LoginPageState extends ConsumerState<LoginPage>
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _rememberMe = false;
   bool _isSocialLoginInProgress = false;
   StreamSubscription<AuthState>? _authSubscription;
+
+  static const _prefKeyEmail = 'saved_email';
+  static const _prefKeyPassword = 'saved_password';
+  static const _prefKeyRemember = 'remember_me';
 
   @override
   void initState() {
@@ -32,6 +38,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
     // 로그인 페이지 진입 시 모든 상태 초기화 (로그아웃 후 클린업)
     _isSocialLoginInProgress = false;
     _isLoading = false;
+
+    _loadSavedCredentials();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(userProfileProvider);
@@ -76,6 +84,22 @@ class _LoginPageState extends ConsumerState<LoginPage>
     super.dispose();
   }
 
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool(_prefKeyRemember) ?? false;
+    if (remember) {
+      final email = prefs.getString(_prefKeyEmail) ?? '';
+      final password = prefs.getString(_prefKeyPassword) ?? '';
+      if (mounted) {
+        setState(() {
+          _emailController.text = email;
+          _passwordController.text = password;
+          _rememberMe = true;
+        });
+      }
+    }
+  }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -90,6 +114,17 @@ class _LoginPageState extends ConsumerState<LoginPage>
         email: email,
         password: password,
       );
+
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberMe) {
+        await prefs.setString(_prefKeyEmail, email);
+        await prefs.setString(_prefKeyPassword, password);
+        await prefs.setBool(_prefKeyRemember, true);
+      } else {
+        await prefs.remove(_prefKeyEmail);
+        await prefs.remove(_prefKeyPassword);
+        await prefs.remove(_prefKeyRemember);
+      }
 
       if (mounted) {
         context.go('/home');
@@ -363,7 +398,42 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                       return null;
                                     },
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 4),
+
+                                  // 아이디/비밀번호 저장
+                                  Row(
+                                    children: [
+                                      Checkbox(
+                                        value: _rememberMe,
+                                        onChanged: _isLoading
+                                            ? null
+                                            : (value) {
+                                                setState(() {
+                                                  _rememberMe = value ?? false;
+                                                });
+                                              },
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      GestureDetector(
+                                        onTap: _isLoading
+                                            ? null
+                                            : () {
+                                                setState(() {
+                                                  _rememberMe = !_rememberMe;
+                                                });
+                                              },
+                                        child: Text(
+                                          '아이디/비밀번호 저장',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
 
                                   // 비밀번호 찾기
                                   Align(

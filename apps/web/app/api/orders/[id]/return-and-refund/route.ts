@@ -12,9 +12,9 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 //                    "들어온 건 나가야 하니 무조건 왕복" 정책.
 const DEFAULT_RETURN_FEE = 7000;
 
-function getTossSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
-  if (!key) throw new Error("TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.");
+function getPortoneApiSecret(): string {
+  const key = process.env.PORTONE_API_SECRET;
+  if (!key) throw new Error("PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.");
   return key;
 }
 
@@ -65,7 +65,7 @@ export async function POST(
     const { data: order, error: orderErr } = await admin
       .from("orders")
       .select(
-        "id, status, payment_status, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number",
+        "id, status, payment_status, payment_id, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number",
       )
       .eq("id", orderId)
       .maybeSingle();
@@ -145,39 +145,38 @@ export async function POST(
     // - paymentKey 가 없거나 (프로모션/무료 이용 등) refundAmount 가 0 이면
     //   환불할 게 없는 "정상 케이스" → noRefundRequired 플래그로 구분.
     // - paymentKey 가 없는데 refundAmount > 0 이면 그것은 진짜 이상 상황.
-    const paymentKey = order.payment_key as string | null;
+    const paymentId = order.payment_id as string | null;
     let refundResult: Record<string, unknown> | null = null;
     let refundError: string | null = null;
-    const noRefundRequired = refundAmount === 0 || !paymentKey;
+    const noRefundRequired = refundAmount === 0 || !paymentId;
 
-    if (paymentKey && refundAmount > 0) {
+    if (paymentId && refundAmount > 0) {
       try {
-        const encodedKey = Buffer.from(`${getTossSecretKey()}:`).toString("base64");
-        const tossRes = await fetch(
-          `https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`,
+        const portoneRes = await fetch(
+          `https://api.portone.io/payments/${encodeURIComponent(paymentId)}/cancel`,
           {
             method: "POST",
             headers: {
-              Authorization: `Basic ${encodedKey}`,
+              Authorization: `PortOne ${getPortoneApiSecret()}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              cancelReason: `반송 처리 - 왕복 배송비 ${returnFee.toLocaleString()}원${
+              reason: `반송 처리 - 왕복 배송비 ${returnFee.toLocaleString()}원${
                 remoteAreaFee > 0
                   ? ` + 도서산간 ${remoteAreaFee.toLocaleString()}원`
                   : ""
               } 차감`,
-              cancelAmount: refundAmount,
+              amount: refundAmount,
             }),
           }
         );
-        const tossData = await tossRes.json();
+        const portoneData = await portoneRes.json();
 
-        if (!tossRes.ok) {
-          refundError = tossData?.message || "부분환불 실패";
-          console.error("Toss partial cancel failed:", tossData);
+        if (!portoneRes.ok) {
+          refundError = portoneData?.message || "부분환불 실패";
+          console.error("포트원 부분환불 실패:", portoneData);
         } else {
-          refundResult = tossData;
+          refundResult = portoneData;
           await admin
             .from("orders")
             .update({
@@ -192,11 +191,11 @@ export async function POST(
           try {
             await admin.from("payment_logs").insert({
               order_id: orderId,
-              payment_key: paymentKey,
+              payment_id: paymentId,
               amount: refundAmount,
               status: "PARTIAL_CANCELED",
-              provider: "TOSS",
-              response_data: tossData,
+              provider: "PORTONE",
+              response_data: portoneData,
             });
           } catch {
             /* 로그 실패 무시 */
@@ -205,10 +204,8 @@ export async function POST(
       } catch (e) {
         refundError = e instanceof Error ? e.message : String(e);
       }
-    } else if (!paymentKey && refundAmount > 0) {
-      // 결제는 없는데 환불 대상 금액이 있는 비정상 상황만 에러 처리.
-      // (프로모션/무료 주문은 paymentKey 자체가 없는 게 정상 → 조용히 통과)
-      refundError = "결제 정보(payment_key)가 없어 환불 처리되지 않았습니다.";
+    } else if (!paymentId && refundAmount > 0) {
+      refundError = "결제 정보(payment_id)가 없어 환불 처리되지 않았습니다.";
     }
 
     const deductionDescParts = [`왕복 배송비 ${returnFee.toLocaleString()}원`];

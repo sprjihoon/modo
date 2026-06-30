@@ -1,4 +1,4 @@
-// 추가요금 거절 → 반송(RETURN) 워크플로우 (모바일/웹 공통)
+﻿// 추가요금 거절 → 반송(RETURN) 워크플로우 (모바일/웹 공통)
 //
 // 정책:
 //  - extra_charge_status = PENDING_CUSTOMER 인 주문에서만 동작
@@ -36,7 +36,7 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const TOSS_SECRET_KEY = Deno.env.get('TOSS_SECRET_KEY') ?? ''
+    const PORTONE_API_SECRET = Deno.env.get('PORTONE_API_SECRET') ?? ''
 
     const authHeader = req.headers.get('Authorization') ?? ''
     if (!authHeader) return json({ success: false, error: '로그인이 필요합니다.' }, 401)
@@ -139,30 +139,30 @@ serve(async (req) => {
     let refundError: string | null = null
 
     if (paymentKey && refundAmount > 0) {
-      if (!TOSS_SECRET_KEY) {
-        refundError = 'TOSS_SECRET_KEY 환경 변수가 설정되지 않았습니다.'
+      if (!PORTONE_API_SECRET) {
+        refundError = 'PORTONE_API_SECRET 환경 변수가 설정되지 않았습니다.'
       } else {
         try {
-          const tossRes = await fetch(
-            `https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`,
+          const portoneRes = await fetch(
+            `https://api.portone.io/payments/${encodeURIComponent(paymentKey)}/cancel`,
             {
               method: 'POST',
               headers: {
-                Authorization: `Basic ${btoa(TOSS_SECRET_KEY + ':')}`,
+                Authorization: `PortOne ${PORTONE_API_SECRET}`,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                cancelReason: `반송 처리 - 왕복 배송비 ${returnFee.toLocaleString()}원${
+                reason: `반송 처리 - 왕복 배송비 ${returnFee.toLocaleString()}원${
                   remoteAreaFee > 0
                     ? ` + 도서산간 ${remoteAreaFee.toLocaleString()}원`
                     : ''
                 } 차감`,
-                cancelAmount: refundAmount,
+                amount: refundAmount,
               }),
             },
           )
-          const tossData = await tossRes.json()
-          if (!tossRes.ok) {
+          const tossData = await portoneRes.json()
+          if (!portoneRes.ok) {
             refundError = tossData?.message || '부분환불 실패'
             console.error('Toss partial cancel failed:', tossData)
           } else {
@@ -181,10 +181,10 @@ serve(async (req) => {
             try {
               await admin.from('payment_logs').insert({
                 order_id: orderId,
-                payment_key: paymentKey,
+                payment_id: paymentKey,
                 amount: refundAmount,
                 status: 'PARTIAL_CANCELED',
-                provider: 'TOSS',
+                provider: 'PORTONE',
                 response_data: tossData,
               })
             } catch {
@@ -264,3 +264,5 @@ function json(payload: unknown, status = 200) {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 }
+
+

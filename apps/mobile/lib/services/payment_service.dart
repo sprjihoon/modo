@@ -1,12 +1,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// 토스페이먼츠 결제 서비스
+/// 포트원 V2 결제 서비스
 class PaymentService {
   final _supabase = Supabase.instance.client;
   
-  // 토스페이먼츠 API 키 (환경변수에서 로드)
-  // final String _clientKey = const String.fromEnvironment('TOSS_CLIENT_KEY');
-  // final String _secretKey = const String.fromEnvironment('TOSS_SECRET_KEY');
+  // 포트원 V2 설정은 .env의 PORTONE_STORE_ID, PORTONE_CHANNEL_KEY 로 관리됨
   
   /// 빌링키 발급 (카드 등록)
   /// 
@@ -242,7 +240,7 @@ class PaymentService {
 
   /// 결제 취소
   Future<Map<String, dynamic>> cancelPayment({
-    required String paymentKey,
+    required String paymentId,
     required String cancelReason,
     int? cancelAmount,
   }) async {
@@ -250,7 +248,7 @@ class PaymentService {
       final response = await _supabase.functions.invoke(
         'payments-cancel',
         body: {
-          'payment_key': paymentKey,
+          'payment_id': paymentId,
           'cancel_reason': cancelReason,
           if (cancelAmount != null) 'cancel_amount': cancelAmount,
         },
@@ -388,39 +386,39 @@ class PaymentService {
     }
   }
 
-  /// 토스페이먼츠 결제 승인 (결제위젯 사용)
-  /// 
-  /// 결제위젯에서 결제 성공 후 서버에 승인 요청
-  Future<Map<String, dynamic>> confirmTossPayment({
-    required String paymentKey,
+  /// 포트원 V2 결제 검증 (결제창 성공 후 서버 검증)
+  ///
+  /// - 신규 흐름(isIntentFlow): orderId == payment_intents.id, edge function 이 orders INSERT
+  /// - 추가결제: originalOrderId 동봉
+  /// - 레거시: 기존 orders.id 로 PAID 업데이트
+  Future<Map<String, dynamic>> confirmPortonePayment({
+    required String paymentId,
     required String orderId,
     required int amount,
     bool isExtraCharge = false,
-    String? originalOrderId, // 추가 결제 시 원본 주문 ID
-    bool triggerIntentFlow = false, // 신규 흐름: payment_intents 기반
+    String? originalOrderId,
+    bool triggerIntentFlow = false,
   }) async {
     try {
       final response = await _supabase.functions.invoke(
-        'payments-confirm-toss',
+        'payments-confirm',
         body: {
-          'payment_key': paymentKey,
+          'payment_id': paymentId,
           'order_id': orderId,
           'amount': amount,
           'is_extra_charge': isExtraCharge,
           if (originalOrderId != null) 'original_order_id': originalOrderId,
-          // pickup_payload 가 있으면 edge function 이 신규 흐름으로 분기.
-          // 실제 픽업 정보는 인텐트에 이미 저장되어 있으므로 트리거만 보낸다.
           if (triggerIntentFlow) 'pickup_payload': {'__from_intent': true},
         },
       );
 
       if (response.data['success'] != true) {
-        throw Exception(response.data['error'] ?? '결제 승인 실패');
+        throw Exception(response.data['error'] ?? '결제 검증 실패');
       }
 
       return response.data['data'];
     } catch (e) {
-      throw Exception('결제 승인 실패: $e');
+      throw Exception('결제 검증 실패: $e');
     }
   }
 

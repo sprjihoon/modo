@@ -1,9 +1,8 @@
-// 토스페이먼츠 빌링키로 결제
+// 포트원 V2 빌링키로 결제
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const TOSS_SECRET_KEY = Deno.env.get('TOSS_SECRET_KEY') || ''
-const TOSS_API_URL = 'https://api.tosspayments.com/v1/billing'
+const PORTONE_API_SECRET = Deno.env.get('PORTONE_API_SECRET') || ''
 
 serve(async (req) => {
   const corsHeaders = {
@@ -16,32 +15,36 @@ serve(async (req) => {
   }
 
   try {
-    // 환경변수 확인
-    if (!TOSS_SECRET_KEY) {
-      throw new Error('TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.')
+    if (!PORTONE_API_SECRET) {
+      throw new Error('PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.')
     }
 
-    const {
-      billing_key,
-      order_id,
-      amount,
-      order_name,
-    } = await req.json()
+    const { billing_key, order_id, amount, order_name, customer_id } = await req.json()
 
-    // 토스페이먼츠 빌링 결제 API 호출
-    const response = await fetch(`${TOSS_API_URL}/${billing_key}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${btoa(TOSS_SECRET_KEY + ':')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        customerKey: billing_key,
-        amount: amount,
-        orderId: order_id,
-        orderName: order_name,
-      }),
-    })
+    if (!billing_key || !order_id || !amount) {
+      throw new Error('필수 파라미터가 누락되었습니다. (billing_key, order_id, amount)')
+    }
+
+    // 포트원 V2 빌링키 결제: paymentId는 고객사가 채번
+    const paymentId = `billing-${order_id}-${Date.now()}`
+
+    const response = await fetch(
+      `https://api.portone.io/payments/${encodeURIComponent(paymentId)}/billing-key`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `PortOne ${PORTONE_API_SECRET}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          billingKey: billing_key,
+          orderName: order_name || '모두의수선 수선 서비스',
+          customer: customer_id ? { id: customer_id } : undefined,
+          amount: { total: amount },
+          currency: 'KRW',
+        }),
+      }
+    )
 
     const data = await response.json()
 
@@ -49,7 +52,6 @@ serve(async (req) => {
       throw new Error(data.message || '결제 실패')
     }
 
-    // Supabase에 결제 기록 저장
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -57,18 +59,18 @@ serve(async (req) => {
 
     await supabaseClient.from('payments').insert({
       order_id: order_id,
-      payment_key: data.paymentKey,
+      payment_id: paymentId,
       amount: amount,
       status: data.status,
       method: 'CARD',
-      provider: 'TOSSPAYMENTS',
+      provider: 'PORTONE',
     })
 
     return new Response(
       JSON.stringify({
         success: true,
         data: {
-          payment_key: data.paymentKey,
+          payment_id: paymentId,
           status: data.status,
         },
       }),
@@ -76,12 +78,8 @@ serve(async (req) => {
     )
   } catch (error) {
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
+      JSON.stringify({ success: false, error: error.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })
-

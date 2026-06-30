@@ -11,28 +11,28 @@ export function PaymentSuccessClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const paymentKey = searchParams.get("paymentKey") ?? "";
-  // Toss가 추가하는 orderId (requestPayment 시 전달한 orderId)
-  const tossOrderId = searchParams.get("orderId") ?? "";
-  const amountRaw = searchParams.get("amount") ?? "0";
-  const amount = Number(amountRaw);
+  const paymentId = searchParams.get("paymentId") ?? "";
+  // 포트원은 리다이렉트 시 paymentId만 전달 (amount/orderId 별도 불필요)
+  const portonePaymentId = paymentId;
 
   // 테스트 우회 결제 여부 (skip-payment API 경유)
   const isTest = searchParams.get("test") === "1";
-  // 실제 우체국 API 호출 여부 (testMode=false로 skip-payment 경유)
+  // 실제 우체국 API 호출 여부
   const isRealEpost = searchParams.get("realEpost") === "1";
-  // skip-payment에서 받은 송장번호 (있으면 성공)
+  // skip-payment에서 받은 송장번호
   const urlTrackingNo = searchParams.get("trackingNo") ?? "";
   // skip-payment에서 받은 우체국 에러 메시지
   const epostError = searchParams.get("epostError") ?? "";
+
+  // 테스트 우회 결제 시 orderId는 별도 파라미터
+  const testOrderId = searchParams.get("orderId") ?? "";
 
   // 추가결제 여부 및 실제 DB 주문 UUID
   const isExtraCharge = searchParams.get("isExtraCharge") === "true";
   const originalOrderId = searchParams.get("originalOrderId") ?? "";
 
-  // 일반 결제: tossOrderId == DB UUID (PaymentClient에서 orderId: order.id로 설정)
-  // 추가결제: tossOrderId == EXTRA_xxx_timestamp, originalOrderId == DB UUID
-  const dbOrderId = isExtraCharge ? originalOrderId : tossOrderId;
+  // dbOrderId: 추가결제면 originalOrderId, 일반결제면 테스트 시 testOrderId (테스트 전용)
+  const dbOrderId = isExtraCharge ? originalOrderId : (isTest ? testOrderId : "");
 
   const [status, setStatus] = useState<"confirming" | "success" | "error">("confirming");
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +51,9 @@ export function PaymentSuccessClient() {
     if (confirmCalledRef.current) return;
     confirmCalledRef.current = true;
 
-    // 테스트 우회 결제: Toss 파라미터 없이 orderId만 있음
+    // 테스트 우회 결제
     if (isTest) {
-      if (!tossOrderId) {
+      if (!testOrderId) {
         setError("주문 정보가 올바르지 않습니다.");
         setStatus("error");
         return;
@@ -62,7 +62,7 @@ export function PaymentSuccessClient() {
       return;
     }
 
-    if (!paymentKey || !tossOrderId || isNaN(amount) || amount <= 0) {
+    if (!portonePaymentId) {
       setError("결제 정보가 올바르지 않습니다.");
       setStatus("error");
       return;
@@ -86,7 +86,7 @@ export function PaymentSuccessClient() {
       const { data: order } = await supabase
         .from("orders")
         .select("id, total_price, promotion_code_id, promotion_discount_amount")
-        .eq("id", tossOrderId)
+        .eq("id", testOrderId)
         .single();
 
       const hasCoupon =
@@ -100,7 +100,7 @@ export function PaymentSuccessClient() {
       setStatus("success");
 
       redirectTimerRef.current = setTimeout(() => {
-        router.replace(`/orders/${tossOrderId}?paid=true`);
+        router.replace(`/orders/${testOrderId}?paid=true`);
       }, 3000);
     } catch (e) {
       setError(e instanceof Error ? e.message : "주문 정보를 불러올 수 없습니다.");
@@ -111,50 +111,41 @@ export function PaymentSuccessClient() {
   async function confirmPayment() {
     try {
       const supabase = createClient();
-      // 신규 흐름: 일반 결제는 tossOrderId === payment_intents.id
-      //   payments-confirm-toss 가 intent_id 로 인텐트 조회 → orders insert (PAID)
-      //   추가결제는 기존과 동일 (extra_charge_data 업데이트)
       const body: Record<string, unknown> = {
-        payment_key: paymentKey,
-        order_id: tossOrderId,
-        amount: amount,
+        payment_id: portonePaymentId,
+        order_id: portonePaymentId, // intent_id == paymentId
         is_extra_charge: isExtraCharge,
       };
       if (isExtraCharge && originalOrderId) {
         body.original_order_id = originalOrderId;
       } else {
-        // 신규 흐름 트리거 — edge function 이 isCreateOrderFlow 분기 타도록
-        // (pickup_payload 가 있으면 신규 흐름으로 인식)
         body.pickup_payload = { __from_intent: true };
       }
 
       const { data, error: fnError } = await supabase.functions.invoke(
-        "payments-confirm-toss",
+        "payments-confirm",
         { body }
       );
 
       if (fnError) throw new Error(fnError.message);
-      if (!data?.success) throw new Error(data?.error ?? "결제 승인에 실패했습니다.");
+      if (!data?.success) throw new Error(data?.error ?? "결제 검증에 실패했습니다.");
 
       setPaymentInfo(data.data);
       setStatus("success");
 
-      // 결제 성공 이벤트 추적
       const newOrderId = (data.data?.orderId as string | undefined) ?? dbOrderId;
-      Analytics.paymentSuccess(newOrderId, amount, data.data?.method);
+      Analytics.paymentSuccess(newOrderId, data.data?.totalAmount ?? 0, data.data?.method);
 
-      // 결제 후 수거 예약 (오류 무시)
       if (!isExtraCharge && newOrderId) {
         await bookShipmentAfterPayment(supabase, newOrderId);
       }
 
-      // 3초 후 주문 상세로 이동
       redirectTimerRef.current = setTimeout(() => {
         const target = isExtraCharge ? dbOrderId : newOrderId;
         router.replace(`/orders/${target}${isExtraCharge ? "" : "?paid=true"}`);
       }, 3000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "결제 승인 중 오류가 발생했습니다.");
+      setError(e instanceof Error ? e.message : "결제 검증 중 오류가 발생했습니다.");
       setStatus("error");
     }
   }
@@ -229,9 +220,9 @@ export function PaymentSuccessClient() {
               주문 확인
             </button>
           )}
-          {!isExtraCharge && tossOrderId && (
+          {!isExtraCharge && portonePaymentId && (
             <button
-              onClick={() => router.replace(`/payment?intentId=${tossOrderId}`)}
+              onClick={() => router.replace(`/payment?intentId=${portonePaymentId}`)}
               className="px-5 py-2.5 bg-[#00C896] text-white rounded-xl text-sm font-bold"
             >
               다시 결제
@@ -336,7 +327,7 @@ export function PaymentSuccessClient() {
           >
             {isCouponOrder
               ? "쿠폰 할인이 적용되어 주문이 처리되었습니다. 수선 작업을 진행합니다."
-              : "테스트 결제로 주문이 생성되었습니다. 실제 Toss 결제는 이루어지지 않았습니다."}
+              : "테스트 결제로 주문이 생성되었습니다."}
           </p>
         </div>
         )

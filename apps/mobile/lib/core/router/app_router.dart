@@ -24,7 +24,7 @@ import '../../features/orders/presentation/pages/repair_detail_input_page.dart';
 import '../../features/orders/presentation/pages/repair_confirmation_page.dart';
 import '../../features/orders/presentation/pages/pickup_request_page.dart';
 import '../../features/orders/presentation/pages/payment_page.dart';
-import '../../features/orders/presentation/pages/toss_payment_page.dart';
+import '../../features/orders/presentation/pages/portone_payment_page.dart';
 import '../../features/orders/presentation/pages/image_annotation_page.dart';
 import '../../features/orders/presentation/pages/cart_page.dart';
 import '../../features/orders/domain/models/image_pin.dart';
@@ -367,14 +367,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       
       // Toss Payment (토스페이먼츠 결제 위젯)
       GoRoute(
-        path: '/toss-payment',
-        name: 'toss-payment',
+        path: '/payment',
+        name: 'payment',
         builder: (context, state) {
           final data = (state.extra as Map<String, dynamic>?) ?? const {};
           final orderId = (data['orderId'] as String?) ?? '';
           final orderName = (data['orderName'] as String?) ?? '수선';
           final amount = (data['amount'] as int?) ?? 0;
-          return TossPaymentPage(
+          return PortonePaymentPage(
             orderId: orderId,
             amount: amount,
             orderName: orderName,

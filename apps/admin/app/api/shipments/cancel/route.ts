@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
 const PAID_STATUSES = new Set(['PAID', 'COMPLETED', 'DONE']);
 
-function getTossSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
-  if (!key) throw new Error('TOSS_SECRET_KEY 환경변수가 설정되지 않았습니다.');
+function getPortoneApiSecret(): string {
+  const key = process.env.PORTONE_API_SECRET;
+  if (!key) throw new Error('PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.');
   return key;
 }
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const supabaseAdmin = getSupabaseAdmin();
     const { data: order, error: orderErr } = await supabaseAdmin
       .from('orders')
-      .select('id, status, payment_status, payment_key, total_price')
+      .select('id, status, payment_status, payment_id, total_price')
       .eq('id', order_id)
       .maybeSingle();
 
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const paymentKey = (order as any).payment_key as string | null;
+    const paymentKey = (order as any).payment_id as string | null;
     const paymentStatus = (order as any).payment_status as string | null;
     const totalPrice = (order as any).total_price as number | null;
     const hasValidPayment = !!paymentKey && PAID_STATUSES.has(paymentStatus ?? '');
@@ -93,26 +93,25 @@ export async function POST(request: NextRequest) {
       try {
         console.log('💳 카드 결제 취소 시작:', paymentKey);
 
-        const encodedKey = Buffer.from(`${getTossSecretKey()}:`).toString('base64');
-        const tossRes = await fetch(
-          `https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`,
+        const portoneRes = await fetch(
+          `https://api.portone.io/payments/${encodeURIComponent(paymentKey)}/cancel`,
           {
             method: 'POST',
             headers: {
-              Authorization: `Basic ${encodedKey}`,
+              Authorization: `PortOne ${getPortoneApiSecret()}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ cancelReason: '수거 취소로 인한 자동 결제 취소' }),
+            body: JSON.stringify({ reason: '수거 취소로 인한 자동 결제 취소' }),
           }
         );
 
-        const tossData = await tossRes.json();
+        const tossData = await portoneRes.json();
 
-        if (!tossRes.ok) {
-          console.error('❌ Toss 결제 취소 실패:', tossData);
+        if (!portoneRes.ok) {
+          console.error('❌ 포트원 결제 취소 실패:', tossData);
           paymentCancelError = tossData.message || '카드 취소 실패';
         } else {
-          console.log('✅ 카드 결제 취소 완료:', tossData.orderId);
+          console.log('✅ 카드 결제 취소 완료');
           paymentCancelResult = tossData;
 
           // DB 업데이트
@@ -129,10 +128,10 @@ export async function POST(request: NextRequest) {
           try {
             await supabaseAdmin.from('payment_logs').insert({
               order_id,
-              payment_key: paymentKey,
+              payment_id: paymentKey,
               amount: totalPrice ?? tossData.totalAmount,
               status: 'CANCELED',
-              provider: 'TOSS',
+              provider: 'PORTONE',
               response_data: tossData,
               created_at: new Date().toISOString(),
             });
@@ -166,3 +165,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
