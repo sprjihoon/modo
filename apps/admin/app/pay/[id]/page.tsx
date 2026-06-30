@@ -9,8 +9,8 @@ import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 
 // 동적 임포트로 결제 위젯 컴포넌트 로드 (SSR 비활성화)
-const TossPaymentWidget = dynamic(
-  () => import("@/components/payment/TossPaymentWidget"),
+const PortonePaymentWidget = dynamic(
+  () => import("@/components/payment/PortonePaymentWidget"),
   { 
     ssr: false,
     loading: () => (
@@ -164,17 +164,16 @@ export default function CustomerPaymentPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <TossPaymentWidget
-                orderId={String(params.id)}
+              <PortonePaymentWidget
+                paymentId={String(params.id)}
                 orderName={`추가 수선 비용 - ${request.orders?.item_name || "상품"}`}
                 amount={request.amount}
                 customerName={request.orders?.customer_name || "고객"}
                 customerEmail={request.orders?.customer_email}
                 customerPhone={request.orders?.customer_phone}
-                successUrl={`${baseUrl}/pay/success`}
-                failUrl={`${baseUrl}/pay/fail`}
+                redirectUrl={`${baseUrl}/pay/success`}
                 onReady={() => console.log("결제 위젯 준비 완료")}
-                onError={(error) => console.error("결제 위젯 오류:", error)}
+                onError={(error: Error) => console.error("결제 위젯 오류:", error)}
               />
             </CardContent>
           </Card>
@@ -243,7 +242,7 @@ export default function CustomerPaymentPage() {
           </div>
 
           <p className="text-xs text-center text-gray-400">
-            토스페이먼츠로 안전하게 결제됩니다
+            포트원으로 안전하게 결제됩니다
           </p>
         </CardContent>
       </Card>

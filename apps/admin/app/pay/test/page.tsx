@@ -19,8 +19,8 @@ import {
 import dynamic from "next/dynamic";
 
 // 동적 임포트로 결제 위젯 컴포넌트 로드
-const TossPaymentWidget = dynamic(
-  () => import("@/components/payment/TossPaymentWidget"),
+const PortonePaymentWidget = dynamic(
+  () => import("@/components/payment/PortonePaymentWidget"),
   { 
     ssr: false,
     loading: () => (
@@ -255,15 +255,14 @@ export default function PaymentTestPage() {
                     </Button>
                     
                     <div className="bg-white rounded-lg p-4">
-                      <TossPaymentWidget
-                        orderId={testOrderId}
+                      <PortonePaymentWidget
+                        paymentId={testOrderId}
                         orderName={testOrderName}
                         amount={Number(testAmount)}
                         customerName={testCustomerName}
-                        successUrl={`${baseUrl}/pay/success`}
-                        failUrl={`${baseUrl}/pay/fail`}
+                        redirectUrl={`${baseUrl}/pay/success`}
                         onReady={() => console.log("결제 위젯 준비 완료")}
-                        onError={(error) => console.error("결제 위젯 오류:", error)}
+                        onError={(error: Error) => console.error("결제 위젯 오류:", error)}
                       />
                     </div>
                   </div>

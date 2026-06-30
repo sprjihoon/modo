@@ -1,20 +1,23 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
-import 'package:portone_flutter/portone_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/payment_service.dart';
 import '../../../../services/customer_event_service.dart';
 
-/// 포트원 V2 결제 페이지
+/// 포트원 V2 결제 페이지 (WebView 기반)
 ///
-/// 추가 결제 · 일반 결제 모두 사용 가능.
-/// 포트원 Flutter SDK (portone_flutter) 로 결제창을 띄우고
-/// 결제 완료 후 payments-confirm Edge Function 으로 서버 검증한다.
+/// portone_flutter 1.0.x 는 Dart 3.10+ 를 요구하므로(현재 3.9.2),
+/// PortOne V2 브라우저 SDK 를 WebView 에 로드해 결제창을 띄운다.
+/// 결제 완료 후 redirectUrl 로 이동하면 이를 가로채 paymentId 를 추출하고
+/// payments-confirm Edge Function 으로 서버 검증한다.
 class PortonePaymentPage extends StatefulWidget {
-  /// orderId == payment_intents.id (신규 흐름) 또는 orders.id (레거시)
+  /// paymentId == payment_intents.id (신규 흐름) 또는 orders.id (레거시) 또는 EXTRA_xxx
   final String orderId;
   final int amount;
   final String orderName;
@@ -23,8 +26,6 @@ class PortonePaymentPage extends StatefulWidget {
   final String? customerPhone;
   final bool isExtraCharge;
   final String? originalOrderId;
-
-  /// 신규 흐름: orderId 가 payment_intents.id 인 경우 true
   final bool isIntentFlow;
 
   const PortonePaymentPage({
@@ -44,15 +45,14 @@ class PortonePaymentPage extends StatefulWidget {
   State<PortonePaymentPage> createState() => _PortonePaymentPageState();
 }
 
-class _PortonePaymentPageState extends State<PortonePaymentPage>
-    with SingleTickerProviderStateMixin {
-  bool _isRequesting = false;
+class _PortonePaymentPageState extends State<PortonePaymentPage> {
+  // redirectUrl: WebView 가 이 URL 로 이동하면 결제 완료로 간주하고 가로챈다.
+  static const String _redirectUrl = 'https://modo.io.kr/payment/mobile-callback';
+
+  late final WebViewController _controller;
+  bool _isLoading = true;
+  bool _handled = false; // 결제 결과 중복 처리 방지
   String? _errorMessage;
-
-  late AnimationController _animController;
-  late Animation<double> _fadeAnim;
-
-  // ── 포트원 설정 ──────────────────────────────────────────────
 
   static String get _storeId {
     final v = dotenv.env['PORTONE_STORE_ID'];
@@ -69,95 +69,130 @@ class _PortonePaymentPageState extends State<PortonePaymentPage>
     if (kReleaseMode) {
       throw StateError('PORTONE_CHANNEL_KEY 환경변수가 설정되지 않았습니다. (릴리즈 빌드)');
     }
-    debugPrint('⚠️ PORTONE_CHANNEL_KEY 미설정 — 테스트 채널키 없음');
+    debugPrint('⚠️ PORTONE_CHANNEL_KEY 미설정');
     return '';
   }
-
-  // ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _fadeAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
-    );
-    _animController.forward();
-
     CustomerEventService.trackPaymentStart(
       orderId: widget.orderId,
       amount: widget.amount,
     );
+    _initWebView();
   }
 
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
-
-  // ── 결제 요청 ─────────────────────────────────────────────────
-
-  Future<void> _requestPayment() async {
-    if (_isRequesting) return;
-    setState(() {
-      _isRequesting = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final storeId = _storeId;
-      final channelKey = _channelKey;
-
-      await PortOneManager.shared.requestPayment(
-        request: PaymentRequest(
-          storeId: storeId,
-          channelKey: channelKey,
-          paymentId: widget.orderId,
-          orderName: widget.orderName,
-          totalAmount: widget.amount,
-          currency: Currency.krw,
-          payMethod: PayMethod.card,
-          customer: Customer(
-            fullName: widget.customerName ?? '',
-            email: widget.customerEmail ?? '',
-            phoneNumber:
-                (widget.customerPhone ?? '').replaceAll('-', ''),
-          ),
+  void _initWebView() {
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.white)
+      ..addJavaScriptChannel(
+        'PortOneChannel',
+        onMessageReceived: (msg) => _onJsMessage(msg.message),
+      )
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (mounted) setState(() => _isLoading = false);
+          },
+          onNavigationRequest: _onNavigationRequest,
+          onWebResourceError: (err) {
+            debugPrint('WebView 오류: ${err.description}');
+          },
         ),
-        callback: (response) async {
-          if (response.code != null) {
-            // 결제 실패 / 취소
-            final msg = response.message ?? '결제에 실패했습니다.';
-            if (response.code != 'FAILURE_TYPE_PG') {
-              CustomerEventService.trackPaymentFail(
-                orderId: widget.orderId,
-                amount: widget.amount,
-                errorMessage: msg,
-              );
-              if (mounted) _showError(msg);
-            }
-            if (mounted) setState(() => _isRequesting = false);
-            return;
-          }
+      )
+      ..loadHtmlString(_buildHtml());
+  }
 
-          // 결제 성공 → 서버 검증
-          final paymentId = response.paymentId ?? widget.orderId;
-          await _confirmPayment(paymentId);
-        },
-      );
-    } catch (e) {
-      if (mounted) {
-        _showError('결제 요청 중 오류가 발생했습니다: $e');
-        setState(() => _isRequesting = false);
+  // ── 결제 결과 처리 ────────────────────────────────────────────
+
+  NavigationDecision _onNavigationRequest(NavigationRequest request) {
+    final url = request.url;
+
+    // redirectUrl 가로채기 → 결제 완료
+    if (url.startsWith(_redirectUrl)) {
+      _handleRedirect(Uri.parse(url));
+      return NavigationDecision.prevent;
+    }
+
+    // http/https 는 WebView 내에서 처리
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return NavigationDecision.navigate;
+    }
+
+    // 외부 앱 스킴 (카카오페이, 네이버페이, 카드사 앱, intent:// 등) → 외부 실행
+    _launchExternalScheme(url);
+    return NavigationDecision.prevent;
+  }
+
+  Future<void> _launchExternalScheme(String url) async {
+    try {
+      var target = url;
+      // Android intent:// 스킴 처리
+      if (url.startsWith('intent://')) {
+        final fallback = RegExp(r'S\.browser_fallback_url=([^;]+)')
+            .firstMatch(url)
+            ?.group(1);
+        if (fallback != null) {
+          target = Uri.decodeFull(fallback);
+        } else {
+          final scheme = RegExp(r'scheme=([^;]+)').firstMatch(url)?.group(1);
+          final body = url.substring(
+              'intent://'.length, url.indexOf('#Intent;'));
+          if (scheme != null) target = '$scheme://$body';
+        }
       }
+      final uri = Uri.parse(target);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        debugPrint('외부 앱 실행 불가: $target');
+      }
+    } catch (e) {
+      debugPrint('외부 스킴 실행 오류: $e');
     }
   }
 
-  Future<void> _confirmPayment(String paymentId) async {
+  void _onJsMessage(String raw) {
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final code = data['code'];
+      if (code != null) {
+        // 실패 / 취소
+        final msg = (data['message'] ?? '결제에 실패했습니다.').toString();
+        if (code != 'FAILURE_TYPE_PG') {
+          _fail(msg);
+        } else {
+          _fail(msg);
+        }
+        return;
+      }
+      // 성공 (데스크톱형 promise 응답)
+      final paymentId = (data['paymentId'] ?? widget.orderId).toString();
+      _confirm(paymentId);
+    } catch (e) {
+      _fail('결제 응답 처리 오류: $e');
+    }
+  }
+
+  void _handleRedirect(Uri uri) {
+    final code = uri.queryParameters['code'];
+    if (code != null && code.isNotEmpty) {
+      final msg = uri.queryParameters['message'] ?? '결제에 실패했습니다.';
+      _fail(msg);
+      return;
+    }
+    final paymentId = uri.queryParameters['paymentId'] ?? widget.orderId;
+    _confirm(paymentId);
+  }
+
+  Future<void> _confirm(String paymentId) async {
+    if (_handled) return;
+    _handled = true;
+
+    if (mounted) setState(() => _isLoading = true);
+
     try {
       final service = PaymentService();
       final result = await service.confirmPortonePayment(
@@ -184,13 +219,88 @@ class _PortonePaymentPageState extends State<PortonePaymentPage>
         errorMessage: e.toString(),
       );
       if (mounted) {
-        _showError('결제 검증 실패: $e');
-        setState(() => _isRequesting = false);
+        setState(() {
+          _isLoading = false;
+          _errorMessage = '결제 검증 실패: $e';
+        });
       }
     }
   }
 
-  // ── 다이얼로그 ────────────────────────────────────────────────
+  void _fail(String message) {
+    if (_handled) return;
+    _handled = true;
+    CustomerEventService.trackPaymentFail(
+      orderId: widget.orderId,
+      amount: widget.amount,
+      errorMessage: message,
+    );
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = message;
+      });
+    }
+  }
+
+  // ── HTML (PortOne V2 브라우저 SDK) ───────────────────────────
+
+  String _buildHtml() {
+    final customerBlock = (widget.customerName != null &&
+            widget.customerName!.isNotEmpty)
+        ? '''
+        customer: {
+          fullName: ${jsonEncode(widget.customerName)},
+          email: ${jsonEncode(widget.customerEmail ?? '')},
+          phoneNumber: ${jsonEncode((widget.customerPhone ?? '').replaceAll('-', ''))}
+        },'''
+        : '';
+
+    return '''
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
+<style>
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+         display:flex; align-items:center; justify-content:center; height:100vh; }
+  .loading { color:#888; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="loading">결제창을 여는 중입니다...</div>
+<script>
+  function send(obj){
+    try { PortOneChannel.postMessage(JSON.stringify(obj)); } catch(e){}
+  }
+  async function start(){
+    try {
+      const response = await PortOne.requestPayment({
+        storeId: ${jsonEncode(_storeId)},
+        channelKey: ${jsonEncode(_channelKey)},
+        paymentId: ${jsonEncode(widget.orderId)},
+        orderName: ${jsonEncode(widget.orderName)},
+        totalAmount: ${widget.amount},
+        currency: "CURRENCY_KRW",
+        payMethod: "CARD",
+        redirectUrl: ${jsonEncode(_redirectUrl)},
+        $customerBlock
+      });
+      if (response) { send(response); }
+    } catch (e) {
+      send({ code: "ERROR", message: (e && e.message) ? e.message : String(e) });
+    }
+  }
+  window.addEventListener('load', start);
+</script>
+</body>
+</html>
+''';
+  }
+
+  // ── 다이얼로그 / UI ──────────────────────────────────────────
 
   void _showSuccessDialog(Map<String, dynamic> result) {
     showDialog(
@@ -256,7 +366,8 @@ class _PortonePaymentPageState extends State<PortonePaymentPage>
                     borderRadius: BorderRadius.circular(8)),
               ),
               child: const Text('확인',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  style:
+                      TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -264,24 +375,14 @@ class _PortonePaymentPageState extends State<PortonePaymentPage>
     );
   }
 
-  void _showError(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red.shade600),
-    );
-  }
-
-  // ── UI 헬퍼 ──────────────────────────────────────────────────
-
   Widget _infoRow(String label, String value) => Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style:
-                  TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
           Text(value,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w600)),
+              style:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         ],
       );
 
@@ -292,7 +393,14 @@ class _PortonePaymentPageState extends State<PortonePaymentPage>
         )}원';
   }
 
-  // ── 빌드 ─────────────────────────────────────────────────────
+  void _retry() {
+    setState(() {
+      _errorMessage = null;
+      _handled = false;
+      _isLoading = true;
+    });
+    _controller.loadHtmlString(_buildHtml());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -301,140 +409,45 @@ class _PortonePaymentPageState extends State<PortonePaymentPage>
         title: Text('결제하기'),
         foregroundColor: Colors.black87,
       ),
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: SafeArea(
-          child: Column(
-            children: [
-              // 결제 정보 헤더
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  border: Border(
-                      bottom:
-                          BorderSide(color: Colors.grey.shade200)),
-                ),
+      body: _errorMessage != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    Icon(Icons.error_outline,
+                        size: 64, color: Colors.red.shade300),
+                    const SizedBox(height: 16),
                     Text(
-                      widget.orderName,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('결제 금액',
-                            style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 14)),
-                        Text(
-                          _formatAmount(widget.amount),
-                          style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0064FF)),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const Spacer(),
-
-              // 결제수단 안내
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.credit_card_rounded,
-                        size: 48, color: Colors.grey.shade400),
-                    const SizedBox(height: 12),
-                    Text(
-                      '결제 버튼을 누르면\n결제창이 열립니다',
+                      _errorMessage!,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                          height: 1.5),
+                      style: TextStyle(color: Colors.red.shade600),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '카드 · 카카오페이 · 네이버페이 등',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade400),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _retry,
+                      child: const Text('다시 시도'),
                     ),
                   ],
                 ),
               ),
-
-              const Spacer(),
-
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(
-                        color: Colors.red.shade600, fontSize: 13),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: ElevatedButton(
-            onPressed: _isRequesting ? null : _requestPayment,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0064FF),
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: Colors.grey.shade300,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
-            ),
-            child: _isRequesting
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
+            )
+          : Stack(
+              children: [
+                WebViewWidget(controller: _controller),
+                if (_isLoading)
+                  Container(
+                    color: Colors.white,
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFF0064FF)),
+                      ),
                     ),
-                  )
-                : Text(
-                    '${_formatAmount(widget.amount)} 결제하기',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600),
                   ),
-          ),
-        ),
-      ),
+              ],
+            ),
     );
   }
 }

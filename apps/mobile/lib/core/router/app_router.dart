@@ -365,10 +365,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       
-      // Toss Payment (토스페이먼츠 결제 위젯)
+      // PortOne V2 Payment (포트원 결제창)
       GoRoute(
         path: '/payment',
-        name: 'payment',
+        name: 'portone-payment',
         builder: (context, state) {
           final data = (state.extra as Map<String, dynamic>?) ?? const {};
           final orderId = (data['orderId'] as String?) ?? '';

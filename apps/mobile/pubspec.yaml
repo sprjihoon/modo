@@ -49,8 +49,7 @@ dependencies:
   # WebView (for Daum Postcode)
   webview_flutter: ^4.4.2
   
-  # Payment - PortOne V2
-  portone_flutter: ^1.0.3
+  # Payment - PortOne V2 (WebView 기반 결제창 — webview_flutter 사용)
   
   # HTTP & API
   dio: ^5.4.0
