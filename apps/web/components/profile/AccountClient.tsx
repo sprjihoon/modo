@@ -67,11 +67,12 @@ export function AccountClient() {
 
   async function handleSave() {
     const name = profile.name.trim();
-    const phone = profile.phone.trim();
+    // 저장 전 하이픈·공백 제거 정규화 (UNIQUE 인덱스는 문자열 그대로 비교)
+    const phone = profile.phone.trim().replace(/[-\s]/g, "");
 
     if (!name) { alert("이름을 입력해주세요"); return; }
     if (!phone) { alert("전화번호를 입력해주세요"); return; }
-    if (!/^01[0-9]{8,9}$/.test(phone.replace(/-/g, ""))) {
+    if (!/^01[0-9]{8,9}$/.test(phone)) {
       alert("올바른 전화번호 형식이 아닙니다"); return;
     }
 
