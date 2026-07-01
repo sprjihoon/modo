@@ -9,11 +9,16 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // PortOne V2 SDK CDN + KCP/PG 결제창 스크립트
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.portone.io https://*.portone.io https://*.kcp.co.kr https://*.inicis.com",
+      "script-src-elem 'self' 'unsafe-inline' https://cdn.portone.io https://*.portone.io https://*.kcp.co.kr https://*.inicis.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https://*.supabase.co https://imagedelivery.net https://customer.cloudflarestream.com",
+      "img-src 'self' blob: data: https://*.supabase.co https://imagedelivery.net https://customer.cloudflarestream.com https://*.kcp.co.kr https://*.portone.io",
       "media-src 'self' https://customer.cloudflarestream.com https://*.supabase.co",
-      "connect-src 'self' https://*.supabase.co https://rzrwediccbamxluegnex.supabase.co wss://*.supabase.co https://api.tosspayments.com",
+      // PortOne API + KCP + 간편결제
+      "connect-src 'self' https://*.supabase.co https://rzrwediccbamxluegnex.supabase.co wss://*.supabase.co https://api.portone.io https://*.portone.io https://*.kcp.co.kr",
+      // 결제창 iframe: PortOne + KCP
+      "frame-src 'self' https://*.portone.io https://checkout.portone.io https://*.kcp.co.kr https://*.kakaopay.com https://nid.naver.com",
       "font-src 'self' data:",
     ].join('; '),
   },

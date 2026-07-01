@@ -15,13 +15,16 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.tosspayments.com https://js.tosspayments.com https://*.daumcdn.net https://va.vercel-scripts.com",
-      "script-src-elem 'self' 'unsafe-inline' https://*.tosspayments.com https://js.tosspayments.com https://*.daumcdn.net https://va.vercel-scripts.com",
+      // PortOne V2 SDK CDN + KCP/PG 결제창 스크립트
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.portone.io https://*.portone.io https://*.kcp.co.kr https://*.inicis.com https://*.daumcdn.net https://va.vercel-scripts.com",
+      "script-src-elem 'self' 'unsafe-inline' https://cdn.portone.io https://*.portone.io https://*.kcp.co.kr https://*.inicis.com https://*.daumcdn.net https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https://*.supabase.co https://imagedelivery.net https://customer.cloudflarestream.com https://*.daumcdn.net https://*.kakao.com https://k.kakaocdn.net",
+      "img-src 'self' blob: data: https://*.supabase.co https://imagedelivery.net https://customer.cloudflarestream.com https://*.daumcdn.net https://*.kakao.com https://k.kakaocdn.net https://*.kcp.co.kr https://*.portone.io",
       "media-src 'self' https://customer.cloudflarestream.com https://*.supabase.co",
-      "connect-src 'self' https://*.supabase.co https://*.tosspayments.com https://*.daumcdn.net https://*.daum.net https://*.kakao.com https://va.vercel-scripts.com wss://*.supabase.co",
-      "frame-src 'self' https://*.tosspayments.com https://*.daum.net https://*.daumcdn.net https://*.kakao.com",
+      // PortOne API + KCP + 카카오/네이버 간편결제
+      "connect-src 'self' https://*.supabase.co https://*.portone.io https://api.portone.io https://*.kcp.co.kr https://*.daumcdn.net https://*.daum.net https://*.kakao.com https://va.vercel-scripts.com wss://*.supabase.co",
+      // 결제창 iframe: PortOne + KCP + 카카오/네이버페이
+      "frame-src 'self' https://*.portone.io https://checkout.portone.io https://*.kcp.co.kr https://*.daum.net https://*.daumcdn.net https://*.kakao.com https://nid.naver.com https://*.kakaopay.com",
       "font-src 'self' data:",
       "worker-src blob: 'self'",
     ].join('; '),
