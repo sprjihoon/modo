@@ -47,7 +47,7 @@ export default function RootLayout({
             </div>
           </div>
         </Providers>
-        <Analytics />
+        <Analytics mode="auto" />
         {process.env.NEXT_PUBLIC_CLARITY_ID && (
           <Script
             id="microsoft-clarity"
