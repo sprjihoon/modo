@@ -78,10 +78,20 @@ export function AccountClient() {
     setIsSaving(true);
     try {
       const supabase = createClient();
-      await supabase
+      const { error } = await supabase
         .from("users")
         .update({ name, phone })
         .eq("id", userId);
+
+      if (error) {
+        if (error.code === "23505") {
+          alert("이미 다른 계정에서 사용 중인 전화번호입니다.");
+        } else {
+          alert(`수정에 실패했습니다. (${error.message})`);
+        }
+        return;
+      }
+
       setIsEditing(false);
       alert("회원정보가 수정되었습니다");
     } catch {
