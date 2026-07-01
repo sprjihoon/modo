@@ -91,10 +91,53 @@ modo/
 
 ---
 
+## PG 심사 대응 (`/shop`)
+
+> NHN KCP PG사 심사 통과를 위한 샘플 상점 페이지 (2026-07-01 추가)
+
+### 심사 기간 중 라우팅
+
+- `modo.io.kr/` → `/shop` 자동 리다이렉트 (심사 완료 후 원복 필요)
+
+### 샘플 페이지 구성
+
+| 경로 | 설명 |
+|---|---|
+| `/shop` | 수선 서비스 목록 (로그인 불필요) |
+| `/shop/checkout` | 주문 폼 + 우체국 수거 안내 + 주소 검색 + PortOne V2 결제 |
+| `/shop/complete` | 주문 완료 페이지 |
+
+- 왕복 배송비 7,000원 별도 표기
+- 우체국 방문 수거 안내, 수선 전·후 사진 제공, 3~5 영업일 처리 기간 명시
+- 결제 수단: NHN KCP 안전결제 · 신용/체크카드
+
+### 심사 완료 후 원복 방법
+
+`apps/web/app/page.tsx` 에서 주석 처리된 원래 코드를 살리고 `redirect('/shop')` 라인 삭제:
+
+```tsx
+// 이 라인 삭제:
+redirect("/shop");
+
+// 아래 주석 해제:
+import { HomePageClient } from "@/components/home/HomePageClient";
+import { PageLayout } from "@/components/layout/PageLayout";
+export default function HomePage() {
+  return (
+    <PageLayout showAppBanner showIcons>
+      <HomePageClient />
+    </PageLayout>
+  );
+}
+```
+
+---
+
 ## 알려진 이슈 / 수정 이력
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-07-01 | PG 심사용 샵 페이지 추가 | `/shop` · `/shop/checkout` · `/shop/complete` 신규 추가, 루트 `/` → `/shop` 임시 리다이렉트 |
 | 2026-07-01 | 전화번호 저장 409 충돌 | `users_phone_unique` 인덱스가 문자열 그대로 비교하여 `010-2723-9490` ≠ `01027239490` 로 처리. 저장 시 하이픈·공백 제거 정규화 적용 (`AccountClient.tsx`), DB 중복 레코드 정리 |
 | 2026-07-01 | 수선신청 FAB 버튼 텍스트 줄바꿈 | 좁은 화면에서 "수선신청 하기" 텍스트가 줄바꿈 되던 문제. `whitespace-nowrap` + `clamp()` 로 비율적 축소 처리 |
 | 2026-06-30 | CSP 위반으로 결제창 차단 | PortOne V2 관련 도메인(`cdn.portone.io`, `*.iamport.co`, `*.kcp.co.kr` 등) CSP 누락 → `next.config` 양쪽 모두 추가 |
