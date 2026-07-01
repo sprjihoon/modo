@@ -242,10 +242,10 @@ export function HomePageClient() {
       {/* 수거신청 FAB */}
       <button
         onClick={handleOrderStart}
-        className="touch-target fixed bottom-20 right-1/2 translate-x-1/2 z-40 flex items-center gap-2 bg-[#00C896] text-white font-bold px-6 py-3.5 rounded-full shadow-lg shadow-[#00C896]/30 active:shadow-none active:bg-[#00A07B] transition-all"
+        className="touch-target fixed bottom-20 right-1/2 translate-x-1/2 z-40 flex items-center gap-2 bg-[#00C896] text-white font-bold px-[clamp(0.75rem,4vw,1.5rem)] py-[clamp(0.6rem,2.5vw,0.875rem)] rounded-full shadow-lg shadow-[#00C896]/30 active:shadow-none active:bg-[#00A07B] transition-all whitespace-nowrap text-[clamp(0.75rem,3.5vw,0.9375rem)]"
         style={{ right: "unset", transform: "translateX(-50%)", left: "50%" }}
       >
-        <Plus className="w-4 h-4" />
+        <Plus className="w-[clamp(0.75rem,3vw,1rem)] h-[clamp(0.75rem,3vw,1rem)] shrink-0" />
         {isLoading ? "수선신청 하기" : orders.length > 0 ? "수선신청 하기" : "첫 수선신청 하기"}
       </button>
 
