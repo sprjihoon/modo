@@ -272,7 +272,7 @@ function CheckoutContent() {
             {isRequesting ? "결제 요청 중..." : `${formatPrice(totalAmount)} 결제하기`}
           </button>
           <p className="text-xs text-gray-400 text-center mt-2">
-            토스페이먼츠 · 신용/체크카드 · 간편결제
+            NHN KCP 안전결제 · 신용/체크카드
           </p>
         </div>
       </main>
