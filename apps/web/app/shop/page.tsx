@@ -165,7 +165,7 @@ export default function ShopPage() {
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <h3 className="text-sm font-bold text-gray-900 mb-2">🚚 수거 · 배송 안내</h3>
           <ul className="space-y-1.5 text-sm text-gray-600">
-            <li>· 왕복 배송비 6,000원이 수선 요금에 포함됩니다.</li>
+            <li>· <strong className="text-gray-700">왕복 배송비 7,000원</strong>이 수선 요금과 별도로 청구됩니다.</li>
             <li>· 결제 완료 후 담당자가 수거 일정 안내 연락을 드립니다.</li>
           </ul>
         </div>

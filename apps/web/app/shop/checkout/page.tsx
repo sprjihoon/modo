@@ -15,6 +15,8 @@ function CheckoutContent() {
 
   const item = searchParams.get("item") ?? "수선 서비스";
   const price = Number(searchParams.get("price") ?? "10000");
+  const SHIPPING_FEE = 7000;
+  const totalAmount = price + SHIPPING_FEE;
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -48,7 +50,7 @@ function CheckoutContent() {
         channelKey,
         paymentId,
         orderName: item,
-        totalAmount: price,
+        totalAmount: totalAmount,
         currency: "CURRENCY_KRW",
         payMethod: "CARD",
         redirectUrl: `${window.location.origin}/shop/complete`,
@@ -71,7 +73,7 @@ function CheckoutContent() {
       } else if (response && "paymentId" in response) {
         // 팝업 성공
         router.push(
-          `/shop/complete?paymentId=${encodeURIComponent(paymentId)}&item=${encodeURIComponent(item)}&amount=${price}`
+          `/shop/complete?paymentId=${encodeURIComponent(paymentId)}&item=${encodeURIComponent(item)}&amount=${totalAmount}`
         );
       }
     } catch (e: unknown) {
@@ -249,17 +251,17 @@ function CheckoutContent() {
 
         {/* 결제 */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center mb-1">
+          <div className="flex justify-between items-center mb-2">
             <p className="text-sm text-gray-500">수선 요금</p>
             <p className="text-sm text-gray-700">{formatPrice(price)}</p>
           </div>
           <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-100">
             <p className="text-sm text-gray-500">왕복 배송비</p>
-            <p className="text-sm text-gray-700">포함</p>
+            <p className="text-sm text-gray-700">{formatPrice(SHIPPING_FEE)}</p>
           </div>
           <div className="flex justify-between items-center mb-5">
             <p className="text-base font-bold text-gray-900">총 결제 금액</p>
-            <p className="text-xl font-bold text-gray-900">{formatPrice(price)}</p>
+            <p className="text-xl font-bold text-gray-900">{formatPrice(totalAmount)}</p>
           </div>
           <button
             type="button"
@@ -267,7 +269,7 @@ function CheckoutContent() {
             disabled={isRequesting}
             className="w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-xl disabled:opacity-60 active:opacity-80 transition-opacity"
           >
-            {isRequesting ? "결제 요청 중..." : "결제하기"}
+            {isRequesting ? "결제 요청 중..." : `${formatPrice(totalAmount)} 결제하기`}
           </button>
           <p className="text-xs text-gray-400 text-center mt-2">
             토스페이먼츠 · 신용/체크카드 · 간편결제
