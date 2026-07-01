@@ -16,9 +16,10 @@ const securityHeaders = [
       "img-src 'self' blob: data: https://*.supabase.co https://imagedelivery.net https://customer.cloudflarestream.com https://*.kcp.co.kr https://*.portone.io",
       "media-src 'self' https://customer.cloudflarestream.com https://*.supabase.co",
       // PortOne API + KCP + 간편결제
-      "connect-src 'self' https://*.supabase.co https://rzrwediccbamxluegnex.supabase.co wss://*.supabase.co https://api.portone.io https://*.portone.io https://*.kcp.co.kr",
+      // PortOne 내부 서비스는 구 도메인(iamport.co)도 사용
+      "connect-src 'self' https://*.supabase.co https://rzrwediccbamxluegnex.supabase.co wss://*.supabase.co https://api.portone.io https://*.portone.io https://*.iamport.co https://*.kcp.co.kr",
       // 결제창 iframe: PortOne + KCP
-      "frame-src 'self' https://*.portone.io https://checkout.portone.io https://*.kcp.co.kr https://*.kakaopay.com https://nid.naver.com",
+      "frame-src 'self' https://*.portone.io https://checkout.portone.io https://*.iamport.co https://*.kcp.co.kr https://*.kakaopay.com https://nid.naver.com",
       "font-src 'self' data:",
     ].join('; '),
   },
