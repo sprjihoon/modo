@@ -39,7 +39,6 @@ import {
   XCircle,
   Ban,
   ExternalLink,
-  Receipt,
 } from "lucide-react";
 
 // 오늘 날짜 (YYYY-MM-DD 형식)
@@ -55,23 +54,27 @@ const getDaysAgo = (days: number) => {
   return date.toISOString().split("T")[0];
 };
 
-// 상태 맵
+// 상태 맵 (PortOne V2 기준)
 const statusMap: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   ALL: { label: "전체", color: "bg-gray-100 text-gray-800", icon: null },
-  COMPLETED: { label: "결제 완료", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400", icon: <CheckCircle className="h-3 w-3" /> },
+  PAID: { label: "결제 완료", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400", icon: <CheckCircle className="h-3 w-3" /> },
   PENDING: { label: "결제 대기", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400", icon: <Clock className="h-3 w-3" /> },
   FAILED: { label: "결제 실패", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", icon: <XCircle className="h-3 w-3" /> },
   CANCELED: { label: "전체 취소", color: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400", icon: <Ban className="h-3 w-3" /> },
   PARTIAL_CANCELED: { label: "부분 취소", color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400", icon: <X className="h-3 w-3" /> },
 };
 
-// 결제 방법 맵
+// 결제 방법 맵 (PortOne V2 method.type 기준)
 const methodMap: Record<string, string> = {
+  Card: "신용카드",
+  Transfer: "계좌이체",
+  VirtualAccount: "가상계좌",
+  Mobile: "휴대폰",
+  EasyPay: "간편결제",
   CARD: "신용카드",
   BANK_TRANSFER: "계좌이체",
   VIRTUAL_ACCOUNT: "가상계좌",
   MOBILE: "휴대폰",
-  TOSS_PAY: "토스페이",
   KAKAO_PAY: "카카오페이",
   NAVER_PAY: "네이버페이",
 };
@@ -85,11 +88,24 @@ interface Payment {
   amount: number;
   method: string;
   status: string;
-  paymentKey: string | null;
+  paymentId: string | null;
   orderStatus: string;
   createdAt: string;
   paidAt: string | null;
   canceledAt: string | null;
+}
+
+interface PortonePaymentDetail {
+  paymentId: string;
+  status: string;
+  totalAmount: number;
+  method: string;
+  paidAt: string;
+  cancellations: {
+    amount: { total: number };
+    reason: string;
+    cancelledAt: string;
+  }[];
 }
 
 interface PaymentDetail {
@@ -101,38 +117,12 @@ interface PaymentDetail {
   amount: number;
   method: string;
   status: string;
-  paymentKey: string | null;
+  paymentId: string | null;
   itemName: string;
   createdAt: string;
   paidAt: string | null;
   canceledAt: string | null;
-  tossPayment: {
-    paymentKey: string;
-    status: string;
-    totalAmount: number;
-    balanceAmount: number;
-    method: string;
-    approvedAt: string;
-    card: {
-      company: string;
-      number: string;
-      installmentPlanMonths: number;
-      isInterestFree: boolean;
-      approveNo: string;
-    } | null;
-    easyPay: {
-      provider: string;
-      amount: number;
-    } | null;
-    cancels: {
-      cancelAmount: number;
-      cancelReason: string;
-      canceledAt: string;
-    }[];
-    receipt: {
-      url: string;
-    } | null;
-  } | null;
+  portonePayment: PortonePaymentDetail | null;
   logs: any[];
 }
 
@@ -275,8 +265,8 @@ export default function PaymentsPage() {
 
   // 결제 취소 처리
   const handleCancelPayment = async () => {
-    if (!cancelPayment || !cancelPayment.paymentKey) {
-      alert("결제 키가 없어 취소할 수 없습니다.");
+    if (!cancelPayment || !cancelPayment.paymentId) {
+      alert("결제 ID가 없어 취소할 수 없습니다.");
       return;
     }
 
@@ -300,7 +290,7 @@ export default function PaymentsPage() {
     setCancelLoading(true);
     try {
       const body: any = {
-        paymentKey: cancelPayment.paymentKey,
+        paymentId: cancelPayment.paymentId,
         cancelReason: cancelReason,
       };
 
@@ -350,7 +340,7 @@ export default function PaymentsPage() {
         <div>
           <h1 className="text-3xl font-bold">결제 관리</h1>
           <p className="text-muted-foreground">
-            토스페이먼츠 결제 내역을 조회하고 관리합니다
+            포트원/KCP 결제 내역을 조회하고 관리합니다
           </p>
         </div>
         <Button onClick={loadPayments} variant="outline" disabled={isLoading}>
@@ -376,7 +366,7 @@ export default function PaymentsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                {stats.completed.toLocaleString()}건
+                {(stats.completed || 0).toLocaleString()}건
               </div>
             </CardContent>
           </Card>
@@ -557,9 +547,9 @@ export default function PaymentsPage() {
                   <div className="flex items-center space-x-4">
                     <div className="text-right">
                       <p className="font-bold text-lg">₩{payment.amount.toLocaleString()}</p>
-                      {payment.paymentKey && (
+                      {payment.paymentId && (
                         <p className="text-xs text-muted-foreground font-mono">
-                          {payment.paymentKey.substring(0, 12)}...
+                          {payment.paymentId.substring(0, 12)}...
                         </p>
                       )}
                     </div>
@@ -572,7 +562,7 @@ export default function PaymentsPage() {
                         <Eye className="h-4 w-4 mr-1" />
                         상세
                       </Button>
-                      {payment.status === "COMPLETED" && payment.paymentKey && (
+                      {payment.status === "PAID" && payment.paymentId && (
                         <Button
                           variant="destructive"
                           size="sm"
@@ -644,13 +634,11 @@ export default function PaymentsPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>결제 상세 정보</DialogTitle>
-            <DialogDescription>
-              토스페이먼츠 결제 상세 내역입니다
-            </DialogDescription>
+            <DialogDescription>포트원/KCP 결제 상세 내역입니다</DialogDescription>
           </DialogHeader>
           {detailLoading ? (
             <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
           ) : selectedPayment ? (
             <div className="space-y-6">
@@ -680,116 +668,86 @@ export default function PaymentsPage() {
                 </div>
               </div>
 
-              {/* 토스페이먼츠 정보 */}
-              {selectedPayment.tossPayment && (
+              {/* 포트원 결제 정보 */}
+              {selectedPayment.portonePayment && (
                 <div className="space-y-3">
                   <h4 className="font-semibold flex items-center gap-2">
                     <CreditCard className="h-4 w-4" />
-                    토스페이먼츠 결제 정보
+                    포트원/KCP 결제 정보
                   </h4>
                   <div className="p-4 border rounded-lg space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">결제 키</span>
-                      <span className="font-mono text-xs">{selectedPayment.tossPayment.paymentKey}</span>
+                      <span className="text-muted-foreground">결제 ID</span>
+                      <span className="font-mono text-xs">{selectedPayment.portonePayment.paymentId}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">결제 상태</span>
-                      <Badge variant="outline">{selectedPayment.tossPayment.status}</Badge>
+                      <Badge variant="outline">{selectedPayment.portonePayment.status}</Badge>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">총 결제금액</span>
-                      <span className="font-medium">₩{selectedPayment.tossPayment.totalAmount.toLocaleString()}</span>
+                      <span className="font-medium">
+                        ₩{selectedPayment.portonePayment.totalAmount.toLocaleString()}
+                      </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">잔여 금액</span>
-                      <span className="font-medium text-blue-600">₩{selectedPayment.tossPayment.balanceAmount.toLocaleString()}</span>
-                    </div>
-                    {selectedPayment.tossPayment.approvedAt && (
+                    {(() => {
+                      const cancelled = selectedPayment.portonePayment.cancellations?.reduce(
+                        (sum, c) => sum + (c.amount?.total ?? 0), 0
+                      ) ?? 0;
+                      const balance = selectedPayment.portonePayment.totalAmount - cancelled;
+                      return (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">잔여 금액</span>
+                          <span className="font-medium text-blue-600">₩{balance.toLocaleString()}</span>
+                        </div>
+                      );
+                    })()}
+                    {selectedPayment.portonePayment.paidAt && (
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">승인 일시</span>
-                        <span>{new Date(selectedPayment.tossPayment.approvedAt).toLocaleString("ko-KR")}</span>
+                        <span>
+                          {new Date(selectedPayment.portonePayment.paidAt).toLocaleString("ko-KR")}
+                        </span>
                       </div>
                     )}
-
-                    {/* 카드 정보 */}
-                    {selectedPayment.tossPayment.card && (
-                      <div className="border-t pt-3 mt-3">
-                        <p className="text-sm font-medium mb-2">카드 정보</p>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <span className="text-muted-foreground">카드사</span>
-                          <span>{selectedPayment.tossPayment.card.company}</span>
-                          <span className="text-muted-foreground">카드번호</span>
-                          <span className="font-mono">{selectedPayment.tossPayment.card.number}</span>
-                          <span className="text-muted-foreground">할부</span>
-                          <span>
-                            {selectedPayment.tossPayment.card.installmentPlanMonths === 0
-                              ? "일시불"
-                              : `${selectedPayment.tossPayment.card.installmentPlanMonths}개월`}
-                          </span>
-                          <span className="text-muted-foreground">승인번호</span>
-                          <span className="font-mono">{selectedPayment.tossPayment.card.approveNo}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 간편결제 정보 */}
-                    {selectedPayment.tossPayment.easyPay && (
-                      <div className="border-t pt-3 mt-3">
-                        <p className="text-sm font-medium mb-2">간편결제 정보</p>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <span className="text-muted-foreground">결제사</span>
-                          <span>{selectedPayment.tossPayment.easyPay.provider}</span>
-                          <span className="text-muted-foreground">결제금액</span>
-                          <span>₩{selectedPayment.tossPayment.easyPay.amount.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">결제 수단</span>
+                      <span>{methodMap[selectedPayment.portonePayment.method] || selectedPayment.portonePayment.method}</span>
+                    </div>
 
                     {/* 취소 내역 */}
-                    {selectedPayment.tossPayment.cancels && selectedPayment.tossPayment.cancels.length > 0 && (
-                      <div className="border-t pt-3 mt-3">
-                        <p className="text-sm font-medium mb-2 text-red-600">취소 내역</p>
-                        {selectedPayment.tossPayment.cancels.map((cancel, idx) => (
-                          <div key={idx} className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg mb-2">
-                            <div className="flex justify-between items-center">
-                              <span className="text-red-600 font-medium">
-                                -₩{cancel.cancelAmount.toLocaleString()}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(cancel.canceledAt).toLocaleString("ko-KR")}
-                              </span>
+                    {selectedPayment.portonePayment.cancellations &&
+                      selectedPayment.portonePayment.cancellations.length > 0 && (
+                        <div className="border-t pt-3 mt-3">
+                          <p className="text-sm font-medium mb-2 text-red-600">취소 내역</p>
+                          {selectedPayment.portonePayment.cancellations.map((cancel, idx) => (
+                            <div
+                              key={idx}
+                              className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg mb-2"
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="text-red-600 font-medium">
+                                  -₩{(cancel.amount?.total ?? 0).toLocaleString()}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(cancel.cancelledAt).toLocaleString("ko-KR")}
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                사유: {cancel.reason}
+                              </p>
                             </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              사유: {cancel.cancelReason}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* 영수증 */}
-                    {selectedPayment.tossPayment.receipt && (
-                      <div className="border-t pt-3 mt-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(selectedPayment.tossPayment!.receipt!.url, "_blank")}
-                        >
-                          <Receipt className="h-4 w-4 mr-2" />
-                          영수증 보기
-                        </Button>
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      )}
                   </div>
                 </div>
               )}
 
-              {!selectedPayment.tossPayment && selectedPayment.paymentKey && (
+              {!selectedPayment.portonePayment && selectedPayment.paymentId && (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    토스페이먼츠에서 결제 정보를 조회할 수 없습니다.
-                  </AlertDescription>
+                  <AlertDescription>포트원에서 결제 정보를 조회할 수 없습니다.</AlertDescription>
                 </Alert>
               )}
             </div>

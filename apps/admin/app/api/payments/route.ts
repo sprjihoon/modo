@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         total_price,
         payment_status,
         payment_method,
-        payment_key,
+        payment_id,
         paid_at,
         canceled_at,
         status
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     
     // 검색 필터
     if (search) {
-      query = query.or(`id.ilike.%${search}%,customer_name.ilike.%${search}%,customer_phone.ilike.%${search}%,payment_key.ilike.%${search}%`);
+      query = query.or(`id.ilike.%${search}%,customer_name.ilike.%${search}%,customer_phone.ilike.%${search}%,payment_id.ilike.%${search}%`);
     }
     
     // 페이지네이션
@@ -88,11 +88,11 @@ export async function GET(request: NextRequest) {
     
     const stats = {
       total: statsData?.length || 0,
-      completed: statsData?.filter(o => o.payment_status === "COMPLETED").length || 0,
+      completed: statsData?.filter(o => o.payment_status === "PAID" || o.payment_status === "COMPLETED").length || 0,
       pending: statsData?.filter(o => o.payment_status === "PENDING").length || 0,
       failed: statsData?.filter(o => o.payment_status === "FAILED").length || 0,
       canceled: statsData?.filter(o => o.payment_status === "CANCELED" || o.payment_status === "PARTIAL_CANCELED").length || 0,
-      totalRevenue: statsData?.filter(o => o.payment_status === "COMPLETED").reduce((sum, o) => sum + (o.total_price || 0), 0) || 0,
+      totalRevenue: statsData?.filter(o => o.payment_status === "PAID" || o.payment_status === "COMPLETED").reduce((sum, o) => sum + (o.total_price || 0), 0) || 0,
     };
     
     // 결제 데이터 변환
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
       amount: order.total_price || 0,
       method: order.payment_method || "CARD",
       status: order.payment_status || "PENDING",
-      paymentKey: order.payment_key,
+      paymentId: (order as any).payment_id,
       orderStatus: order.status,
       createdAt: order.created_at,
       paidAt: order.paid_at,

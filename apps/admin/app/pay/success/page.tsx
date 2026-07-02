@@ -15,28 +15,33 @@ function PaymentSuccessContent() {
 
   useEffect(() => {
     const confirmPayment = async () => {
-      // URL 쿼리 파라미터에서 결제 정보 추출
-      const paymentKey = searchParams.get("paymentKey");
-      const orderId = searchParams.get("orderId");
+      // PortOne V2 리다이렉트 파라미터: paymentId (+ 커스텀으로 넘긴 orderId, amount)
+      const paymentId = searchParams.get("paymentId");
+      const orderId = searchParams.get("orderId") || paymentId;
       const amount = searchParams.get("amount");
 
-      if (!paymentKey || !orderId || !amount) {
+      // PortOne이 실패로 리다이렉트하는 경우
+      const code = searchParams.get("code");
+      if (code) {
+        setStatus("error");
+        setErrorMessage(searchParams.get("message") || "결제에 실패했습니다.");
+        return;
+      }
+
+      if (!paymentId || !orderId) {
         setStatus("error");
         setErrorMessage("결제 정보가 올바르지 않습니다.");
         return;
       }
 
       try {
-        // 서버로 결제 승인 요청
         const response = await fetch("/api/pay/confirm", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            paymentKey,
+            paymentId,
             orderId,
-            amount: Number(amount),
+            amount: amount ? Number(amount) : 0,
           }),
         });
 
@@ -48,10 +53,12 @@ function PaymentSuccessContent() {
 
         setPaymentInfo(data);
         setStatus("success");
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("결제 승인 실패:", error);
         setStatus("error");
-        setErrorMessage(error.message || "결제 처리 중 오류가 발생했습니다.");
+        setErrorMessage(
+          (error as Error).message || "결제 처리 중 오류가 발생했습니다."
+        );
       }
     };
 
@@ -67,9 +74,7 @@ function PaymentSuccessContent() {
               <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
             </div>
             <CardTitle>결제 처리 중</CardTitle>
-            <CardDescription>
-              결제를 확인하고 있습니다. 잠시만 기다려주세요...
-            </CardDescription>
+            <CardDescription>결제를 확인하고 있습니다. 잠시만 기다려주세요...</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -85,16 +90,10 @@ function PaymentSuccessContent() {
               <XCircle className="h-8 w-8 text-red-600" />
             </div>
             <CardTitle className="text-red-600">결제 실패</CardTitle>
-            <CardDescription className="text-red-500">
-              {errorMessage}
-            </CardDescription>
+            <CardDescription className="text-red-500">{errorMessage}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button 
-              className="w-full"
-              variant="outline"
-              onClick={() => router.back()}
-            >
+            <Button className="w-full" variant="outline" onClick={() => router.back()}>
               다시 시도하기
             </Button>
           </CardContent>
@@ -111,9 +110,7 @@ function PaymentSuccessContent() {
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
           <CardTitle className="text-green-600">결제 완료</CardTitle>
-          <CardDescription>
-            결제가 성공적으로 완료되었습니다.
-          </CardDescription>
+          <CardDescription>결제가 성공적으로 완료되었습니다.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {paymentInfo && (
@@ -142,11 +139,8 @@ function PaymentSuccessContent() {
               )}
             </div>
           )}
-          
-          <Button 
-            className="w-full bg-green-600 hover:bg-green-700"
-            onClick={() => window.close()}
-          >
+
+          <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => window.close()}>
             확인
           </Button>
         </CardContent>
@@ -157,20 +151,21 @@ function PaymentSuccessContent() {
 
 export default function PaymentSuccessPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
-              <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
-            </div>
-            <CardTitle>로딩 중...</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+                <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+              </div>
+              <CardTitle>로딩 중...</CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+      }
+    >
       <PaymentSuccessContent />
     </Suspense>
   );
 }
-

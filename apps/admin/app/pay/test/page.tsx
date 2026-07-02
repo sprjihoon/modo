@@ -41,14 +41,14 @@ export default function PaymentTestPage() {
   const [showWidget, setShowWidget] = useState(false);
 
   // 결제 조회 상태
-  const [inquiryPaymentKey, setInquiryPaymentKey] = useState("");
+  const [inquiryPaymentId, setInquiryPaymentId] = useState("");
   const [inquiryOrderId, setInquiryOrderId] = useState("");
   const [inquiryResult, setInquiryResult] = useState<any>(null);
   const [inquiryLoading, setInquiryLoading] = useState(false);
   const [inquiryError, setInquiryError] = useState("");
 
   // 결제 취소 상태
-  const [cancelPaymentKey, setCancelPaymentKey] = useState("");
+  const [cancelPaymentId, setCancelPaymentId] = useState("");
   const [cancelReason, setCancelReason] = useState("테스트 취소");
   const [cancelAmount, setCancelAmount] = useState("");
   const [cancelResult, setCancelResult] = useState<any>(null);
@@ -57,8 +57,8 @@ export default function PaymentTestPage() {
 
   // 결제 조회 함수
   const handleInquiry = async () => {
-    if (!inquiryPaymentKey && !inquiryOrderId) {
-      setInquiryError("paymentKey 또는 orderId를 입력해주세요.");
+    if (!inquiryPaymentId && !inquiryOrderId) {
+      setInquiryError("paymentId 또는 orderId를 입력해주세요.");
       return;
     }
 
@@ -68,7 +68,7 @@ export default function PaymentTestPage() {
 
     try {
       const params = new URLSearchParams();
-      if (inquiryPaymentKey) params.append("paymentKey", inquiryPaymentKey);
+      if (inquiryPaymentId) params.append("paymentId", inquiryPaymentId);
       if (inquiryOrderId) params.append("orderId", inquiryOrderId);
 
       const response = await fetch(`/api/pay/inquiry?${params.toString()}`);
@@ -88,8 +88,8 @@ export default function PaymentTestPage() {
 
   // 결제 취소 함수
   const handleCancel = async () => {
-    if (!cancelPaymentKey) {
-      setCancelError("paymentKey를 입력해주세요.");
+    if (!cancelPaymentId) {
+      setCancelError("paymentId를 입력해주세요.");
       return;
     }
 
@@ -104,7 +104,7 @@ export default function PaymentTestPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paymentKey: cancelPaymentKey,
+          paymentId: cancelPaymentId,
           cancelReason,
           cancelAmount: cancelAmount ? Number(cancelAmount) : undefined,
         }),
@@ -137,7 +137,7 @@ export default function PaymentTestPage() {
         {/* 헤더 */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">
-            💳 토스페이먼츠 테스트
+            💳 포트원/KCP 결제 테스트
           </h1>
           <p className="text-purple-200">
             결제 위젯, 조회, 취소 기능을 테스트해보세요
@@ -169,7 +169,7 @@ export default function PaymentTestPage() {
                   결제 위젯 테스트
                 </CardTitle>
                 <CardDescription className="text-slate-400">
-                  토스페이먼츠 결제 위젯을 테스트합니다. 테스트 환경에서는 실제 결제가 이루어지지 않습니다.
+                  포트원/KCP 결제 위젯을 테스트합니다. 테스트 환경에서는 실제 결제가 이루어지지 않습니다.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -238,8 +238,8 @@ export default function PaymentTestPage() {
                       <p className="font-semibold text-slate-300 mb-2">💡 테스트 안내</p>
                       <ul className="space-y-1 list-disc list-inside">
                         <li>테스트 환경에서는 실제 결제가 이루어지지 않습니다</li>
-                        <li>카드 결제 시 아무 카드 번호나 입력 가능합니다</li>
-                        <li>테스트용 카드: 4242-4242-4242-4242</li>
+                        <li>포트원 콘솔에서 KCP 테스트 모드 활성화 필요</li>
+                        <li>KCP 테스트: 포트원 테스트 환경 카드 사용</li>
                         <li>최소 결제 금액: 100원</li>
                       </ul>
                     </div>
@@ -260,7 +260,7 @@ export default function PaymentTestPage() {
                         orderName={testOrderName}
                         amount={Number(testAmount)}
                         customerName={testCustomerName}
-                        redirectUrl={`${baseUrl}/pay/success`}
+                        redirectUrl={`${baseUrl}/pay/success?orderId=${testOrderId}&amount=${testAmount}`}
                         onReady={() => console.log("결제 위젯 준비 완료")}
                         onError={(error: Error) => console.error("결제 위젯 오류:", error)}
                       />
@@ -280,17 +280,17 @@ export default function PaymentTestPage() {
                   결제 내역 조회
                 </CardTitle>
                 <CardDescription className="text-slate-400">
-                  paymentKey 또는 orderId로 결제 내역을 조회합니다.
+                  paymentId 또는 orderId로 결제 내역을 조회합니다.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-slate-200">Payment Key</Label>
+                    <Label className="text-slate-200">Payment ID</Label>
                     <Input
-                      value={inquiryPaymentKey}
-                      onChange={(e) => setInquiryPaymentKey(e.target.value)}
-                      placeholder="tgen_20240101..."
+                      value={inquiryPaymentId}
+                      onChange={(e) => setInquiryPaymentId(e.target.value)}
+                      placeholder="payment_id..."
                       className="bg-slate-700 border-slate-600 text-white"
                     />
                   </div>
@@ -395,11 +395,11 @@ export default function PaymentTestPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-200">Payment Key *</Label>
+                  <Label className="text-slate-200">Payment ID *</Label>
                   <Input
-                    value={cancelPaymentKey}
-                    onChange={(e) => setCancelPaymentKey(e.target.value)}
-                    placeholder="tgen_20240101..."
+                    value={cancelPaymentId}
+                    onChange={(e) => setCancelPaymentId(e.target.value)}
+                    placeholder="payment_id..."
                     className="bg-slate-700 border-slate-600 text-white"
                   />
                 </div>
@@ -428,7 +428,7 @@ export default function PaymentTestPage() {
                 <Button
                   className="w-full bg-red-600 hover:bg-red-700"
                   onClick={handleCancel}
-                  disabled={cancelLoading || !cancelPaymentKey}
+                  disabled={cancelLoading || !cancelPaymentId}
                 >
                   {cancelLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

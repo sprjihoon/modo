@@ -171,7 +171,7 @@ export default function CustomerPaymentPage() {
                 customerName={request.orders?.customer_name || "고객"}
                 customerEmail={request.orders?.customer_email}
                 customerPhone={request.orders?.customer_phone}
-                redirectUrl={`${baseUrl}/pay/success`}
+                redirectUrl={`${baseUrl}/pay/success?orderId=${params.id}&amount=${request.amount}`}
                 onReady={() => console.log("결제 위젯 준비 완료")}
                 onError={(error: Error) => console.error("결제 위젯 오류:", error)}
               />

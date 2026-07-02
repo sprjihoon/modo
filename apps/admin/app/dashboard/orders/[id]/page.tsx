@@ -240,7 +240,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
 
   const handleCancelShipment = async () => {
     const isPaid =
-      order?.payment_key &&
+      order?.payment_id &&
       ['PAID', 'COMPLETED', 'DONE'].includes(order?.payment_status ?? '');
 
     const confirmMsg = isPaid
@@ -312,7 +312,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
     status: order.status,
     amount: order.total_price || 0,
     paymentMethod: order.payment_method || '신용카드',
-    paymentId: order.payment_key || order.id,
+    paymentId: order.payment_id || order.id,
     paymentStatus: (() => {
       const s = order.payment_status;
       if (!s || s === 'PAID' || s === 'COMPLETED' || s === 'DONE') return 'COMPLETED';

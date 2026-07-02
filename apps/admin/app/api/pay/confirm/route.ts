@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const body: PaymentConfirmRequest = await request.json();
     const { paymentId, orderId, amount } = body;
 
-    if (!paymentId || !orderId || !amount) {
+    if (!paymentId || !orderId) {
       return NextResponse.json(
         { error: "INVALID_REQUEST", message: "필수 파라미터가 누락되었습니다." },
         { status: 400 }
@@ -56,7 +56,8 @@ export async function POST(request: NextRequest) {
       isExtraCharge = false;
     }
 
-    if (originalAmount && originalAmount !== amount) {
+    // amount가 0이면 DB 사전 검증 생략 (PortOne 검증이 source of truth)
+    if (amount && originalAmount && originalAmount !== amount) {
       return NextResponse.json(
         { error: "AMOUNT_MISMATCH", message: "결제 금액이 일치하지 않습니다." },
         { status: 400 }
