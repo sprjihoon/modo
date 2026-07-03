@@ -79,8 +79,18 @@ serve(async (req) => {
 
     } else if (isCreateOrderFlow) {
       const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
-      const m = (typeof order_id === 'string' ? order_id : '').match(UUID_RE)
-      const intentId = m ? m[0] : null
+      const HEX32_RE = /^[0-9a-f]{32}$/i
+      const rawId = typeof order_id === 'string' ? order_id : ''
+      let intentId: string | null = null
+
+      const m = rawId.match(UUID_RE)
+      if (m) {
+        intentId = m[0]
+      } else if (HEX32_RE.test(rawId)) {
+        // KCP 호환 paymentId (UUID 하이픈 제거 포맷) → UUID로 복원
+        intentId = `${rawId.slice(0,8)}-${rawId.slice(8,12)}-${rawId.slice(12,16)}-${rawId.slice(16,20)}-${rawId.slice(20)}`
+      }
+
       if (!intentId) throw new Error('order_id 가 UUID(intent_id) 형식이어야 합니다.')
 
       const { data: intent, error: intentErr } = await supabaseClient

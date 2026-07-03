@@ -222,7 +222,8 @@ export function PaymentClient() {
       const response = await PortOne.requestPayment({
         storeId: getStoreId(),
         channelKey: getChannelKey(),
-        paymentId: intent.id,
+        // KCP는 paymentId에 특수문자(하이픈) 미지원 → UUID 하이픈 제거
+        paymentId: intent.id.replace(/-/g, ""),
         orderName: p.itemName ?? "모두의수선 수선 서비스",
         totalAmount: intAmount,
         currency: "CURRENCY_KRW",

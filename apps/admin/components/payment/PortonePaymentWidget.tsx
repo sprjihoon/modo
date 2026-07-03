@@ -48,7 +48,8 @@ export default function PortonePaymentWidget({
       const response = await PortOne.requestPayment({
         storeId: getStoreId(),
         channelKey: getChannelKey(),
-        paymentId,
+        // KCP는 paymentId에 특수문자(하이픈) 미지원 → UUID 하이픈 제거
+        paymentId: paymentId.replace(/-/g, ""),
         orderName,
         totalAmount: Math.max(1, Math.round(amount)),
         currency: "CURRENCY_KRW",
