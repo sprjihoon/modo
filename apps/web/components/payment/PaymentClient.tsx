@@ -233,7 +233,7 @@ export function PaymentClient() {
         {
           pg: "kcp",
           pay_method: "card",
-          merchant_uid: intent.id, // V1은 UUID 하이픈 허용
+          merchant_uid: intent.id.replace(/-/g, ""), // KCP: 영문·숫자만 허용, 하이픈 제거
           name: p.itemName ?? "모두의수선 수선 서비스",
           amount: intAmount,
           buyer_name: p.customerName || undefined,

@@ -62,7 +62,7 @@ export default function PortonePaymentWidget({
         {
           pg: "kcp",
           pay_method: "card",
-          merchant_uid: paymentId, // V1은 UUID 하이픈 허용
+          merchant_uid: paymentId.replace(/-/g, ""), // KCP: 영문·숫자만 허용, 하이픈 제거
           name: orderName,
           amount: Math.max(1, Math.round(amount)),
           buyer_name: customerName || undefined,
