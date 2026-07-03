@@ -15,17 +15,17 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      // PortOne V2 SDK CDN + KCP/PG 결제창 스크립트
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.portone.io https://*.portone.io https://*.kcp.co.kr https://*.inicis.com https://*.daumcdn.net https://va.vercel-scripts.com",
-      "script-src-elem 'self' 'unsafe-inline' https://cdn.portone.io https://*.portone.io https://*.kcp.co.kr https://*.inicis.com https://*.daumcdn.net https://va.vercel-scripts.com",
+      // PortOne V1 (cdn.iamport.kr) + V2 SDK CDN + KCP/PG 결제창 스크립트
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.iamport.kr https://*.iamport.kr https://cdn.portone.io https://*.portone.io https://*.kcp.co.kr https://*.inicis.com https://*.daumcdn.net https://va.vercel-scripts.com",
+      "script-src-elem 'self' 'unsafe-inline' https://cdn.iamport.kr https://*.iamport.kr https://cdn.portone.io https://*.portone.io https://*.kcp.co.kr https://*.inicis.com https://*.daumcdn.net https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https://*.supabase.co https://imagedelivery.net https://customer.cloudflarestream.com https://*.daumcdn.net https://*.kakao.com https://k.kakaocdn.net https://*.kcp.co.kr https://*.portone.io",
+      "img-src 'self' blob: data: https://*.supabase.co https://imagedelivery.net https://customer.cloudflarestream.com https://*.daumcdn.net https://*.kakao.com https://k.kakaocdn.net https://*.kcp.co.kr https://*.portone.io https://*.iamport.kr https://*.iamport.co",
       "media-src 'self' https://customer.cloudflarestream.com https://*.supabase.co",
       // PortOne API + KCP + 카카오/네이버 간편결제
       // PortOne 내부 서비스는 구 도메인(iamport.co)도 사용
       "connect-src 'self' https://*.supabase.co https://*.portone.io https://api.portone.io https://*.iamport.co https://*.kcp.co.kr https://*.daumcdn.net https://*.daum.net https://*.kakao.com https://va.vercel-scripts.com wss://*.supabase.co",
       // 결제창 iframe: PortOne + KCP + 카카오/네이버페이
-      "frame-src 'self' https://*.portone.io https://checkout.portone.io https://*.iamport.co https://*.kcp.co.kr https://*.daum.net https://*.daumcdn.net https://*.kakao.com https://nid.naver.com https://*.kakaopay.com",
+      "frame-src 'self' https://*.portone.io https://checkout.portone.io https://*.iamport.co https://*.iamport.kr https://*.kcp.co.kr https://*.daum.net https://*.daumcdn.net https://*.kakao.com https://nid.naver.com https://*.kakaopay.com",
       "font-src 'self' data:",
       "worker-src blob: 'self'",
     ].join('; '),
