@@ -209,59 +209,55 @@ export function PaymentClient() {
     setIsRequesting(true);
     setError(null);
     try {
-      // PortOne V1 (IMP) SDK 동적 로드
-      await new Promise<void>((resolve, reject) => {
-        if ((window as any).IMP) { resolve(); return; }
-        const script = document.createElement("script");
-        script.src = "https://cdn.iamport.kr/v1/iamport.js";
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("IMP SDK 로드 실패"));
-        document.head.appendChild(script);
-      });
-
-      const IMP = (window as any).IMP;
-      const impCode = process.env.NEXT_PUBLIC_IMP_CODE;
-      if (!impCode) throw new Error("NEXT_PUBLIC_IMP_CODE 환경변수가 설정되지 않았습니다.");
-      IMP.init(impCode);
+      const PortOne = await import("@portone/browser-sdk/v2");
 
       isPaymentInProgressRef.current = true;
 
       const p = intent.payload;
       const intAmount = Math.max(1, Math.round(intent.total_price));
+      // KCP: paymentId는 특수문자(하이픈) 미허용, UUID 하이픈 제거 (max 40자, 영문/숫자만)
+      const kcpPaymentId = intent.id.replace(/-/g, "");
 
-      IMP.request_pay(
-        {
-          pg: "kcp",
-          pay_method: "card",
-          merchant_uid: intent.id.replace(/-/g, ""), // KCP: 영문·숫자만 허용, 하이픈 제거
-          name: p.itemName ?? "모두의수선 수선 서비스",
-          amount: intAmount,
-          buyer_name: p.customerName || undefined,
-          buyer_email: p.customerEmail || undefined,
-          buyer_tel: p.customerPhone || undefined,
-          m_redirect_url: `${window.location.origin}/payment/success`,
-        },
-        (response: any) => {
-          if (response.success) {
-            // 팝업(PC) 결제 성공 → 성공 페이지로 이동
-            router.replace(
-              `/payment/success?imp_uid=${response.imp_uid}&merchant_uid=${response.merchant_uid}`
-            );
-          } else {
-            // 사용자 취소가 아닌 경우만 에러 표시
-            if (response.error_code !== "F0000") {
-              console.error("[결제] 오류:", response.error_code, response.error_msg);
-              setError(response.error_msg ?? "결제 요청 중 오류가 발생했습니다.");
-            }
-            isPaymentInProgressRef.current = false;
-            setIsRequesting(false);
-          }
+      // customer 객체: undefined/null 필드는 완전히 제외 (KCP 파싱 에러 방지)
+      const customerObj: Record<string, string> = {};
+      if (p.customerName) customerObj.fullName = p.customerName;
+      if (p.customerEmail) customerObj.email = p.customerEmail;
+      if (p.customerPhone) customerObj.phoneNumber = p.customerPhone.replace(/-/g, "");
+
+      const requestParams: Parameters<typeof PortOne.requestPayment>[0] = {
+        storeId: getStoreId(),
+        channelKey: getChannelKey(),
+        paymentId: kcpPaymentId,
+        orderName: p.itemName ?? "모두의수선 수선 서비스",
+        totalAmount: intAmount,
+        currency: "CURRENCY_KRW",
+        payMethod: "CARD",
+        redirectUrl: `${window.location.origin}/payment/success`,
+        ...(Object.keys(customerObj).length > 0 ? { customer: customerObj } : {}),
+      };
+
+      const response = await PortOne.requestPayment(requestParams);
+
+      if (response === null || response === undefined) {
+        // 리다이렉트 진행 중 - 아무 처리 불필요
+        return;
+      }
+      if (response.code !== undefined) {
+        if (response.code !== "FAILURE_TYPE_PG") {
+          setError(response.message ?? "결제 요청 중 오류가 발생했습니다.");
         }
-      );
+        isPaymentInProgressRef.current = false;
+        setIsRequesting(false);
+      } else {
+        // 팝업(PC) 결제 성공 → 성공 페이지로 이동
+        router.replace(`/payment/success?paymentId=${kcpPaymentId}`);
+      }
     } catch (e: unknown) {
-      const err = e as { message?: string };
-      console.error("[결제] 오류:", err?.message);
-      setError(err?.message ?? "결제 요청 중 오류가 발생했습니다.");
+      const err = e as { code?: string; message?: string };
+      if (err?.code !== "USER_CANCEL") {
+        console.error("[결제] 오류:", err?.code, err?.message);
+        setError(err?.message ?? "결제 요청 중 오류가 발생했습니다.");
+      }
       isPaymentInProgressRef.current = false;
       setIsRequesting(false);
     }

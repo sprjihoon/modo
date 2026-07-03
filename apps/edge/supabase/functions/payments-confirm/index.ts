@@ -1,10 +1,9 @@
-// PortOne V1 ?? ?? (IMP SDK)
+// PortOne V2 ?? ?? (??? ????)
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const IMP_KEY = Deno.env.get('IMP_KEY') || ''
-const IMP_SECRET = Deno.env.get('IMP_SECRET') || ''
-const IMP_API_URL = 'https://api.iamport.kr'
+const PORTONE_API_SECRET = Deno.env.get('PORTONE_API_SECRET') || ''
+const PORTONE_API_URL = 'https://api.portone.io'
 
 serve(async (req) => {
   const corsHeaders = {
@@ -17,27 +16,25 @@ serve(async (req) => {
   }
 
   try {
-    if (!IMP_KEY || !IMP_SECRET) {
-      throw new Error('IMP_KEY / IMP_SECRET ????? ???? ?????.')
+    if (!PORTONE_API_SECRET) {
+      throw new Error('PORTONE_API_SECRET ????? ???? ?????.')
     }
 
     const {
-      imp_uid,       // PortOne V1 ?? ID
-      payment_id,    // imp_uid ?? V2 paymentId (??)
-      order_id,      // payment_intent.id (merchant_uid)
+      payment_id,
+      order_id,
       amount: rawAmount,
       is_extra_charge = false,
       original_order_id,
       pickup_payload,
     } = await req.json()
 
-    const effectiveImpUid = imp_uid || payment_id  // V1 ??, V2 legacy ??
-
     // amount? isCreateOrderFlow(?? intent ?? ??)?? ???
+    // ? ?? payment_intents.total_price? ??? ???? ???
     let amount: number | undefined = rawAmount ? Number(rawAmount) : undefined
 
-    if (!effectiveImpUid || !order_id) {
-      throw new Error('?? ????? ???????. (imp_uid, order_id)')
+    if (!payment_id || !order_id) {
+      throw new Error('?? ????? ???????. (payment_id, order_id)')
     }
 
     const supabaseClient = createClient(
@@ -122,8 +119,7 @@ serve(async (req) => {
       }
 
       originalAmount = intent.total_price
-      // ??????? amount? ?? ?? ?? intent.total_price? ??
-      // (isCreateOrderFlow?? ??? ??? ??? ????? ??)
+      // ??????? amount? ??? ?? ?? intent.total_price? ??
       if (!amount) amount = originalAmount
       orderData = {
         _pending_insert: true,
@@ -178,54 +174,35 @@ serve(async (req) => {
       throw new Error(`?? ??? ???? ????. ????: ${originalAmount}?, ????: ${amount}?`)
     }
 
-    // ??? V1: ??? ?? ?? ? ?? ? ?? ??
-    const tokenRes = await fetch(`${IMP_API_URL}/users/getToken`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imp_key: IMP_KEY, imp_secret: IMP_SECRET }),
-    })
-    const tokenData = await tokenRes.json()
-    if (tokenData.code !== 0) {
-      throw new Error(`??? ?? ?? ??: ${tokenData.message}`)
-    }
-    const accessToken: string = tokenData.response.access_token
-
+    // PortOne V2 ?? ??
     const portoneRes = await fetch(
-      `${IMP_API_URL}/payments/${encodeURIComponent(effectiveImpUid)}`,
-      { headers: { Authorization: accessToken } }
+      `${PORTONE_API_URL}/payments/${encodeURIComponent(payment_id)}`,
+      { headers: { Authorization: `PortOne ${PORTONE_API_SECRET}` } }
     )
-    const portoneRaw = await portoneRes.json()
+    const portoneData = await portoneRes.json()
 
-    if (portoneRaw.code !== 0) {
-      console.error('??? ?? ?? ??:', portoneRaw)
-      throw new Error(portoneRaw.message || '?? ??? ??????.')
-    }
-
-    const portoneData = portoneRaw.response
-
-    if (portoneData.status !== 'paid') {
+    if (portoneData.status !== 'PAID') {
+      console.error('??? ?? ?? ??:', portoneData)
       throw new Error(`??? ???? ?????. (status: ${portoneData.status})`)
     }
 
-    if (amount && portoneData.amount !== amount) {
-      throw new Error(`?? ??? ???? ????. ???: ${portoneData.amount}?, ??: ${amount}?`)
+    if (amount && portoneData.amount?.total !== amount) {
+      throw new Error(`?? ??? ???? ????. ???: ${portoneData.amount?.total}?, ??: ${amount}?`)
     }
-    // amount? ??? portoneData.amount? ??? ???? ??
-    if (!amount) amount = portoneData.amount
+    // amount? ??? portoneData.amount.total? ??? ???? ??
+    if (!amount) amount = portoneData.amount?.total
 
-    const paidAt = portoneData.paid_at
-      ? new Date(portoneData.paid_at * 1000).toISOString()
-      : new Date().toISOString()
-    const payMethod = portoneData.pay_method || 'card'
+    const paidAt = portoneData.paidAt || new Date().toISOString()
+    const payMethod = portoneData.method?.type || 'card'
 
-    console.log('? ??? ?? ?? ??:', order_id)
+    console.log('? ??? V2 ?? ?? ??:', order_id)
 
     // ?? DB ???? ??
     if (is_extra_charge && original_order_id) {
       const updatedExtraChargeData = {
         ...(orderData.extra_charge_data || {}),
         customer_paid_at: paidAt,
-        payment_id: effectiveImpUid,
+        payment_id,
         paid_amount: amount,
       }
 
@@ -265,7 +242,7 @@ serve(async (req) => {
         .from('extra_charge_requests')
         .update({
           status: 'PAID',
-          payment_id: effectiveImpUid,
+          payment_id,
           customer_response_at: paidAt,
         })
         .eq('id', order_id)
@@ -290,7 +267,7 @@ serve(async (req) => {
         user_id: internalUserId,
         status: 'PAID',
         payment_status: 'PAID',
-        payment_id: effectiveImpUid,
+        payment_id,
         paid_at: paidAt,
         order_number: orderNumber,
         item_name: pickup.itemName,
@@ -406,7 +383,7 @@ serve(async (req) => {
         .update({
           status: 'PAID',
           payment_status: 'PAID',
-          payment_id: effectiveImpUid,
+          payment_id,
           paid_at: paidAt,
         })
         .eq('id', ordersId)
@@ -430,8 +407,8 @@ serve(async (req) => {
 
       await supabaseClient.from('payment_logs').insert({
         order_id: logOrderId,
-        payment_id: effectiveImpUid,
-        amount: portoneData.amount,
+        payment_id,
+        amount: portoneData.amount?.total,
         method: payMethod,
         status: 'SUCCESS',
         provider: 'PORTONE',
@@ -450,9 +427,9 @@ serve(async (req) => {
         success: true,
         data: {
           orderId: responseOrderId,
-          paymentId: effectiveImpUid,
+          paymentId: payment_id,
           method: payMethod,
-          totalAmount: portoneData.amount,
+          totalAmount: portoneData.amount?.total,
           approvedAt: paidAt,
         },
       }),
