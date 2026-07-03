@@ -24,14 +24,18 @@ serve(async (req) => {
     const {
       payment_id,
       order_id,
-      amount,
+      amount: rawAmount,
       is_extra_charge = false,
       original_order_id,
       pickup_payload,
     } = await req.json()
 
-    if (!payment_id || !order_id || !amount) {
-      throw new Error('필수 파라미터가 누락되었습니다. (payment_id, order_id, amount)')
+    // amount는 isCreateOrderFlow(신규 intent 기반 결제)에서 선택적
+    // 이 경우 payment_intents.total_price가 권위적 금액으로 사용됨
+    let amount: number | undefined = rawAmount ? Number(rawAmount) : undefined
+
+    if (!payment_id || !order_id) {
+      throw new Error('필수 파라미터가 누락되었습니다. (payment_id, order_id)')
     }
 
     const supabaseClient = createClient(
@@ -106,6 +110,9 @@ serve(async (req) => {
       }
 
       originalAmount = intent.total_price
+      // 클라이언트가 amount를 전달하지 않은 경우 intent.total_price로 채움
+      // (isCreateOrderFlow에서 서버가 권위적 금액을 보유하므로 안전)
+      if (!amount) amount = originalAmount
       orderData = {
         _pending_insert: true,
         _intent_id: intentId,
@@ -307,6 +314,33 @@ serve(async (req) => {
       }
       if (!inserted) {
         console.error('주문 insert 실패:', lastErr)
+
+        // 관리자에게 즉시 알림 발송 (결제는 성공했지만 주문 생성이 실패한 위험 상황)
+        try {
+          const { data: admins } = await supabaseClient
+            .from('users')
+            .select('id')
+            .in('role', ['ADMIN', 'MANAGER'])
+          if (admins && admins.length > 0) {
+            await supabaseClient.from('notifications').insert(
+              admins.map((a: { id: string }) => ({
+                user_id: a.id,
+                type: 'ORDER_CREATE_FAILED',
+                title: '⚠️ 결제 후 주문 생성 실패',
+                body: `결제 ${payment_id}는 성공했으나 주문 저장에 실패했습니다. payment_intents ID: ${intentId}`,
+                metadata: {
+                  payment_id,
+                  intent_id: intentId,
+                  amount,
+                  error: lastErr?.message,
+                },
+              }))
+            )
+          }
+        } catch (notifyErr) {
+          console.error('관리자 알림 발송 실패(무시):', notifyErr)
+        }
+
         throw new Error('결제는 검증되었으나 주문 저장에 실패했습니다. 관리자에게 문의해주세요.')
       }
 

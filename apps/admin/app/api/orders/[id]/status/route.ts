@@ -37,14 +37,63 @@ export async function PATCH(
 
     // 유효한 상태값 확인
     const validStatuses = [
-      "PENDING", "PAID", "BOOKED", "INBOUND", "PROCESSING", 
+      "PENDING", "PAID", "BOOKED", "INBOUND", "PROCESSING",
       "READY_TO_SHIP", "DELIVERED", "CANCELLED", "COMPLETED",
-      "IN_REPAIR", "REPAIR_COMPLETED", "SHIPPED", "RECEIVED"
+      "IN_REPAIR", "REPAIR_COMPLETED", "SHIPPED", "RECEIVED",
+      "RETURN_SHIPPING", "RETURN_DONE", "PICKED_UP",
     ];
 
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
         { success: false, error: `유효하지 않은 상태값입니다: ${status}` },
+        { status: 400 }
+      );
+    }
+
+    // 상태 전이 허용 맵: 현재 상태 → 이동 가능한 다음 상태들
+    const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+      PENDING:          ["PAID", "CANCELLED"],
+      PAID:             ["BOOKED", "CANCELLED"],
+      BOOKED:           ["PICKED_UP", "INBOUND", "CANCELLED"],
+      PICKED_UP:        ["INBOUND", "CANCELLED"],
+      INBOUND:          ["PROCESSING", "CANCELLED"],
+      PROCESSING:       ["IN_REPAIR", "READY_TO_SHIP", "CANCELLED"],
+      IN_REPAIR:        ["REPAIR_COMPLETED", "READY_TO_SHIP", "CANCELLED"],
+      REPAIR_COMPLETED: ["READY_TO_SHIP", "CANCELLED"],
+      READY_TO_SHIP:    ["SHIPPED", "CANCELLED"],
+      SHIPPED:          ["DELIVERED", "CANCELLED"],
+      DELIVERED:        ["COMPLETED", "RETURN_SHIPPING"],
+      RECEIVED:         ["COMPLETED", "RETURN_SHIPPING"],
+      COMPLETED:        [],
+      CANCELLED:        [],
+      RETURN_SHIPPING:  ["RETURN_DONE"],
+      RETURN_DONE:      [],
+    };
+
+    // 현재 주문 상태 조회 (역행 방지 검증용)
+    const { data: current, error: currentError } = await supabase
+      .from("orders")
+      .select("status")
+      .eq("id", orderId)
+      .single();
+
+    if (currentError || !current) {
+      return NextResponse.json(
+        { success: false, error: "주문 정보를 조회할 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    const currentStatus = current.status as string;
+    const allowed = ALLOWED_TRANSITIONS[currentStatus];
+
+    if (allowed !== undefined && !allowed.includes(status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `상태 전이가 허용되지 않습니다: ${currentStatus} → ${status}`,
+          allowedTransitions: allowed,
+        },
         { status: 400 }
       );
     }
@@ -91,7 +140,7 @@ export async function PATCH(
         entity_type: "order",
         entity_id: orderId,
         details: {
-          previousStatus: order?.status,
+          previousStatus: currentStatus,
           newStatus: status,
           trackingNo,
         },

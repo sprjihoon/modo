@@ -3,22 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = 'force-dynamic';
 
-// 우체국 API를 통한 송장 생성 (기존 배송 송장 생성 로직 참조)
-async function createReturnWaybill(orderId: string, returnFee: number) {
-  // TODO: 실제 우체국 API 연동
-  // 현재는 테스트용 송장번호 생성
-  const timestamp = Date.now();
-  const trackingNo = `R${timestamp.toString().slice(-12)}`;
-  
-  // 라벨 URL은 우체국 API에서 반환받거나, 자체 생성
-  const labelUrl = `/api/labels/return/${trackingNo}`;
-  
-  return {
-    trackingNo,
-    labelUrl,
-  };
-}
-
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -59,8 +43,23 @@ export async function POST(
       );
     }
 
-    // 4. 우체국 API를 통해 반송 송장 생성
-    const { trackingNo, labelUrl } = await createReturnWaybill(orderId, returnFee);
+    // 4. shipments-create-outbound Edge Function을 통해 반송 송장 생성
+    // isReturn: true → 추가 결제 체크 건너뜀, shipments 테이블 덮어쓰기 없음
+    const { data: fnData, error: fnError } = await supabase.functions.invoke(
+      "shipments-create-outbound",
+      { body: { orderId, isReturn: true } }
+    );
+
+    if (fnError || !fnData?.trackingNo) {
+      console.error("반송 송장 Edge Function 오류:", fnError, fnData);
+      return NextResponse.json(
+        { error: fnData?.error || fnError?.message || "반송 송장 생성 실패" },
+        { status: 500 }
+      );
+    }
+
+    const trackingNo: string = fnData.trackingNo;
+    const labelUrl: string = `/api/labels/return/${trackingNo}`;
 
     // 5. extra_charge_data 업데이트
     const updatedExtraChargeData = {

@@ -16,6 +16,8 @@ import { lookupDeliveryCodeFromDB } from '../_shared/epost/delivery-code-db-look
 
 interface CreateOutboundRequest {
   orderId: string;
+  /** true 시 추가 결제 체크를 건너뜀 (반송 송장 생성 전용) */
+  isReturn?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -33,13 +35,13 @@ Deno.serve(async (req) => {
   try {
     const supabase = createSupabaseClient(req);
     const body: CreateOutboundRequest = await req.json();
-    const { orderId } = body;
+    const { orderId, isReturn = false } = body;
 
     if (!orderId) {
       return errorResponse('orderId is required', 400);
     }
 
-    console.log('📦 출고 송장 생성 시작:', orderId);
+    console.log(`📦 ${isReturn ? '반송' : '출고'} 송장 생성 시작:`, orderId);
 
     // 1. 주문 정보 조회
     const { data: order, error: orderError } = await supabase
@@ -52,39 +54,44 @@ Deno.serve(async (req) => {
       return errorResponse('주문을 찾을 수 없습니다', 404);
     }
 
-    // 1-1. 추가 결제 대기 여부 확인
-    const { data: pendingAdditionalPayments } = await supabase
-      .from('additional_payments')
-      .select('id, amount, reason, status')
-      .eq('order_id', orderId)
-      .eq('status', 'PENDING');
+    if (!isReturn) {
+      // 반송이 아닐 때만 추가 결제 상태 확인
+      // 1-1. 추가 결제 대기 여부 확인
+      const { data: pendingAdditionalPayments } = await supabase
+        .from('additional_payments')
+        .select('id, amount, reason, status')
+        .eq('order_id', orderId)
+        .eq('status', 'PENDING');
 
-    if (pendingAdditionalPayments && pendingAdditionalPayments.length > 0) {
-      console.warn('⚠️ 추가 결제 대기 중:', pendingAdditionalPayments);
-      return errorResponse(
-        '추가 결제가 완료되지 않았습니다. 고객의 추가 결제가 완료된 후 출고할 수 있습니다.',
-        400,
-        'ADDITIONAL_PAYMENT_PENDING'
-      );
+      if (pendingAdditionalPayments && pendingAdditionalPayments.length > 0) {
+        console.warn('⚠️ 추가 결제 대기 중:', pendingAdditionalPayments);
+        return errorResponse(
+          '추가 결제가 완료되지 않았습니다. 고객의 추가 결제가 완료된 후 출고할 수 있습니다.',
+          400,
+          'ADDITIONAL_PAYMENT_PENDING'
+        );
+      }
+
+      // 1-2. 거부된 추가 결제 확인
+      const { data: rejectedAdditionalPayments } = await supabase
+        .from('additional_payments')
+        .select('id, amount, reason, status')
+        .eq('order_id', orderId)
+        .eq('status', 'REJECTED');
+
+      if (rejectedAdditionalPayments && rejectedAdditionalPayments.length > 0) {
+        console.warn('⚠️ 추가 결제 거부됨:', rejectedAdditionalPayments);
+        return errorResponse(
+          '고객이 추가 결제를 거부했습니다. 주문을 취소하거나 초기 범위로 작업을 진행하세요.',
+          400,
+          'ADDITIONAL_PAYMENT_REJECTED'
+        );
+      }
+
+      console.log('✅ 결제 상태 확인 완료 (추가 결제 없음 또는 모두 완료)');
+    } else {
+      console.log('↩️ 반송 모드: 추가 결제 상태 확인 건너뜀');
     }
-
-    // 1-2. 거부된 추가 결제 확인
-    const { data: rejectedAdditionalPayments } = await supabase
-      .from('additional_payments')
-      .select('id, amount, reason, status')
-      .eq('order_id', orderId)
-      .eq('status', 'REJECTED');
-
-    if (rejectedAdditionalPayments && rejectedAdditionalPayments.length > 0) {
-      console.warn('⚠️ 추가 결제 거부됨:', rejectedAdditionalPayments);
-      return errorResponse(
-        '고객이 추가 결제를 거부했습니다. 주문을 취소하거나 초기 범위로 작업을 진행하세요.',
-        400,
-        'ADDITIONAL_PAYMENT_REJECTED'
-      );
-    }
-
-    console.log('✅ 결제 상태 확인 완료 (추가 결제 없음 또는 모두 완료)');
 
     // 2. shipments 정보 조회
     const { data: shipment, error: shipmentError } = await supabase
@@ -334,20 +341,24 @@ Deno.serve(async (req) => {
     };
 
     // 7. shipments 테이블 업데이트
-    const nowIso = new Date().toISOString();
-    const { error: updateError } = await supabase
-      .from('shipments')
-      .update({
-        delivery_tracking_no: epostResult.regiNo,
-        delivery_info: deliveryInfo, // notifyMsg와 도서산간 정보 포함
-        delivery_tracking_created_at: nowIso, // 출고 송장 생성 시각 기록
-        updated_at: nowIso,
-      })
-      .eq('order_id', orderId);
+    // 반송(isReturn) 모드에서는 기존 출고 송장번호를 덮어쓰지 않음
+    // 반송 추적번호는 호출 측(return-shipment route)에서 extra_charge_data에 저장
+    if (!isReturn) {
+      const nowIso = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from('shipments')
+        .update({
+          delivery_tracking_no: epostResult.regiNo,
+          delivery_info: deliveryInfo,
+          delivery_tracking_created_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq('order_id', orderId);
 
-    if (updateError) {
-      console.error('❌ shipments 업데이트 실패:', updateError);
-      throw updateError;
+      if (updateError) {
+        console.error('❌ shipments 업데이트 실패:', updateError);
+        throw updateError;
+      }
     }
 
     return successResponse({
@@ -355,7 +366,7 @@ Deno.serve(async (req) => {
       reqNo: epostResult.reqNo,
       resNo: epostResult.resNo,
       price: epostResult.price,
-      message: '출고 송장이 생성되었습니다',
+      message: isReturn ? '반송 송장이 생성되었습니다' : '출고 송장이 생성되었습니다',
     });
   } catch (error: any) {
     console.error('❌ 출고 송장 생성 실패:', error);
