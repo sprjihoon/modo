@@ -218,32 +218,47 @@ export function PaymentClient() {
 
       const p = intent.payload;
       const intAmount = Math.max(1, Math.round(intent.total_price));
+      // KCP는 paymentId에 특수문자(하이픈) 미지원 → UUID 하이픈 제거 (max 40자, 영문/숫자만)
+      const kcpPaymentId = intent.id.replace(/-/g, "");
 
-      const response = await PortOne.requestPayment({
+      // customer 객체: undefined/null 필드는 완전히 제외 (KCP 파싱 에러 방지)
+      const customerObj: Record<string, string> = {};
+      if (p.customerName) customerObj.fullName = p.customerName;
+      if (p.customerEmail) customerObj.email = p.customerEmail;
+      if (p.customerPhone) customerObj.phoneNumber = p.customerPhone.replace(/-/g, "");
+
+      // KCP V2 공식 예제 기준 파라미터 구성
+      // redirectUrl은 KCP가 지원하지 않으므로 제외 → 모바일 redirect는 PortOne이 자동 처리
+      const requestParams: Parameters<typeof PortOne.requestPayment>[0] = {
         storeId: getStoreId(),
         channelKey: getChannelKey(),
-        // KCP는 paymentId에 특수문자(하이픈) 미지원 → UUID 하이픈 제거
-        paymentId: intent.id.replace(/-/g, ""),
+        paymentId: kcpPaymentId,
         orderName: p.itemName ?? "모두의수선 수선 서비스",
         totalAmount: intAmount,
         currency: "CURRENCY_KRW",
         payMethod: "CARD",
         redirectUrl: `${window.location.origin}/payment/success`,
-        ...(p.customerName ? { customer: {
-          fullName: p.customerName,
-          email: p.customerEmail ?? undefined,
-          phoneNumber: p.customerPhone?.replace(/-/g, "") ?? undefined,
-        }} : {}),
-      });
+        ...(Object.keys(customerObj).length > 0 ? { customer: customerObj } : {}),
+      };
 
-      // redirectUrl 방식이면 여기에 도달하지 않음 (페이지 이동)
-      // 반환값 방식(PC)일 때만 실행
-      if (response && response.code !== undefined) {
+      const response = await PortOne.requestPayment(requestParams);
+
+      // redirectUrl 방식(모바일) → 페이지 이동, 여기 도달하지 않음
+      // 팝업 방식(PC) → response로 결과 반환
+      if (response === null || response === undefined) {
+        // 리다이렉트 진행 중 - 아무 처리 불필요
+        return;
+      }
+      if (response.code !== undefined) {
+        // 결제 실패
         if (response.code !== "FAILURE_TYPE_PG") {
           setError(response.message ?? "결제 요청 중 오류가 발생했습니다.");
         }
         isPaymentInProgressRef.current = false;
         setIsRequesting(false);
+      } else {
+        // 팝업 결제 성공 → 성공 페이지로 이동
+        router.replace(`/payment/success?paymentId=${kcpPaymentId}`);
       }
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };

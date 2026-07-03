@@ -45,25 +45,30 @@ export default function PortonePaymentWidget({
       const PortOne = await import("@portone/browser-sdk/v2");
       onReady?.();
 
+      // KCP는 paymentId에 특수문자(하이픈) 미지원 → UUID 하이픈 제거
+      const kcpPaymentId = paymentId.replace(/-/g, "");
+
+      // customer 객체: undefined/null 필드 완전 제외
+      const customerObj: Record<string, string> = {};
+      if (customerName) customerObj.fullName = customerName;
+      if (customerEmail) customerObj.email = customerEmail;
+      if (customerPhone) customerObj.phoneNumber = customerPhone.replace(/-/g, "");
+
       const response = await PortOne.requestPayment({
         storeId: getStoreId(),
         channelKey: getChannelKey(),
-        // KCP는 paymentId에 특수문자(하이픈) 미지원 → UUID 하이픈 제거
-        paymentId: paymentId.replace(/-/g, ""),
+        paymentId: kcpPaymentId,
         orderName,
         totalAmount: Math.max(1, Math.round(amount)),
         currency: "CURRENCY_KRW",
         payMethod: "CARD",
         redirectUrl,
-        customer: {
-          fullName: customerName,
-          email: customerEmail ?? undefined,
-          phoneNumber: customerPhone?.replace(/-/g, "") ?? undefined,
-        },
+        ...(Object.keys(customerObj).length > 0 ? { customer: customerObj } : {}),
       });
 
       // 리다이렉트 방식이면 여기 도달 안 함
-      if (response && response.code !== undefined) {
+      if (response === null || response === undefined) return;
+      if (response.code !== undefined) {
         if (response.code !== "FAILURE_TYPE_PG") {
           onError?.(new Error(response.message ?? "결제 실패"));
         }
