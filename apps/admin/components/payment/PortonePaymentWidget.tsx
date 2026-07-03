@@ -42,43 +42,52 @@ export default function PortonePaymentWidget({
   const handlePayment = async () => {
     setIsRequesting(true);
     try {
-      const PortOne = await import("@portone/browser-sdk/v2");
-      onReady?.();
-
-      // KCP는 paymentId에 특수문자(하이픈) 미지원 → UUID 하이픈 제거
-      const kcpPaymentId = paymentId.replace(/-/g, "");
-
-      // customer 객체: undefined/null 필드 완전 제외
-      const customerObj: Record<string, string> = {};
-      if (customerName) customerObj.fullName = customerName;
-      if (customerEmail) customerObj.email = customerEmail;
-      if (customerPhone) customerObj.phoneNumber = customerPhone.replace(/-/g, "");
-
-      const response = await PortOne.requestPayment({
-        storeId: getStoreId(),
-        channelKey: getChannelKey(),
-        paymentId: kcpPaymentId,
-        orderName,
-        totalAmount: Math.max(1, Math.round(amount)),
-        currency: "CURRENCY_KRW",
-        payMethod: "CARD",
-        redirectUrl,
-        ...(Object.keys(customerObj).length > 0 ? { customer: customerObj } : {}),
+      // PortOne V1 (IMP) SDK 동적 로드
+      await new Promise<void>((resolve, reject) => {
+        if ((window as any).IMP) { resolve(); return; }
+        const script = document.createElement("script");
+        script.src = "https://cdn.iamport.kr/v1/iamport.js";
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("IMP SDK 로드 실패"));
+        document.head.appendChild(script);
       });
 
-      // 리다이렉트 방식이면 여기 도달 안 함
-      if (response === null || response === undefined) return;
-      if (response.code !== undefined) {
-        if (response.code !== "FAILURE_TYPE_PG") {
-          onError?.(new Error(response.message ?? "결제 실패"));
+      const IMP = (window as any).IMP;
+      const impCode = process.env.NEXT_PUBLIC_IMP_CODE;
+      if (!impCode) throw new Error("NEXT_PUBLIC_IMP_CODE 환경변수가 설정되지 않았습니다.");
+      IMP.init(impCode);
+      onReady?.();
+
+      IMP.request_pay(
+        {
+          pg: "kcp",
+          pay_method: "card",
+          merchant_uid: paymentId, // V1은 UUID 하이픈 허용
+          name: orderName,
+          amount: Math.max(1, Math.round(amount)),
+          buyer_name: customerName || undefined,
+          buyer_email: customerEmail || undefined,
+          buyer_tel: customerPhone || undefined,
+          m_redirect_url: redirectUrl,
+        },
+        (response: any) => {
+          if (response.success) {
+            // 팝업(PC) 성공 → redirectUrl에 imp_uid, merchant_uid 붙여서 이동
+            const url = new URL(redirectUrl);
+            url.searchParams.set("imp_uid", response.imp_uid);
+            url.searchParams.set("merchant_uid", response.merchant_uid);
+            window.location.href = url.toString();
+          } else {
+            if (response.error_code !== "F0000") {
+              onError?.(new Error(response.error_msg ?? "결제 실패"));
+            }
+            setIsRequesting(false);
+          }
         }
-      }
+      );
     } catch (error: unknown) {
-      const err = error as { code?: string; message?: string };
-      if (err?.code !== "USER_CANCEL") {
-        onError?.(new Error(err?.message ?? "결제 오류"));
-      }
-    } finally {
+      const err = error as { message?: string };
+      onError?.(new Error(err?.message ?? "결제 오류"));
       setIsRequesting(false);
     }
   };

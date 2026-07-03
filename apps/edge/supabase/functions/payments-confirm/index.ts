@@ -1,10 +1,10 @@
-// 포트원 V2 결제 검증 (결제창 인증결제)
-// Toss confirm API 호출 방식 → PortOne GET /payments/{paymentId} 조회 검증 방식으로 변경
+// PortOne V1 ?? ?? (IMP SDK)
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const PORTONE_API_SECRET = Deno.env.get('PORTONE_API_SECRET') || ''
-const PORTONE_API_URL = 'https://api.portone.io'
+const IMP_KEY = Deno.env.get('IMP_KEY') || ''
+const IMP_SECRET = Deno.env.get('IMP_SECRET') || ''
+const IMP_API_URL = 'https://api.iamport.kr'
 
 serve(async (req) => {
   const corsHeaders = {
@@ -17,25 +17,27 @@ serve(async (req) => {
   }
 
   try {
-    if (!PORTONE_API_SECRET) {
-      throw new Error('PORTONE_API_SECRET 환경변수가 설정되지 않았습니다.')
+    if (!IMP_KEY || !IMP_SECRET) {
+      throw new Error('IMP_KEY / IMP_SECRET ????? ???? ?????.')
     }
 
     const {
-      payment_id,
-      order_id,
+      imp_uid,       // PortOne V1 ?? ID
+      payment_id,    // imp_uid ?? V2 paymentId (??)
+      order_id,      // payment_intent.id (merchant_uid)
       amount: rawAmount,
       is_extra_charge = false,
       original_order_id,
       pickup_payload,
     } = await req.json()
 
-    // amount는 isCreateOrderFlow(신규 intent 기반 결제)에서 선택적
-    // 이 경우 payment_intents.total_price가 권위적 금액으로 사용됨
+    const effectiveImpUid = imp_uid || payment_id  // V1 ??, V2 legacy ??
+
+    // amount? isCreateOrderFlow(?? intent ?? ??)?? ???
     let amount: number | undefined = rawAmount ? Number(rawAmount) : undefined
 
-    if (!payment_id || !order_id) {
-      throw new Error('필수 파라미터가 누락되었습니다. (payment_id, order_id)')
+    if (!effectiveImpUid || !order_id) {
+      throw new Error('?? ????? ???????. (imp_uid, order_id)')
     }
 
     const supabaseClient = createClient(
@@ -43,7 +45,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 신규 흐름: pickup_payload 가 동봉되면 결제 후 orders INSERT
+    // ?? ??: pickup_payload ? ???? ?? ? orders INSERT
     const isCreateOrderFlow = !is_extra_charge && pickup_payload && typeof pickup_payload === 'object'
 
     let originalAmount: number | null = null
@@ -56,14 +58,14 @@ serve(async (req) => {
         .eq('id', original_order_id)
         .single()
 
-      if (error || !data) throw new Error('주문 정보를 찾을 수 없습니다.')
+      if (error || !data) throw new Error('?? ??? ?? ? ????.')
       if (data.extra_charge_status !== 'PENDING_CUSTOMER') {
-        throw new Error('추가 결제 대기 상태가 아닙니다.')
+        throw new Error('?? ?? ????? ????.')
       }
 
       const extraChargeData = data.extra_charge_data || {}
       originalAmount = extraChargeData.manager_price || extraChargeData.managerPrice
-      if (!originalAmount) throw new Error('추가 결제 금액 정보를 찾을 수 없습니다.')
+      if (!originalAmount) throw new Error('?? ?? ?? ??? ?? ? ????.')
       orderData = data
 
     } else if (is_extra_charge) {
@@ -73,7 +75,7 @@ serve(async (req) => {
         .eq('id', order_id)
         .single()
 
-      if (error || !data) throw new Error('추가 결제 요청을 찾을 수 없습니다.')
+      if (error || !data) throw new Error('?? ?? ??? ?? ? ????.')
       originalAmount = data.amount
       orderData = data
 
@@ -87,11 +89,11 @@ serve(async (req) => {
       if (m) {
         intentId = m[0]
       } else if (HEX32_RE.test(rawId)) {
-        // KCP 호환 paymentId (UUID 하이픈 제거 포맷) → UUID로 복원
+        // KCP ?? paymentId (UUID ??? ?? ??) ? UUID? ??
         intentId = `${rawId.slice(0,8)}-${rawId.slice(8,12)}-${rawId.slice(12,16)}-${rawId.slice(16,20)}-${rawId.slice(20)}`
       }
 
-      if (!intentId) throw new Error('order_id 가 UUID(intent_id) 형식이어야 합니다.')
+      if (!intentId) throw new Error('order_id ? UUID(intent_id) ????? ???.')
 
       const { data: intent, error: intentErr } = await supabaseClient
         .from('payment_intents')
@@ -99,7 +101,7 @@ serve(async (req) => {
         .eq('id', intentId)
         .maybeSingle()
 
-      if (intentErr || !intent) throw new Error('결제 인텐트를 찾을 수 없습니다.')
+      if (intentErr || !intent) throw new Error('?? ???? ?? ? ????.')
 
       if (intent.consumed_at && intent.consumed_order_id) {
         return new Response(
@@ -116,12 +118,12 @@ serve(async (req) => {
         )
       }
       if (new Date(intent.expires_at).getTime() < Date.now()) {
-        throw new Error('결제 인텐트가 만료되었습니다. 다시 시도해주세요.')
+        throw new Error('?? ???? ???????. ?? ??????.')
       }
 
       originalAmount = intent.total_price
-      // 클라이언트가 amount를 전달하지 않은 경우 intent.total_price로 채움
-      // (isCreateOrderFlow에서 서버가 권위적 금액을 보유하므로 안전)
+      // ??????? amount? ?? ?? ?? intent.total_price? ??
+      // (isCreateOrderFlow?? ??? ??? ??? ????? ??)
       if (!amount) amount = originalAmount
       orderData = {
         _pending_insert: true,
@@ -131,7 +133,7 @@ serve(async (req) => {
       }
 
     } else {
-      // 레거시 흐름: 기존 orders 조회
+      // ??? ??: ?? orders ??
       const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
       let lookupId: string | null = null
       if (typeof original_order_id === 'string' && UUID_RE.test(original_order_id)) {
@@ -139,7 +141,7 @@ serve(async (req) => {
       } else if (typeof order_id === 'string' && UUID_RE.test(order_id)) {
         lookupId = order_id.match(UUID_RE)![0]
       }
-      if (!lookupId) throw new Error('주문 ID 형식이 올바르지 않습니다. (UUID 필요)')
+      if (!lookupId) throw new Error('?? ID ??? ???? ????. (UUID ??)')
 
       const { data, error } = await supabaseClient
         .from('orders')
@@ -147,7 +149,7 @@ serve(async (req) => {
         .eq('id', lookupId)
         .single()
 
-      if (error || !data) throw new Error('주문 정보를 찾을 수 없습니다.')
+      if (error || !data) throw new Error('?? ??? ?? ? ????.')
 
       if (data.payment_status === 'PAID') {
         if (data.payment_id && data.payment_id === payment_id) {
@@ -164,51 +166,66 @@ serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
-        throw new Error('이미 결제가 완료된 주문입니다.')
+        throw new Error('?? ??? ??? ?????.')
       }
 
       originalAmount = data.total_price
       orderData = { ...data, _resolved_id: lookupId }
     }
 
-    // 금액 사전 검증
+    // ?? ?? ??
     if (originalAmount && originalAmount !== amount) {
-      throw new Error(`결제 금액이 일치하지 않습니다. 주문금액: ${originalAmount}원, 요청금액: ${amount}원`)
+      throw new Error(`?? ??? ???? ????. ????: ${originalAmount}?, ????: ${amount}?`)
     }
 
-    // ── 포트원 V2: 결제 단건 조회로 검증 (별도 confirm API 없음) ──
+    // ??? V1: ??? ?? ?? ? ?? ? ?? ??
+    const tokenRes = await fetch(`${IMP_API_URL}/users/getToken`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imp_key: IMP_KEY, imp_secret: IMP_SECRET }),
+    })
+    const tokenData = await tokenRes.json()
+    if (tokenData.code !== 0) {
+      throw new Error(`??? ?? ?? ??: ${tokenData.message}`)
+    }
+    const accessToken: string = tokenData.response.access_token
+
     const portoneRes = await fetch(
-      `${PORTONE_API_URL}/payments/${encodeURIComponent(payment_id)}`,
-      { headers: { Authorization: `PortOne ${PORTONE_API_SECRET}` } }
+      `${IMP_API_URL}/payments/${encodeURIComponent(effectiveImpUid)}`,
+      { headers: { Authorization: accessToken } }
     )
-    const portoneData = await portoneRes.json()
+    const portoneRaw = await portoneRes.json()
 
-    if (!portoneRes.ok) {
-      console.error('포트원 결제 조회 실패:', portoneData)
-      throw new Error(portoneData.message || '결제 조회에 실패했습니다.')
+    if (portoneRaw.code !== 0) {
+      console.error('??? ?? ?? ??:', portoneRaw)
+      throw new Error(portoneRaw.message || '?? ??? ??????.')
     }
 
-    if (portoneData.status !== 'PAID') {
-      throw new Error(`결제가 완료되지 않았습니다. (status: ${portoneData.status})`)
+    const portoneData = portoneRaw.response
+
+    if (portoneData.status !== 'paid') {
+      throw new Error(`??? ???? ?????. (status: ${portoneData.status})`)
     }
 
-    if (portoneData.amount?.total !== amount) {
-      throw new Error(
-        `결제 금액이 일치하지 않습니다. 포트원: ${portoneData.amount?.total}원, 요청: ${amount}원`
-      )
+    if (amount && portoneData.amount !== amount) {
+      throw new Error(`?? ??? ???? ????. ???: ${portoneData.amount}?, ??: ${amount}?`)
     }
+    // amount? ??? portoneData.amount? ??? ???? ??
+    if (!amount) amount = portoneData.amount
 
-    const paidAt = portoneData.paidAt || portoneData.approvedAt || new Date().toISOString()
-    const payMethod = portoneData.method?.type || 'CARD'
+    const paidAt = portoneData.paid_at
+      ? new Date(portoneData.paid_at * 1000).toISOString()
+      : new Date().toISOString()
+    const payMethod = portoneData.pay_method || 'card'
 
-    console.log('✅ 포트원 결제 검증 성공:', order_id)
+    console.log('? ??? ?? ?? ??:', order_id)
 
-    // ── DB 업데이트 ──
+    // ?? DB ???? ??
     if (is_extra_charge && original_order_id) {
       const updatedExtraChargeData = {
         ...(orderData.extra_charge_data || {}),
         customer_paid_at: paidAt,
-        payment_id: payment_id,
+        payment_id: effectiveImpUid,
         paid_amount: amount,
       }
 
@@ -220,7 +237,7 @@ serve(async (req) => {
         })
         .eq('id', original_order_id)
 
-      console.log('✅ 추가 결제 완료 - extra_charge_status: COMPLETED')
+      console.log('? ?? ?? ?? - extra_charge_status: COMPLETED')
 
       try {
         const { data: managers } = await supabaseClient
@@ -232,15 +249,15 @@ serve(async (req) => {
           const notifications = managers.map((manager: any) => ({
             user_id: manager.id,
             type: 'extra_charge_status_changed',
-            title: '추가 결제 완료',
-            body: `주문(${orderData.order_number || original_order_id})의 추가 결제가 완료되었습니다. 작업을 재개해주세요.`,
+            title: '?? ?? ??',
+            body: `??(${orderData.order_number || original_order_id})? ?? ??? ???????. ??? ??????.`,
             order_id: original_order_id,
             metadata: { extra_charge_status: 'COMPLETED', amount, payment_id },
           }))
           await supabaseClient.from('notifications').insert(notifications)
         }
       } catch (e) {
-        console.log('알림 전송 실패 (무시):', e)
+        console.log('?? ?? ?? (??):', e)
       }
 
     } else if (is_extra_charge) {
@@ -248,7 +265,7 @@ serve(async (req) => {
         .from('extra_charge_requests')
         .update({
           status: 'PAID',
-          payment_id: payment_id,
+          payment_id: effectiveImpUid,
           customer_response_at: paidAt,
         })
         .eq('id', order_id)
@@ -257,8 +274,8 @@ serve(async (req) => {
         await supabaseClient.from('notifications').insert({
           user_id: orderData.worker_id,
           type: 'EXTRA_CHARGE_RESPONSE',
-          title: '추가 비용 결제 완료',
-          body: `고객이 추가 비용 ${amount.toLocaleString()}원을 결제했습니다.`,
+          title: '?? ?? ?? ??',
+          body: `??? ?? ?? ${amount.toLocaleString()}?? ??????.`,
           metadata: { requestId: order_id, orderId: orderData.order_id, paymentId: payment_id },
         })
       }
@@ -273,12 +290,12 @@ serve(async (req) => {
         user_id: internalUserId,
         status: 'PAID',
         payment_status: 'PAID',
-        payment_id: payment_id,
+        payment_id: effectiveImpUid,
         paid_at: paidAt,
         order_number: orderNumber,
         item_name: pickup.itemName,
-        clothing_type: pickup.clothingType || '기타',
-        repair_type: pickup.repairType || '기타',
+        clothing_type: pickup.clothingType || '??',
+        repair_type: pickup.repairType || '??',
         pickup_address: pickup.pickupAddress,
         pickup_address_detail: pickup.pickupAddressDetail || null,
         pickup_zipcode: pickup.pickupZipcode || null,
@@ -288,7 +305,7 @@ serve(async (req) => {
         delivery_address_detail: pickup.deliveryAddressDetail || pickup.pickupAddressDetail || null,
         delivery_zipcode: pickup.deliveryZipcode || pickup.pickupZipcode || null,
         delivery_phone: pickup.deliveryPhone || pickup.pickupPhone || '010-0000-0000',
-        customer_name: pickup.customerName || '고객',
+        customer_name: pickup.customerName || '??',
         customer_phone: pickup.customerPhone || pickup.pickupPhone || '010-0000-0000',
         customer_email: pickup.customerEmail || null,
         notes: pickup.notes || null,
@@ -323,9 +340,9 @@ serve(async (req) => {
         break
       }
       if (!inserted) {
-        console.error('주문 insert 실패:', lastErr)
+        console.error('?? insert ??:', lastErr)
 
-        // 관리자에게 즉시 알림 발송 (결제는 성공했지만 주문 생성이 실패한 위험 상황)
+        // ????? ?? ?? ?? (??? ????? ?? ??? ??? ?? ??)
         try {
           const { data: admins } = await supabaseClient
             .from('users')
@@ -336,8 +353,8 @@ serve(async (req) => {
               admins.map((a: { id: string }) => ({
                 user_id: a.id,
                 type: 'ORDER_CREATE_FAILED',
-                title: '⚠️ 결제 후 주문 생성 실패',
-                body: `결제 ${payment_id}는 성공했으나 주문 저장에 실패했습니다. payment_intents ID: ${intentId}`,
+                title: '?? ?? ? ?? ?? ??',
+                body: `?? ${payment_id}? ????? ?? ??? ??????. payment_intents ID: ${intentId}`,
                 metadata: {
                   payment_id,
                   intent_id: intentId,
@@ -348,10 +365,10 @@ serve(async (req) => {
             )
           }
         } catch (notifyErr) {
-          console.error('관리자 알림 발송 실패(무시):', notifyErr)
+          console.error('??? ?? ?? ??(??):', notifyErr)
         }
 
-        throw new Error('결제는 검증되었으나 주문 저장에 실패했습니다. 관리자에게 문의해주세요.')
+        throw new Error('??? ?????? ?? ??? ??????. ????? ??????.')
       }
 
       const newOrderId = (inserted as any).id as string
@@ -362,34 +379,34 @@ serve(async (req) => {
           .update({ consumed_at: new Date().toISOString(), consumed_order_id: newOrderId })
           .eq('id', intentId)
       } catch (e) {
-        console.log('intent consume 마킹 실패(무시):', e)
+        console.log('intent consume ?? ??(??):', e)
       }
 
       try {
         await supabaseClient.from('notifications').insert({
           user_id: internalUserId,
           type: 'PAYMENT_COMPLETED',
-          title: '결제 완료',
-          body: `${amount.toLocaleString()}원 결제가 완료되었습니다.`,
+          title: '?? ??',
+          body: `${amount.toLocaleString()}? ??? ???????.`,
           order_id: newOrderId,
         })
       } catch (e) {
-        console.log('알림 전송 실패(무시):', e)
+        console.log('?? ?? ??(??):', e)
       }
 
       orderData._resolved_id = newOrderId
       orderData.user_id = internalUserId
-      console.log('✅ 신규 흐름: 결제 후 주문 생성 완료', newOrderId)
+      console.log('? ?? ??: ?? ? ?? ?? ??', newOrderId)
 
     } else {
-      // 레거시 흐름
+      // ??? ??
       const ordersId = orderData?._resolved_id || order_id
       await supabaseClient
         .from('orders')
         .update({
           status: 'PAID',
           payment_status: 'PAID',
-          payment_id: payment_id,
+          payment_id: effectiveImpUid,
           paid_at: paidAt,
         })
         .eq('id', ordersId)
@@ -398,14 +415,14 @@ serve(async (req) => {
         await supabaseClient.from('notifications').insert({
           user_id: orderData.user_id,
           type: 'PAYMENT_COMPLETED',
-          title: '결제 완료',
-          body: `${amount.toLocaleString()}원 결제가 완료되었습니다.`,
+          title: '?? ??',
+          body: `${amount.toLocaleString()}? ??? ???????.`,
           order_id: ordersId,
         })
       }
     }
 
-    // 결제 로그
+    // ?? ??
     try {
       const logOrderId = is_extra_charge && original_order_id
         ? original_order_id
@@ -413,8 +430,8 @@ serve(async (req) => {
 
       await supabaseClient.from('payment_logs').insert({
         order_id: logOrderId,
-        payment_id: payment_id,
-        amount: portoneData.amount?.total,
+        payment_id: effectiveImpUid,
+        amount: portoneData.amount,
         method: payMethod,
         status: 'SUCCESS',
         provider: 'PORTONE',
@@ -423,7 +440,7 @@ serve(async (req) => {
         approved_at: paidAt,
       })
     } catch (e) {
-      console.log('결제 로그 저장 실패:', e)
+      console.log('?? ?? ?? ??:', e)
     }
 
     const responseOrderId = (orderData && (orderData as any)._resolved_id) || order_id
@@ -433,18 +450,18 @@ serve(async (req) => {
         success: true,
         data: {
           orderId: responseOrderId,
-          paymentId: payment_id,
+          paymentId: effectiveImpUid,
           method: payMethod,
-          totalAmount: portoneData.amount?.total,
+          totalAmount: portoneData.amount,
           approvedAt: paidAt,
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('결제 검증 처리 오류:', error)
+    console.error('?? ?? ?? ??:', error)
     return new Response(
-      JSON.stringify({ success: false, error: error.message || '서버 오류가 발생했습니다.' }),
+      JSON.stringify({ success: false, error: error.message || '?? ??? ??????.' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

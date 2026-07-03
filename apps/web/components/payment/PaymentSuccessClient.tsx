@@ -11,9 +11,12 @@ export function PaymentSuccessClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const paymentId = searchParams.get("paymentId") ?? "";
-  // 포트원은 리다이렉트 시 paymentId만 전달 (amount/orderId 별도 불필요)
-  const portonePaymentId = paymentId;
+  // PortOne V1: imp_uid(포트원 결제ID) + merchant_uid(= payment_intent.id)
+  const impUid = searchParams.get("imp_uid") ?? "";
+  const merchantUid = searchParams.get("merchant_uid") ?? "";
+  // 하위 호환: V2 paymentId 파라미터 (구버전 리다이렉트 처리)
+  const legacyPaymentId = searchParams.get("paymentId") ?? "";
+  const portonePaymentId = impUid || legacyPaymentId;
 
   // 테스트 우회 결제 여부 (skip-payment API 경유)
   const isTest = searchParams.get("test") === "1";
@@ -62,7 +65,7 @@ export function PaymentSuccessClient() {
       return;
     }
 
-    if (!portonePaymentId) {
+    if (!portonePaymentId && !merchantUid) {
       setError("결제 정보가 올바르지 않습니다.");
       setStatus("error");
       return;
@@ -112,8 +115,10 @@ export function PaymentSuccessClient() {
     try {
       const supabase = createClient();
       const body: Record<string, unknown> = {
-        payment_id: portonePaymentId,
-        order_id: portonePaymentId, // intent_id == paymentId
+        // V1: imp_uid (포트원 결제 ID) + order_id (= merchant_uid = intent.id)
+        imp_uid: impUid || undefined,
+        payment_id: portonePaymentId,         // V1: imp_uid, V2 legacy: paymentId
+        order_id: merchantUid || portonePaymentId, // intent.id
         is_extra_charge: isExtraCharge,
       };
       if (isExtraCharge && originalOrderId) {
