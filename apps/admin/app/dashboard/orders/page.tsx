@@ -245,8 +245,7 @@ export default function OrdersPage() {
         const params = new URLSearchParams();
         params.append("kind", cancelView); // ALL | PENDING | PRE_PICKUP_CANCEL | RETURN_PENDING | RETURN_SHIPPING | RETURN_DONE
         if (search) params.append("search", search);
-        if (startDate) params.append("startDate", startDate);
-        if (endDate) params.append("endDate", endDate);
+        // 취소/반송 보기는 날짜 필터 미적용 (통계 카운트와 일치시키기 위해)
         params.append("page", String(currentPage));
         params.append("pageSize", String(pageSize));
 
