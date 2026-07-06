@@ -50,15 +50,15 @@ export async function POST(
       { body: { orderId, isReturn: true } }
     );
 
-    if (fnError || !fnData?.trackingNo) {
+    if (fnError || !fnData?.data?.trackingNo) {
       console.error("반송 송장 Edge Function 오류:", fnError, fnData);
       return NextResponse.json(
-        { error: fnData?.error || fnError?.message || "반송 송장 생성 실패" },
+        { error: fnData?.error || fnData?.data?.error || fnError?.message || "반송 송장 생성 실패" },
         { status: 500 }
       );
     }
 
-    const trackingNo: string = fnData.trackingNo;
+    const trackingNo: string = fnData.data.trackingNo;
     const labelUrl: string = `/api/labels/return/${trackingNo}`;
 
     // 5. extra_charge_data 업데이트
