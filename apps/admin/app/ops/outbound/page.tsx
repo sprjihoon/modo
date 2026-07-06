@@ -200,7 +200,23 @@ export default function OutboundPage() {
       await loadOutboundVideos(found.orderId);
       
       // 수선후 사진 조회
-      await loadAfterPhotos(found.orderId);
+      const existingAfterPhotos = await loadAfterPhotos(found.orderId);
+      const hasAfterPhoto = Object.values(existingAfterPhotos).some((p) => p.after);
+      const canRevert = found.status === "READY_TO_SHIP" || found.status === "SHIPPED";
+
+      if (canRevert) {
+        // 출고 취소 가능 상태 → 자동 촬영 진입 안함 (취소 버튼 접근 보장)
+        // 재촬영이 필요하면 "수선 후 사진 재촬영" 버튼으로 수동 진입
+      } else if (hasAfterPhoto) {
+        // PROCESSING 상태인데 사진이 이미 있는 경우 → 재촬영 여부 confirm
+        const ok = window.confirm(
+          "이미 수선 후 사진이 촬영된 주문입니다.\n재촬영하시겠습니까?\n\n(취소: 촬영 없이 출고 처리만 진행)"
+        );
+        if (ok) setShowAfterPhoto(true);
+      } else {
+        // PROCESSING 신규 → 자동으로 촬영 모드 진입
+        setShowAfterPhoto(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -266,17 +282,20 @@ export default function OutboundPage() {
     }
   };
 
-  // 수선후 사진 조회
-  const loadAfterPhotos = async (orderId: string) => {
+  // 수선후 사진 조회 (photos 반환)
+  const loadAfterPhotos = async (orderId: string): Promise<Record<number, { before?: string; after?: string }>> => {
     try {
       const res = await fetch(`/api/ops/photo/upload?orderId=${encodeURIComponent(orderId)}`);
       const json = await res.json();
       if (res.ok && json.success) {
-        setAfterPhotos(json.photos || {});
+        const photos = json.photos || {};
+        setAfterPhotos(photos);
+        return photos;
       }
     } catch (error) {
       console.error("수선후 사진 조회 실패:", error);
     }
+    return {};
   };
 
   // 출고완료 처리 (포장 완료, 송장 부착 완료)
