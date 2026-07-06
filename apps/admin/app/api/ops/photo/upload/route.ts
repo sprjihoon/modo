@@ -85,13 +85,35 @@ export async function POST(request: NextRequest) {
 
     const publicUrl = publicUrlData?.publicUrl;
 
-    // 기존 동일 항목 사진 삭제 (재촬영 시 이전 사진 교체)
-    await supabaseAdmin
+    // 기존 동일 항목 사진 조회 → Storage 파일 + DB 레코드 모두 삭제 (재촬영 덮어쓰기)
+    const { data: oldRecords } = await supabaseAdmin
       .from("media")
-      .delete()
+      .select("id, path")
       .eq("final_waybill_no", waybillNo)
       .eq("type", photoType)
       .eq("sequence", sequence);
+
+    if (oldRecords && oldRecords.length > 0) {
+      // Storage 파일 삭제
+      const oldPaths = oldRecords.map((r) => r.path).filter(Boolean);
+      if (oldPaths.length > 0) {
+        const { error: storageDelErr } = await supabaseAdmin.storage
+          .from("repair-photos")
+          .remove(oldPaths);
+        if (storageDelErr) {
+          console.warn("⚠️ Storage 이전 파일 삭제 실패 (계속 진행):", storageDelErr.message);
+        } else {
+          console.log(`✅ Storage 이전 파일 ${oldPaths.length}개 삭제:`, oldPaths);
+        }
+      }
+      // DB 레코드 삭제
+      await supabaseAdmin
+        .from("media")
+        .delete()
+        .eq("final_waybill_no", waybillNo)
+        .eq("type", photoType)
+        .eq("sequence", sequence);
+    }
 
     // media 테이블에 기록
     const { data: mediaRecord, error: dbError } = await supabaseAdmin

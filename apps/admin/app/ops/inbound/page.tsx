@@ -308,8 +308,20 @@ export default function InboundPage() {
         
         // 입고 영상 조회
         await loadInboundVideos(shipment.orderId);
-        // 수선전 사진 조회
-        await loadBeforePhotos(shipment.orderId);
+        // 수선전 사진 조회 후 자동 촬영 진입
+        const existingPhotos = await loadBeforePhotos(shipment.orderId);
+        const hasBeforePhoto = Object.values(existingPhotos).some((p) => p.before);
+
+        if (hasBeforePhoto) {
+          // 이미 촬영된 주문 → 재촬영 여부 confirm
+          const ok = window.confirm(
+            "이미 수선 전 사진이 촬영된 주문입니다.\n재촬영하시겠습니까?\n\n(취소: 촬영 없이 입고 처리만 진행)"
+          );
+          if (ok) setShowBeforePhoto(true);
+        } else {
+          // 신규 입고 → 자동으로 촬영 모드 진입
+          setShowBeforePhoto(true);
+        }
       } else {
         setResult(null);
         setNotFound(true);
@@ -357,17 +369,20 @@ export default function InboundPage() {
     }
   };
 
-  // 수선전 사진 조회
-  const loadBeforePhotos = async (orderId: string) => {
+  // 수선전 사진 조회 (photos 반환)
+  const loadBeforePhotos = async (orderId: string): Promise<Record<number, { before?: string; after?: string }>> => {
     try {
       const res = await fetch(`/api/ops/photo/upload?orderId=${encodeURIComponent(orderId)}`);
       const json = await res.json();
       if (res.ok && json.success) {
-        setBeforePhotos(json.photos || {});
+        const photos = json.photos || {};
+        setBeforePhotos(photos);
+        return photos;
       }
     } catch (error) {
       console.error("수선전 사진 조회 실패:", error);
     }
+    return {};
   };
 
   // 이미지 데이터 변환 함수 (images_with_pins에서 핀 정보 추출)
