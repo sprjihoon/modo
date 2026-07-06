@@ -271,7 +271,6 @@ export default function InboundPage() {
   const [showShippingLabel, setShowShippingLabel] = useState(false);
   const [showInboundVideo, setShowInboundVideo] = useState(false);
   const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
-  const [showBoxOpenVideo, setShowBoxOpenVideo] = useState(false);
   const [inboundVideos, setInboundVideos] = useState<Record<number, { videoId: string; id: string }>>({});
 
   // 수선전 사진 촬영
@@ -803,21 +802,6 @@ export default function InboundPage() {
               </div>
             );
           })()}
-
-          {/* 박스 오픈 영상 촬영 */}
-          <button
-            disabled={!result}
-            onClick={() => setShowBoxOpenVideo(true)}
-            className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
-              result
-                ? "bg-orange-600 text-white hover:bg-orange-700"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            <span className="text-lg">📦</span>
-            박스 오픈 영상 촬영 (CS 확인용)
-          </button>
-
           {/* 입고 영상 촬영 - 아이템별 */}
           {result && (() => {
             const itemCount = Math.max(
@@ -1334,55 +1318,6 @@ export default function InboundPage() {
                   onClose={() => {
                     console.log('🚪 입고 WebcamRecorder 닫기');
                     setShowInboundVideo(false);
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* 박스 오픈 영상 촬영 다이얼로그 */}
-      {showBoxOpenVideo && result && (() => {
-        const orderIdValue = result.orderId;
-        
-        return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
-                <h2 className="text-lg font-semibold">📦 박스 오픈 영상 촬영 (CS 확인용)</h2>
-                <button 
-                  onClick={() => {
-                    console.log('🚪 박스 오픈 다이얼로그 닫기');
-                    setShowBoxOpenVideo(false);
-                  }} 
-                  className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
-                >
-                  닫기
-                </button>
-              </div>
-              <div className="p-4">
-                <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                  <p className="text-sm text-orange-800">
-                    📦 <strong>박스 오픈 영상</strong>은 고객에게 보여주는 영상이 아닌, CS 분쟁 발생 시 확인용으로 사용됩니다.<br />
-                    박스를 개봉하는 전 과정을 촬영해주세요.
-                  </p>
-                </div>
-                <WebcamRecorder
-                  orderId={orderIdValue}
-                  sequence={0}
-                  onUploaded={(videoId, duration) => {
-                    console.log(`✅ 박스 오픈 영상 업로드 완료: ${videoId}`);
-                    
-                    setShowBoxOpenVideo(false);
-                    
-                    setTimeout(() => {
-                      alert(`✅ 박스 오픈 영상이 저장되었습니다.\n\n영상 길이: ${duration}초\n영상 ID: ${videoId}\n\n※ 이 영상은 CS 확인용으로만 사용됩니다.`);
-                    }, 100);
-                  }}
-                  onClose={() => {
-                    console.log('🚪 박스 오픈 WebcamRecorder 닫기');
-                    setShowBoxOpenVideo(false);
                   }}
                 />
               </div>
