@@ -58,25 +58,27 @@ interface ShipmentData {
   status?: string;
 }
 
-// 6단계 타임라인 (수거완료 포함)
+// 7단계 타임라인
 const TIMELINE_STEPS = [
-  { key: "BOOKED",        label: "수거예약", icon: Clock },
-  { key: "PICKED_UP",     label: "수거완료", icon: Truck },
-  { key: "INBOUND",       label: "입고완료", icon: Package },
-  { key: "PROCESSING",    label: "수선중",   icon: Scissors },
-  { key: "READY_TO_SHIP", label: "출고완료", icon: Truck },
-  { key: "DELIVERED",     label: "배송완료", icon: CheckCircle },
+  { key: "BOOKED",            label: "수거예약", icon: Clock },
+  { key: "PICKED_UP",         label: "수거완료", icon: Truck },
+  { key: "INBOUND",           label: "입고완료", icon: Package },
+  { key: "PROCESSING",        label: "수선중",   icon: Scissors },
+  { key: "READY_TO_SHIP",     label: "출고완료", icon: Truck },
+  { key: "OUT_FOR_DELIVERY",  label: "배송중",   icon: Truck },
+  { key: "DELIVERED",         label: "배송완료", icon: CheckCircle },
 ];
 
 const DB_STATUS_STEP: Record<string, number> = {
-  PENDING_PAYMENT: -1,
-  BOOKED:          0,
-  PICKED_UP:       1,
-  INBOUND:         2,
-  PROCESSING:      3,
-  READY_TO_SHIP:   4,
-  DELIVERED:       5,
-  CANCELLED:       -1,
+  PENDING_PAYMENT:  -1,
+  BOOKED:            0,
+  PICKED_UP:         1,
+  INBOUND:           2,
+  PROCESSING:        3,
+  READY_TO_SHIP:     4,
+  OUT_FOR_DELIVERY:  5,
+  DELIVERED:         6,
+  CANCELLED:        -1,
 };
 
 function getPaymentMethodLabel(method?: string): string {
@@ -232,7 +234,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
 
       const supabase = createClient();
 
-      // ── CS용 영상 (기존 유지) ──
+      // ── CS용 영상 (출고 영상 전용, 레거시 입고 영상도 지원) ──
       const { data: videos } = await supabase
         .from("media")
         .select("type, path, provider, final_waybill_no, sequence")
@@ -259,6 +261,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           }
         }
 
+        // 입고+출고 쌍이 있으면 비교 아이템, 없으면 단독 표시
         const items: VideoItem[] = Object.keys(bySequence)
           .map(Number)
           .sort((a, b) => a - b)
@@ -635,7 +638,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   // - PICKED_UP/INBOUND : 왕복 배송비 차감 후 부분 환불 + 의류 반송
   const canCancel = ["BOOKED", "PICKED_UP", "INBOUND"].includes(order.status);
   const cancelIsPostPickup = order.status === "PICKED_UP" || order.status === "INBOUND";
-  const canEditDelivery = !["READY_TO_SHIP", "DELIVERED", "CANCELLED"].includes(order.status);
+  const canEditDelivery = !["READY_TO_SHIP", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"].includes(order.status);
   // 카카오 문의용: 발송 송장 우선 → 회수 송장 → legacy
   const trackingNo =
     shipment?.delivery_tracking_no ??
@@ -1140,66 +1143,47 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         </div>
       )}
 
-      {/* ── 입출고 영상 ── */}
+      {/* ── 출고 영상 (레거시 입고 영상도 있으면 함께 표시) ── */}
       {(inboundVideoUrl || outboundVideoUrl) && (
         <div className="mx-4 mt-3 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <Video className="w-4 h-4 text-[#00C896]" />
-            <p className="text-sm font-bold text-gray-800">입출고 영상</p>
+            <p className="text-sm font-bold text-gray-800">
+              {inboundVideoUrl && outboundVideoUrl ? "입출고 영상" : "출고 영상"}
+            </p>
           </div>
 
-          {/* 전후 비교 카드 (둘 다 있을 때 우선 표시) */}
+          {/* 입고+출고 둘 다 있으면 비교 버튼, 출고만 있으면 단독 버튼 */}
           {inboundVideoUrl && outboundVideoUrl ? (
-            <button
-              onClick={() => setActiveVideo({ url: inboundVideoUrl, title: "입고 영상", comparisonUrl: outboundVideoUrl, comparisonTitle: "출고 영상" })}
-              className="w-full p-4 rounded-xl border-2 border-[#00C896]/30 bg-gradient-to-br from-[#00C896]/10 to-[#00C896]/5 active:opacity-80 text-left"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-[#00C896] flex items-center justify-center shrink-0">
-                  <Play className="w-6 h-6 text-white ml-0.5" />
+            <>
+              <button
+                onClick={() => setActiveVideo({ url: inboundVideoUrl, title: "입고 영상", comparisonUrl: outboundVideoUrl, comparisonTitle: "출고 영상" })}
+                className="w-full p-4 rounded-xl border-2 border-[#00C896]/30 bg-gradient-to-br from-[#00C896]/10 to-[#00C896]/5 active:opacity-80 text-left"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-[#00C896] flex items-center justify-center shrink-0">
+                    <Play className="w-6 h-6 text-white ml-0.5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">입출고 전후 영상</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {videoItems.length > 1 ? `${videoItems.length}개 아이템 영상` : "입고·출고 영상 보기"}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#00C896] ml-auto" />
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-gray-800">입출고 전후 영상</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {videoItems.length > 1
-                      ? `${videoItems.length}개 아이템 영상`
-                      : "입고 영상과 출고 영상 보기"}
-                  </p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-[#00C896] ml-auto" />
+              </button>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <VideoCard title="입고 영상" url={inboundVideoUrl} onPlay={(url) => setActiveVideo({ url, title: "입고 영상" })} compact />
+                <VideoCard title="출고 영상" url={outboundVideoUrl} onPlay={(url) => setActiveVideo({ url, title: "출고 영상" })} compact />
               </div>
-            </button>
+            </>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <VideoCard
-                title="입고 영상"
-                url={inboundVideoUrl}
-                onPlay={(url) => setActiveVideo({ url, title: "입고 영상" })}
-              />
-              <VideoCard
-                title="출고 영상"
-                url={outboundVideoUrl}
-                onPlay={(url) => setActiveVideo({ url, title: "출고 영상" })}
-              />
-            </div>
-          )}
-
-          {/* 개별 영상 버튼 (둘 다 있을 때 하단에 추가 표시) */}
-          {inboundVideoUrl && outboundVideoUrl && (
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <VideoCard
-                title="입고 영상"
-                url={inboundVideoUrl}
-                onPlay={(url) => setActiveVideo({ url, title: "입고 영상" })}
-                compact
-              />
-              <VideoCard
-                title="출고 영상"
-                url={outboundVideoUrl}
-                onPlay={(url) => setActiveVideo({ url, title: "출고 영상" })}
-                compact
-              />
-            </div>
+            <VideoCard
+              title="출고 영상"
+              url={outboundVideoUrl ?? inboundVideoUrl}
+              onPlay={(url) => setActiveVideo({ url, title: "출고 영상" })}
+            />
           )}
         </div>
       )}
@@ -1258,7 +1242,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             {shipment?.delivery_tracking_no && (
               <div>
                 <p className="text-xs text-gray-400 font-medium mb-1.5">발송 송장번호</p>
-                {(order.status === "READY_TO_SHIP" || order.status === "DELIVERED") ? (
+                {(order.status === "READY_TO_SHIP" || order.status === "OUT_FOR_DELIVERY" || order.status === "DELIVERED") ? (
                   <Link
                     href={`/orders/${orderId}/tracking?tracking_no=${shipment.delivery_tracking_no}`}
                     className="flex items-center justify-between p-3 rounded-xl bg-[#00C896]/5 border border-[#00C896]/20 active:bg-[#00C896]/10"

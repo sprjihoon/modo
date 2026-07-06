@@ -5,7 +5,7 @@ import { ChevronRight, Shirt, CreditCard } from "lucide-react";
 import { formatDate, formatPrice, ORDER_STATUS_MAP } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
-const PROGRESS_STEPS = ["BOOKED", "INBOUND", "PROCESSING", "READY_TO_SHIP", "DELIVERED"];
+const PROGRESS_STEPS = ["BOOKED", "INBOUND", "PROCESSING", "READY_TO_SHIP", "OUT_FOR_DELIVERY", "DELIVERED"];
 
 interface RecentOrderCardProps {
   order: {

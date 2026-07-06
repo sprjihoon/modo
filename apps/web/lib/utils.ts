@@ -83,6 +83,11 @@ export const ORDER_STATUS_MAP: Record<
     color: "text-green-600",
     bgColor: "bg-green-50",
   },
+  OUT_FOR_DELIVERY: {
+    label: "배송중",
+    color: "text-teal-600",
+    bgColor: "bg-teal-50",
+  },
   DELIVERED: {
     label: "배송완료",
     color: "text-gray-600",
