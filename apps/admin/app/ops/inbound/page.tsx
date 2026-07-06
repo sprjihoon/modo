@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Scan, Package, Search, FileText, Printer, AlertTriangle } from "lucide-react";
 import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin } from "@/components/ops/work-order-sheet";
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
-import WebcamRecorder from "@/components/ops/WebcamRecorder";
 import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
 import {
@@ -269,9 +268,6 @@ export default function InboundPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showWorkOrderPreview, setShowWorkOrderPreview] = useState(false);
   const [showShippingLabel, setShowShippingLabel] = useState(false);
-  const [showInboundVideo, setShowInboundVideo] = useState(false);
-  const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
-  const [inboundVideos, setInboundVideos] = useState<Record<number, { videoId: string; id: string }>>({});
 
   // 수선전 사진 촬영
   const [showBeforePhoto, setShowBeforePhoto] = useState(false);
@@ -305,8 +301,6 @@ export default function InboundPage() {
         setNotFound(false);
         console.log("✅ 조회 성공 - Order ID:", shipment.orderId, "Items:", shipment.repairParts?.length || 0);
         
-        // 입고 영상 조회
-        await loadInboundVideos(shipment.orderId);
         // 수선전 사진 조회 후 자동 촬영 진입
         const existingPhotos = await loadBeforePhotos(shipment.orderId);
         const hasBeforePhoto = Object.values(existingPhotos).some((p) => p.before);
@@ -339,32 +333,6 @@ export default function InboundPage() {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleLookup();
-    }
-  };
-
-  // 입고 영상 조회
-  const loadInboundVideos = async (orderId: string) => {
-    try {
-      const res = await fetch(`/api/ops/video/list?orderId=${encodeURIComponent(orderId)}&type=inbound_video`);
-      const json = await res.json();
-      if (res.ok && json.success && json.videos) {
-        const videosMap: Record<number, { videoId: string; id: string }> = {};
-        Object.entries(json.videos).forEach(([seqStr, videos]: [string, any]) => {
-          const seq = parseInt(seqStr);
-          if (Array.isArray(videos) && videos.length > 0) {
-            // 가장 최근 영상 사용
-            const latestVideo = videos[videos.length - 1];
-            videosMap[seq] = {
-              videoId: latestVideo.videoId,
-              id: latestVideo.id,
-            };
-          }
-        });
-        setInboundVideos(videosMap);
-        console.log("✅ 입고 영상 조회 완료:", videosMap);
-      }
-    } catch (error) {
-      console.error("입고 영상 조회 실패:", error);
     }
   };
 
@@ -802,55 +770,6 @@ export default function InboundPage() {
               </div>
             );
           })()}
-          {/* 입고 영상 촬영 - 아이템별 */}
-          {result && (() => {
-            const itemCount = Math.max(
-              result.images?.length || 0,
-              result.repairParts?.length || 0,
-              result.imagesWithPins?.length || 0,
-              1
-            );
-            
-            return (
-              <div className="space-y-2">
-                  <div className="text-sm font-medium text-gray-700 mb-2">
-                    입고 영상 촬영 ({itemCount}개 아이템)
-                    <span className="ml-1 text-xs text-gray-400">(CS 확인용)</span>
-                  </div>
-                {Array.from({ length: itemCount }, (_, i) => {
-                  const seq = i + 1;
-                  const itemName = result.repairParts?.[i] || `${seq}번 아이템`;
-                  const existingVideo = inboundVideos[seq];
-                  const hasVideo = !!existingVideo;
-                  
-                  return (
-                    <button
-                      key={seq}
-                      onClick={() => {
-                        setCurrentVideoSequence(seq);
-                        setShowInboundVideo(true);
-                      }}
-                      className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-between gap-2 ${
-                        hasVideo
-                          ? "bg-green-600 text-white hover:bg-green-700"
-                          : "bg-purple-600 text-white hover:bg-purple-700"
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-lg">{hasVideo ? "✅" : "📹"}</span>
-                        <span>{seq}번 {itemName} {hasVideo ? "재촬영" : "촬영"}</span>
-                      </span>
-                      {hasVideo && (
-                        <span className="text-xs bg-white/20 px-2 py-1 rounded">
-                          촬영 완료
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })()}
           {/* 작업지시서 미리보기 */}
           <button
             disabled={!result}
@@ -1274,57 +1193,6 @@ export default function InboundPage() {
           </div>
         </div>
       )}
-
-      {/* 입고 영상 촬영 다이얼로그 */}
-      {showInboundVideo && result && (() => {
-        // 렌더링 시점에 값을 추출 (클로저 순환 참조 방지)
-        const seq = currentVideoSequence;
-        const orderIdValue = result.orderId;
-        
-        return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
-                <h2 className="text-lg font-semibold">입고 영상 촬영 - {seq}번 아이템</h2>
-                <button 
-                  onClick={() => {
-                    console.log('🚪 입고 다이얼로그 닫기');
-                    setShowInboundVideo(false);
-                  }} 
-                  className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
-                >
-                  닫기
-                </button>
-              </div>
-              <div className="p-4">
-                <WebcamRecorder
-                  orderId={orderIdValue}
-                  sequence={seq}
-                  existingVideoId={inboundVideos[seq]?.videoId}
-                  onUploaded={(videoId, duration) => {
-                    console.log(`✅ 입고 ${seq}번 업로드 완료: ${videoId}`);
-                    
-                    setShowInboundVideo(false);
-                    
-                    // 영상 목록 새로고침
-                    if (result) {
-                      loadInboundVideos(result.orderId);
-                    }
-                    
-                    setTimeout(() => {
-                      alert(`✅ ${seq}번 아이템 입고 영상이 저장되었습니다.\n\n영상 길이: ${duration}초\n영상 ID: ${videoId}`);
-                    }, 100);
-                  }}
-                  onClose={() => {
-                    console.log('🚪 입고 WebcamRecorder 닫기');
-                    setShowInboundVideo(false);
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* 추가 비용 요청 다이얼로그 */}
       <Dialog open={showExtraChargeDialog} onOpenChange={setShowExtraChargeDialog}>
