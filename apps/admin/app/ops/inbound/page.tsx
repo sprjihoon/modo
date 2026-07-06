@@ -304,9 +304,13 @@ export default function InboundPage() {
         // 수선전 사진 조회 후 자동 촬영 진입
         const existingPhotos = await loadBeforePhotos(shipment.orderId);
         const hasBeforePhoto = Object.values(existingPhotos).some((p) => p.before);
+        const isAlreadyInbound = shipment.status === "INBOUND";
 
-        if (hasBeforePhoto) {
-          // 이미 촬영된 주문 → 재촬영 여부 confirm
+        if (isAlreadyInbound) {
+          // 이미 입고 처리된 주문 → 자동 촬영 진입 안 함 (입고 취소 버튼 사용)
+          // 재촬영이 필요하면 "수선 전 사진 재촬영" 버튼으로 수동 진입
+        } else if (hasBeforePhoto) {
+          // 입고 전인데 사진이 이미 있는 경우 (비정상 케이스) → 재촬영 여부 confirm
           const ok = window.confirm(
             "이미 수선 전 사진이 촬영된 주문입니다.\n재촬영하시겠습니까?\n\n(취소: 촬영 없이 입고 처리만 진행)"
           );
