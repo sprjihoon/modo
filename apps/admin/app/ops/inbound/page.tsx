@@ -433,8 +433,12 @@ export default function InboundPage() {
         } : prev);
       }
 
-      // 결과 새로고침 (DB에서 최신 데이터 로드)
-      await handleLookup();
+      // 결과 새로고침: result.trackingNo 기준으로 재조회 (trackingNo 입력 필드가 비어도 작동)
+      const refreshTn = result.trackingNo;
+      if (refreshTn) {
+        const refreshed = await lookupShipment(refreshTn);
+        if (refreshed) setResult(refreshed);
+      }
     } catch (error) {
       console.error("❌ 입고 처리 실패:", error);
       alert(`입고 처리 실패: ${error}`);

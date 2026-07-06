@@ -136,7 +136,7 @@ export default function WorkPage() {
       const found: LookupResult = {
         orderId: shipment.order_id,
         trackingNo: shipment.pickup_tracking_no || shipment.tracking_no,
-        outboundTrackingNo: shipment.delivery_tracking_no || shipment.tracking_no,
+        outboundTrackingNo: shipment.delivery_tracking_no ?? null,
         status: shipment.status || order.status,
         repairParts: repairParts.length > 0 ? repairParts : order.item_name ? [order.item_name] : [],
         customerName: order.customer_name,

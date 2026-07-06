@@ -61,13 +61,21 @@ export async function generateOrderBarcodes(
   }));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any)
+  const { error } = await (db as any)
     .from("order_barcodes")
-    .upsert(rows, { onConflict: "barcode_no", ignoreDuplicates: true })
-    .select() as { data: BarcodeRow[] | null; error: { message: string } | null };
+    .upsert(rows, { onConflict: "barcode_no", ignoreDuplicates: true }) as { error: { message: string } | null };
 
   if (error) return { rows: [], error: error.message };
-  return { rows: (data ?? rows) as BarcodeRow[], error: null };
+
+  // upsert 후 실제 저장된 rows를 재조회하여 정확한 수를 반환
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: saved } = await (db as any)
+    .from("order_barcodes")
+    .select("*")
+    .eq("order_id", rows[0].order_id)
+    .order("seq") as { data: BarcodeRow[] | null };
+
+  return { rows: saved ?? rows, error: null };
 }
 
 /**

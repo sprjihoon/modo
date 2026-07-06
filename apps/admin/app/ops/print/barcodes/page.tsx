@@ -4,13 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Barcode from "react-barcode";
 import { Printer, CheckCircle } from "lucide-react";
-import { markBarcodesAsPrinted, normalizeRepairPart } from "@/lib/barcode";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
+import { normalizeRepairPart } from "@/lib/barcode";
 
 interface BarcodeRow {
   id: string;
@@ -55,37 +49,33 @@ export default function PrintBarcodesPage() {
       didPrint.current = true;
       setTimeout(() => handlePrint(), 400);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoprint, barcodes]);
 
   async function loadData(id: string) {
-    const [{ data: bc, error: bcErr }, { data: ord, error: ordErr }] = await Promise.all([
-      supabase
-        .from("order_barcodes")
-        .select("*")
-        .eq("order_id", id)
-        .order("seq"),
-      supabase
-        .from("orders")
-        .select("order_number,customer_name,item_name,repair_parts,created_at")
-        .eq("id", id)
-        .single(),
-    ]);
-
-    if (bcErr || ordErr) {
-      setError(bcErr?.message || ordErr?.message || "데이터 로드 실패");
+    try {
+      const res = await fetch(`/api/ops/barcodes?orderId=${encodeURIComponent(id)}`);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.error || "데이터 로드 실패");
+        return;
+      }
+      setBarcodes(json.barcodes ?? []);
+      setOrderInfo(json.order ?? null);
+    } catch (e: any) {
+      setError(e.message || "데이터 로드 실패");
+    } finally {
       setLoading(false);
-      return;
     }
-    setBarcodes(bc ?? []);
-    setOrderInfo(ord ?? null);
-    setLoading(false);
   }
 
   async function handlePrint() {
     window.print();
     setPrinted(true);
     if (orderId) {
-      await markBarcodesAsPrinted(supabase, orderId);
+      await fetch(`/api/ops/barcodes?orderId=${encodeURIComponent(orderId)}`, {
+        method: "PATCH",
+      });
     }
   }
 
@@ -98,8 +88,16 @@ export default function PrintBarcodesPage() {
   }
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-red-500">
+      <div className="flex items-center justify-center min-h-screen text-red-500 text-sm px-4">
         {error}
+      </div>
+    );
+  }
+
+  if (barcodes.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-3 text-gray-500">
+        <p>바코드가 없습니다. 입고 처리를 먼저 진행해주세요.</p>
       </div>
     );
   }
