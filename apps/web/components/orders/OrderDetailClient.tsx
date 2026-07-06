@@ -142,6 +142,11 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [activeVideo, setActiveVideo] = useState<{ url: string; title: string; comparisonUrl?: string; comparisonTitle?: string } | null>(null);
   const [isExtraActionLoading, setIsExtraActionLoading] = useState(false);
 
+  // 수선 전/후 사진
+  const [repairPhotoItems, setRepairPhotoItems] = useState<
+    Array<{ sequence: number; label: string; before?: string; after?: string }>
+  >([]);
+
   // 배송지/메모 수정 상태
   const [isDeliveryEditOpen, setIsDeliveryEditOpen] = useState(false);
   const [editZipcode, setEditZipcode] = useState("");
@@ -226,6 +231,8 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
       if (uniqueCandidates.length === 0) return;
 
       const supabase = createClient();
+
+      // ── CS용 영상 (기존 유지) ──
       const { data: videos } = await supabase
         .from("media")
         .select("type, path, provider, final_waybill_no, sequence")
@@ -233,38 +240,96 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         .in("type", ["inbound_video", "outbound_video"])
         .order("sequence", { ascending: true });
 
-      if (!videos || videos.length === 0) return;
+      if (videos && videos.length > 0) {
+        const bySequence: Record<number, { inbound?: string; outbound?: string }> = {};
+        let firstInbound: string | null = null;
+        let firstOutbound: string | null = null;
 
-      const bySequence: Record<number, { inbound?: string; outbound?: string }> = {};
-      let firstInbound: string | null = null;
-      let firstOutbound: string | null = null;
-
-      for (const v of videos) {
-        const url = buildVideoUrl(v.path ?? "", v.provider ?? "");
-        if (!url) continue;
-        const seq: number = v.sequence ?? 1;
-        bySequence[seq] = bySequence[seq] ?? {};
-        if (v.type === "inbound_video") {
-          bySequence[seq].inbound = url;
-          if (!firstInbound) firstInbound = url;
-        } else if (v.type === "outbound_video") {
-          bySequence[seq].outbound = url;
-          if (!firstOutbound) firstOutbound = url;
+        for (const v of videos) {
+          const url = buildVideoUrl(v.path ?? "", v.provider ?? "");
+          if (!url) continue;
+          const seq: number = v.sequence ?? 1;
+          bySequence[seq] = bySequence[seq] ?? {};
+          if (v.type === "inbound_video") {
+            bySequence[seq].inbound = url;
+            if (!firstInbound) firstInbound = url;
+          } else if (v.type === "outbound_video") {
+            bySequence[seq].outbound = url;
+            if (!firstOutbound) firstOutbound = url;
+          }
         }
+
+        const items: VideoItem[] = Object.keys(bySequence)
+          .map(Number)
+          .sort((a, b) => a - b)
+          .filter((seq) => bySequence[seq].inbound && bySequence[seq].outbound)
+          .map((seq) => ({
+            inbound: bySequence[seq].inbound!,
+            outbound: bySequence[seq].outbound!,
+          }));
+
+        setInboundVideoUrl(firstInbound);
+        setOutboundVideoUrl(firstOutbound);
+        setVideoItems(items);
       }
 
-      const items: VideoItem[] = Object.keys(bySequence)
-        .map(Number)
-        .sort((a, b) => a - b)
-        .filter((seq) => bySequence[seq].inbound && bySequence[seq].outbound)
-        .map((seq) => ({
-          inbound: bySequence[seq].inbound!,
-          outbound: bySequence[seq].outbound!,
-        }));
+      // ── 수선 전/후 사진 ──
+      const { data: photos } = await supabase
+        .from("media")
+        .select("type, path, provider, sequence")
+        .in("final_waybill_no", uniqueCandidates)
+        .in("type", ["before_photo", "after_photo"])
+        .order("sequence", { ascending: true });
 
-      setInboundVideoUrl(firstInbound);
-      setOutboundVideoUrl(firstOutbound);
-      setVideoItems(items);
+      if (photos && photos.length > 0) {
+        const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+        const buildPhotoUrl = (path: string, provider: string) => {
+          if (!path) return undefined;
+          if (path.startsWith("http")) return path;
+          if (provider === "supabase") {
+            return `${SUPABASE_URL}/storage/v1/object/public/repair-photos/${path}`;
+          }
+          return undefined;
+        };
+
+        // repair_parts 에서 항목 이름 추출
+        const repairParts: string[] = Array.isArray(orderData.repair_parts)
+          ? (orderData.repair_parts as unknown[]).map((p) => {
+              if (!p) return "";
+              if (typeof p === "string") {
+                const s = p.trim();
+                if (s.startsWith("{")) {
+                  try { return (JSON.parse(s) as { name?: string }).name ?? s; } catch { return s; }
+                }
+                return s;
+              }
+              if (typeof p === "object") return (p as { name?: string }).name ?? "";
+              return String(p);
+            }).filter(Boolean)
+          : [];
+
+        const bySeq: Record<number, { before?: string; after?: string }> = {};
+        for (const p of photos) {
+          const seq: number = p.sequence ?? 1;
+          const url = buildPhotoUrl(p.path ?? "", p.provider ?? "");
+          if (!url) continue;
+          bySeq[seq] = bySeq[seq] ?? {};
+          if (p.type === "before_photo") bySeq[seq].before = url;
+          else if (p.type === "after_photo") bySeq[seq].after = url;
+        }
+
+        const photoItemList = Object.keys(bySeq)
+          .map(Number)
+          .sort((a, b) => a - b)
+          .map((seq) => ({
+            sequence: seq,
+            label: repairParts[seq - 1] || `수선 항목 ${seq}`,
+            before: bySeq[seq].before,
+            after: bySeq[seq].after,
+          }));
+
+        setRepairPhotoItems(photoItemList);
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -1011,6 +1076,66 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 수선 전/후 사진 비교 ── */}
+      {repairPhotoItems.length > 0 && (
+        <div className="mx-4 mt-3 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Scissors className="w-4 h-4 text-[#00C896]" />
+            <p className="text-sm font-bold text-gray-800">수선 전 · 후 사진</p>
+            <span className="ml-auto text-xs text-gray-400">{repairPhotoItems.length}개 항목</span>
+          </div>
+
+          <div className="space-y-4">
+            {repairPhotoItems.map((item) => (
+              <div key={item.sequence}>
+                <p className="text-xs font-medium text-gray-500 mb-2">
+                  #{item.sequence} {item.label}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {/* 수선 전 */}
+                  <div className="space-y-1">
+                    <p className="text-xs text-center font-medium text-orange-500">수선 전</p>
+                    <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-orange-100">
+                      {item.before ? (
+                        <img
+                          src={item.before}
+                          alt="수선 전"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                          <Scissors className="w-6 h-6 text-gray-300" />
+                          <span className="text-xs text-gray-400">사진 없음</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {/* 수선 후 */}
+                  <div className="space-y-1">
+                    <p className="text-xs text-center font-medium text-[#00C896]">수선 후</p>
+                    <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-[#00C896]/20">
+                      {item.after ? (
+                        <img
+                          src={item.after}
+                          alt="수선 후"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                          <Clock className="w-6 h-6 text-gray-300" />
+                          <span className="text-xs text-gray-400">수선 완료 후</span>
+                          <span className="text-xs text-gray-400">등록됩니다</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

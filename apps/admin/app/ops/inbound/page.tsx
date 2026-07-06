@@ -5,6 +5,7 @@ import { Scan, Package, Search, FileText, Printer, AlertTriangle } from "lucide-
 import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin } from "@/components/ops/work-order-sheet";
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import WebcamRecorder from "@/components/ops/WebcamRecorder";
+import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
 import {
   Dialog,
@@ -272,6 +273,10 @@ export default function InboundPage() {
   const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
   const [showBoxOpenVideo, setShowBoxOpenVideo] = useState(false);
   const [inboundVideos, setInboundVideos] = useState<Record<number, { videoId: string; id: string }>>({});
+
+  // 수선전 사진 촬영
+  const [showBeforePhoto, setShowBeforePhoto] = useState(false);
+  const [beforePhotos, setBeforePhotos] = useState<Record<number, { before?: string; after?: string }>>({});
   
   // Extra Charge State
   const [showExtraChargeDialog, setShowExtraChargeDialog] = useState(false);
@@ -303,6 +308,8 @@ export default function InboundPage() {
         
         // 입고 영상 조회
         await loadInboundVideos(shipment.orderId);
+        // 수선전 사진 조회
+        await loadBeforePhotos(shipment.orderId);
       } else {
         setResult(null);
         setNotFound(true);
@@ -347,6 +354,19 @@ export default function InboundPage() {
       }
     } catch (error) {
       console.error("입고 영상 조회 실패:", error);
+    }
+  };
+
+  // 수선전 사진 조회
+  const loadBeforePhotos = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/ops/photo/upload?orderId=${encodeURIComponent(orderId)}`);
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setBeforePhotos(json.photos || {});
+      }
+    } catch (error) {
+      console.error("수선전 사진 조회 실패:", error);
     }
   };
 
@@ -712,6 +732,63 @@ export default function InboundPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">처리 옵션</h2>
         
         <div className="space-y-3">
+          {/* ── 수선전 사진 촬영 (고객 공개용) ── */}
+          {result && (() => {
+            const itemCount = Math.max(
+              result.repairParts?.length || 0,
+              result.imagesWithPins?.length || 0,
+              1
+            );
+            const repairItems: RepairItem[] = Array.from({ length: itemCount }, (_, i) => ({
+              id: `item_${i + 1}`,
+              repairPart: result.repairParts?.[i] || `${i + 1}번 아이템`,
+            }));
+            const doneCount = Object.values(beforePhotos).filter((p) => p.before).length;
+            const allDone = doneCount >= itemCount;
+
+            return (
+              <div className="rounded-lg border-2 border-orange-200 bg-orange-50 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-orange-700 flex items-center gap-1">
+                    📷 수선 전 사진
+                    <span className="text-xs font-normal text-orange-500">(고객 공개)</span>
+                  </span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    allDone ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                  }`}>
+                    {doneCount}/{itemCount} 완료
+                  </span>
+                </div>
+                {/* 아이템별 썸네일 미리보기 */}
+                <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
+                  {repairItems.map((item, idx) => {
+                    const seq = idx + 1;
+                    const thumb = beforePhotos[seq]?.before;
+                    return (
+                      <div key={item.id} className="shrink-0 text-center">
+                        <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-200 border-2 border-gray-200">
+                          {thumb ? (
+                            <img src={thumb} alt={item.repairPart} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">미촬영</div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5 w-14 truncate">{item.repairPart}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => setShowBeforePhoto(true)}
+                  className="w-full py-2.5 rounded-lg font-medium text-white bg-orange-500 hover:bg-orange-600 flex items-center justify-center gap-2"
+                >
+                  <span className="text-base">📷</span>
+                  {allDone ? "수선 전 사진 재촬영" : "수선 전 사진 촬영 시작"}
+                </button>
+              </div>
+            );
+          })()}
+
           {/* 박스 오픈 영상 촬영 */}
           <button
             disabled={!result}
@@ -737,9 +814,10 @@ export default function InboundPage() {
             
             return (
               <div className="space-y-2">
-                <div className="text-sm font-medium text-gray-700 mb-2">
-                  입고 영상 촬영 ({itemCount}개 아이템)
-                </div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">
+                    입고 영상 촬영 ({itemCount}개 아이템)
+                    <span className="ml-1 text-xs text-gray-400">(CS 확인용)</span>
+                  </div>
                 {Array.from({ length: itemCount }, (_, i) => {
                   const seq = i + 1;
                   const itemName = result.repairParts?.[i] || `${seq}번 아이템`;
@@ -1362,6 +1440,37 @@ export default function InboundPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 수선전 사진 촬영 모달 */}
+      {showBeforePhoto && result && (() => {
+        const itemCount = Math.max(
+          result.repairParts?.length || 0,
+          result.imagesWithPins?.length || 0,
+          1
+        );
+        const repairItems: RepairItem[] = Array.from({ length: itemCount }, (_, i) => ({
+          id: `item_${i + 1}`,
+          repairPart: result.repairParts?.[i] || `${i + 1}번 아이템`,
+        }));
+        return (
+          <div className="fixed inset-0 bg-black z-50 flex flex-col">
+            <PhotoCapture
+              orderId={result.orderId}
+              repairItems={repairItems}
+              photoType="before_photo"
+              finalWaybillNo={result.trackingNo}
+              initialPhotos={beforePhotos}
+              onAllDone={(photos) => {
+                setBeforePhotos(photos);
+              }}
+              onClose={() => {
+                setShowBeforePhoto(false);
+                if (result) loadBeforePhotos(result.orderId);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }
