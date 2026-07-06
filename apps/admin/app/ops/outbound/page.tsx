@@ -279,7 +279,8 @@ export default function OutboundPage() {
     }
   };
 
-  // 출고완료 처리 (포장 완료, 송장 부착 완료)  const handleReadyToShip = async () => {
+  // 출고완료 처리 (포장 완료, 송장 부착 완료)
+  const handleReadyToShip = async () => {
     if (!result) return;
 
     // ⛔ 배송지 변경 후 송장 재출력 미완료 시 차단
