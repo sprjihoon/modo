@@ -315,6 +315,19 @@ export default function OrdersPage() {
     }
   };
 
+  // 취소/반송 관련 상태 목록
+  const CANCEL_RETURN_STATUSES = ["CANCELLED", "RETURN_PENDING", "RETURN_SHIPPING", "RETURN_DONE"];
+
+  // 상태 필터 변경 핸들러 — 취소/반송 상태 선택 시 날짜 필터 전체로 초기화
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    if (CANCEL_RETURN_STATUSES.includes(value)) {
+      setStartDate("");
+      setEndDate("");
+      setDatePreset("all");
+    }
+  };
+
   // 취소/반송 보기 토글
   const handleCancelViewChange = (next: CancelView) => {
     setCancelView(next);
@@ -585,7 +598,7 @@ export default function OrdersPage() {
               />
             </div>
             {cancelView === "OFF" && (
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="상태 필터" />
                 </SelectTrigger>
