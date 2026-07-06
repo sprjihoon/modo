@@ -709,7 +709,7 @@ export default function OutboundPage() {
           {/* 발송 처리 (택배 인계) */}
           <button
             onClick={handleShipped}
-            disabled={!result || result.status !== "READY_TO_SHIP" || result.status === "OUT_FOR_DELIVERY" || isProcessing}
+            disabled={!result || result.status !== "READY_TO_SHIP" || isProcessing}
             className={`w-full px-6 py-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
               result && result.status === "READY_TO_SHIP" && !isProcessing
                 ? "bg-green-600 text-white hover:bg-green-700"
