@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       if (s?.order_id) orderIds.add(s.order_id);
     }
 
-    const orderMap = new Map<string, { order_number: string; customer_name: string; item_name: string }>();
+    const orderMap = new Map<string, { order_number: string; customer_name: string | null; item_name: string | null }>();
     if (orderIds.size > 0) {
       const { data: orders } = await supabaseAdmin
         .from("orders")
