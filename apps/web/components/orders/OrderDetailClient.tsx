@@ -807,7 +807,11 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             <p className="text-sm font-bold text-red-700">취소된 주문입니다</p>
           </div>
           <p className="text-xs text-red-400 mt-1 pl-7">
-            수거 예약이 취소되었습니다.
+            {order.payment_status === "CANCELED"
+              ? "결제 금액이 환불 처리됩니다. 카드사에 따라 3~5 영업일이 소요될 수 있습니다."
+              : order.payment_status === "PARTIAL_CANCELED"
+              ? "부분 환불이 처리됩니다. 카드사에 따라 3~5 영업일이 소요될 수 있습니다."
+              : "수거 예약이 취소되었습니다."}
           </p>
         </div>
       )}

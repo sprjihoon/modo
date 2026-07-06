@@ -72,19 +72,44 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
+    let affectedOrder: { id: string; user_id: string; order_number: string; total_price: number } | null = null;
+
     if (!extraChargeReq) {
       const orderUpdate: Record<string, unknown> = {
         payment_status: newPaymentStatus,
         canceled_at: new Date().toISOString(),
       };
-      // 전체 취소 시 주문 상태도 CANCELLED로 변경 (목록에서 취소로 표시)
       if (isTotalCancel) {
         orderUpdate.status = "CANCELLED";
       }
-      await supabase
+      const { data: updatedOrder } = await supabase
         .from("orders")
         .update(orderUpdate)
-        .eq("payment_id", paymentId);
+        .eq("payment_id", paymentId)
+        .select("id, user_id, order_number, total_price")
+        .maybeSingle();
+      affectedOrder = updatedOrder;
+    }
+
+    // 고객에게 알림 발송
+    try {
+      if (affectedOrder?.user_id) {
+        const canceledAmount = cancelAmount ?? affectedOrder.total_price;
+        const notifTitle = isTotalCancel ? "주문 취소 완료" : "부분 환불 완료";
+        const notifBody = isTotalCancel
+          ? `주문(${affectedOrder.order_number})이 취소되었습니다. 결제하신 ${(canceledAmount ?? 0).toLocaleString()}원이 환불 처리됩니다.`
+          : `주문(${affectedOrder.order_number})에서 ${(canceledAmount ?? 0).toLocaleString()}원이 부분 환불 처리됩니다.`;
+
+        await supabase.from("notifications").insert({
+          user_id: affectedOrder.user_id,
+          type: isTotalCancel ? "order_cancelled" : "order_partial_refund",
+          title: notifTitle,
+          body: notifBody,
+          order_id: affectedOrder.id,
+        });
+      }
+    } catch (e) {
+      console.log("취소 알림 발송 실패:", e);
     }
 
     try {
