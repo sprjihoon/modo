@@ -31,6 +31,19 @@ interface PortonePaymentInfo {
   }[];
 }
 
+const methodLabel: Record<string, string> = {
+  PaymentMethodCard: "신용카드",
+  PaymentMethodTransfer: "계좌이체",
+  PaymentMethodVirtualAccount: "가상계좌",
+  PaymentMethodMobile: "휴대폰",
+  PaymentMethodEasyPay: "간편결제",
+  Card: "신용카드",
+  Transfer: "계좌이체",
+  VirtualAccount: "가상계좌",
+  Mobile: "휴대폰",
+  EasyPay: "간편결제",
+};
+
 interface PaymentRefundDialogProps {
   orderId: string;
   paymentId: string;
@@ -208,7 +221,7 @@ export function PaymentRefundDialog({
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">결제 수단</span>
                   <span className="text-sm font-medium">
-                    {portonePayment.method || paymentMethod}
+                    {methodLabel[portonePayment.method] || portonePayment.method || paymentMethod}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
