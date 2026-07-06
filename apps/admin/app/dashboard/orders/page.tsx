@@ -189,7 +189,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     loadOrders();
-  }, [statusFilter, startDate, endDate, currentPage, pageSize, promotionFilter, cancelView]);
+  }, [statusFilter, startDate, endDate, currentPage, pageSize, promotionFilter, cancelView, sortBy]);
 
   // 필터 변경 시 페이지 1로 리셋
   useEffect(() => {
@@ -268,6 +268,7 @@ export default function OrdersPage() {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       if (promotionFilter !== "ALL") params.append('promotionFilter', promotionFilter);
+      if (sortBy !== "date") params.append('sortBy', sortBy);
       params.append('page', String(currentPage));
       params.append('pageSize', String(pageSize));
 
@@ -337,10 +338,7 @@ export default function OrdersPage() {
     router.replace(`${url.pathname}?${url.searchParams.toString()}`);
   };
 
-  // 클라이언트 사이드 정렬 (금액순)
-  const sortedOrders = sortBy === "amount" 
-    ? [...orders].sort((a, b) => b.total_price - a.total_price)
-    : orders;
+  const sortedOrders = orders;
 
   const formatDate = (dateString: string) => {
     try {
@@ -520,73 +518,75 @@ export default function OrdersPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6 space-y-4">
-          {/* 날짜 필터 */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              기간:
+          {/* 날짜 필터 — 취소/반송 뷰에서는 미적용이므로 숨김 */}
+          {cancelView === "OFF" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                기간:
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  variant={datePreset === "today" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleDatePreset("today")}
+                >
+                  오늘
+                </Button>
+                <Button
+                  variant={datePreset === "7days" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleDatePreset("7days")}
+                >
+                  7일
+                </Button>
+                <Button
+                  variant={datePreset === "30days" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleDatePreset("30days")}
+                >
+                  30일
+                </Button>
+                <Button
+                  variant={datePreset === "90days" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleDatePreset("90days")}
+                >
+                  90일
+                </Button>
+                <Button
+                  variant={datePreset === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleDatePreset("all")}
+                >
+                  전체
+                </Button>
+              </div>
+              <div className="flex items-center gap-2 ml-2">
+                <Input
+                  type="date"
+                  className="w-36 h-9"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setDatePreset("custom");
+                  }}
+                />
+                <span className="text-muted-foreground">~</span>
+                <Input
+                  type="date"
+                  className="w-36 h-9"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setDatePreset("custom");
+                  }}
+                />
+              </div>
             </div>
-            <div className="flex gap-1">
-              <Button
-                variant={datePreset === "today" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleDatePreset("today")}
-              >
-                오늘
-              </Button>
-              <Button
-                variant={datePreset === "7days" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleDatePreset("7days")}
-              >
-                7일
-              </Button>
-              <Button
-                variant={datePreset === "30days" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleDatePreset("30days")}
-              >
-                30일
-              </Button>
-              <Button
-                variant={datePreset === "90days" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleDatePreset("90days")}
-              >
-                90일
-              </Button>
-              <Button
-                variant={datePreset === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleDatePreset("all")}
-              >
-                전체
-              </Button>
-            </div>
-            <div className="flex items-center gap-2 ml-2">
-              <Input
-                type="date"
-                className="w-36 h-9"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setDatePreset("custom");
-                }}
-              />
-              <span className="text-muted-foreground">~</span>
-              <Input
-                type="date"
-                className="w-36 h-9"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setDatePreset("custom");
-                }}
-              />
-            </div>
-          </div>
-          
-          {/* 검색 및 상태 필터 */}
+          )}
+
+          {/* 검색 및 상태/정렬 필터 */}
           <div className="grid gap-4 md:grid-cols-5">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -623,15 +623,18 @@ export default function OrdersPage() {
                 </SelectContent>
               </Select>
             )}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger>
-                <SelectValue placeholder="정렬 기준" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">최신순</SelectItem>
-                <SelectItem value="amount">금액순</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* 정렬 — 취소/반송 뷰에서는 서버 정렬 불가로 숨김 */}
+            {cancelView === "OFF" && (
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger>
+                  <SelectValue placeholder="정렬 기준" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">최신순</SelectItem>
+                  <SelectItem value="amount">금액순</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
               <SelectTrigger>
                 <SelectValue placeholder="페이지 크기" />

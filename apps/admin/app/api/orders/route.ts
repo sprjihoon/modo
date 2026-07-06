@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const promotionFilter = searchParams.get('promotionFilter');
+    const sortBy = searchParams.get('sortBy') || 'date';
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '20'), 100);
 
@@ -36,8 +37,14 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         promotion_codes:promotion_code_id (code, discount_type, discount_value)
-      `, { count: 'exact' })
-      .order('created_at', { ascending: false });
+      `, { count: 'exact' });
+
+    // 정렬
+    if (sortBy === 'amount') {
+      query = query.order('total_price', { ascending: false });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
 
     // 상태 필터
     if (status && status !== 'ALL') {
