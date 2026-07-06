@@ -63,19 +63,27 @@ export async function POST(request: NextRequest) {
     console.log("✅ 결제 취소 성공:", paymentId);
 
     const isTotalCancel = !cancelAmount;
-    const newStatus = isTotalCancel ? "CANCELED" : "PARTIAL_CANCELED";
+    const newPaymentStatus = isTotalCancel ? "CANCELED" : "PARTIAL_CANCELED";
 
     const { data: extraChargeReq } = await supabase
       .from("extra_charge_requests")
-      .update({ status: newStatus, canceled_at: new Date().toISOString() })
+      .update({ status: newPaymentStatus, canceled_at: new Date().toISOString() })
       .eq("id", paymentId)
       .select()
       .single();
 
     if (!extraChargeReq) {
+      const orderUpdate: Record<string, unknown> = {
+        payment_status: newPaymentStatus,
+        canceled_at: new Date().toISOString(),
+      };
+      // 전체 취소 시 주문 상태도 CANCELLED로 변경 (목록에서 취소로 표시)
+      if (isTotalCancel) {
+        orderUpdate.status = "CANCELLED";
+      }
       await supabase
         .from("orders")
-        .update({ payment_status: newStatus, canceled_at: new Date().toISOString() })
+        .update(orderUpdate)
         .eq("payment_id", paymentId);
     }
 
