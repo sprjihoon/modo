@@ -171,13 +171,13 @@ export default function TestScenarioPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           orderId: orderInfo.id, 
-          status: "SHIPPED" 
+          status: "OUT_FOR_DELIVERY" 
         }),
       });
 
       if (!res.ok) throw new Error("출고 처리 실패");
       
-      addLog("🚚 출고 처리(SHIPPED) 완료!");
+      addLog("🚚 발송 처리(OUT_FOR_DELIVERY) 완료!");
     } catch (error: any) {
       addLog(`❌ 출고 처리 실패: ${error.message}`);
     } finally {

@@ -6,6 +6,7 @@ import { Send, Video, Package, RotateCcw, CheckCircle, AlertTriangle, Printer, E
 import WebcamRecorder from "@/components/ops/WebcamRecorder";
 import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
 import { isIslandArea, getIslandAreaInfo } from "@/lib/island-area";
+import { getRepairItemCount } from "@/lib/barcode";
 
 type LookupResult = {
   orderId: string;
@@ -82,8 +83,6 @@ export default function OutboundPage() {
       console.log('📦 images_with_pins:', imagesWithPinsCount, '개');
       console.log('📦 repair_parts:', repairPartsCount, '개');
       
-      // 배열 복사 (원본과 완전히 분리)
-      const imagesWithPins = imagesWithPinsCount > 0 ? [...orderData.images_with_pins] : [];
       // repair_parts가 객체/JSON 문자열 혼재일 수 있어 사람이 읽을 수 있는 부위명으로 정규화
       const normalizePart = (raw: unknown): string => {
         if (raw == null) return "";
@@ -111,28 +110,17 @@ export default function OutboundPage() {
         ? (orderData.repair_parts as unknown[]).map(normalizePart).filter(Boolean)
         : [];
       
-      // 아이템 목록 생성 (완전히 새로운 primitive 값만 사용)
+      // 아이템 목록 생성: 개수는 바코드/수선전 사진과 동일하게 repair_parts 기준으로 통일
+      // (바코드 N개 스캔 ↔ 수선후 사진/영상 N개 매칭 유지)
       const parsedItems: Array<{ id: string; repairPart: string }> = [];
-      
-      if (Array.isArray(imagesWithPins) && imagesWithPins.length > 0) {
-        // images_with_pins를 기반으로 아이템 생성 (필드 명시 추출)
-        for (let idx = 0; idx < imagesWithPins.length; idx++) {
-          const img = imagesWithPins[idx];
-          const repairPart = repairParts[idx] || `아이템 ${idx + 1}`;
-          
-          parsedItems.push({
-            id: `item_${idx + 1}`,
-            repairPart: String(repairPart), // 문자열로 명시 변환
-          });
-        }
-      } else if (Array.isArray(repairParts) && repairParts.length > 0) {
-        // repair_parts만 있으면 그것 기반으로 생성
-        for (let idx = 0; idx < repairParts.length; idx++) {
-          parsedItems.push({
-            id: `item_${idx + 1}`,
-            repairPart: String(repairParts[idx]),
-          });
-        }
+      const outboundItemCount = getRepairItemCount(
+        repairPartsCount > 0 ? (orderData.repair_parts as unknown[]) : null
+      );
+      for (let idx = 0; idx < outboundItemCount; idx++) {
+        parsedItems.push({
+          id: `item_${idx + 1}`,
+          repairPart: String(repairParts[idx] || `아이템 ${idx + 1}`),
+        });
       }
       
       // 도서산간 지역 확인

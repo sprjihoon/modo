@@ -35,6 +35,7 @@ const statusMap = {
   INBOUND: { label: "입고완료", color: "bg-orange-100 text-orange-800" },
   PROCESSING: { label: "수선중", color: "bg-purple-100 text-purple-800" },
   READY_TO_SHIP: { label: "출고완료", color: "bg-green-100 text-green-800" },
+  OUT_FOR_DELIVERY: { label: "배송중", color: "bg-teal-100 text-teal-800" },
   DELIVERED: { label: "배송완료", color: "bg-gray-100 text-gray-800" },
   CANCELLED: { label: "취소", color: "bg-red-100 text-red-800" },
   RETURN_PENDING: { label: "반송 대기", color: "bg-amber-100 text-amber-800" },

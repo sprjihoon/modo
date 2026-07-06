@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireStaff } from "@/lib/ops-auth";
 
 /**
  * GET /api/ops/barcodes?orderId=...
  * order_barcodes + 주문 기본정보를 서버사이드에서 한번에 반환
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireStaff();
+  if (auth.response) return auth.response;
+
   const orderId = request.nextUrl.searchParams.get("orderId");
 
   if (!orderId) {
@@ -44,6 +48,9 @@ export async function GET(request: NextRequest) {
  * printed_at 일괄 갱신
  */
 export async function PATCH(request: NextRequest) {
+  const auth = await requireStaff();
+  if (auth.response) return auth.response;
+
   const orderId = request.nextUrl.searchParams.get("orderId");
 
   if (!orderId) {

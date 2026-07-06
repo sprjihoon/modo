@@ -2707,6 +2707,7 @@ export type Database = {
         | "RETURN_SHIPPING"
         | "RETURN_DONE"
         | "READY_TO_SHIP"
+        | "OUT_FOR_DELIVERY"
         | "DELIVERED"
         | "CANCELLED"
       payment_status:
@@ -2940,6 +2941,7 @@ export const Constants = {
         "RETURN_SHIPPING",
         "RETURN_DONE",
         "READY_TO_SHIP",
+        "OUT_FOR_DELIVERY",
         "DELIVERED",
         "CANCELLED",
       ],

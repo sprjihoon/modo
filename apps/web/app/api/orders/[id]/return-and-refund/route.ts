@@ -226,13 +226,18 @@ export async function POST(
           (order as { item_name: string | null }).item_name ?? "수선 의류";
         const orderNumber =
           (order as { order_number: string | null }).order_number ?? null;
+        const refundFailedForNotify = !!paymentId && refundAmount > 0 && !refundResult;
         const rows = managers.map((m: { id: string }) => ({
           user_id: m.id,
           type: "ORDER_RETURN_REQUESTED",
-          title: "반송 요청 접수",
+          title: refundFailedForNotify ? "⚠️ 반송 요청 접수 (환불 실패)" : "반송 요청 접수",
           body: `'${itemName}' (${
             orderNumber ?? orderId.slice(0, 8)
-          }) 의 반송이 요청되었습니다. 송장 발급 후 반송 완료 처리를 해주세요.`,
+          }) 의 반송이 요청되었습니다. 송장 발급 후 반송 완료 처리를 해주세요.${
+            refundFailedForNotify
+              ? ` ⚠️ 자동 환불(${refundAmount.toLocaleString()}원) 실패 — 수동 환불이 필요합니다.`
+              : ""
+          }`,
           order_id: orderId,
           metadata: {
             orderId,
@@ -242,6 +247,8 @@ export async function POST(
             totalDeduction,
             refundAmount,
             refundProcessed: !!refundResult,
+            refundFailed: refundFailedForNotify,
+            refundError,
             customer_user_id: (order as { user_id: string }).user_id,
           },
         }));
@@ -251,11 +258,16 @@ export async function POST(
       console.warn("admin 알림 fan-out 실패 (무시):", notifyErr);
     }
 
+    // 환불이 필요한데(결제 존재 + 환불액 > 0) 자동 환불에 실패한 경우.
+    // 반송 요청(RETURN_PENDING) 자체는 고객의 정당한 결정이므로 유지하되,
+    // 환불 실패 사실을 응답과 관리자 알림에 명확히 노출해 수동 환불을 유도한다.
+    const refundFailed = !!paymentId && refundAmount > 0 && !refundResult;
+
     const successMessage = refundResult
       ? `반송 요청 완료. ${deductionDesc} 을(를) 차감하고 ${refundAmount.toLocaleString()}원이 환불됩니다.`
       : noRefundRequired
         ? "반송 요청이 정상 접수되었습니다. (환불 대상 결제 금액이 없습니다)"
-        : `반송 요청 완료. 환불 금액(${refundAmount.toLocaleString()}원)은 별도 처리됩니다.`;
+        : `반송 요청이 접수되었습니다. 다만 자동 환불(${refundAmount.toLocaleString()}원)에 실패하여 고객센터에서 확인 후 처리해 드립니다.`;
 
     return NextResponse.json({
       success: true,
@@ -265,6 +277,7 @@ export async function POST(
       totalDeduction,
       refundAmount,
       refundProcessed: !!refundResult,
+      refundFailed,
       refundError,
       noRefundRequired,
     });

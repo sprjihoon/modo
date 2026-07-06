@@ -455,6 +455,28 @@ export async function POST(
       console.warn("admin 알림 fan-out 실패 (무시):", notifyErr);
     }
 
+    // 결제가 있는데 환불에 실패한 경우: 주문은 CANCELLED 로 전환되지 않았으므로
+    // "취소 완료" 로 오인시키지 않고 실패로 응답한다. (재시도 시 shipments-cancel 은
+    // 이미 취소되어 404→정상 처리되고, 환불만 다시 시도되므로 재시도 안전)
+    const prePickupRefundFailed =
+      hasValidPayment && !paymentCancelResult && !!paymentCancelError;
+
+    if (prePickupRefundFailed) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "REFUND_FAILED",
+          flow: "PRE_PICKUP_CANCEL",
+          error: `환불 처리에 실패했습니다. (${paymentCancelError}) 잠시 후 다시 시도하시거나 고객센터로 문의해 주세요.`,
+          shipmentCanceled,
+          paymentCanceled: false,
+          paymentCancelError,
+          hasValidPayment,
+        },
+        { status: 502 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       flow: "PRE_PICKUP_CANCEL",

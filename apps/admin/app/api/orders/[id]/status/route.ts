@@ -35,12 +35,11 @@ export async function PATCH(
       );
     }
 
-    // 유효한 상태값 확인
+    // 유효한 상태값 확인 (order_status enum 과 일치)
     const validStatuses = [
-      "PENDING", "PAID", "BOOKED", "INBOUND", "PROCESSING",
-      "READY_TO_SHIP", "DELIVERED", "CANCELLED", "COMPLETED",
-      "IN_REPAIR", "REPAIR_COMPLETED", "SHIPPED", "RECEIVED",
-      "RETURN_SHIPPING", "RETURN_DONE", "PICKED_UP",
+      "PENDING", "PAID", "BOOKED", "INBOUND", "PROCESSING", "HOLD",
+      "READY_TO_SHIP", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED",
+      "RETURN_PENDING", "RETURN_SHIPPING", "RETURN_DONE",
     ];
 
     if (!validStatuses.includes(status)) {
@@ -50,22 +49,19 @@ export async function PATCH(
       );
     }
 
-    // 상태 전이 허용 맵: 현재 상태 → 이동 가능한 다음 상태들
+    // 상태 전이 허용 맵: 현재 상태 → 이동 가능한 다음 상태들 (order_status enum 기준)
     const ALLOWED_TRANSITIONS: Record<string, string[]> = {
       PENDING:          ["PAID", "CANCELLED"],
       PAID:             ["BOOKED", "CANCELLED"],
-      BOOKED:           ["PICKED_UP", "INBOUND", "CANCELLED"],
-      PICKED_UP:        ["INBOUND", "CANCELLED"],
-      INBOUND:          ["PROCESSING", "CANCELLED"],
-      PROCESSING:       ["IN_REPAIR", "READY_TO_SHIP", "CANCELLED"],
-      IN_REPAIR:        ["REPAIR_COMPLETED", "READY_TO_SHIP", "CANCELLED"],
-      REPAIR_COMPLETED: ["READY_TO_SHIP", "CANCELLED"],
-      READY_TO_SHIP:    ["SHIPPED", "CANCELLED"],
-      SHIPPED:          ["DELIVERED", "CANCELLED"],
-      DELIVERED:        ["COMPLETED", "RETURN_SHIPPING"],
-      RECEIVED:         ["COMPLETED", "RETURN_SHIPPING"],
-      COMPLETED:        [],
+      BOOKED:           ["INBOUND", "CANCELLED"],
+      INBOUND:          ["PROCESSING", "HOLD", "CANCELLED"],
+      PROCESSING:       ["HOLD", "READY_TO_SHIP", "CANCELLED"],
+      HOLD:             ["PROCESSING", "READY_TO_SHIP", "CANCELLED"],
+      READY_TO_SHIP:    ["OUT_FOR_DELIVERY", "PROCESSING", "CANCELLED"],
+      OUT_FOR_DELIVERY: ["DELIVERED", "READY_TO_SHIP"],
+      DELIVERED:        ["RETURN_SHIPPING"],
       CANCELLED:        [],
+      RETURN_PENDING:   ["RETURN_SHIPPING", "CANCELLED"],
       RETURN_SHIPPING:  ["RETURN_DONE"],
       RETURN_DONE:      [],
     };
@@ -117,15 +113,20 @@ export async function PATCH(
       );
     }
 
-    // 2. 송장 상태도 변경 (trackingNo가 있는 경우)
-    if (trackingNo) {
+    // 2. 송장 상태도 변경 (shipment_status enum 에 존재하는 값만 동기화)
+    //    order_status 전용 값(PAID/HOLD/RETURN_* 등)은 shipments 로 전파하지 않는다.
+    const SHIPMENT_SYNC_STATUSES = [
+      "BOOKED", "PICKED_UP", "INBOUND", "PROCESSING",
+      "READY_TO_SHIP", "OUT_FOR_DELIVERY", "DELIVERED",
+    ];
+    if (SHIPMENT_SYNC_STATUSES.includes(status)) {
       const { error: shipmentError } = await supabase
         .from("shipments")
-        .update({ 
+        .update({
           status,
           updated_at: new Date().toISOString(),
         })
-        .eq("pickup_tracking_no", trackingNo);
+        .eq("order_id", orderId);
 
       if (shipmentError) {
         console.error("송장 상태 변경 실패:", shipmentError);

@@ -6,6 +6,7 @@ import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrder
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
+import { getRepairItemCount } from "@/lib/barcode";
 import {
   Dialog,
   DialogContent,
@@ -724,11 +725,8 @@ export default function InboundPage() {
         <div className="space-y-3">
           {/* ── 수선전 사진 촬영 (고객 공개용) ── */}
           {result && (() => {
-            const itemCount = Math.max(
-              result.repairParts?.length || 0,
-              result.imagesWithPins?.length || 0,
-              1
-            );
+            // 아이템 개수는 바코드/수선후 사진과 동일하게 repair_parts 기준으로 통일
+            const itemCount = getRepairItemCount(result.repairParts);
             const repairItems: RepairItem[] = Array.from({ length: itemCount }, (_, i) => ({
               id: `item_${i + 1}`,
               repairPart: result.repairParts?.[i] || `${i + 1}번 아이템`,
@@ -1286,11 +1284,7 @@ export default function InboundPage() {
 
       {/* 수선전 사진 촬영 모달 */}
       {showBeforePhoto && result && (() => {
-        const itemCount = Math.max(
-          result.repairParts?.length || 0,
-          result.imagesWithPins?.length || 0,
-          1
-        );
+        const itemCount = getRepairItemCount(result.repairParts);
         const repairItems: RepairItem[] = Array.from({ length: itemCount }, (_, i) => ({
           id: `item_${i + 1}`,
           repairPart: result.repairParts?.[i] || `${i + 1}번 아이템`,

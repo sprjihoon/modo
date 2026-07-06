@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireStaff } from "@/lib/ops-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ trackingNo: string }> }
 ) {
   try {
+    const auth = await requireStaff();
+    if (auth.response) return auth.response;
+
     // Next.js 15+에서는 params가 Promise일 수 있음
     const resolvedParams = await Promise.resolve(params);
     const trackingNo = resolvedParams.trackingNo;

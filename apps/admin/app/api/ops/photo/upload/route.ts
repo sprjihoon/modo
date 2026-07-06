@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireStaff } from "@/lib/ops-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireStaff();
+    if (auth.response) return auth.response;
+
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const orderId = formData.get("orderId") as string | null;
@@ -156,6 +160,9 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireStaff();
+    if (auth.response) return auth.response;
+
     const orderId = request.nextUrl.searchParams.get("orderId");
     if (!orderId) {
       return NextResponse.json({ error: "orderId 필수" }, { status: 400 });

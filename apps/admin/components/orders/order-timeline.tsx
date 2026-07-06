@@ -8,12 +8,13 @@ interface OrderTimelineProps {
 }
 
 const steps = [
-  { id: "PAID",          label: "결제완료" },
-  { id: "BOOKED",        label: "수거예약" },
-  { id: "INBOUND",       label: "입고완료" },
-  { id: "PROCESSING",    label: "수선중" },
-  { id: "READY_TO_SHIP", label: "출고완료" },
-  { id: "DELIVERED",     label: "배송완료" },
+  { id: "PAID",             label: "결제완료" },
+  { id: "BOOKED",           label: "수거예약" },
+  { id: "INBOUND",          label: "입고완료" },
+  { id: "PROCESSING",       label: "수선중" },
+  { id: "READY_TO_SHIP",    label: "출고완료" },
+  { id: "OUT_FOR_DELIVERY", label: "배송중" },
+  { id: "DELIVERED",        label: "배송완료" },
 ];
 
 const specialStateMap: Record<string, { label: string; color: string; description: string }> = {

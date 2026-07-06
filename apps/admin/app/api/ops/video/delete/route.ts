@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireStaff } from "@/lib/ops-auth";
 
 /**
  * POST /api/ops/video/delete
@@ -10,6 +11,9 @@ import { supabaseAdmin } from "@/lib/supabase";
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireStaff();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { videoId, mediaId } = body;
 

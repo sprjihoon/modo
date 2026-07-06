@@ -180,10 +180,16 @@ export function PaymentClient() {
   async function loadIntent() {
     try {
       const supabase = createClient();
+      // intentId 정규화: KCP paymentId 는 하이픈이 제거된 32-hex 형태로 넘어올 수 있으므로
+      // (결제 실패/성공 페이지의 "다시 결제" 링크) UUID 형태로 복원한 뒤 조회한다.
+      const normalizedIntentId =
+        /^[0-9a-f]{32}$/i.test(intentId)
+          ? `${intentId.slice(0, 8)}-${intentId.slice(8, 12)}-${intentId.slice(12, 16)}-${intentId.slice(16, 20)}-${intentId.slice(20)}`
+          : intentId;
       const { data, error: e1 } = await supabase
         .from("payment_intents")
         .select("id, total_price, payload, expires_at, consumed_at")
-        .eq("id", intentId)
+        .eq("id", normalizedIntentId)
         .maybeSingle();
 
       if (e1 || !data) {

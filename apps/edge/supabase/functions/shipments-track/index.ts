@@ -208,8 +208,8 @@ Deno.serve(async (req) => {
         }
       }
       
-      // 🚚 배송 송장 + 배송완료(05) = 배송 완료 (READY_TO_SHIP → DELIVERED)
-      if (isDeliveryTracking && epostStatus?.treatStusCd === '05' && currentOrderStatus === 'READY_TO_SHIP') {
+      // 🚚 배송 송장 + 배송완료(05) = 배송 완료 (READY_TO_SHIP/OUT_FOR_DELIVERY → DELIVERED)
+      if (isDeliveryTracking && epostStatus?.treatStusCd === '05' && (currentOrderStatus === 'READY_TO_SHIP' || currentOrderStatus === 'OUT_FOR_DELIVERY')) {
         console.log('📦 배송완료 감지! 상태를 DELIVERED로 업데이트합니다.');
         
         // shipments 테이블 업데이트

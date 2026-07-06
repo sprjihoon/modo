@@ -33,6 +33,7 @@ const statuses = [
   { value: "INBOUND", label: "입고 완료" },
   { value: "PROCESSING", label: "수선 중" },
   { value: "READY_TO_SHIP", label: "출고 완료" },
+  { value: "OUT_FOR_DELIVERY", label: "배송 중" },
   { value: "DELIVERED", label: "배송 완료" },
   { value: "CANCELLED", label: "취소" },
 ];

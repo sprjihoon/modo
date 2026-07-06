@@ -526,7 +526,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                 ({
                   PAID: '결제완료', BOOKED: '수거예약', INBOUND: '입고완료',
                   PROCESSING: '수선중', HOLD: '작업대기', READY_TO_SHIP: '출고완료',
-                  DELIVERED: '배송완료', CANCELLED: '취소',
+                  OUT_FOR_DELIVERY: '배송중', DELIVERED: '배송완료', CANCELLED: '취소',
                   RETURN_PENDING: '반송대기', RETURN_SHIPPING: '반송배송중', RETURN_DONE: '반송완료',
                 } as Record<string,string>)[displayOrder.status] || displayOrder.status
               }</Badge>

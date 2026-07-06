@@ -58,6 +58,12 @@ export const ORDER_STATUS_MAP: Record<
     color: "text-gray-500",
     bgColor: "bg-gray-50",
   },
+  PAID: {
+    // 결제 완료 후 수거예약(BOOKED) 전환 전의 짧은 상태.
+    label: "결제완료",
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+  },
   BOOKED: {
     label: "수거예약",
     color: "text-blue-600",

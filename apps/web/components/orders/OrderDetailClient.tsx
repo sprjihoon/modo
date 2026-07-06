@@ -71,6 +71,8 @@ const TIMELINE_STEPS = [
 
 const DB_STATUS_STEP: Record<string, number> = {
   PENDING_PAYMENT:  -1,
+  PENDING:          -1,
+  PAID:              0,
   BOOKED:            0,
   PICKED_UP:         1,
   INBOUND:           2,
@@ -636,7 +638,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   // 수거 전(BOOKED) 또는 수거 후/입고 후(PICKED_UP, INBOUND)에는 고객이 직접 취소 가능.
   // - BOOKED         : 우체국 수거 취소 + 전액 환불
   // - PICKED_UP/INBOUND : 왕복 배송비 차감 후 부분 환불 + 의류 반송
-  const canCancel = ["BOOKED", "PICKED_UP", "INBOUND"].includes(order.status);
+  const canCancel = ["PENDING", "PAID", "BOOKED", "PICKED_UP", "INBOUND"].includes(order.status);
   const cancelIsPostPickup = order.status === "PICKED_UP" || order.status === "INBOUND";
   const canEditDelivery = !["READY_TO_SHIP", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"].includes(order.status);
   // 카카오 문의용: 발송 송장 우선 → 회수 송장 → legacy

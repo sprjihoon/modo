@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     switch (type) {
       case "Transaction.Paid": {
-        const { error } = await admin
+        const { data: updated, error } = await admin
           .from("orders")
           .update({
             payment_status: "PAID",
@@ -91,12 +91,52 @@ export async function POST(request: NextRequest) {
             paid_at: payment.paidAt ?? payment.approvedAt ?? new Date().toISOString(),
           })
           .eq("payment_id", paymentId)
-          .in("payment_status", ["WAITING_FOR_DEPOSIT", "PENDING"]);
+          .in("payment_status", ["WAITING_FOR_DEPOSIT", "PENDING"])
+          .select("id");
 
         if (error) {
           console.error("[webhook] DB 업데이트 실패:", error);
         } else {
           console.log("[webhook] 결제 완료 처리:", paymentId);
+        }
+
+        // 🛟 고아 결제 안전망: PG 승인은 됐으나 주문이 존재하지 않는 경우
+        //    (고객이 /payment/success 도달 전 이탈 → payments-confirm 미호출)
+        //    canonical 한 payments-confirm 을 재호출해 intent 기반으로 주문을 생성한다.
+        //    payments-confirm 은 intent.consumed_at 로 멱등 처리되므로 중복 생성되지 않는다.
+        let orderExists = (updated?.length ?? 0) > 0;
+        if (!orderExists) {
+          const { data: existing } = await admin
+            .from("orders")
+            .select("id")
+            .eq("payment_id", paymentId)
+            .limit(1);
+          orderExists = (existing?.length ?? 0) > 0;
+        }
+
+        // intent 기반 결제(주문 생성 흐름)만 대상: paymentId 가 32-hex 또는 UUID 형태
+        const isIntentPayment =
+          /^[0-9a-f]{32}$/i.test(paymentId) ||
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentId);
+
+        if (!orderExists && isIntentPayment) {
+          console.warn("[webhook] 고아 결제 감지 → 주문 자동 생성 시도:", paymentId);
+          try {
+            const { error: fnError } = await admin.functions.invoke("payments-confirm", {
+              body: {
+                payment_id: paymentId,
+                order_id: paymentId,
+                pickup_payload: { __from_intent: true },
+              },
+            });
+            if (fnError) {
+              console.error("[webhook] 고아 결제 주문 생성 실패:", fnError);
+            } else {
+              console.log("[webhook] 고아 결제 주문 자동 생성 완료:", paymentId);
+            }
+          } catch (e) {
+            console.error("[webhook] 고아 결제 주문 생성 예외:", e);
+          }
         }
 
         try {

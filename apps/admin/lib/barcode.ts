@@ -34,6 +34,17 @@ export function buildBarcodeNo(orderNumber: string, seq: number): string {
   return `${orderNumber}-${String(seq).padStart(2, "0")}`;
 }
 
+/**
+ * 주문의 수선 아이템(=바코드) 개수 단일 소스.
+ *
+ * 바코드/입고 수선전 사진/출고 수선후 사진/작업지시서 아이템 개수는
+ * 모두 이 값을 기준으로 맞춰야 "바코드 N개 스캔 ↔ N개 사진/영상" 매칭이 유지된다.
+ * repair_parts 가 비어 있으면 1개로 본다. (generateOrderBarcodes 와 동일 규칙)
+ */
+export function getRepairItemCount(repairParts: unknown[] | null | undefined): number {
+  return Array.isArray(repairParts) && repairParts.length > 0 ? repairParts.length : 1;
+}
+
 export interface BarcodeRow {
   order_id: string;
   barcode_no: string;
