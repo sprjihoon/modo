@@ -30,12 +30,10 @@ export default function OutboundPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
-  const [showPackingVideo, setShowPackingVideo] = useState(false); // 포장 완료 영상
   const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
   const [currentItemName, setCurrentItemName] = useState<string>(""); // 촬영 중인 아이템 이름
   const [inboundDurations, setInboundDurations] = useState<Record<number, number>>({});
   const [outboundVideos, setOutboundVideos] = useState<Record<number, { videoId: string; id: string }>>({});
-  const [packingVideo, setPackingVideo] = useState<{ videoId: string; id: string } | null>(null); // 포장 영상
 
   // 수선후 사진 촬영
   const [showAfterPhoto, setShowAfterPhoto] = useState(false);
@@ -262,21 +260,6 @@ export default function OutboundPage() {
         console.log("✅ 출고 영상 조회 완료:", videosMap);
       }
 
-      // 포장 영상 조회 (별도 타입)
-      const packingRes = await fetch(`/api/ops/video/list?orderId=${encodeURIComponent(orderId)}&type=packing_video`);
-      const packingJson = await packingRes.json();
-      if (packingRes.ok && packingJson.success && packingJson.videos) {
-        // sequence 0인 포장 영상 찾기
-        const packingVideos = packingJson.videos["0"] || [];
-        if (Array.isArray(packingVideos) && packingVideos.length > 0) {
-          const latestPacking = packingVideos[packingVideos.length - 1];
-          setPackingVideo({
-            videoId: latestPacking.videoId,
-            id: latestPacking.id,
-          });
-          console.log("✅ 포장 영상 조회 완료:", latestPacking.videoId);
-        }
-      }
     } catch (error) {
       console.error("출고 영상 조회 실패:", error);
     }
@@ -624,31 +607,6 @@ export default function OutboundPage() {
             );
           })()}
 
-          {/* 포장 완료 영상 촬영 */}
-          <button
-            disabled={!result}
-            onClick={() => setShowPackingVideo(true)}
-            className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
-              result
-                ? packingVideo
-                  ? "bg-green-600 text-white hover:bg-green-700"
-                  : "bg-orange-600 text-white hover:bg-orange-700"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            {packingVideo ? (
-              <>
-                <span className="text-lg">✅</span>
-                포장 완료 영상 재촬영
-              </>
-            ) : (
-              <>
-                <Package className="h-5 w-5" />
-                📦 포장 완료 영상 촬영
-              </>
-            )}
-          </button>
-
           {/* 출고 영상 촬영 - 아이템별 */}
           {result && (() => {
             // 렌더링 시점에 모든 값을 추출 (순환 참조 방지)
@@ -897,60 +855,6 @@ export default function OutboundPage() {
         );
       })()}
 
-      {/* 포장 완료 영상 촬영 다이얼로그 */}
-      {showPackingVideo && result && (() => {
-        const orderIdValue = result.orderId;
-        
-        return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
-                <h2 className="text-lg font-semibold">📦 포장 완료 영상 촬영</h2>
-                <button 
-                  onClick={() => {
-                    console.log('🚪 포장 영상 다이얼로그 닫기');
-                    setShowPackingVideo(false);
-                  }} 
-                  className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
-                >
-                  닫기
-                </button>
-              </div>
-              <div className="p-4">
-                <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                  <p className="text-sm text-orange-800">
-                    📦 <strong>포장 완료 영상</strong>은 고객에게 발송 전 포장 상태를 확인할 수 있도록 촬영하는 영상입니다.<br />
-                    포장된 박스 전체가 보이도록 촬영해주세요.
-                  </p>
-                </div>
-                <WebcamRecorder
-                  orderId={orderIdValue}
-                  sequence={0}
-                  existingVideoId={packingVideo?.videoId}
-                  onUploaded={(videoId, duration) => {
-                    console.log(`✅ 포장 완료 영상 업로드 완료: ${videoId}`);
-                    
-                    setShowPackingVideo(false);
-                    
-                    // 영상 목록 새로고침
-                    if (result) {
-                      loadOutboundVideos(result.orderId);
-                    }
-                    
-                    setTimeout(() => {
-                      alert(`✅ 포장 완료 영상이 저장되었습니다.\n\n영상 길이: ${duration}초\n영상 ID: ${videoId}`);
-                    }, 100);
-                  }}
-                  onClose={() => {
-                    console.log('🚪 포장 WebcamRecorder 닫기');
-                    setShowPackingVideo(false);
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* 수선후 사진 촬영 모달 */}
       {showAfterPhoto && result && (() => {
