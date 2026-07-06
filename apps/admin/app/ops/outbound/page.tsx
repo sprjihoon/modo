@@ -32,7 +32,6 @@ export default function OutboundPage() {
   const [showVideo, setShowVideo] = useState(false);
   const [currentVideoSequence, setCurrentVideoSequence] = useState<number>(1);
   const [currentItemName, setCurrentItemName] = useState<string>(""); // 촬영 중인 아이템 이름
-  const [inboundDurations, setInboundDurations] = useState<Record<number, number>>({});
   const [outboundVideos, setOutboundVideos] = useState<Record<number, { videoId: string; id: string }>>({});
 
   // 수선후 사진 촬영
@@ -43,7 +42,6 @@ export default function OutboundPage() {
     if (!trackingNo.trim()) return;
     setIsLoading(true);
     setResult(null);
-    setInboundDurations({});
     try {
       const res = await fetch(`/api/ops/shipments/${encodeURIComponent(trackingNo.trim())}`);
       
@@ -190,17 +188,13 @@ export default function OutboundPage() {
       // state 업데이트 (완전히 새로운 객체)
       setResult(found);
       
-      // 입고 영상 duration 조회
-      const pickupTrackingNo = shipmentData.pickup_tracking_no || shipmentData.tracking_no;
-      await loadInboundDurations(pickupTrackingNo);
-      
       // 출고 영상 조회
       await loadOutboundVideos(found.orderId);
       
       // 수선후 사진 조회
       const existingAfterPhotos = await loadAfterPhotos(found.orderId);
       const hasAfterPhoto = Object.values(existingAfterPhotos).some((p) => p.after);
-      const canRevert = found.status === "READY_TO_SHIP" || found.status === "SHIPPED";
+      const canRevert = found.status === "READY_TO_SHIP" || found.status === "OUT_FOR_DELIVERY";
 
       if (canRevert) {
         // 출고 취소 가능 상태 → 자동 촬영 진입 안함 (취소 버튼 접근 보장)
@@ -217,23 +211,6 @@ export default function OutboundPage() {
       }
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadInboundDurations = async (pickupTrackingNo: string) => {
-    try {
-      const res = await fetch(`/api/ops/video/durations?trackingNo=${pickupTrackingNo}&type=inbound_video`);
-      const json = await res.json();
-      if (json.success && json.durations) {
-        const durationsMap: Record<number, number> = {};
-        json.durations.forEach((item: any) => {
-          durationsMap[item.sequence] = item.duration_seconds;
-        });
-        setInboundDurations(durationsMap);
-        console.log("✅ 입고 영상 duration 로드:", durationsMap);
-      }
-    } catch (e) {
-      console.warn("⚠️ 입고 duration 조회 실패:", e);
     }
   };
 
@@ -326,10 +303,10 @@ export default function OutboundPage() {
       const res = await fetch("/api/ops/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: result.orderId, status: "SHIPPED" }),
+        body: JSON.stringify({ orderId: result.orderId, status: "OUT_FOR_DELIVERY" }),
       });
       if (res.ok) {
-        setResult({ ...result, status: "SHIPPED" });
+        setResult({ ...result, status: "OUT_FOR_DELIVERY" });
         alert("✅ 발송 처리되었습니다.\n택배사에 인계 완료되었습니다.");
       } else {
         const json = await res.json();
@@ -348,7 +325,7 @@ export default function OutboundPage() {
     let revertStatus: string;
     let confirmMessage: string;
     
-    if (result.status === "SHIPPED") {
+    if (result.status === "OUT_FOR_DELIVERY") {
       revertStatus = "READY_TO_SHIP";
       confirmMessage = "발송 처리를 취소하고 출고완료(READY_TO_SHIP) 상태로 되돌리시겠습니까?";
     } else if (result.status === "READY_TO_SHIP") {
@@ -391,12 +368,12 @@ export default function OutboundPage() {
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <div className="flex items-end gap-3">
           <div className="flex-1">
-            <label className="text-sm text-gray-600">송장번호</label>
+            <label className="text-sm text-gray-600">송장번호 / 내부 바코드 / 주문번호</label>
             <input
               value={trackingNo}
               onChange={(e) => setTrackingNo(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-              placeholder="송장번호를 입력/스캔하세요"
+              placeholder="송장번호, 내부 바코드(ORD-…-01), 주문번호를 입력/스캔하세요"
               className="mt-1 w-full border rounded px-3 py-2 text-sm"
             />
           </div>
@@ -611,8 +588,7 @@ export default function OutboundPage() {
           {result && (() => {
             // 렌더링 시점에 모든 값을 추출 (순환 참조 방지)
             const items = result.repairItems || [];
-            const durations = { ...inboundDurations };
-            const itemCount = items.length || Object.keys(durations).length || 1;
+            const itemCount = items.length || 1;
             
             console.log(`🎬 버튼 렌더링: ${itemCount}개 아이템`);
             
@@ -631,7 +607,6 @@ export default function OutboundPage() {
                   // repair_items 정보가 있으면 각 아이템 이름 표시
                   items.map((item, i) => {
                     const seq = i + 1;
-                    const inboundDuration = durations[seq];
                     const itemId = item.id;
                     const itemName = item.repairPart;
                     const existingVideo = outboundVideos[seq];
@@ -659,18 +634,11 @@ export default function OutboundPage() {
                             <div className="text-xs opacity-80">{itemName}</div>
                           </div>
                         </span>
-                        <div className="flex items-center gap-2">
-                          {hasVideo && (
-                            <span className="text-xs bg-white/20 px-2 py-1 rounded">
-                              촬영 완료
-                            </span>
-                          )}
-                          {inboundDuration && (
-                            <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                              입고 {inboundDuration}초
-                            </span>
-                          )}
-                        </div>
+                        {hasVideo && (
+                          <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                            촬영 완료
+                          </span>
+                        )}
                       </button>
                     );
                   })
@@ -678,7 +646,6 @@ export default function OutboundPage() {
                   // repair_items 정보가 없으면 기본 버튼
                   Array.from({ length: itemCount }, (_, i) => {
                     const seq = i + 1;
-                    const inboundDuration = durations[seq];
                     const existingVideo = outboundVideos[seq];
                     const hasVideo = !!existingVideo;
                     
@@ -701,18 +668,11 @@ export default function OutboundPage() {
                           {hasVideo ? <span className="text-lg">✅</span> : <Video className="h-5 w-5" />}
                           {seq}번 아이템 출고 {hasVideo ? "재촬영" : "촬영"}
                         </span>
-                        <div className="flex items-center gap-2">
-                          {hasVideo && (
-                            <span className="text-xs bg-white/20 px-2 py-1 rounded">
-                              촬영 완료
-                            </span>
-                          )}
-                          {inboundDuration && (
-                            <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                              입고 {inboundDuration}초
-                            </span>
-                          )}
-                        </div>
+                        {hasVideo && (
+                          <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                            촬영 완료
+                          </span>
+                        )}
                       </button>
                     );
                   })
@@ -724,9 +684,9 @@ export default function OutboundPage() {
           {/* 출고완료 처리 (포장 완료, 송장 부착) */}
           <button
             onClick={handleReadyToShip}
-            disabled={!result || result.status === "READY_TO_SHIP" || result.status === "SHIPPED" || isProcessing}
-            className={`w-full px-6 py-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
-              result && result.status !== "READY_TO_SHIP" && result.status !== "SHIPPED" && !isProcessing
+            disabled={!result || result.status === "READY_TO_SHIP" || result.status === "OUT_FOR_DELIVERY" || isProcessing}
+          className={`w-full px-6 py-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
+              result && result.status !== "READY_TO_SHIP" && result.status !== "OUT_FOR_DELIVERY" && !isProcessing
                 ? result.addressChangedAfterLabel
                   ? "bg-red-100 text-red-700 border-2 border-red-400 cursor-pointer hover:bg-red-200"
                   : "bg-blue-600 text-white hover:bg-blue-700"
@@ -749,7 +709,7 @@ export default function OutboundPage() {
           {/* 발송 처리 (택배 인계) */}
           <button
             onClick={handleShipped}
-            disabled={!result || result.status !== "READY_TO_SHIP" || isProcessing}
+            disabled={!result || result.status !== "READY_TO_SHIP" || result.status === "OUT_FOR_DELIVERY" || isProcessing}
             className={`w-full px-6 py-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
               result && result.status === "READY_TO_SHIP" && !isProcessing
                 ? "bg-green-600 text-white hover:bg-green-700"
@@ -757,15 +717,15 @@ export default function OutboundPage() {
             }`}
           >
             <Send className="h-5 w-5" />
-            {isProcessing ? "처리 중..." : "발송 처리 (택배 인계)"}
+            {isProcessing ? "처리 중..." : "발송 처리 (OUT_FOR_DELIVERY)"}
           </button>
 
           {/* 출고 취소 (되돌리기) */}
           <button
             onClick={handleOutboundRevert}
-            disabled={!result || (result.status !== "READY_TO_SHIP" && result.status !== "SHIPPED") || isProcessing}
-            className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
-              result && (result.status === "READY_TO_SHIP" || result.status === "SHIPPED") && !isProcessing
+            disabled={!result || (result.status !== "READY_TO_SHIP" && result.status !== "OUT_FOR_DELIVERY") || isProcessing}
+          className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
+              result && (result.status === "READY_TO_SHIP" || result.status === "OUT_FOR_DELIVERY") && !isProcessing
                 ? "bg-red-600 text-white hover:bg-red-700"
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
@@ -778,8 +738,8 @@ export default function OutboundPage() {
         {/* 상태 안내 */}
         <div className="mt-4 text-xs text-gray-500 text-center">
           {!result
-            ? "송장을 스캔하면 버튼이 활성화됩니다"
-            : result.status === "SHIPPED"
+            ? "송장 또는 내부 바코드를 스캔하면 버튼이 활성화됩니다"
+            : result.status === "OUT_FOR_DELIVERY"
               ? "발송 완료 상태입니다. 되돌리기로 이전 상태로 변경할 수 있습니다."
               : result.status === "READY_TO_SHIP"
                 ? "출고완료 상태입니다. 택배 인계 후 발송 처리해주세요."
@@ -792,7 +752,6 @@ export default function OutboundPage() {
         // 렌더링 시점에 값을 추출 (클로저 순환 참조 방지)
         const seq = currentVideoSequence;
         const itemName = currentItemName;
-        const duration = inboundDurations[seq];
         const orderIdValue = result.orderId;
         
         return (
@@ -806,11 +765,6 @@ export default function OutboundPage() {
                   {itemName && (
                     <p className="text-sm text-purple-600 mt-1">
                       {itemName}
-                    </p>
-                  )}
-                  {duration && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      💡 입고 영상: {duration}초 (참고용)
                     </p>
                   )}
                 </div>
@@ -828,7 +782,6 @@ export default function OutboundPage() {
                 <WebcamRecorder
                   orderId={orderIdValue}
                   sequence={seq}
-                  maxDuration={duration}
                   existingVideoId={outboundVideos[seq]?.videoId}
                   onUploaded={(videoId, uploadDuration) => {
                     console.log(`✅ ${seq}번 업로드 완료: ${videoId}`);

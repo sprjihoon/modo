@@ -15,7 +15,7 @@ import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
 import { ReturnShipmentButton } from "@/components/orders/return-shipment-button";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
-import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send } from "lucide-react";
+import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image } from "lucide-react";
 
 interface OrderDetailPageProps {
   // params is now handled via useParams() in Next.js 15
@@ -40,6 +40,8 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
   const [selectedVideo, setSelectedVideo] = useState<MediaVideo | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isCompletingReturn, setIsCompletingReturn] = useState(false);
+  const [barcodes, setBarcodes] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<Record<number, { before?: string; after?: string }>>({});
 
   const handleCompleteReturn = async () => {
     if (!order?.id) return;
@@ -83,6 +85,10 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
           console.log('👤 사용자 ID:', data.order.user_id);
           setOrder(data.order);
           setVideos(data.order.videos || []);
+
+          // Load barcodes and photos
+          loadBarcodes(params.id);
+          loadPhotos(params.id);
           
           // Load user data for point management
           if (data.order.user_id) {
@@ -102,6 +108,26 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
       console.error('주문 로드 실패:', error);
     } finally {
       setIsLoadingOrder(false);
+    }
+  };
+
+  const loadBarcodes = async (id: string) => {
+    try {
+      const res = await fetch(`/api/ops/barcodes?orderId=${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (data.success) setBarcodes(data.barcodes || []);
+    } catch (e) {
+      console.warn("바코드 로드 실패:", e);
+    }
+  };
+
+  const loadPhotos = async (id: string) => {
+    try {
+      const res = await fetch(`/api/ops/photo/upload?orderId=${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (data.success) setPhotos(data.photos || {});
+    } catch (e) {
+      console.warn("사진 로드 실패:", e);
     }
   };
 
@@ -404,6 +430,12 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
               송장 출력
             </Button>
           )}
+          {barcodes.length > 0 && (
+            <Button variant="outline" onClick={() => window.open(`/ops/print/barcodes?orderId=${params.id}`, "_blank")}>
+              <Tag className="h-4 w-4 mr-2" />
+              바코드 출력
+            </Button>
+          )}
           <StatusChangeDialog
             orderId={displayOrder.id}
             trackingNo={displayOrder.trackingNo}
@@ -500,7 +532,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
               }</Badge>
             </div>
             {/* 작업지시서는 입고처리(INBOUND/RECEIVED) 이후만 표시 */}
-            {['INBOUND', 'RECEIVED', 'IN_REPAIR', 'REPAIR_COMPLETED', 'SHIPPED', 'DELIVERED', 'COMPLETED'].includes(displayOrder.status) && (
+            {['INBOUND', 'PROCESSING', 'READY_TO_SHIP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(displayOrder.status) && (
               <div className="pt-4 border-t">
                 <WorkOrderPrintDialog order={order} />
               </div>
@@ -1082,6 +1114,96 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 내부 바코드 섹션 */}
+      {barcodes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Tag className="h-5 w-5 text-indigo-600" />
+              내부 바코드 ({barcodes.length}개)
+            </CardTitle>
+            <CardDescription>입고 시 생성된 내부 제품 바코드입니다</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {barcodes.map((bc: any) => (
+                <div key={bc.id} className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+                  <span className="text-xs bg-indigo-600 text-white px-1.5 py-0.5 rounded font-bold">
+                    #{bc.seq}
+                  </span>
+                  <span className="font-mono text-sm font-medium text-indigo-800">{bc.barcode_no}</span>
+                  {bc.item_name && <span className="text-xs text-gray-500">({bc.item_name})</span>}
+                  {bc.printed_at && (
+                    <span className="text-xs text-green-600">✓ 출력됨</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="mt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`/ops/print/barcodes?orderId=${params.id}`, "_blank")}
+              >
+                <Tag className="h-4 w-4 mr-1" />
+                바코드 라벨 출력
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 수선 전/후 사진 섹션 */}
+      {Object.keys(photos).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Image className="h-5 w-5 text-teal-600" />
+              수선 전/후 사진
+            </CardTitle>
+            <CardDescription>입고(수선 전) 및 출고(수선 후) 시 촬영된 사진입니다</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {Object.entries(photos).map(([seqStr, photo]: [string, any]) => {
+                const seq = parseInt(seqStr);
+                return (
+                  <div key={seq} className="space-y-2">
+                    <p className="text-sm font-medium text-gray-700">#{seq}번 아이템</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {photo.before ? (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">수선 전</p>
+                          <a href={photo.before} target="_blank" rel="noopener noreferrer">
+                            <img src={photo.before} alt={`#${seq} 수선전`} className="w-full aspect-square object-cover rounded border hover:opacity-80 transition-opacity" />
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="w-full aspect-square bg-gray-100 rounded border flex items-center justify-center">
+                          <span className="text-xs text-gray-400">수선 전 없음</span>
+                        </div>
+                      )}
+                      {photo.after ? (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">수선 후</p>
+                          <a href={photo.after} target="_blank" rel="noopener noreferrer">
+                            <img src={photo.after} alt={`#${seq} 수선후`} className="w-full aspect-square object-cover rounded border hover:opacity-80 transition-opacity" />
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="w-full aspect-square bg-gray-100 rounded border flex items-center justify-center">
+                          <span className="text-xs text-gray-400">수선 후 없음</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import type { Database } from "@/lib/database.types";
 
 type ShipmentStatus = Database["public"]["Enums"]["shipment_status"];
-type OpsStatus = Extract<ShipmentStatus, "PROCESSING" | "READY_TO_SHIP" | "DELIVERED">;
+type OpsStatus = Extract<ShipmentStatus, "PROCESSING" | "READY_TO_SHIP" | "OUT_FOR_DELIVERY" | "DELIVERED">;
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "orderId and status are required" }, { status: 400 });
     }
 
-    const allowed: OpsStatus[] = ["PROCESSING", "READY_TO_SHIP", "DELIVERED"];
+    const allowed: OpsStatus[] = ["PROCESSING", "READY_TO_SHIP", "OUT_FOR_DELIVERY", "DELIVERED"];
     if (!allowed.includes(status)) {
       return NextResponse.json({ error: "invalid status" }, { status: 400 });
     }
