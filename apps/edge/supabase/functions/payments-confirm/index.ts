@@ -1,4 +1,4 @@
-// PortOne V2 ?? ?? (?? ?? ??)
+// PortOne V2 ?? ?? (??? ????)
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -29,8 +29,6 @@ serve(async (req) => {
       pickup_payload,
     } = await req.json()
 
-    // amount? isCreateOrderFlow(?? intent ?? ??)?? ???
-    // ? ?? payment_intents.total_price? ??? ??? ??
     let amount: number | undefined = rawAmount ? Number(rawAmount) : undefined
 
     if (!payment_id || !order_id) {
@@ -42,7 +40,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // ?? ??: pickup_payload ? ??? ?? ? orders INSERT
     const isCreateOrderFlow = !is_extra_charge && pickup_payload && typeof pickup_payload === 'object'
 
     let originalAmount: number | null = null
@@ -57,7 +54,7 @@ serve(async (req) => {
 
       if (error || !data) throw new Error('?? ??? ?? ? ????.')
       if (data.extra_charge_status !== 'PENDING_CUSTOMER') {
-        throw new Error('?? ?? ??? ??? ????.')
+        throw new Error('?? ?? ????? ????.')
       }
 
       const extraChargeData = data.extra_charge_data || {}
@@ -86,11 +83,10 @@ serve(async (req) => {
       if (m) {
         intentId = m[0]
       } else if (HEX32_RE.test(rawId)) {
-        // KCP ?? paymentId (UUID ?? ?? ??) ? UUID? ??
         intentId = `${rawId.slice(0,8)}-${rawId.slice(8,12)}-${rawId.slice(12,16)}-${rawId.slice(16,20)}-${rawId.slice(20)}`
       }
 
-      if (!intentId) throw new Error('order_id ?? UUID(intent_id) ??? ??????.')
+      if (!intentId) throw new Error('order_id ? UUID(intent_id) ????? ???.')
 
       const { data: intent, error: intentErr } = await supabaseClient
         .from('payment_intents')
@@ -98,7 +94,7 @@ serve(async (req) => {
         .eq('id', intentId)
         .maybeSingle()
 
-      if (intentErr || !intent) throw new Error('?? ??? ?? ? ????.')
+      if (intentErr || !intent) throw new Error('?? ???? ?? ? ????.')
 
       if (intent.consumed_at && intent.consumed_order_id) {
         return new Response(
@@ -115,11 +111,10 @@ serve(async (req) => {
         )
       }
       if (new Date(intent.expires_at).getTime() < Date.now()) {
-        throw new Error('?? ??? ???????. ?? ??????.')
+        throw new Error('?? ???? ???????. ?? ??????.')
       }
 
       originalAmount = intent.total_price
-      // ?????? amount? ??? ???? intent.total_price? ??
       if (!amount) amount = originalAmount
       orderData = {
         _pending_insert: true,
@@ -129,7 +124,6 @@ serve(async (req) => {
       }
 
     } else {
-      // ?? ??: ?? orders ??
       const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
       let lookupId: string | null = null
       if (typeof original_order_id === 'string' && UUID_RE.test(original_order_id)) {
@@ -137,7 +131,7 @@ serve(async (req) => {
       } else if (typeof order_id === 'string' && UUID_RE.test(order_id)) {
         lookupId = order_id.match(UUID_RE)![0]
       }
-      if (!lookupId) throw new Error('?? ID ??? ???????. (UUID ??)')
+      if (!lookupId) throw new Error('?? ID ??? ???? ????. (UUID ??)')
 
       const { data, error } = await supabaseClient
         .from('orders')
@@ -162,14 +156,13 @@ serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
-        throw new Error('?? ??? ?????.')
+        throw new Error('?? ??? ??? ?????.')
       }
 
       originalAmount = data.total_price
       orderData = { ...data, _resolved_id: lookupId }
     }
 
-    // ?? ??
     if (originalAmount && originalAmount !== amount) {
       throw new Error(`?? ??? ???? ????. ????: ${originalAmount}?, ????: ${amount}?`)
     }
@@ -187,9 +180,8 @@ serve(async (req) => {
     }
 
     if (amount && portoneData.amount?.total !== amount) {
-      throw new Error(`?? ??? ???? ????. ????: ${portoneData.amount?.total}?, ????: ${amount}?`)
+      throw new Error(`?? ??? ???? ????. ???: ${portoneData.amount?.total}?, ??: ${amount}?`)
     }
-    // amount? ?? ?? portoneData.amount.total? ??? ?? ??
     if (!amount) amount = portoneData.amount?.total
 
     const paidAt = portoneData.paidAt || new Date().toISOString()
@@ -197,7 +189,6 @@ serve(async (req) => {
 
     console.log('? ??? V2 ?? ?? ??:', order_id)
 
-    // ?? DB ???? ??
     if (is_extra_charge && original_order_id) {
       const updatedExtraChargeData = {
         ...(orderData.extra_charge_data || {}),
@@ -227,7 +218,7 @@ serve(async (req) => {
             user_id: manager.id,
             type: 'extra_charge_status_changed',
             title: '?? ?? ??',
-            body: `??(${orderData.order_number || original_order_id})? ?? ??? ???????. ??? ?????.`,
+            body: `??(${orderData.order_number || original_order_id})? ?? ??? ???????. ??? ??????.`,
             order_id: original_order_id,
             metadata: { extra_charge_status: 'COMPLETED', amount, payment_id },
           }))
@@ -252,7 +243,7 @@ serve(async (req) => {
           user_id: orderData.worker_id,
           type: 'EXTRA_CHARGE_RESPONSE',
           title: '?? ?? ?? ??',
-          body: `??? ?? ?? ?? ${amount.toLocaleString()}?? ??????.`,
+          body: `??? ?? ?? ${amount.toLocaleString()}?? ??????.`,
           metadata: { requestId: order_id, orderId: orderData.order_id, paymentId: payment_id },
         })
       }
@@ -271,8 +262,8 @@ serve(async (req) => {
         paid_at: paidAt,
         order_number: orderNumber,
         item_name: pickup.itemName,
-        clothing_type: pickup.clothingType || '???',
-        repair_type: pickup.repairType || '???',
+        clothing_type: pickup.clothingType || '??',
+        repair_type: pickup.repairType || '??',
         pickup_address: pickup.pickupAddress,
         pickup_address_detail: pickup.pickupAddressDetail || null,
         pickup_zipcode: pickup.pickupZipcode || null,
@@ -319,7 +310,6 @@ serve(async (req) => {
       if (!inserted) {
         console.error('?? insert ??:', lastErr)
 
-        // ?????? ?? ?? ?? (????? ?? ?? ??? ?? ?? ??)
         try {
           const { data: admins } = await supabaseClient
             .from('users')
@@ -332,20 +322,15 @@ serve(async (req) => {
                 type: 'ORDER_CREATE_FAILED',
                 title: '?? ?? ? ?? ?? ??',
                 body: `?? ${payment_id}? ????? ?? ??? ??????. payment_intents ID: ${intentId}`,
-                metadata: {
-                  payment_id,
-                  intent_id: intentId,
-                  amount,
-                  error: lastErr?.message,
-                },
+                metadata: { payment_id, intent_id: intentId, amount, error: lastErr?.message },
               }))
             )
           }
         } catch (notifyErr) {
-          console.error('???? ?? ??(??):', notifyErr)
+          console.error('??? ?? ?? ??(??):', notifyErr)
         }
 
-        throw new Error('?? ??? ??????. ??? ??? ?????.')
+        throw new Error('??? ?????? ?? ??? ??????. ????? ??????.')
       }
 
       const newOrderId = (inserted as any).id as string
@@ -356,7 +341,7 @@ serve(async (req) => {
           .update({ consumed_at: new Date().toISOString(), consumed_order_id: newOrderId })
           .eq('id', intentId)
       } catch (e) {
-        console.log('intent consume ???? ??(??):', e)
+        console.log('intent consume ?? ??(??):', e)
       }
 
       try {
@@ -371,12 +356,47 @@ serve(async (req) => {
         console.log('?? ?? ??(??):', e)
       }
 
+      // ?? ?? ????? ?? (JWT ??? - service_role key ??)
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        const shipmentRes = await fetch(`${supabaseUrl}/functions/v1/shipments-book`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({
+            order_id: newOrderId,
+            customer_name: pickup.customerName || '??',
+            pickup_address: pickup.pickupAddress || '',
+            pickup_address_detail: pickup.pickupAddressDetail || '',
+            pickup_zipcode: pickup.pickupZipcode || '',
+            pickup_phone: pickup.pickupPhone || '',
+            delivery_address: pickup.deliveryAddress || pickup.pickupAddress || '',
+            delivery_address_detail: pickup.deliveryAddressDetail || pickup.pickupAddressDetail || '',
+            delivery_zipcode: pickup.deliveryZipcode || pickup.pickupZipcode || '',
+            delivery_phone: pickup.deliveryPhone || pickup.pickupPhone || '',
+            delivery_message: pickup.notes || '',
+            test_mode: false,
+          }),
+        })
+        const shipmentData = await shipmentRes.json()
+        if (shipmentRes.ok && shipmentData.success) {
+          const trackingNo = shipmentData.data?.tracking_no ?? shipmentData.data?.pickup_tracking_no
+          console.log('? ?? ?? ??. ????:', trackingNo)
+        } else {
+          console.error('? ?? ?? ?? (??? ??):', JSON.stringify(shipmentData))
+        }
+      } catch (shipErr) {
+        console.error('? ?? ?? ?? ?? (??? ??):', shipErr)
+      }
+
       orderData._resolved_id = newOrderId
       orderData.user_id = internalUserId
-      console.log('? ?? ??: ?? ? ?? ?? ??', newOrderId)
+      console.log('? ?? ??: ?? ? ?? ?? + ???? ??', newOrderId)
 
     } else {
-      // ?? ??
       const ordersId = orderData?._resolved_id || order_id
       await supabaseClient
         .from('orders')

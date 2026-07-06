@@ -136,10 +136,6 @@ export function PaymentSuccessClient() {
       const newOrderId = (data.data?.orderId as string | undefined) ?? dbOrderId;
       Analytics.paymentSuccess(newOrderId, data.data?.totalAmount ?? 0, data.data?.method);
 
-      if (!isExtraCharge && newOrderId) {
-        await bookShipmentAfterPayment(supabase, newOrderId);
-      }
-
       redirectTimerRef.current = setTimeout(() => {
         const target = isExtraCharge ? dbOrderId : newOrderId;
         router.replace(`/orders/${target}${isExtraCharge ? "" : "?paid=true"}`);
@@ -147,51 +143,6 @@ export function PaymentSuccessClient() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "결제 검증 중 오류가 발생했습니다.");
       setStatus("error");
-    }
-  }
-
-  async function bookShipmentAfterPayment(
-    supabase: ReturnType<typeof createClient>,
-    orderId: string
-  ) {
-    try {
-      // 주문 정보 로드 (모바일의 _orderData에 해당)
-      const { data: order } = await supabase
-        .from("orders")
-        .select(
-          "customer_name, pickup_address, pickup_address_detail, pickup_zipcode, pickup_phone, delivery_address, delivery_address_detail, delivery_zipcode, delivery_phone, notes"
-        )
-        .eq("id", orderId)
-        .single();
-
-      if (!order?.pickup_address || !order?.customer_name) {
-        console.warn("⚠️ 수거 예약 스킵: 주소 또는 고객 정보 없음");
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke("shipments-book", {
-        body: {
-          order_id: orderId,
-          customer_name: order.customer_name,
-          pickup_address: order.pickup_address,
-          pickup_phone: order.pickup_phone ?? "",
-          pickup_zipcode: order.pickup_zipcode ?? "",
-          delivery_address: order.delivery_address ?? order.pickup_address,
-          delivery_phone: order.delivery_phone ?? order.pickup_phone ?? "",
-          delivery_zipcode: order.delivery_zipcode ?? order.pickup_zipcode ?? "",
-          delivery_message: order.notes ?? "",
-          test_mode: false,
-        },
-      });
-
-      if (error) {
-        console.error("❌ 수거 예약 실패:", error);
-      } else {
-        const trackingNo = data?.data?.tracking_no ?? data?.data?.pickup_tracking_no;
-        console.log("✅ 수거 예약 완료. 송장번호:", trackingNo);
-      }
-    } catch (e) {
-      console.error("❌ 수거 예약 오류 (무시):", e);
     }
   }
 
