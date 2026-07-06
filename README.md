@@ -137,6 +137,14 @@ export default function HomePage() {
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-07-06 | 결제 완료 알림 한글 깨짐 | `payments-confirm` Edge Function 파일 인코딩 오류로 한글이 `??`로 저장 → 파일 전체 UTF-8 재작성. 기존 깨진 알림은 Supabase에서 직접 수정 필요 |
+| 2026-07-06 | 결제 취소 후 주문 상태 미변경 | `pay/cancel` API·`webhook` (`Transaction.Cancelled`) 전체 취소 시 `orders.status`를 `CANCELLED`로 업데이트하지 않던 문제 수정 |
+| 2026-07-06 | 취소/반송 보기 목록 0건 표시 | 통계는 날짜 필터 없이 전체, 목록은 30일 필터 적용 → 불일치. 취소/반송 보기에서 날짜 필터 제거 |
+| 2026-07-06 | 어드민 원시값 UI 일괄 수정 | 주문 상세·대시보드·고객 상세·결제 관리에서 `PROCESSING`, `PaymentMethodCard`, `PAID` 등 코드값이 그대로 노출되던 문제를 한글 레이블로 변환 |
+| 2026-07-06 | 결제 취소 다이얼로그 결제수단 원시값 | `PaymentMethodCard` → `신용카드` 등 PortOne V2 타입명 매핑 추가 (`payment-refund-dialog.tsx`, `payments/page.tsx`) |
+| 2026-07-06 | 주문 타임라인 취소/반송 상태 미표시 | `CANCELLED`, `RETURN_PENDING`, `RETURN_SHIPPING`, `RETURN_DONE` 상태에서 모든 단계가 회색으로 표시되던 문제 수정. 해당 상태 전용 배너 표시 |
+| 2026-07-06 | 취소/반송 보기 전체화면 스피너 | `cancelView` 모드 진입 시 `stats === null` 조건으로 전체화면 로딩 스피너가 계속 뜨던 문제 수정 |
+| 2026-07-06 | analytics stats 날짜 필터 무시 | `/api/analytics/stats`의 `getOrderStats`, `getPaymentStats` 함수가 `startDate`/`endDate` 파라미터를 받되 실제 쿼리에 적용하지 않던 문제 수정 |
 | 2026-07-01 | PG 심사용 샵 페이지 추가 | `/shop` · `/shop/checkout` · `/shop/complete` 신규 추가, 루트 `/` → `/shop` 임시 리다이렉트 |
 | 2026-07-01 | 전화번호 저장 409 충돌 | `users_phone_unique` 인덱스가 문자열 그대로 비교하여 `010-2723-9490` ≠ `01027239490` 로 처리. 저장 시 하이픈·공백 제거 정규화 적용 (`AccountClient.tsx`), DB 중복 레코드 정리 |
 | 2026-07-01 | 수선신청 FAB 버튼 텍스트 줄바꿈 | 좁은 화면에서 "수선신청 하기" 텍스트가 줄바꿈 되던 문제. `whitespace-nowrap` + `clamp()` 로 비율적 축소 처리 |
