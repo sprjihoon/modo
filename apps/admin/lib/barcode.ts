@@ -1,0 +1,83 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * repair_parts 배열 항목을 사람이 읽을 수 있는 문자열로 정규화
+ */
+export function normalizeRepairPart(raw: unknown): string {
+  if (raw == null) return "";
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (s.startsWith("{")) {
+      try {
+        const obj = JSON.parse(s) as { name?: string; quantity?: number; detail?: string };
+        const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
+        return `${obj.name ?? s}${qty}${obj.detail ? ` (${obj.detail})` : ""}`;
+      } catch {
+        return s;
+      }
+    }
+    return s;
+  }
+  if (typeof raw === "object") {
+    const obj = raw as { name?: string; quantity?: number; detail?: string };
+    const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
+    return `${obj.name ?? ""}${qty}${obj.detail ? ` (${obj.detail})` : ""}`;
+  }
+  return String(raw);
+}
+
+/**
+ * 바코드 번호 생성: {order_number}-{seq:02d}
+ * 예: ORD-20260706-001-01
+ */
+export function buildBarcodeNo(orderNumber: string, seq: number): string {
+  return `${orderNumber}-${String(seq).padStart(2, "0")}`;
+}
+
+export interface BarcodeRow {
+  order_id: string;
+  barcode_no: string;
+  seq: number;
+  item_name: string | null;
+}
+
+/**
+ * order_barcodes 레코드 INSERT (입고 처리 시 호출)
+ * 이미 존재하면 무시 (upsert ignoreDuplicates)
+ */
+export async function generateOrderBarcodes(
+  db: SupabaseClient,
+  orderId: string,
+  orderNumber: string,
+  repairParts: unknown[],
+): Promise<{ rows: BarcodeRow[]; error: string | null }> {
+  const parts = repairParts.length > 0 ? repairParts : [null];
+
+  const rows: BarcodeRow[] = parts.map((part, i) => ({
+    order_id: orderId,
+    barcode_no: buildBarcodeNo(orderNumber, i + 1),
+    seq: i + 1,
+    item_name: normalizeRepairPart(part).slice(0, 40) || null,
+  }));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (db as any)
+    .from("order_barcodes")
+    .upsert(rows, { onConflict: "barcode_no", ignoreDuplicates: true })
+    .select() as { data: BarcodeRow[] | null; error: { message: string } | null };
+
+  if (error) return { rows: [], error: error.message };
+  return { rows: (data ?? rows) as BarcodeRow[], error: null };
+}
+
+/**
+ * order_barcodes printed_at 일괄 갱신
+ */
+export async function markBarcodesAsPrinted(db: SupabaseClient, orderId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (db as any)
+    .from("order_barcodes")
+    .update({ printed_at: new Date().toISOString() })
+    .eq("order_id", orderId)
+    .is("printed_at", null);
+}

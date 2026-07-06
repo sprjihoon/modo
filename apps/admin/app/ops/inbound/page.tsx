@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Scan, Package, Search, FileText, Printer, AlertTriangle } from "lucide-react";
+import { Scan, Package, Search, FileText, Printer, AlertTriangle, Tag } from "lucide-react";
 import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin } from "@/components/ops/work-order-sheet";
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
@@ -800,6 +800,23 @@ export default function InboundPage() {
           >
             <Printer className="h-5 w-5" suppressHydrationWarning />
             출고 송장 라벨 출력
+          </button>
+
+          {/* 내부 바코드 라벨 출력 */}
+          <button
+            disabled={!result || result.status !== "INBOUND"}
+            onClick={() => {
+              if (!result?.orderId) return;
+              window.open(`/ops/print/barcodes?orderId=${result.orderId}&autoprint=1`, "_blank");
+            }}
+            className={`w-full px-6 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
+              result && result.status === "INBOUND"
+                ? "bg-orange-500 text-white hover:bg-orange-600"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            <Tag className="h-5 w-5" suppressHydrationWarning />
+            내부 바코드 라벨 출력
           </button>
 
           {/* 입고 처리 */}

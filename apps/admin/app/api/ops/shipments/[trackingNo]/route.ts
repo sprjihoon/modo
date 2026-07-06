@@ -62,12 +62,14 @@ export async function GET(
 
     console.log("📦 Shipment 조회 결과:", { shipment: resolvedShipment, error: primaryError });
 
-    // 기본 조회에서 못 찾은 경우: orders.tracking_no로 보조 조회 (스키마 차이 대응)
+    // 기본 조회에서 못 찾은 경우: orders.tracking_no 또는 order_number로 보조 조회
+    let scannedItemSeq: number | null = null;
+
     if (!resolvedShipment) {
       const { data: orderByTracking, error: orderByTrackingError } = await supabaseAdmin
         .from("orders")
         .select("id")
-        .eq("tracking_no", trackingNo)
+        .or(`tracking_no.eq.${trackingNo},order_number.eq.${trackingNo}`)
         .maybeSingle();
 
       if (orderByTrackingError) {
@@ -85,6 +87,26 @@ export async function GET(
           return NextResponse.json({ error: shipmentByOrderError.message }, { status: 500 });
         }
         resolvedShipment = shipmentByOrder;
+      }
+    }
+
+    // 내부 바코드(order_barcodes)로 조회
+    if (!resolvedShipment) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: barcodeRow } = await (supabaseAdmin as any)
+        .from("order_barcodes")
+        .select("order_id, seq")
+        .eq("barcode_no", trackingNo)
+        .maybeSingle() as { data: { order_id: string; seq: number } | null };
+
+      if (barcodeRow?.order_id) {
+        scannedItemSeq = barcodeRow.seq;
+        const { data: shipmentByBarcode } = await supabaseAdmin
+          .from("shipments")
+          .select("*")
+          .eq("order_id", barcodeRow.order_id)
+          .maybeSingle();
+        resolvedShipment = shipmentByBarcode;
       }
     }
 
@@ -133,10 +155,11 @@ export async function GET(
       data: {
         shipment: {
           ...resolvedShipment,
-          delivery_info: deliveryInfo, // 파싱된 delivery_info 사용
-          delivery_tracking_no: deliveryTrackingNo, // 명시적으로 설정
+          delivery_info: deliveryInfo,
+          delivery_tracking_no: deliveryTrackingNo,
         },
         order,
+        scannedItemSeq,
       },
     });
   } catch (error: any) {

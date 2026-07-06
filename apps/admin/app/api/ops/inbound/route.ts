@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { generateOrderBarcodes } from "@/lib/barcode";
 
 export async function POST(request: NextRequest) {
   try {
@@ -83,11 +84,36 @@ export async function POST(request: NextRequest) {
       throw new Error(orderError.message);
     }
 
+    // 4. 내부 바코드 자동 생성
+    let barcodesGenerated = 0;
+    let barcodeError: string | null = null;
+
+    const { data: orderForBarcode } = await supabaseAdmin
+      .from("orders")
+      .select("order_number, repair_parts")
+      .eq("id", orderId)
+      .single();
+
+    if (orderForBarcode?.order_number) {
+      const repairParts: unknown[] = Array.isArray(orderForBarcode.repair_parts)
+        ? orderForBarcode.repair_parts
+        : [];
+      const { rows, error: bcErr } = await generateOrderBarcodes(
+        supabaseAdmin,
+        orderId,
+        orderForBarcode.order_number,
+        repairParts,
+      );
+      barcodesGenerated = rows.length;
+      barcodeError = bcErr;
+    }
+
     return NextResponse.json({
       success: true,
       message: "입고 처리가 완료되었습니다",
       outboundTrackingNo,
-      error: outboundErrorMsg, // 에러 메시지 전달
+      barcodesGenerated,
+      error: outboundErrorMsg ?? barcodeError,
     });
   } catch (error: any) {
     console.error("입고 처리 오류:", error);

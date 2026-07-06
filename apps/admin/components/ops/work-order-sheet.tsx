@@ -49,7 +49,13 @@ export interface WorkOrderPin {
   memo: string;
 }
 
-export function WorkOrderSheet({ data }: { data: WorkOrderData }) {
+export function WorkOrderSheet({
+  data,
+  highlightedPartIndex,
+}: {
+  data: WorkOrderData;
+  highlightedPartIndex?: number;
+}) {
   const imageCount = data.images?.length || 0;
   const getImageLayout = () => {
     if (imageCount === 0) return { cols: 0, rows: 0 };
@@ -213,12 +219,18 @@ export function WorkOrderSheet({ data }: { data: WorkOrderData }) {
             <div className="flex flex-wrap gap-1 mt-1">
               {data.repairParts.map((part, idx) => {
                 const f = formatRepairPart(part);
+                const isHL = highlightedPartIndex !== undefined && highlightedPartIndex === idx;
                 return (
                   <span
                     key={idx}
-                    className="px-1 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium"
+                    className={`px-1 py-0.5 rounded-full text-xs font-medium ${
+                      isHL
+                        ? "bg-blue-500 text-white ring-2 ring-blue-300"
+                        : "bg-purple-100 text-purple-700"
+                    }`}
                     title={f.sub}
                   >
+                    {isHL && "▶ "}
                     {f.label}
                     {f.sub ? ` (${f.sub})` : ""}
                   </span>
