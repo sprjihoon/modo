@@ -380,8 +380,7 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       {maxDuration && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
-            ⏱️ 입고 영상과 동일하게 <strong>{maxDuration}초</strong>로 촬영됩니다.
-            {maxDuration}초 후 자동 종료됩니다.
+            ⏱️ <strong>{maxDuration}초</strong> 후 자동으로 촬영이 종료됩니다.
           </p>
         </div>
       )}

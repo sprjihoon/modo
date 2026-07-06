@@ -78,8 +78,8 @@ async function handleFileUpload(
       console.error("❌ shipment 조회 실패:", e);
     }
 
-    // 영상 타입 결정: sequence 0 = 포장 영상, 그 외 = 출고 영상
-    const videoType = sequence === 0 ? "packing_video" : "outbound_video";
+    // 영상 타입: 출고 영상
+    const videoType = "outbound_video";
     console.log(`📦 영상 타입: ${videoType} (sequence: ${sequence})`);
 
     // 🔄 Feature Flag: TUS Protocol vs Direct Upload
