@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       affectedOrder = updatedOrder;
     }
 
-    // 고객에게 FCM 푸시 알림 발송 (notifications-send Edge Function 호출)
+    // 고객에게 알림 발송 (DB insert + FCM 푸시)
     try {
       if (affectedOrder?.user_id) {
         const canceledAmount = cancelAmount ?? affectedOrder.total_price;
@@ -100,23 +100,40 @@ export async function POST(request: NextRequest) {
           ? `주문(${affectedOrder.order_number || affectedOrder.id.slice(-8)})이 취소되었습니다. 결제하신 ${(canceledAmount ?? 0).toLocaleString()}원이 환불 처리됩니다.`
           : `주문(${affectedOrder.order_number || affectedOrder.id.slice(-8)})에서 ${(canceledAmount ?? 0).toLocaleString()}원이 부분 환불 처리됩니다.`;
 
-        const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        await fetch(`${supabaseUrl}/functions/v1/notifications-send`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceRoleKey}`,
-          },
-          body: JSON.stringify({
-            user_id: affectedOrder.user_id,
-            type: isTotalCancel ? "order_cancelled" : "order_partial_refund",
-            title: notifTitle,
-            body: notifBody,
-            order_id: affectedOrder.id,
-          }),
+        // 1. notifications 테이블에 저장
+        await supabase.from("notifications").insert({
+          user_id: affectedOrder.user_id,
+          type: isTotalCancel ? "order_cancelled" : "order_partial_refund",
+          title: notifTitle,
+          body: notifBody,
+          order_id: affectedOrder.id,
         });
+
+        // 2. 고객 FCM 토큰 조회 후 푸시 전송
+        const { data: userRow } = await supabase
+          .from("users")
+          .select("fcm_token")
+          .eq("id", affectedOrder.user_id)
+          .maybeSingle();
+
+        if (userRow?.fcm_token) {
+          const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${serviceRoleKey}`,
+            },
+            body: JSON.stringify({
+              userId: affectedOrder.user_id,
+              orderId: affectedOrder.id,
+              title: notifTitle,
+              body: notifBody,
+              fcmToken: userRow.fcm_token,
+            }),
+          });
+        }
       }
     } catch (e) {
       console.log("취소 알림 발송 실패:", e);
