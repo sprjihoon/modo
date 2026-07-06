@@ -238,6 +238,20 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
               duration: Duration(seconds: 2),
             ),
           );
+        } else if (newStatus == 'CANCELLED') {
+          final paymentStatus = order['payment_status'] as String?;
+          final refundMsg = (paymentStatus == 'CANCELED')
+              ? '결제 금액이 환불 처리됩니다. 3~5 영업일이 소요될 수 있습니다.'
+              : (paymentStatus == 'PARTIAL_CANCELED')
+                  ? '부분 환불이 처리됩니다. 3~5 영업일이 소요될 수 있습니다.'
+                  : '주문이 취소되었습니다.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(refundMsg),
+              backgroundColor: Colors.red.shade600,
+              duration: const Duration(seconds: 4),
+            ),
+          );
         }
       }
 
@@ -934,7 +948,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '수거 취소됨',
+                          '주문 취소됨',
                           style: TextStyle(
                             color: Colors.red.shade700,
                             fontSize: 12,
@@ -943,6 +957,25 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (_) {
+                      final paymentStatus = _orderData?['payment_status'] as String?;
+                      final refundMsg = (paymentStatus == 'CANCELED')
+                          ? '결제 금액이 환불 처리됩니다.\n카드사에 따라 3~5 영업일이 소요될 수 있습니다.'
+                          : (paymentStatus == 'PARTIAL_CANCELED')
+                              ? '부분 환불이 처리됩니다.\n카드사에 따라 3~5 영업일이 소요될 수 있습니다.'
+                              : '수거 예약이 취소되었습니다.';
+                      return Text(
+                        refundMsg,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                          height: 1.5,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
