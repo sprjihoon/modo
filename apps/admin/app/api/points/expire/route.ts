@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/ops-auth";
 
 export const dynamic = 'force-dynamic';
 
 // POST: 만료된 포인트 수동 소멸 실행
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     // expire_points_manual 함수 호출
     const { data, error } = await (supabaseAdmin as any).rpc('expire_points_manual');
 

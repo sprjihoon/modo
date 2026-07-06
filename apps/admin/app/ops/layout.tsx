@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Package, Wrench, Send, Cpu, FileText, ClipboardList, LayoutDashboard, RotateCcw, RefreshCcw } from "lucide-react";
+import { Package, Wrench, Send, FileText, ClipboardList, LayoutDashboard, RotateCcw, RefreshCcw, Truck } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { createClient } from "@/lib/supabase/client";
 
@@ -14,8 +14,8 @@ const navigation = [
   { name: "출고", href: "/ops/outbound", icon: Send },
   { name: "반송 처리", href: "/ops/returns", icon: RotateCcw },
   { name: "서류 재출력", href: "/ops/reprint", icon: RefreshCcw },
+  { name: "배송 모니터링", href: "/ops/delivery-monitor", icon: Truck },
   { name: "작업 내역", href: "/ops/work-history", icon: ClipboardList },
-  { name: "장비", href: "/ops/devices", icon: Cpu },
   { name: "송장 레이아웃", href: "/ops/label-editor", icon: FileText },
 ];
 

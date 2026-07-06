@@ -46,11 +46,11 @@ export default function DashboardLayout({
         return;
       }
 
-      // 3. ADMIN 권한 확인
-      if (userData.role !== "ADMIN") {
+      // 3. 관리자 권한 확인 (SUPER_ADMIN / ADMIN)
+      if (!["SUPER_ADMIN", "ADMIN"].includes(userData.role)) {
         console.error("❌ 관리자 권한이 없습니다:", userData.role);
         await supabase.auth.signOut();
-        alert("⛔ 접근 권한이 없습니다. ADMIN 계정으로 로그인해주세요.");
+        alert("⛔ 관리자(ADMIN/SUPER_ADMIN) 계정이 필요합니다.");
         router.push("/login");
         return;
       }

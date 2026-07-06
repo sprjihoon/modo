@@ -2734,7 +2734,7 @@ export type Database = {
         | "READY_TO_SHIP"
         | "OUT_FOR_DELIVERY"
         | "DELIVERED"
-      user_role: "ADMIN" | "MANAGER" | "WORKER" | "CUSTOMER"
+      user_role: "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "WORKER" | "CUSTOMER"
       work_item_status: "PENDING" | "IN_PROGRESS" | "COMPLETED"
     }
     CompositeTypes: {
@@ -2972,7 +2972,7 @@ export const Constants = {
         "OUT_FOR_DELIVERY",
         "DELIVERED",
       ],
-      user_role: ["ADMIN", "MANAGER", "WORKER", "CUSTOMER"],
+      user_role: ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER", "CUSTOMER"],
       work_item_status: ["PENDING", "IN_PROGRESS", "COMPLETED"],
     },
   },

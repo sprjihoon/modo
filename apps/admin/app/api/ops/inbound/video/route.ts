@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireStaff } from "@/lib/ops-auth";
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireStaff();
+    if (auth.response) return auth.response;
+
     const body = await req.json();
     const { orderId, base64, mimeType } = body as {
       orderId: string;

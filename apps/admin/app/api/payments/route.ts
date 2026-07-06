@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/ops-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   try {
+    const authGuard = await requireAdmin();
+    if (authGuard.response) return authGuard.response;
+
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     

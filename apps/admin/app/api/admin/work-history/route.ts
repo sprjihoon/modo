@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireStaff } from "@/lib/ops-auth";
 import type { Database } from "@/lib/database.types";
 
 type WorkItemStatus = Database["public"]["Enums"]["work_item_status"];
 
 export const dynamic = 'force-dynamic';
 
-// 작업 내역 조회 (주문 정보와 함께)
+// 작업 내역 조회 (주문 정보와 함께) — 스태프 이상 접근 가능
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireStaff();
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get("orderId");
     const status = searchParams.get("status"); // PENDING, IN_PROGRESS, COMPLETED

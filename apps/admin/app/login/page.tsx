@@ -12,7 +12,7 @@ import { AlertCircle } from "lucide-react";
 import { logAction } from "@/lib/api/action-logs";
 import { ActionType } from "@/lib/types/action-log";
 
-const SAVED_CREDENTIALS_KEY = "modo_admin_saved_credentials";
+const SAVED_EMAIL_KEY = "modo_admin_saved_email";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,15 +24,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(SAVED_CREDENTIALS_KEY);
-      if (saved) {
-        const { email: savedEmail, password: savedPassword } = JSON.parse(saved);
-        setEmail(savedEmail || "");
-        setPassword(savedPassword || "");
+      const savedEmail = localStorage.getItem(SAVED_EMAIL_KEY);
+      if (savedEmail) {
+        setEmail(savedEmail);
         setRememberMe(true);
       }
     } catch {
-      localStorage.removeItem(SAVED_CREDENTIALS_KEY);
+      localStorage.removeItem(SAVED_EMAIL_KEY);
     }
   }, []);
 
@@ -74,19 +72,19 @@ export default function LoginPage() {
 
       console.log("✅ 사용자 프로필 조회 완료:", userData);
 
-      // 3. 관리자 권한 확인 (ADMIN만 접근 가능)
-      if (userData.role !== "ADMIN") {
-        // 비관리자는 로그아웃 처리
+      // 3. 직원 역할 확인 — 역할별 랜딩 경로 분기
+      const STAFF_ROLES = ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"];
+      if (!STAFF_ROLES.includes(userData.role)) {
         await supabase.auth.signOut();
-        throw new Error("관리자 권한이 필요합니다. ADMIN 계정으로 로그인해주세요.");
+        throw new Error("직원 계정만 접근 가능합니다.");
       }
 
-      console.log("✅ 관리자 권한 확인 완료");
+      console.log("✅ 역할 확인 완료:", userData.role);
 
       if (rememberMe) {
-        localStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+        localStorage.setItem(SAVED_EMAIL_KEY, email);
       } else {
-        localStorage.removeItem(SAVED_CREDENTIALS_KEY);
+        localStorage.removeItem(SAVED_EMAIL_KEY);
       }
 
       // 4. 📊 로그인 액션 로그 기록
@@ -95,8 +93,13 @@ export default function LoginPage() {
         loginTime: new Date().toISOString(),
       });
 
-      // 5. 대시보드로 이동
-      router.push("/dashboard");
+      // 5. 역할별 랜딩 페이지로 이동
+      //    SUPER_ADMIN / ADMIN → 관리자 대시보드
+      //    MANAGER / WORKER    → 센터 콘솔
+      const landingPath = ["SUPER_ADMIN", "ADMIN"].includes(userData.role)
+        ? "/dashboard"
+        : "/ops/inbound";
+      router.push(landingPath);
       router.refresh();
     } catch (error: any) {
       console.error("❌ 로그인 실패:", error);
@@ -171,7 +174,7 @@ export default function LoginPage() {
             </Button>
           </form>
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            <p>💡 ADMIN 권한 계정만 접근 가능합니다</p>
+            <p>💡 직원 계정(ADMIN/MANAGER/WORKER)으로 로그인하세요</p>
           </div>
         </CardContent>
       </Card>

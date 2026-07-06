@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { uploadToCloudflareStream } from "@/lib/cloudflareStreamUpload";
 import { uploadToCloudflareStreamTus } from "@/lib/cloudflareStreamUploadTus";
+import { requireStaff } from "@/lib/ops-auth";
 
 // 🚀 Feature Flags
 const USE_TUS_UPLOAD = process.env.NEXT_PUBLIC_USE_TUS_UPLOAD === 'true';
@@ -9,6 +10,9 @@ const USE_DIRECT_FILE = process.env.NEXT_PUBLIC_USE_DIRECT_FILE_UPLOAD === 'true
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireStaff();
+    if (auth.response) return auth.response;
+
     // 🔄 Feature Flag: Direct File Upload vs Base64
     if (USE_DIRECT_FILE) {
       // ✨ 새로운 방식: FormData로 직접 파일 전송

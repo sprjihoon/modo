@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/ops-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,9 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const searchParams = request.nextUrl.searchParams;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
@@ -39,7 +43,8 @@ export async function GET(request: NextRequest) {
       `)
       .eq('payment_status', 'PAID'); // 결제 완료된 주문만
 
-    // 날짜 필터
+    // 날짜 필터: payments.paid_at 기준으로 집계 (created_at은 주문 생성일로 실입금과 다를 수 있음)
+    // payments 조인 후 클라이언트에서 paid_at 필터링. DB 레벨 서브쿼리 최적화 가능하나 현재 건수상 충분.
     if (startDate) {
       query = query.gte('created_at', `${startDate}T00:00:00`);
     }
@@ -80,6 +85,21 @@ export async function GET(request: NextRequest) {
     // 프로모션 사용 통계
     let promotionUsedCount = 0;
     let totalPromotionDiscount = 0;
+
+    // 날짜 필터: paid_at 기준으로 2차 필터링 (위 query는 created_at 기준 — 미입금 주문 제외용)
+    // payment.paid_at 이 있으면 해당 값으로 기간 재검증
+    if (startDate || endDate) {
+      filteredOrders = filteredOrders.filter((order: any) => {
+        const payments = order.payments as any[] | null;
+        if (!payments || payments.length === 0) return true; // 결제 없으면 created_at 기준
+        const paidPayment = payments.find((p: any) => p.status === 'PAID' && p.paid_at);
+        if (!paidPayment) return true;
+        const paidAt = paidPayment.paid_at as string;
+        if (startDate && paidAt < `${startDate}T00:00:00`) return false;
+        if (endDate && paidAt > `${endDate}T23:59:59`) return false;
+        return true;
+      });
+    }
 
     // 각 주문별 집계
     filteredOrders.forEach((order: any) => {

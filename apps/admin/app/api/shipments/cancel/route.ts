@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/ops-auth';
 
 const PAID_STATUSES = new Set(['PAID', 'COMPLETED', 'DONE']);
 
@@ -18,6 +19,9 @@ function getPortoneApiSecret(): string {
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { order_id, skip_payment_cancel } = body;
 

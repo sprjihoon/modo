@@ -4,10 +4,22 @@ import { createClient } from "@/lib/supabase/server";
 export type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "WORKER";
 
 const STAFF_ROLES: StaffRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"];
+const ADMIN_ROLES: StaffRole[] = ["SUPER_ADMIN", "ADMIN"];
 
 export interface StaffUser {
   id: string;
   role: StaffRole;
+}
+
+/**
+ * 관리자 전용 API 인증 가드 (SUPER_ADMIN / ADMIN).
+ * 사용 패턴은 requireStaff 와 동일하다.
+ */
+export async function requireAdmin(): Promise<
+  | { user: StaffUser; response?: never }
+  | { user?: never; response: NextResponse }
+> {
+  return requireStaff(ADMIN_ROLES);
 }
 
 /**

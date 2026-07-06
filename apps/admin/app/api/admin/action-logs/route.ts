@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAdmin } from '@/lib/ops-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,9 +18,12 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
+    const authGuard = await requireAdmin();
+    if (authGuard.response) return authGuard.response;
+
     const supabase = await createClient();
 
-    // 1. 인증 확인
+    // 1. 인증 확인 (requireAdmin 에서 이미 검증됐으나 supabase client 생성 목적)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {

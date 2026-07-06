@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/ops-auth";
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,9 @@ type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "WORKER";
  */
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const roleFilter = searchParams.get("role");
 
@@ -115,6 +119,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { email, password, name, phone, role } = body;
 
@@ -190,12 +197,24 @@ export async function POST(request: NextRequest) {
 
     if (staffError) {
       console.error("❌ 직원 프로필 생성 실패:", staffError);
-      // Auth 계정 삭제
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
       return NextResponse.json(
         { success: false, error: staffError.message },
         { status: 500 }
       );
+    }
+
+    // 3. users 테이블에도 동기화 (ops 콘솔 인증이 users.role 기준이므로 필수)
+    const { error: usersError } = await supabaseAdmin
+      .from("users")
+      .upsert(
+        { auth_id: authData.user.id, email, name, phone, role },
+        { onConflict: "auth_id" }
+      );
+
+    if (usersError) {
+      console.error("⚠️ users 테이블 동기화 실패 (staff는 생성됨):", usersError);
+      // staff 생성은 성공했으므로 경고만 남기고 계속 진행
     }
 
     console.log("✅ 직원 계정 생성 완료:", staffData);
