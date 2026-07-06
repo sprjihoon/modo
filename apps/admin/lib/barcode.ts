@@ -60,7 +60,6 @@ export async function generateOrderBarcodes(
     item_name: normalizeRepairPart(part).slice(0, 40) || null,
   }));
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (db as any)
     .from("order_barcodes")
     .upsert(rows, { onConflict: "barcode_no", ignoreDuplicates: true }) as { error: { message: string } | null };
@@ -68,7 +67,6 @@ export async function generateOrderBarcodes(
   if (error) return { rows: [], error: error.message };
 
   // upsert 후 실제 저장된 rows를 재조회하여 정확한 수를 반환
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: saved } = await (db as any)
     .from("order_barcodes")
     .select("*")
@@ -82,7 +80,6 @@ export async function generateOrderBarcodes(
  * order_barcodes printed_at 일괄 갱신
  */
 export async function markBarcodesAsPrinted(db: SupabaseClient, orderId: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (db as any)
     .from("order_barcodes")
     .update({ printed_at: new Date().toISOString() })

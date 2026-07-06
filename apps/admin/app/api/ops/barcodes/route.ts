@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
   }
 
   const [bcResult, orderResult] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (supabaseAdmin as any)
       .from("order_barcodes")
       .select("*")
@@ -51,7 +50,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "orderId is required" }, { status: 400 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabaseAdmin as any)
     .from("order_barcodes")
     .update({ printed_at: new Date().toISOString() })

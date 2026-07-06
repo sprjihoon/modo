@@ -92,7 +92,6 @@ export async function GET(
 
     // 내부 바코드(order_barcodes)로 조회
     if (!resolvedShipment) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: barcodeRow } = await (supabaseAdmin as any)
         .from("order_barcodes")
         .select("order_id, seq")
