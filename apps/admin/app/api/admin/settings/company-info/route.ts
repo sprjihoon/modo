@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/ops-auth";
 
 // GET: 회사(푸터) 정보 조회
 export async function GET() {
@@ -23,6 +24,9 @@ export async function GET() {
 // POST: 회사(푸터) 정보 저장
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const body = await req.json();
     
     // 기존 레코드 확인

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/ops-auth";
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,9 @@ export async function GET() {
 // POST: 콘텐츠 저장/수정
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const body = await request.json();
     const { key, content, images, metadata } = body;
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/ops-auth";
 
 const DEFAULTS = {
   recipient_name: "모두의수선",
@@ -38,6 +39,9 @@ export async function GET() {
 // POST: 설정 저장/업데이트
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const body = await req.json();
     const payload = {
       id: 1,

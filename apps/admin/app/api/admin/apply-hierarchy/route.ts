@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/ops-auth";
 
 /**
  * 일회성 카테고리 계층 구조 설정 API
@@ -9,6 +10,9 @@ import { supabaseAdmin } from "@/lib/supabase";
  */
 export async function POST() {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     // 1. 대카테고리 upsert
     const { error: upsertErr } = await supabaseAdmin
       .from("repair_categories")
