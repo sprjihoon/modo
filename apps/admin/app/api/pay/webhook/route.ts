@@ -127,10 +127,18 @@ export async function POST(request: NextRequest) {
 
       case "Transaction.Cancelled":
       case "Transaction.PartialCancelled": {
-        const newStatus = type === "Transaction.PartialCancelled" ? "PARTIAL_CANCELED" : "CANCELED";
+        const newPaymentStatus = type === "Transaction.PartialCancelled" ? "PARTIAL_CANCELED" : "CANCELED";
+        const orderUpdate: Record<string, unknown> = {
+          payment_status: newPaymentStatus,
+          canceled_at: new Date().toISOString(),
+        };
+        // 전체 취소 시 주문 상태도 CANCELLED로 변경
+        if (type === "Transaction.Cancelled") {
+          orderUpdate.status = "CANCELLED";
+        }
         await (supabase as any)
           .from("orders")
-          .update({ payment_status: newStatus, canceled_at: new Date().toISOString() })
+          .update(orderUpdate)
           .eq("payment_id", paymentId);
         await (supabase as any)
           .from("extra_charge_requests")

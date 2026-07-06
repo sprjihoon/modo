@@ -234,7 +234,12 @@ export default function CustomerDetailClient({
                       <div className="text-right">
                         <p className="font-medium">₩{(order.total_price || 0).toLocaleString()}</p>
                         <Badge variant="outline" className="mt-1 text-xs">
-                          {order.status || '대기중'}
+                          {({
+                            PAID: '결제완료', BOOKED: '수거예약', INBOUND: '입고완료',
+                            PROCESSING: '수선중', READY_TO_SHIP: '출고완료',
+                            DELIVERED: '배송완료', CANCELLED: '취소',
+                            RETURN_PENDING: '반송대기', RETURN_DONE: '반송완료',
+                          } as Record<string,string>)[order.status] || order.status || '대기중'}
                         </Badge>
                       </div>
                     </div>

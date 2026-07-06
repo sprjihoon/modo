@@ -469,7 +469,14 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <Badge variant="outline">{order.status}</Badge>
+                      <Badge variant="outline">{
+                        ({
+                          PAID: '결제완료', BOOKED: '수거예약', INBOUND: '입고완료',
+                          PROCESSING: '수선중', READY_TO_SHIP: '출고완료',
+                          DELIVERED: '배송완료', CANCELLED: '취소',
+                          RETURN_PENDING: '반송대기', RETURN_DONE: '반송완료',
+                        } as Record<string,string>)[order.status] || order.status
+                      }</Badge>
                       <div className="text-right">
                         <p className="font-medium">{formatCurrency(order.total_price)}</p>
                         <p className="text-sm text-muted-foreground">{formatDate(order.created_at)}</p>

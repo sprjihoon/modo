@@ -64,21 +64,19 @@ async function getOrderStats(startDate?: string | null, endDate?: string | null)
   const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).toISOString();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  // 전체 주문
-  const { data: allOrders, error } = await supabaseAdmin
-    .from('orders')
-    .select('id, status, created_at, total_price');
+  // 날짜 필터 적용한 주문 조회
+  let query = supabaseAdmin.from('orders').select('id, status, created_at, total_price');
+  if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
+  if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
 
+  const { data: allOrders, error } = await query;
   if (error) throw error;
 
-  // 오늘 주문
+  // 오늘/이번주/이번달은 날짜 파라미터가 없을 때만 의미 있음
   const todayOrders = allOrders?.filter(o => new Date(o.created_at) >= new Date(todayStart)) || [];
-  // 이번 주 주문
   const weekOrders = allOrders?.filter(o => new Date(o.created_at) >= new Date(weekStart)) || [];
-  // 이번 달 주문
   const monthOrders = allOrders?.filter(o => new Date(o.created_at) >= new Date(monthStart)) || [];
 
-  // 상태별 통계
   const statusCounts = {
     booked: allOrders?.filter(o => o.status === 'BOOKED').length || 0,
     inbound: allOrders?.filter(o => o.status === 'INBOUND').length || 0,
@@ -104,11 +102,15 @@ async function getPaymentStats(startDate?: string | null, endDate?: string | nul
   const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).toISOString();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  // payment_status 필드로 결제 상태 조회 (paid_at 대신 created_at 사용)
-  const { data: orders, error } = await supabaseAdmin
+  // 날짜 필터 적용
+  let query = supabaseAdmin
     .from('orders')
     .select('payment_status, total_price, created_at')
     .not('payment_status', 'is', null);
+  if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
+  if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+
+  const { data: orders, error } = await query;
 
   if (error) throw error;
 

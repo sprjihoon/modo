@@ -226,8 +226,12 @@ export function PaymentRefundDialog({
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">결제 상태</span>
-                  <Badge variant={portonePayment.status === "PAID" ? "default" : "secondary"}>
-                    {portonePayment.status}
+                  <Badge variant={portonePayment.status === "PAID" ? "default" : portonePayment.status === "CANCELLED" ? "destructive" : "secondary"}>
+                    {({
+                      PAID: "결제 완료", CANCELLED: "취소됨",
+                      PARTIAL_CANCELLED: "부분 취소", FAILED: "결제 실패",
+                      PENDING: "결제 대기", WAITING_FOR_DEPOSIT: "입금 대기",
+                    } as Record<string,string>)[portonePayment.status] || portonePayment.status}
                   </Badge>
                 </div>
                 {portonePayment.paidAt && (

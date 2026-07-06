@@ -77,6 +77,13 @@ const methodMap: Record<string, string> = {
   MOBILE: "휴대폰",
   KAKAO_PAY: "카카오페이",
   NAVER_PAY: "네이버페이",
+  // PortOne V2 method.type 값
+  PaymentMethodCard: "신용카드",
+  PaymentMethodTransfer: "계좌이체",
+  PaymentMethodVirtualAccount: "가상계좌",
+  PaymentMethodMobile: "휴대폰",
+  PaymentMethodEasyPay: "간편결제",
+  PaymentMethodGiftCertificate: "상품권",
 };
 
 interface Payment {
@@ -682,7 +689,13 @@ export default function PaymentsPage() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">결제 상태</span>
-                      <Badge variant="outline">{selectedPayment.portonePayment.status}</Badge>
+                      <Badge variant="outline">
+                        {({
+                          PAID: "결제 완료", CANCELLED: "취소됨",
+                          PARTIAL_CANCELLED: "부분 취소", FAILED: "결제 실패",
+                          PENDING: "결제 대기", WAITING_FOR_DEPOSIT: "입금 대기",
+                        } as Record<string,string>)[selectedPayment.portonePayment.status] || selectedPayment.portonePayment.status}
+                      </Badge>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">총 결제금액</span>
