@@ -59,7 +59,8 @@ export async function POST(
     }
 
     const trackingNo: string = fnData.data.trackingNo;
-    const labelUrl: string = `/api/labels/return/${trackingNo}`;
+    // 우체국 등기 조회/출력 페이지 URL (직접 접근 가능)
+    const labelUrl: string = `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${trackingNo}&displayHeader=N`;
 
     // 5. extra_charge_data 업데이트
     const updatedExtraChargeData = {
