@@ -271,26 +271,30 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
           html, body {
             margin: 0 !important;
             padding: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
+            width: 168mm !important;
+            height: 107mm !important;
             overflow: hidden !important;
           }
-          .shipping-label-container, .shipping-label-container * {
-            visibility: visible !important;
+          /* 모든 요소 숨김 → 라벨만 표시 (Dialog/사이드바 등 제거) */
+          body * {
+            visibility: hidden !important;
           }
           .shipping-label-container {
-            position: absolute !important;
+            visibility: visible !important;
+            position: fixed !important;
             left: 0 !important;
             top: 0 !important;
             width: 168mm !important;
-            height: 106.5mm !important; /* 2장 출력 방지를 위해 미세하게 줄임 */
+            height: 107mm !important;
             overflow: hidden !important;
-            page-break-inside: avoid !important;
-            page-break-after: avoid !important;
+            z-index: 99999 !important;
+          }
+          .shipping-label-container * {
+            visibility: visible !important;
           }
           .shipping-label-content {
-            width: 635px !important;
-            height: 404px !important;
+            width: 168mm !important;
+            height: 107mm !important;
             transform: none !important;
             border: none !important;
             background: white !important;
