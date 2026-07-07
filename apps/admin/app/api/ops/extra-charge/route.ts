@@ -71,7 +71,49 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // 5. TODO: Notify Managers/Admins or Customer (Realtime or Push)
+    // 5. 작업자가 요청한 경우 → 관리자/매니저에게 알림 삽입
+    if (user.role === 'WORKER') {
+      const { data: managers } = await supabase
+        .from("users")
+        .select("id, fcm_token")
+        .in("role", ["MANAGER", "ADMIN", "SUPER_ADMIN"]);
+
+      if (managers && managers.length > 0) {
+        const notifications = managers.map((m: { id: string; fcm_token?: string }) => ({
+          user_id: m.id,
+          type: "EXTRA_CHARGE_REVIEW",
+          title: "추가 비용 검토 요청",
+          body: `작업자가 추가 비용을 요청했습니다: ${reason}`,
+          order_id: orderId,
+          is_read: false,
+        }));
+        await supabase.from("notifications").insert(notifications);
+
+        // FCM 푸시 (토큰 있는 관리자만)
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+        for (const m of managers as { id: string; fcm_token?: string }[]) {
+          if (!m.fcm_token) continue;
+          try {
+            await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                fcmToken: m.fcm_token,
+                title: "추가 비용 검토 요청",
+                body: `작업자 추가 비용 요청: ${reason}`,
+                data: { order_id: orderId, type: "EXTRA_CHARGE_REVIEW" },
+              }),
+            });
+          } catch (e) {
+            console.warn("관리자 FCM 푸시 실패:", e);
+          }
+        }
+      }
+    }
 
     return NextResponse.json({ 
       success: true, 

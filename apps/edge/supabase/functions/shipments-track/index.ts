@@ -163,10 +163,11 @@ Deno.serve(async (req) => {
       
       const currentOrderStatus = currentOrder?.status || '';
       
-      // 🚚 수거 송장 + 배송완료(05) = 입고 완료 (BOOKED → INBOUND)
+      // 🚚 수거 송장 + 배송완료(05) = 수거 완료 (BOOKED → PICKED_UP)
+      // ※ INBOUND는 작업자가 센터에서 직접 입고 처리할 때 설정됨
       if (isPickupTracking && epostStatus?.treatStusCd === '05' && currentOrderStatus === 'BOOKED') {
-        console.log('📦 수거 완료 감지! 상태를 INBOUND로 업데이트합니다.');
-        
+        console.log('📦 수거 완료 감지! 상태를 PICKED_UP으로 업데이트합니다.');
+
         // shipments 테이블 업데이트
         const { error: shipmentUpdateError } = await supabase
           .from('shipments')
@@ -175,25 +176,25 @@ Deno.serve(async (req) => {
             pickup_completed_at: new Date().toISOString(),
           })
           .eq('id', shipment.id);
-        
+
         if (shipmentUpdateError) {
           console.error('⚠️ shipments 상태 업데이트 실패:', shipmentUpdateError);
         } else {
           console.log('✅ shipments 상태가 PICKED_UP으로 업데이트되었습니다.');
         }
-        
-        // orders 테이블도 INBOUND로 업데이트
+
+        // orders 테이블을 PICKED_UP으로 업데이트 (INBOUND는 수동 입고 처리 시)
         const { error: orderUpdateError } = await supabase
           .from('orders')
           .update({
-            status: 'INBOUND',
+            status: 'PICKED_UP',
           })
           .eq('id', shipment.order_id);
-        
+
         if (orderUpdateError) {
           console.error('⚠️ orders 상태 업데이트 실패:', orderUpdateError);
         } else {
-          console.log('✅ orders 상태가 INBOUND로 업데이트되었습니다.');
+          console.log('✅ orders 상태가 PICKED_UP으로 업데이트되었습니다.');
         }
         
         // 업데이트된 shipment 정보 다시 조회

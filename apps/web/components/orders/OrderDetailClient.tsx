@@ -77,10 +77,14 @@ const DB_STATUS_STEP: Record<string, number> = {
   PICKED_UP:         1,
   INBOUND:           2,
   PROCESSING:        3,
+  HOLD:              3, // 수선 중 → 추가결제 대기 (같은 단계)
   READY_TO_SHIP:     4,
   OUT_FOR_DELIVERY:  5,
   DELIVERED:         6,
   CANCELLED:        -1,
+  RETURN_PENDING:   -1,
+  RETURN_SHIPPING:  -1,
+  RETURN_DONE:      -1,
 };
 
 function getPaymentMethodLabel(method?: string): string {

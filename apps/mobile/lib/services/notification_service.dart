@@ -186,9 +186,8 @@ class NotificationService {
 
     debugPrint('📱 알림 탭 처리: orderId=$orderId, type=$notifType');
 
-    // 추가 결제 요청 알림은 주문 상세로 이동 (상세에서 카드 표시됨)
-    // CS 영상 공유 알림도 주문 상세 또는 알림 목록으로 이동
-    final route = '/orders/detail/$orderId';
+    // GoRouter 실제 경로: /orders/:orderId
+    final route = '/orders/$orderId';
     _navigationController.add({'route': route, 'orderId': orderId, 'type': notifType});
   }
 

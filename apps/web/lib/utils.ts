@@ -84,6 +84,11 @@ export const ORDER_STATUS_MAP: Record<
     color: "text-purple-600",
     bgColor: "bg-purple-50",
   },
+  HOLD: {
+    label: "추가결제 대기",
+    color: "text-orange-600",
+    bgColor: "bg-orange-50",
+  },
   READY_TO_SHIP: {
     label: "출고완료",
     color: "text-green-600",
