@@ -15,7 +15,10 @@ import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
 import { canShowReturnShipmentUi, getEffectiveOrderStatus } from "@/lib/order-return-flow";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
-import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image, RotateCcw } from "lucide-react";
+import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image, RotateCcw, PlusCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface OrderDetailPageProps {
   // params is now handled via useParams() in Next.js 15
@@ -74,6 +77,13 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
   const [pointDialogOpen, setPointDialogOpen] = useState(false);
   const [userData, setUserData] = useState<any>(null);
   const [extraCharges, setExtraCharges] = useState<any[]>([]);
+
+  // 추가 결제 요청 다이얼로그
+  const [showExtraChargeDialog, setShowExtraChargeDialog] = useState(false);
+  const [extraChargeReason, setExtraChargeReason] = useState("");
+  const [extraChargeAmount, setExtraChargeAmount] = useState("");
+  const [extraChargeNote, setExtraChargeNote] = useState("");
+  const [isSubmittingExtraCharge, setIsSubmittingExtraCharge] = useState(false);
   
   // Load order data from API
   useEffect(() => {
@@ -177,6 +187,35 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
       }
     } catch (error) {
       console.error('추가 비용 내역 로드 실패:', error);
+    }
+  };
+
+  const handleRequestExtraCharge = async () => {
+    if (!extraChargeReason.trim() || !params.id) return;
+    setIsSubmittingExtraCharge(true);
+    try {
+      const res = await fetch("/api/ops/extra-charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: params.id,
+          reason: extraChargeReason.trim(),
+          amount: extraChargeAmount ? Number(extraChargeAmount) : undefined,
+          note: extraChargeNote.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "요청 실패");
+      alert(data.message || "추가 결제 요청이 완료됐습니다.");
+      setShowExtraChargeDialog(false);
+      setExtraChargeReason("");
+      setExtraChargeAmount("");
+      setExtraChargeNote("");
+      await loadOrder();
+    } catch (e: any) {
+      alert(e?.message || "추가 결제 요청에 실패했습니다.");
+    } finally {
+      setIsSubmittingExtraCharge(false);
     }
   };
 
@@ -470,6 +509,17 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
           </div>
         </div>
         <div className="flex gap-2">
+          {/* 추가 결제 요청 버튼 */}
+          {order && !["DELIVERED", "CANCELLED", "RETURN_DONE"].includes(order.status) && (
+            <Button
+              variant="outline"
+              className="border-orange-300 text-orange-600 hover:bg-orange-50"
+              onClick={() => setShowExtraChargeDialog(true)}
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              추가 결제 요청
+            </Button>
+          )}
           {/* 추가 비용 검토 다이얼로그 */}
           <ExtraChargeReviewDialog 
             orderId={displayOrder.id}
@@ -1391,6 +1441,67 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
           }}
         />
       )}
+
+      {/* 추가 결제 요청 다이얼로그 */}
+      <Dialog open={showExtraChargeDialog} onOpenChange={setShowExtraChargeDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>추가 결제 요청</DialogTitle>
+            <DialogDescription>
+              추가 비용 금액과 사유를 입력하여 고객에게 청구하세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="ec-reason" className="mb-2 block">요청 사유 *</Label>
+              <Textarea
+                id="ec-reason"
+                placeholder="예: 안감 교체 필요"
+                value={extraChargeReason}
+                onChange={(e) => setExtraChargeReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label htmlFor="ec-amount" className="mb-2 block">청구 금액 (원) *</Label>
+              <input
+                id="ec-amount"
+                type="number"
+                placeholder="10000"
+                value={extraChargeAmount}
+                onChange={(e) => setExtraChargeAmount(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="ec-note" className="mb-2 block">고객 안내 메시지 (선택)</Label>
+              <Textarea
+                id="ec-note"
+                placeholder="고객에게 전달할 내용"
+                value={extraChargeNote}
+                onChange={(e) => setExtraChargeNote(e.target.value)}
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowExtraChargeDialog(false)}
+              disabled={isSubmittingExtraCharge}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleRequestExtraCharge}
+              disabled={!extraChargeReason.trim() || !extraChargeAmount || isSubmittingExtraCharge}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {isSubmittingExtraCharge ? "요청 중..." : "고객에게 청구"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
