@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Truck, Package, CheckCircle, Clock, XCircle, CreditCard,
   MapPin, ChevronRight, RefreshCw, Scissors, MessageCircle,
-  ReceiptText, Copy, Check, Video, Play, X, AlertTriangle,
+  ReceiptText, Copy, Check, X, AlertTriangle,
   ArrowRight, RotateCcw, Pencil,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -99,18 +99,6 @@ function formatOrderNumber(id?: string, orderNumber?: string): string {
   return `...${id.slice(-8)}`;
 }
 
-interface VideoItem {
-  inbound: string;
-  outbound: string;
-}
-
-function buildVideoUrl(path: string, provider: string): string | null {
-  if (!path) return null;
-  if (path.startsWith("http")) return path;
-  if (provider === "cloudflare") return `https://iframe.videodelivery.net/${path}`;
-  return null;
-}
-
 // Daum 우편번호 전역 타입
 declare global {
   interface Window {
@@ -140,10 +128,6 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [returnShippingFee, setReturnShippingFee] = useState<number | null>(null);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [inboundVideoUrl, setInboundVideoUrl] = useState<string | null>(null);
-  const [outboundVideoUrl, setOutboundVideoUrl] = useState<string | null>(null);
-  const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
-  const [activeVideo, setActiveVideo] = useState<{ url: string; title: string; comparisonUrl?: string; comparisonTitle?: string } | null>(null);
   const [isExtraActionLoading, setIsExtraActionLoading] = useState(false);
 
   // 수선 전/후 사진
@@ -236,49 +220,8 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
 
       const supabase = createClient();
 
-      // ── CS용 영상 (출고 영상 전용, 레거시 입고 영상도 지원) ──
-      const { data: videos } = await supabase
-        .from("media")
-        .select("type, path, provider, final_waybill_no, sequence")
-        .in("final_waybill_no", uniqueCandidates)
-        .in("type", ["inbound_video", "outbound_video"])
-        .order("sequence", { ascending: true });
-
-      if (videos && videos.length > 0) {
-        const bySequence: Record<number, { inbound?: string; outbound?: string }> = {};
-        let firstInbound: string | null = null;
-        let firstOutbound: string | null = null;
-
-        for (const v of videos) {
-          const url = buildVideoUrl(v.path ?? "", v.provider ?? "");
-          if (!url) continue;
-          const seq: number = v.sequence ?? 1;
-          bySequence[seq] = bySequence[seq] ?? {};
-          if (v.type === "inbound_video") {
-            bySequence[seq].inbound = url;
-            if (!firstInbound) firstInbound = url;
-          } else if (v.type === "outbound_video") {
-            bySequence[seq].outbound = url;
-            if (!firstOutbound) firstOutbound = url;
-          }
-        }
-
-        // 입고+출고 쌍이 있으면 비교 아이템, 없으면 단독 표시
-        const items: VideoItem[] = Object.keys(bySequence)
-          .map(Number)
-          .sort((a, b) => a - b)
-          .filter((seq) => bySequence[seq].inbound && bySequence[seq].outbound)
-          .map((seq) => ({
-            inbound: bySequence[seq].inbound!,
-            outbound: bySequence[seq].outbound!,
-          }));
-
-        setInboundVideoUrl(firstInbound);
-        setOutboundVideoUrl(firstOutbound);
-        setVideoItems(items);
-      }
-
       // ── 수선 전/후 사진 ──
+      // 영상(inbound_video, outbound_video, box_open_video)은 CS 내부 전용이므로 고객에게 표시하지 않음
       const { data: photos } = await supabase
         .from("media")
         .select("type, path, provider, sequence")
@@ -1145,50 +1088,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         </div>
       )}
 
-      {/* ── 출고 영상 (레거시 입고 영상도 있으면 함께 표시) ── */}
-      {(inboundVideoUrl || outboundVideoUrl) && (
-        <div className="mx-4 mt-3 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Video className="w-4 h-4 text-[#00C896]" />
-            <p className="text-sm font-bold text-gray-800">
-              {inboundVideoUrl && outboundVideoUrl ? "입출고 영상" : "출고 영상"}
-            </p>
-          </div>
-
-          {/* 입고+출고 둘 다 있으면 비교 버튼, 출고만 있으면 단독 버튼 */}
-          {inboundVideoUrl && outboundVideoUrl ? (
-            <>
-              <button
-                onClick={() => setActiveVideo({ url: inboundVideoUrl, title: "입고 영상", comparisonUrl: outboundVideoUrl, comparisonTitle: "출고 영상" })}
-                className="w-full p-4 rounded-xl border-2 border-[#00C896]/30 bg-gradient-to-br from-[#00C896]/10 to-[#00C896]/5 active:opacity-80 text-left"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full bg-[#00C896] flex items-center justify-center shrink-0">
-                    <Play className="w-6 h-6 text-white ml-0.5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-800">입출고 전후 영상</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {videoItems.length > 1 ? `${videoItems.length}개 아이템 영상` : "입고·출고 영상 보기"}
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-[#00C896] ml-auto" />
-                </div>
-              </button>
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <VideoCard title="입고 영상" url={inboundVideoUrl} onPlay={(url) => setActiveVideo({ url, title: "입고 영상" })} compact />
-                <VideoCard title="출고 영상" url={outboundVideoUrl} onPlay={(url) => setActiveVideo({ url, title: "출고 영상" })} compact />
-              </div>
-            </>
-          ) : (
-            <VideoCard
-              title="출고 영상"
-              url={outboundVideoUrl ?? inboundVideoUrl}
-              onPlay={(url) => setActiveVideo({ url, title: "출고 영상" })}
-            />
-          )}
-        </div>
-      )}
+      {/* 영상(입고 오픈박스, 출고 패킹)은 CS 내부 전용 — 고객 요청 시에만 별도 공개 */}
 
       {/* ── 배송 정보 / 우체국 배송 추적 ── */}
       {!isCancelled && !isPendingPayment && (
@@ -1300,83 +1200,6 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         </div>
       )}
 
-      {/* ── 비디오 모달 ── */}
-      {activeVideo && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 flex flex-col items-center justify-center p-4"
-          onClick={() => setActiveVideo(null)}
-        >
-          <div
-            className="w-full max-w-[430px] bg-black rounded-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <p className="text-white text-sm font-bold">
-                {activeVideo.comparisonUrl ? "입출고 전후 영상" : activeVideo.title}
-              </p>
-              <button
-                onClick={() => setActiveVideo(null)}
-                className="text-white/70 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {activeVideo.comparisonUrl ? (
-              /* 전후 비교: 입고/출고 영상 세로 배치 */
-              <div className="flex flex-col">
-                <div>
-                  <p className="text-white/60 text-xs font-medium px-3 pt-2 pb-1">
-                    {activeVideo.title}
-                  </p>
-                  <div className="aspect-video w-full">
-                    {activeVideo.url.includes("iframe.videodelivery.net") ? (
-                      <iframe src={activeVideo.url} className="w-full h-full"
-                        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
-                    ) : (
-                      <video src={activeVideo.url} controls autoPlay playsInline
-                        className="w-full h-full object-contain" />
-                    )}
-                  </div>
-                </div>
-                <div className="border-t border-white/10">
-                  <p className="text-white/60 text-xs font-medium px-3 pt-2 pb-1">
-                    {activeVideo.comparisonTitle}
-                  </p>
-                  <div className="aspect-video w-full">
-                    {activeVideo.comparisonUrl.includes("iframe.videodelivery.net") ? (
-                      <iframe src={activeVideo.comparisonUrl} className="w-full h-full"
-                        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
-                    ) : (
-                      <video src={activeVideo.comparisonUrl} controls playsInline
-                        className="w-full h-full object-contain" />
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* 단일 영상 */
-              <div className="aspect-video w-full">
-                {activeVideo.url.includes("iframe.videodelivery.net") ? (
-                  <iframe
-                    src={activeVideo.url}
-                    className="w-full h-full"
-                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-                    allowFullScreen
-                  />
-                ) : (
-                  <video
-                    src={activeVideo.url}
-                    controls
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-contain"
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* ── 하단 액션 ── */}
       <div className="mx-4 mt-4 space-y-2.5">

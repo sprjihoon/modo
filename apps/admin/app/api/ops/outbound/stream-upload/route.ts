@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       const file = new Blob([buffer], { type: mimeType || "video/webm" }) as any;
       file.name = `${orderId}.webm`;
       
-      return handleFileUpload(file, orderId, sequence || 1, durationSeconds);
+      return handleFileUpload(file, orderId, sequence ?? 1, durationSeconds);
     }
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Stream upload failed" }, { status: 500 });
@@ -82,8 +82,8 @@ async function handleFileUpload(
       console.error("❌ shipment 조회 실패:", e);
     }
 
-    // 영상 타입: 출고 영상
-    const videoType = "outbound_video";
+    // sequence=0 은 출고 오픈박스 영상 (CS 확인용), 나머지는 출고 영상
+    const videoType = sequence === 0 ? "box_open_video" : "outbound_video";
     console.log(`📦 영상 타입: ${videoType} (sequence: ${sequence})`);
 
     // 🔄 Feature Flag: TUS Protocol vs Direct Upload

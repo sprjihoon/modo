@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { Camera, RotateCcw, Check, X, RefreshCw } from "lucide-react";
+import { Camera, Check, X, RefreshCw } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -15,12 +15,12 @@ export interface RepairItem {
 export interface CapturedPhoto {
   sequence: number;
   photoType: PhotoType;
-  dataUrl: string; // base64 미리보기
-  file?: File;     // 실제 업로드용
+  dataUrl: string;
+  file?: File;
 }
 
 interface PhotoState {
-  before?: string; // URL or dataUrl
+  before?: string;
   after?: string;
   beforeUploading?: boolean;
   afterUploading?: boolean;
@@ -31,7 +31,7 @@ interface PhotoState {
 interface Props {
   orderId: string;
   repairItems: RepairItem[];
-  photoType: PhotoType; // 이 세션이 before인지 after인지
+  photoType: PhotoType;
   finalWaybillNo?: string;
   initialPhotos?: Record<number, { before?: string; after?: string }>;
   onAllDone?: (photos: Record<number, { before?: string; after?: string }>) => void;
@@ -52,13 +52,15 @@ export default function PhotoCapture({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const recordStartRef = useRef<number>(0);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null); // 방금 찍은 사진 dataUrl
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [recordDuration, setRecordDuration] = useState(0);
 
-  // 각 아이템의 사진 상태
   const [photoStates, setPhotoStates] = useState<Record<number, PhotoState>>(() => {
     const init: Record<number, PhotoState> = {};
     repairItems.forEach((_, idx) => {
@@ -74,26 +76,59 @@ export default function PhotoCapture({
   });
 
   const label = photoType === "before_photo" ? "수선 전" : "수선 후";
-  const labelColor = photoType === "before_photo" ? "#F97316" : "#00C896"; // orange / green
+  const labelColor = photoType === "before_photo" ? "#F97316" : "#00C896";
 
-  // ─── 카메라 시작 ──────────────────────────────────────────────────────────
+  // ─── 카메라 + 녹화 시작 ────────────────────────────────────────────────────
+
+  const startRecording = (stream: MediaStream) => {
+    try {
+      chunksRef.current = [];
+      recordStartRef.current = Date.now();
+
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : "video/webm";
+
+      const rec = new MediaRecorder(stream, {
+        mimeType,
+        videoBitsPerSecond: 700_000,
+      });
+
+      rec.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorderRef.current = rec;
+      rec.start(1000); // 1초 단위로 청크 수집
+    } catch (e) {
+      console.warn("영상 녹화 시작 실패 (무시):", e);
+    }
+  };
 
   const startCamera = useCallback(async (facing: "environment" | "user" = "environment") => {
     try {
+      // 기존 스트림 및 녹화 중지
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        recorderRef.current.stop();
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false,
       });
       streamRef.current = stream;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
+
       setCameraReady(true);
       setCameraError(null);
+      startRecording(stream);
     } catch (err: any) {
       console.error("카메라 오류:", err);
       setCameraError(err.message || "카메라를 시작할 수 없습니다.");
@@ -102,7 +137,18 @@ export default function PhotoCapture({
 
   useEffect(() => {
     startCamera(facingMode);
+
+    const timer = setInterval(() => {
+      if (recordStartRef.current > 0) {
+        setRecordDuration(Math.floor((Date.now() - recordStartRef.current) / 1000));
+      }
+    }, 1000);
+
     return () => {
+      clearInterval(timer);
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        recorderRef.current.stop();
+      }
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,40 +160,38 @@ export default function PhotoCapture({
     startCamera(next);
   };
 
-  // ─── 사진 촬영 ────────────────────────────────────────────────────────────
+  // ─── 현재 프레임 캡처 ─────────────────────────────────────────────────────
 
-  const capture = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+  const captureFrame = (): string | null => {
+    if (!videoRef.current || !canvasRef.current) return null;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     canvas.width = video.videoWidth || 1280;
     canvas.height = video.videoHeight || 720;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) return null;
     ctx.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-    setCapturedPhoto(dataUrl);
+    return canvas.toDataURL("image/jpeg", 0.9);
   };
-
-  const discardCapture = () => setCapturedPhoto(null);
 
   // dataUrl → File 변환
   const dataUrlToFile = (dataUrl: string, filename: string): File => {
     const arr = dataUrl.split(",");
     const mime = arr[0].match(/:(.*?);/)?.[1] || "image/jpeg";
     const bstr = atob(arr[1]);
-    const n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    for (let i = 0; i < n; i++) u8arr[i] = bstr.charCodeAt(i);
+    const u8arr = new Uint8Array(bstr.length);
+    for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
     return new File([u8arr], filename, { type: mime });
   };
 
-  // ─── 제품 클릭 → 저장 ────────────────────────────────────────────────────
+  // ─── 제품명 클릭 → 현재 프레임 즉시 저장 ─────────────────────────────────
 
   const saveToItem = async (sequence: number) => {
-    if (!capturedPhoto) return;
+    if (!cameraReady) return;
 
-    // 업로드 중 표시
+    const dataUrl = captureFrame();
+    if (!dataUrl) return;
+
     setPhotoStates((prev) => ({
       ...prev,
       [sequence]: {
@@ -160,7 +204,7 @@ export default function PhotoCapture({
 
     try {
       const file = dataUrlToFile(
-        capturedPhoto,
+        dataUrl,
         `${photoType}_${sequence}_${Date.now()}.jpg`
       );
 
@@ -176,10 +220,9 @@ export default function PhotoCapture({
         body: form,
       });
       const json = await res.json();
-
       if (!res.ok) throw new Error(json.error || "업로드 실패");
 
-      const savedUrl = json.url || capturedPhoto;
+      const savedUrl = json.url || dataUrl;
 
       setPhotoStates((prev) => ({
         ...prev,
@@ -190,8 +233,6 @@ export default function PhotoCapture({
             : { after: savedUrl, afterDone: true, afterUploading: false }),
         },
       }));
-
-      setCapturedPhoto(null); // 다음 촬영 준비
     } catch (err: any) {
       console.error("저장 실패:", err);
       alert(`저장 실패: ${err.message}`);
@@ -207,7 +248,57 @@ export default function PhotoCapture({
     }
   };
 
-  // ─── 완료 여부 ────────────────────────────────────────────────────────────
+  // ─── 닫기 시 CS용 오픈박스 영상 백그라운드 업로드 ────────────────────────
+
+  const uploadBoxOpenVideoInBackground = (blob: Blob, duration: number) => {
+    const currentOrderId = orderId;
+
+    // 현재 페이지에 맞는 stream-upload 엔드포인트 선택
+    let endpoint = "/api/ops/inbound/stream-upload";
+    try {
+      if (typeof window !== "undefined") {
+        const path = window.location.pathname;
+        if (path.includes("/ops/outbound")) {
+          endpoint = "/api/ops/outbound/stream-upload";
+        } else if (path.includes("/ops/work")) {
+          endpoint = "/api/ops/work/stream-upload";
+        }
+      }
+    } catch {}
+
+    (async () => {
+      try {
+        console.log(`📹 오픈박스 영상 업로드 시작 (CS용, ${duration}초, ${(blob.size / 1024 / 1024).toFixed(1)}MB, endpoint: ${endpoint})`);
+
+        const arrayBuffer = await blob.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        let binary = "";
+        const chunkSize = 8192;
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+          binary += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        const base64 = btoa(binary);
+
+        await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: currentOrderId,
+            base64,
+            mimeType: "video/webm",
+            sequence: 0, // box_open_video (CS용)
+            durationSeconds: duration,
+          }),
+        });
+        console.log("✅ 오픈박스 영상 업로드 완료 (CS용)");
+      } catch (e) {
+        console.warn("⚠️ 오픈박스 영상 업로드 실패 (무시):", e);
+      }
+    })();
+  };
+
+  // ─── 완료 처리 ────────────────────────────────────────────────────────────
 
   const doneCount = Object.values(photoStates).filter((s) =>
     photoType === "before_photo" ? s.beforeDone : s.afterDone
@@ -216,6 +307,21 @@ export default function PhotoCapture({
   const allDone = doneCount === totalCount;
 
   const handleFinish = () => {
+    const currentDuration = recordDuration;
+
+    // 녹화 중지 후 영상 백그라운드 업로드
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "video/webm" });
+        if (blob.size > 0) {
+          uploadBoxOpenVideoInBackground(blob, currentDuration);
+        }
+      };
+      recorderRef.current.stop();
+    }
+
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+
     const result: Record<number, { before?: string; after?: string }> = {};
     Object.entries(photoStates).forEach(([seq, s]) => {
       result[Number(seq)] = { before: s.before, after: s.after };
@@ -235,23 +341,27 @@ export default function PhotoCapture({
       >
         <div className="flex items-center gap-2">
           <Camera className="w-5 h-5" />
-          <span className="font-bold text-base">
-            {label} 사진 촬영
-          </span>
-          <span className="text-sm opacity-80">
-            ({doneCount}/{totalCount} 완료)
-          </span>
+          <span className="font-bold text-base">{label} 사진</span>
+          <span className="text-sm opacity-80">({doneCount}/{totalCount} 완료)</span>
         </div>
-        <button onClick={onClose} className="p-1 hover:opacity-70">
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-3">
+          {/* REC 표시 */}
+          {cameraReady && (
+            <div className="flex items-center gap-1.5 bg-red-600 px-2.5 py-1 rounded-full text-xs font-bold">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              REC {recordDuration}초
+            </div>
+          )}
+          <button onClick={handleFinish} className="p-1 hover:opacity-70">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* 메인 영역 — 좌우 분할 */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* ── 왼쪽: 카메라 영역 ── */}
+        {/* ── 왼쪽: 라이브 영상 ── */}
         <div className="flex flex-col w-[55%] bg-black relative">
-          {/* 카메라 에러 */}
           {cameraError && (
             <div className="absolute inset-0 flex items-center justify-center text-white text-center p-4 z-10">
               <div>
@@ -267,78 +377,32 @@ export default function PhotoCapture({
             </div>
           )}
 
-          {/* 라이브 뷰 */}
           <video
             ref={videoRef}
             muted
             playsInline
-            className={`w-full flex-1 object-cover ${capturedPhoto ? "hidden" : ""}`}
+            className="w-full flex-1 object-cover"
           />
 
-          {/* 촬영된 사진 미리보기 */}
-          {capturedPhoto && (
-            <div className="relative w-full flex-1">
-              <img
-                src={capturedPhoto}
-                alt="촬영된 사진"
-                className="w-full h-full object-contain"
-              />
-              <div
-                className="absolute top-2 left-2 px-2 py-1 rounded text-white text-xs font-bold"
-                style={{ backgroundColor: labelColor }}
-              >
-                {label}
-              </div>
-            </div>
-          )}
-
-          {/* hidden canvas */}
+          {/* hidden canvas (캡처용) */}
           <canvas ref={canvasRef} className="hidden" />
 
-          {/* 카메라 컨트롤 */}
+          {/* 카메라 전환 버튼 */}
           <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent">
-            {/* 카메라 전환 */}
             <button
               onClick={toggleCamera}
               className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30"
             >
               <RefreshCw className="w-5 h-5" />
             </button>
-
-            {!capturedPhoto ? (
-              /* 촬영 버튼 */
-              <button
-                onClick={capture}
-                disabled={!cameraReady}
-                className="w-16 h-16 rounded-full border-4 border-white bg-white/30 hover:bg-white/50 disabled:opacity-40 flex items-center justify-center"
-              >
-                <div className="w-11 h-11 rounded-full bg-white" />
-              </button>
-            ) : (
-              /* 재촬영 버튼 */
-              <button
-                onClick={discardCapture}
-                className="w-16 h-16 rounded-full border-4 border-white bg-red-500/80 hover:bg-red-500 flex items-center justify-center"
-              >
-                <RotateCcw className="w-6 h-6 text-white" />
-              </button>
-            )}
-
             <div className="w-10" />
           </div>
 
           {/* 안내 문구 */}
-          {!capturedPhoto && cameraReady && (
-            <div className="absolute top-3 left-0 right-0 text-center">
+          {cameraReady && (
+            <div className="absolute top-3 left-0 right-0 text-center pointer-events-none">
               <span className="px-3 py-1 bg-black/50 text-white text-xs rounded-full">
-                촬영 후 오른쪽 제품을 클릭하여 저장
-              </span>
-            </div>
-          )}
-          {capturedPhoto && (
-            <div className="absolute top-3 left-0 right-0 text-center">
-              <span className="px-3 py-1 bg-black/50 text-white text-xs rounded-full">
-                저장할 제품을 오른쪽에서 클릭하세요
+                오른쪽 제품명을 클릭하면 현재 화면이 저장됩니다
               </span>
             </div>
           )}
@@ -348,13 +412,9 @@ export default function PhotoCapture({
         <div className="flex flex-col w-[45%] bg-gray-50 overflow-y-auto">
           <div className="px-3 py-2 bg-white border-b border-gray-200">
             <p className="text-xs font-semibold text-gray-600">수선 항목</p>
-            {capturedPhoto ? (
-              <p className="text-xs text-orange-600 font-medium mt-0.5">
-                클릭하여 사진 저장
-              </p>
-            ) : (
-              <p className="text-xs text-gray-400 mt-0.5">사진을 먼저 찍어주세요</p>
-            )}
+            <p className="text-xs text-orange-600 font-medium mt-0.5">
+              클릭 → 현재 화면 즉시 저장
+            </p>
           </div>
 
           <div className="p-2 space-y-2">
@@ -374,13 +434,13 @@ export default function PhotoCapture({
                 <button
                   key={item.id}
                   onClick={() => saveToItem(seq)}
-                  disabled={!capturedPhoto || isUploading}
+                  disabled={!cameraReady || isUploading}
                   className={`w-full text-left rounded-xl p-3 border-2 transition-all ${
-                    capturedPhoto && !isUploading
-                      ? "border-orange-400 bg-orange-50 hover:bg-orange-100 cursor-pointer shadow-sm"
+                    !cameraReady || isUploading
+                      ? "border-gray-200 bg-white cursor-not-allowed opacity-60"
                       : isDone
-                      ? "border-green-200 bg-green-50 cursor-default"
-                      : "border-gray-200 bg-white cursor-default opacity-60"
+                      ? "border-green-300 bg-green-50 hover:bg-green-100 cursor-pointer"
+                      : "border-orange-400 bg-orange-50 hover:bg-orange-100 cursor-pointer shadow-sm"
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -414,14 +474,14 @@ export default function PhotoCapture({
                         <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
                           <Check className="w-4 h-4 text-green-600" />
                         </div>
-                      ) : capturedPhoto ? (
+                      ) : (
                         <div
                           className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
                           style={{ backgroundColor: labelColor }}
                         >
-                          저장
+                          클릭
                         </div>
-                      ) : null}
+                      )}
                     </div>
                   </div>
                 </button>
