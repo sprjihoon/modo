@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
 
     const cancelBody: Record<string, unknown> = { reason: cancelReason };
-    if (cancelAmount) cancelBody.amount = cancelAmount;
+    if (cancelAmount) cancelBody.amount = { total: cancelAmount };
 
     const portoneRes = await fetch(
       `https://api.portone.io/payments/${encodeURIComponent(paymentId)}/cancel`,
