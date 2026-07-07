@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -17,6 +18,12 @@ class NotificationService {
 
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
+
+  /// 알림 탭 시 네비게이션 이벤트 스트림
+  /// 앱 레이어에서 구독해 GoRouter로 라우팅합니다.
+  /// payload: { 'route': String, 'extra': Map? }
+  final _navigationController = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get navigationStream => _navigationController.stream;
 
   /// 알림 초기화
   Future<void> initialize() async {
@@ -150,32 +157,39 @@ class NotificationService {
       iOS: iosDetails,
     );
 
+    // payload에 전체 data를 JSON 인코딩하여 전달
+    final payload = message.data['order_id'] as String?;
     await _localNotifications.show(
       notification.hashCode,
       notification.title,
       notification.body,
       details,
-      payload: message.data['order_id'],
+      payload: payload,
     );
   }
 
-  /// 알림 탭 핸들러
+  /// 로컬 알림 탭 핸들러 (포그라운드)
   void _onNotificationTapped(NotificationResponse response) {
     final orderId = response.payload;
     if (orderId != null && orderId.isNotEmpty) {
-      debugPrint('🔔 알림 탭: orderId=$orderId');
+      debugPrint('🔔 로컬 알림 탭: orderId=$orderId');
       _handleNotificationTap({'order_id': orderId});
     }
   }
 
-  /// 알림 탭 처리 (주문 상세 화면으로 이동)
+  /// 알림 탭 처리 → navigationStream으로 라우팅 이벤트 emit
   void _handleNotificationTap(Map<String, dynamic> data) {
     final orderId = data['order_id'] as String?;
-    if (orderId != null) {
-      debugPrint('📱 주문 상세로 이동: $orderId');
-      // TODO: 라우팅 처리 (GoRouter 사용)
-      // context.go('/orders/detail/$orderId');
-    }
+    final notifType = data['type'] as String?;
+
+    if (orderId == null || orderId.isEmpty) return;
+
+    debugPrint('📱 알림 탭 처리: orderId=$orderId, type=$notifType');
+
+    // 추가 결제 요청 알림은 주문 상세로 이동 (상세에서 카드 표시됨)
+    // CS 영상 공유 알림도 주문 상세 또는 알림 목록으로 이동
+    final route = '/orders/detail/$orderId';
+    _navigationController.add({'route': route, 'orderId': orderId, 'type': notifType});
   }
 
   /// FCM 토큰을 Supabase에 저장

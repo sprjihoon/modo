@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'services/network_monitor_service.dart';
+import 'services/notification_service.dart';
 
 /// 앱 라이프사이클 상태 Provider
 final appLifecycleProvider =
@@ -26,6 +27,7 @@ class ModoRepairApp extends ConsumerStatefulWidget {
 class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
     with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<Map<String, dynamic>>? _notificationNavSubscription;
   final _networkMonitor = NetworkMonitorService();
 
   @override
@@ -33,13 +35,37 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _setupAuthListener();
+    _setupNotificationNavigation();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
+    _notificationNavSubscription?.cancel();
     super.dispose();
+  }
+
+  /// 푸시 알림 탭 → GoRouter 네비게이션 연결
+  void _setupNotificationNavigation() {
+    _notificationNavSubscription =
+        NotificationService().navigationStream.listen((event) {
+      final route = event['route'] as String?;
+      if (route == null) return;
+
+      debugPrint('🔀 [App] 알림 탭 네비게이션: $route');
+
+      // 잠깐 지연 후 이동 (앱이 아직 초기화 중일 수 있으므로)
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
+        try {
+          final router = ref.read(routerProvider);
+          router.push(route);
+        } catch (e) {
+          debugPrint('❌ [App] 알림 탭 네비게이션 실패: $e');
+        }
+      });
+    });
   }
 
   /// 앱 라이프사이클 변경 감지
