@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     const { data: orderForBarcode } = await supabaseAdmin
       .from("orders")
-      .select("order_number, repair_parts")
+      .select("order_number, repair_parts, tracking_no")
       .eq("id", orderId)
       .single();
 
@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
         orderId,
         orderForBarcode.order_number,
         repairParts,
+        (orderForBarcode as { tracking_no?: string | null }).tracking_no,
       );
       barcodesGenerated = rows.length;
       barcodeError = bcErr;

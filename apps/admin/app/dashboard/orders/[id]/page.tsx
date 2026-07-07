@@ -42,6 +42,11 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
   const [isCompletingReturn, setIsCompletingReturn] = useState(false);
   const [barcodes, setBarcodes] = useState<any[]>([]);
   const [photos, setPhotos] = useState<Record<number, { before?: string; after?: string }>>({});
+  const [portonePaymentInfo, setPortonePaymentInfo] = useState<{
+    totalAmount: number;
+    cancelledAmount: number;
+    cancellations: { amount: { total: number }; reason: string; cancelledAt: string }[];
+  } | null>(null);
 
   const handleCompleteReturn = async () => {
     if (!order?.id) return;
@@ -80,7 +85,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
       const response = await fetch(`/api/orders/${params.id}`);
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.order) {
+          if (data.success && data.order) {
           console.log('📦 주문 데이터 로드:', data.order);
           console.log('👤 사용자 ID:', data.order.user_id);
           setOrder(data.order);
@@ -89,6 +94,16 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
           // Load barcodes and photos
           loadBarcodes(params.id);
           loadPhotos(params.id);
+
+          // 부분취소 금액 표시를 위해 portone 조회
+          if (
+            data.order.payment_id &&
+            data.order.payment_status === 'PARTIAL_CANCELED'
+          ) {
+            loadPortonePaymentInfo(data.order.payment_id);
+          } else {
+            setPortonePaymentInfo(null);
+          }
           
           // Load user data for point management
           if (data.order.user_id) {
@@ -108,6 +123,27 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
       console.error('주문 로드 실패:', error);
     } finally {
       setIsLoadingOrder(false);
+    }
+  };
+
+  const loadPortonePaymentInfo = async (paymentId: string) => {
+    try {
+      const res = await fetch(`/api/pay/inquiry?paymentId=${encodeURIComponent(paymentId)}`);
+      const data = await res.json();
+      if (data.success && data.payment) {
+        const cancellations = data.payment.cancellations ?? [];
+        const cancelledAmount = cancellations.reduce(
+          (sum: number, c: { amount?: { total?: number } }) => sum + (c.amount?.total ?? 0),
+          0
+        );
+        setPortonePaymentInfo({
+          totalAmount: data.payment.totalAmount ?? 0,
+          cancelledAmount,
+          cancellations,
+        });
+      }
+    } catch (e) {
+      console.warn("포트원 결제 정보 조회 실패:", e);
     }
   };
 
@@ -613,7 +649,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                 <CreditCard className="h-5 w-5" />
                 결제 정보
               </CardTitle>
-              {displayOrder.paymentStatus === "COMPLETED" && (
+              {(displayOrder.paymentStatus === "COMPLETED" || displayOrder.paymentStatus === "PARTIAL_CANCELED") && (
                 <PaymentRefundDialog
                   orderId={displayOrder.id}
                   paymentId={displayOrder.paymentId}
@@ -635,25 +671,46 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">결제 상태</p>
-              <Badge
-                variant={
-                  displayOrder.paymentStatus === "COMPLETED"
-                    ? "default"
+              <div className="flex items-center gap-2 flex-wrap mt-1">
+                <Badge
+                  variant={
+                    displayOrder.paymentStatus === "COMPLETED"
+                      ? "default"
+                      : displayOrder.paymentStatus === "PENDING"
+                      ? "secondary"
+                      : "destructive"
+                  }
+                >
+                  {displayOrder.paymentStatus === "COMPLETED"
+                    ? "결제 완료"
                     : displayOrder.paymentStatus === "PENDING"
-                    ? "secondary"
-                    : "destructive"
-                }
-              >
-                {displayOrder.paymentStatus === "COMPLETED"
-                  ? "결제 완료"
-                  : displayOrder.paymentStatus === "PENDING"
-                  ? "결제 대기"
-                  : displayOrder.paymentStatus === "CANCELED"
-                  ? "결제 취소"
-                  : displayOrder.paymentStatus === "PARTIAL_CANCELED"
-                  ? "부분 취소"
-                  : "결제 실패"}
-              </Badge>
+                    ? "결제 대기"
+                    : displayOrder.paymentStatus === "CANCELED"
+                    ? "결제 취소"
+                    : displayOrder.paymentStatus === "PARTIAL_CANCELED"
+                    ? "부분 취소"
+                    : "결제 실패"}
+                </Badge>
+                {displayOrder.paymentStatus === "PARTIAL_CANCELED" && portonePaymentInfo && (
+                  <span className="text-sm text-red-600 font-medium">
+                    -{portonePaymentInfo.cancelledAmount.toLocaleString()}원 취소됨
+                    <span className="text-muted-foreground font-normal ml-1">
+                      (잔여 {(portonePaymentInfo.totalAmount - portonePaymentInfo.cancelledAmount).toLocaleString()}원)
+                    </span>
+                  </span>
+                )}
+              </div>
+              {displayOrder.paymentStatus === "PARTIAL_CANCELED" && portonePaymentInfo?.cancellations && portonePaymentInfo.cancellations.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {portonePaymentInfo.cancellations.map((c, idx) => (
+                    <div key={idx} className="text-xs text-muted-foreground bg-red-50 dark:bg-red-950/20 rounded px-2 py-1">
+                      <span className="text-red-600 font-medium">-{(c.amount?.total ?? 0).toLocaleString()}원</span>
+                      {" · "}{c.reason}
+                      {" · "}{new Date(c.cancelledAt).toLocaleString("ko-KR")}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <p className="text-sm text-muted-foreground">결제 ID</p>

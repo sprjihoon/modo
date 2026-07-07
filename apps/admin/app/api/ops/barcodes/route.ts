@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       .order("seq") as Promise<{ data: unknown[] | null; error: { message: string } | null }>,
     supabaseAdmin
       .from("orders")
-      .select("order_number,customer_name,item_name,repair_parts,created_at")
+      .select("order_number,customer_name,item_name,repair_parts,created_at,tracking_no")
       .eq("id", orderId)
       .single(),
   ]);

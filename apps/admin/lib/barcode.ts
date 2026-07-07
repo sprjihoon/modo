@@ -27,11 +27,12 @@ export function normalizeRepairPart(raw: unknown): string {
 }
 
 /**
- * 바코드 번호 생성: {order_number}-{seq:02d}
- * 예: ORD-20260706-001-01
+ * 바코드 번호 생성: {trackingNo}-{seq:02d}
+ * 예: 123456789012-01
+ * trackingNo가 없으면 orderNumber 사용 (fallback)
  */
-export function buildBarcodeNo(orderNumber: string, seq: number): string {
-  return `${orderNumber}-${String(seq).padStart(2, "0")}`;
+export function buildBarcodeNo(trackingNoOrOrderNumber: string, seq: number): string {
+  return `${trackingNoOrOrderNumber}-${String(seq).padStart(2, "0")}`;
 }
 
 /**
@@ -55,18 +56,21 @@ export interface BarcodeRow {
 /**
  * order_barcodes 레코드 INSERT (입고 처리 시 호출)
  * 이미 존재하면 무시 (upsert ignoreDuplicates)
+ * 바코드 번호: trackingNo 있으면 "{trackingNo}-01" 형식, 없으면 orderNumber 사용
  */
 export async function generateOrderBarcodes(
   db: SupabaseClient,
   orderId: string,
   orderNumber: string,
   repairParts: unknown[],
+  trackingNo?: string | null,
 ): Promise<{ rows: BarcodeRow[]; error: string | null }> {
   const parts = repairParts.length > 0 ? repairParts : [null];
+  const barcodePrefix = trackingNo || orderNumber;
 
   const rows: BarcodeRow[] = parts.map((part, i) => ({
     order_id: orderId,
-    barcode_no: buildBarcodeNo(orderNumber, i + 1),
+    barcode_no: buildBarcodeNo(barcodePrefix, i + 1),
     seq: i + 1,
     item_name: normalizeRepairPart(part).slice(0, 40) || null,
   }));
