@@ -10,6 +10,7 @@ import {
   RotateCcw,
   AlertTriangle,
   Printer,
+  PackageCheck,
 } from "lucide-react";
 import {
   Dialog,
@@ -74,6 +75,8 @@ export default function WorkPage() {
   const [workItems, setWorkItems] = useState<WorkItemStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState<{ [key: number]: boolean }>({});
+  const [isCompletingOrder, setIsCompletingOrder] = useState(false);
+  const [orderCompleted, setOrderCompleted] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -147,6 +150,7 @@ export default function WorkPage() {
         scannedItemSeq: scannedItemSeq ?? null,
       };
       setResult(found);
+      setOrderCompleted(false);
       await loadWorkItems(found.orderId);
 
       // 스캔 성공 시 입력란 비우기
@@ -206,6 +210,37 @@ export default function WorkPage() {
       await loadWorkItems(result.orderId);
     } finally {
       setIsProcessing((p) => ({ ...p, [itemIndex]: false }));
+    }
+  };
+
+  const handleCompleteOrder = async () => {
+    if (!result) return;
+    if (!confirm("모든 수선 작업을 완료 처리하고 출고 대기 상태로 전환하시겠습니까?")) return;
+    setIsCompletingOrder(true);
+    try {
+      // 작업 중인 아이템이 있으면 모두 완료 처리
+      const pendingItems = workItems.filter((w) => w.status === "IN_PROGRESS");
+      for (const item of pendingItems) {
+        await fetch("/api/ops/work-items", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId: result.orderId, itemIndex: item.item_index, action: "complete" }),
+        });
+      }
+      // 주문 상태 → READY_TO_SHIP (출고 대기)
+      const res = await fetch("/api/ops/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: result.orderId, status: "READY_TO_SHIP" }),
+      });
+      const json = await res.json();
+      if (!res.ok) { alert(json.error || "완료처리 실패"); return; }
+      setOrderCompleted(true);
+      await loadWorkItems(result.orderId);
+    } catch (e: any) {
+      alert(e.message || "완료처리 중 오류가 발생했습니다.");
+    } finally {
+      setIsCompletingOrder(false);
     }
   };
 
@@ -444,11 +479,34 @@ export default function WorkPage() {
                 })}
               </div>
 
-              {allItemsCompleted && (
-                <div className="mt-3 p-3 bg-green-100 border border-green-300 rounded-lg">
-                  <p className="text-sm text-green-800 font-medium">
-                    ✅ 모든 작업이 완료되었습니다.
-                  </p>
+              {/* 수선 완료처리 버튼 — 항목이 1개 이상 있고 작업이 시작된 경우 표시 */}
+              {result?.repairParts && result.repairParts.length > 0 && workItems.length > 0 && (
+                <div className="mt-4">
+                  {orderCompleted ? (
+                    <div className="p-4 bg-green-100 border border-green-300 rounded-lg text-center">
+                      <PackageCheck className="h-6 w-6 text-green-600 mx-auto mb-1" />
+                      <p className="text-sm text-green-800 font-semibold">수선 완료 — 출고 대기 상태로 전환되었습니다</p>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleCompleteOrder}
+                      disabled={isCompletingOrder}
+                      className={`w-full py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2 text-sm transition-colors ${
+                        isCompletingOrder
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : allItemsCompleted
+                          ? "bg-green-600 hover:bg-green-700"
+                          : "bg-blue-600 hover:bg-blue-700"
+                      }`}
+                    >
+                      <PackageCheck className="h-5 w-5" />
+                      {isCompletingOrder
+                        ? "처리 중..."
+                        : allItemsCompleted
+                        ? "수선 완료 처리 (출고 대기)"
+                        : "작업 완료 처리 (미완 항목 포함)"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
