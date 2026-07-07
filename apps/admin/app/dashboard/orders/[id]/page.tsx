@@ -13,7 +13,6 @@ import { WorkOrderPrintDialog } from "@/components/orders/work-order-print-dialo
 import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
 import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review-dialog";
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
-import { ReturnShipmentButton } from "@/components/orders/return-shipment-button";
 import { canShowReturnShipmentUi, getEffectiveOrderStatus } from "@/lib/order-return-flow";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
 import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image } from "lucide-react";
@@ -457,31 +456,20 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
               <div className="flex items-start gap-3">
                 <Package className="h-5 w-5 text-rose-600 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-rose-700">반송 진행 중</p>
+                  <p className="font-semibold text-rose-700">반송 처리 필요</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {order?.status === "RETURN_PENDING" && "반송 송장을 발급해 주세요. 송장 발급 후 고객에게 자동 안내됩니다."}
-                    {order?.status === "RETURN_SHIPPING" && "반송 송장이 발급되어 배송 중입니다. 도착 확인 후 '반송 완료 처리' 를 눌러 마무리하세요."}
-                    {order?.status === "CANCELLED" && !order?.extra_charge_data?.returnTrackingNo &&
-                      "입고 후 취소된 주문입니다. 고객에게 반송할 출고 송장(계약택배)을 발급해 주세요."}
-                    {order?.status !== "RETURN_PENDING" && order?.status !== "RETURN_SHIPPING" && order?.status !== "CANCELLED" &&
-                      order?.extra_charge_status === "RETURN_REQUESTED" &&
-                      "고객이 반송을 요청했습니다. 반송 송장 발급 → 도착 확인 → 반송 완료 처리 순으로 진행해 주세요."}
+                    아래 <strong>배송 정보</strong>의 출고 송장을 재출력하여 상품에 부착 후 발송하세요.
+                    발송 완료 후 <strong>반송 완료 처리</strong>를 눌러 주문을 종료하세요.
                   </p>
                   {order?.cancellation_reason && (
-                    <p className="text-xs text-rose-600 mt-1">사유: {order.cancellation_reason}</p>
+                    <p className="text-xs text-rose-600 mt-1">취소 사유: {order.cancellation_reason}</p>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {!order?.extra_charge_data?.returnTrackingNo && (
-                  <ReturnShipmentButton
-                    orderId={displayOrder.id}
-                    onCreated={() => loadOrder()}
-                  />
-                )}
                 <Button
                   onClick={handleCompleteReturn}
-                  disabled={isCompletingReturn || !order?.extra_charge_data?.returnTrackingNo}
+                  disabled={isCompletingReturn || !displayOrder.deliveryTrackingNo}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   {isCompletingReturn ? "처리중..." : (
@@ -747,11 +735,11 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                       <ExternalLink className="h-3 w-3 mr-1" />
                       추적
                     </Button>
-                    {/* 배송 송장 출력 - 운송장번호 발급 시에만 표시 */}
                     <LabelPrintDialog 
                       trackingNo={displayOrder.deliveryTrackingNo} 
                       type="delivery"
                       orderId={displayOrder.id}
+                      buttonLabel={order && canShowReturnShipmentUi(order) && order.status !== "RETURN_DONE" ? "재출력" : "출력"}
                     />
                   </>
                 )}
@@ -807,55 +795,13 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
               </div>
             )}
 
-            {/* 반송 송장 — 입고 후 취소·반송 요청 */}
-            {order && canShowReturnShipmentUi(order) && (
-              <div className="border-t pt-4 mt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-medium text-red-600 flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    반송 송장
-                  </p>
-                  {!order?.extra_charge_data?.returnTrackingNo && (
-                    <ReturnShipmentButton 
-                      orderId={displayOrder.id}
-                      onCreated={() => loadOrder()}
-                    />
-                  )}
-                </div>
-                {order?.extra_charge_data?.returnTrackingNo ? (
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium font-mono text-sm">
-                      {order.extra_charge_data.returnTrackingNo}
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => navigator.clipboard.writeText(order.extra_charge_data.returnTrackingNo)}
-                    >
-                      복사
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => window.open(
-                        `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${order.extra_charge_data.returnTrackingNo}`,
-                        '_blank'
-                      )}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      추적
-                    </Button>
-                    <LabelPrintDialog 
-                      trackingNo={order.extra_charge_data.returnTrackingNo} 
-                      type="delivery"
-                      orderId={displayOrder.id}
-                    />
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    반송 송장이 아직 생성되지 않았습니다
-                  </p>
-                )}
+            {/* 반송 처리 중일 때 배송 운송장으로 재출력 안내 */}
+            {order && canShowReturnShipmentUi(order) && order.status !== "RETURN_DONE" && displayOrder.deliveryTrackingNo && (
+              <div className="border-t pt-4 mt-2">
+                <p className="text-xs text-rose-600 font-medium flex items-center gap-1">
+                  <Package className="h-3 w-3" />
+                  반송 처리 중 — 위 출고 송장을 재출력하여 상품에 부착 후 발송하세요.
+                </p>
               </div>
             )}
           </CardContent>
