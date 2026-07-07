@@ -113,9 +113,10 @@ export default function BarcodeLayoutPage() {
   const [elements, setElements] = useState<BarcodeLayoutElement[]>(DEFAULT_ELEMENTS);
   const [selected, setSelected] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
-  const [dragging, setDragging] = useState<string | null>(null);
+  // 드래그: 시작 시점의 요소 스냅샷을 저장 (label-editor 패턴과 동일)
+  const [draggingEl, setDraggingEl] = useState<BarcodeLayoutElement | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
-  const [resizing, setResizing] = useState<string | null>(null);
+  const [resizingEl, setResizingEl] = useState<BarcodeLayoutElement | null>(null);
   const [resizeStart, setResizeStart] = useState<{ mx: number; my: number; w: number; h: number } | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -153,15 +154,12 @@ export default function BarcodeLayoutPage() {
     alert("저장된 레이아웃을 불러왔습니다.");
   };
 
-  /* ── 요소 업데이트 헬퍼 ── */
-  const updateEl = useCallback(
-    (fieldKey: string, patch: Partial<BarcodeLayoutElement>) => {
-      setElements((prev) =>
-        prev.map((el) => (el.fieldKey === fieldKey ? { ...el, ...patch } : el))
-      );
-    },
-    []
-  );
+  /* ── 요소 업데이트 헬퍼 (토글/속성 수정용) ── */
+  const updateEl = useCallback((fieldKey: string, patch: Partial<BarcodeLayoutElement>) => {
+    setElements((prev) =>
+      prev.map((el) => (el.fieldKey === fieldKey ? { ...el, ...patch } : el))
+    );
+  }, []);
 
   /* ── 드래그 시작 ── */
   const onMouseDown = (e: React.MouseEvent, fieldKey: string) => {
@@ -173,8 +171,10 @@ export default function BarcodeLayoutPage() {
     e.stopPropagation();
 
     const el = elements.find((x) => x.fieldKey === fieldKey)!;
-    const rect = canvasRef.current!.getBoundingClientRect();
-    setDragging(fieldKey);
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    // 시작 시점 스냅샷 저장 → move 핸들러에서 elements state를 읽지 않아도 됨
+    setDraggingEl(el);
     setSelected(fieldKey);
     setDragOffset({
       x: e.clientX - rect.left - mmToPx(el.xMm),
@@ -182,73 +182,93 @@ export default function BarcodeLayoutPage() {
     });
   };
 
-  /* ── 드래그 이동 ── */
+  /* ── 드래그 이동 (label-editor 패턴: elements 의존성 없음) ── */
   useEffect(() => {
-    if (!dragging || !dragOffset || !canvasRef.current) return;
+    if (!draggingEl || !dragOffset || !canvasRef.current) return;
     const handleMove = (e: MouseEvent) => {
       e.preventDefault();
       const rect = canvasRef.current!.getBoundingClientRect();
-      const el = elements.find((x) => x.fieldKey === dragging)!;
-      const newXMm = Math.max(0, Math.min(pxToMm(e.clientX - rect.left - dragOffset.x), config.labelWidthMm - el.widthMm));
-      const newYMm = Math.max(0, Math.min(pxToMm(e.clientY - rect.top - dragOffset.y), config.labelHeightMm - el.heightMm));
-      updateEl(dragging, { xMm: newXMm, yMm: newYMm });
+      const newXMm = Math.max(
+        0,
+        Math.min(pxToMm(e.clientX - rect.left - dragOffset.x), config.labelWidthMm - draggingEl.widthMm)
+      );
+      const newYMm = Math.max(
+        0,
+        Math.min(pxToMm(e.clientY - rect.top - dragOffset.y), config.labelHeightMm - draggingEl.heightMm)
+      );
+      // fieldKey 기준으로 업데이트 (스냅샷의 fieldKey 사용)
+      setElements((prev) =>
+        prev.map((el) =>
+          el.fieldKey === draggingEl.fieldKey ? { ...el, xMm: newXMm, yMm: newYMm } : el
+        )
+      );
     };
-    const handleUp = () => { setDragging(null); setDragOffset(null); };
+    const handleUp = () => { setDraggingEl(null); setDragOffset(null); };
     document.addEventListener("mousemove", handleMove, { passive: false });
     document.addEventListener("mouseup", handleUp);
     return () => {
       document.removeEventListener("mousemove", handleMove);
       document.removeEventListener("mouseup", handleUp);
     };
-  }, [dragging, dragOffset, elements, config, updateEl]);
+  }, [draggingEl, dragOffset, config]); // elements 의존성 제거
 
   /* ── 리사이즈 시작 ── */
   const onResizeStart = (e: React.MouseEvent, fieldKey: string) => {
     e.stopPropagation();
     e.preventDefault();
     const el = elements.find((x) => x.fieldKey === fieldKey)!;
-    setResizing(fieldKey);
+    setResizingEl(el);
     setResizeStart({ mx: e.clientX, my: e.clientY, w: el.widthMm, h: el.heightMm });
   };
 
-  /* ── 리사이즈 이동 ── */
+  /* ── 리사이즈 이동 (label-editor 패턴) ── */
   useEffect(() => {
-    if (!resizing || !resizeStart) return;
+    if (!resizingEl || !resizeStart) return;
     const handleMove = (e: MouseEvent) => {
       e.preventDefault();
       const dxMm = pxToMm(e.clientX - resizeStart.mx);
       const dyMm = pxToMm(e.clientY - resizeStart.my);
-      updateEl(resizing, {
-        widthMm: Math.max(5, resizeStart.w + dxMm),
-        heightMm: Math.max(2, resizeStart.h + dyMm),
-      });
+      setElements((prev) =>
+        prev.map((el) =>
+          el.fieldKey === resizingEl.fieldKey
+            ? { ...el, widthMm: Math.max(5, resizeStart.w + dxMm), heightMm: Math.max(2, resizeStart.h + dyMm) }
+            : el
+        )
+      );
     };
-    const handleUp = () => { setResizing(null); setResizeStart(null); };
+    const handleUp = () => { setResizingEl(null); setResizeStart(null); };
     document.addEventListener("mousemove", handleMove, { passive: false });
     document.addEventListener("mouseup", handleUp);
     return () => {
       document.removeEventListener("mousemove", handleMove);
       document.removeEventListener("mouseup", handleUp);
     };
-  }, [resizing, resizeStart, updateEl]);
+  }, [resizingEl, resizeStart]); // elements 의존성 없음
 
   /* ── 키보드 이동 ── */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (!selected || editing) return;
-      const el = elements.find((x) => x.fieldKey === selected);
-      if (!el) return;
       const step = e.shiftKey ? 1 : 0.5;
-      if (e.key === "ArrowLeft") { e.preventDefault(); updateEl(selected, { xMm: Math.max(0, el.xMm - step) }); }
-      if (e.key === "ArrowRight") { e.preventDefault(); updateEl(selected, { xMm: Math.min(config.labelWidthMm - el.widthMm, el.xMm + step) }); }
-      if (e.key === "ArrowUp") { e.preventDefault(); updateEl(selected, { yMm: Math.max(0, el.yMm - step) }); }
-      if (e.key === "ArrowDown") { e.preventDefault(); updateEl(selected, { yMm: Math.min(config.labelHeightMm - el.heightMm, el.yMm + step) }); }
-      if (e.key === "Escape") { setSelected(null); }
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        e.preventDefault();
+        setElements((prev) =>
+          prev.map((el) => {
+            if (el.fieldKey !== selected) return el;
+            if (e.key === "ArrowLeft") return { ...el, xMm: Math.max(0, el.xMm - step) };
+            if (e.key === "ArrowRight") return { ...el, xMm: Math.min(config.labelWidthMm - el.widthMm, el.xMm + step) };
+            if (e.key === "ArrowUp") return { ...el, yMm: Math.max(0, el.yMm - step) };
+            if (e.key === "ArrowDown") return { ...el, yMm: Math.min(config.labelHeightMm - el.heightMm, el.yMm + step) };
+            return el;
+          })
+        );
+      }
+      if (e.key === "Escape") setSelected(null);
     };
     document.addEventListener("keydown", handler, true);
     return () => document.removeEventListener("keydown", handler, true);
-  }, [selected, editing, elements, config, updateEl]);
+  }, [selected, editing, config]);
 
   /* ── 캔버스 클릭 해제 ── */
   const onCanvasClick = (e: React.MouseEvent) => {
@@ -310,7 +330,7 @@ export default function BarcodeLayoutPage() {
                 if (!el.visible) return null;
                 const isSel = selected === el.fieldKey;
                 const isEdit = editing === el.fieldKey;
-                const isDrag = dragging === el.fieldKey;
+                const isDrag = draggingEl?.fieldKey === el.fieldKey;
 
                 return (
                   <div
@@ -343,7 +363,7 @@ export default function BarcodeLayoutPage() {
                     >×</button>
 
                     {/* 리사이즈 핸들 */}
-                    {!isEdit && (
+                    {!isEdit && !draggingEl && !resizingEl && (
                       <div
                         className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-green-500 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity z-20 cursor-nwse-resize border border-white shadow"
                         onMouseDown={(e) => onResizeStart(e, el.fieldKey)}
