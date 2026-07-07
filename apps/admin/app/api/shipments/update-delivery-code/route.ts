@@ -108,10 +108,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. 기존 delivery_info와 병합
-    const isReturnTracking = order.extra_charge_data?.returnTrackingNo === trackingNo;
+    const extraData = order.extra_charge_data as Record<string, unknown> | null;
+    const isReturnTracking = extraData?.returnTrackingNo === trackingNo;
 
     let existingDeliveryInfo = isReturnTracking
-      ? order.extra_charge_data?.returnDeliveryInfo
+      ? extraData?.returnDeliveryInfo
       : shipment.delivery_info;
     if (typeof existingDeliveryInfo === 'string') {
       try {
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
         .from('orders')
         .update({
           extra_charge_data: {
-            ...order.extra_charge_data,
+            ...(extraData ?? {}),
             returnDeliveryInfo: updatedDeliveryInfo,
           },
           updated_at: new Date().toISOString(),

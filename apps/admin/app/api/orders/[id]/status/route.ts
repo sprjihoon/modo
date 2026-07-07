@@ -89,13 +89,26 @@ export async function PATCH(
       );
     }
 
-    const { data: shipment } = await supabase
+    const { data: shipmentRaw } = await supabase
       .from("shipments")
-      .select("status, inbound_at, pickup_tracking_no")
+      .select("status, pickup_tracking_no")
       .eq("order_id", orderId)
       .maybeSingle();
 
-    const orderContext = { ...current, shipment };
+    // inbound_at 은 DB에 존재하지만 생성 타입에 없어 raw query 결과에서 직접 추출
+    const shipmentAny = shipmentRaw as any;
+    const shipment = shipmentRaw
+      ? { status: shipmentAny.status, inbound_at: shipmentAny.inbound_at ?? null, pickup_tracking_no: shipmentAny.pickup_tracking_no }
+      : null;
+
+    const orderContext = {
+      status: current.status as string,
+      extra_charge_data: current.extra_charge_data as { returnTrackingNo?: string } | null,
+      tracking_no: current.tracking_no,
+      canceled_at: current.canceled_at,
+      cancellation_reason: current.cancellation_reason,
+      shipment,
+    };
 
     const currentStatus = current.status as string;
     const allowed = ALLOWED_TRANSITIONS[currentStatus];
