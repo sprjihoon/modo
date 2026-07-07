@@ -127,10 +127,9 @@ export function PaymentRefundDialog({
       const body: Record<string, unknown> = {
         paymentId,
         cancelReason: reason,
+        cancelAmount: refundType === "full" ? maxRefundAmount : parseInt(refundAmount),
+        currentCancellableAmount: maxRefundAmount,
       };
-      if (refundType === "partial") {
-        body.cancelAmount = parseInt(refundAmount);
-      }
 
       const response = await fetch("/api/pay/cancel", {
         method: "POST",

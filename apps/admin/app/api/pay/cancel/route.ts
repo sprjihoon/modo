@@ -19,12 +19,13 @@ interface CancelRequest {
   paymentId: string;
   cancelReason: string;
   cancelAmount?: number;
+  currentCancellableAmount?: number;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: CancelRequest = await request.json();
-    const { paymentId, cancelReason, cancelAmount } = body;
+    const { paymentId, cancelReason, cancelAmount, currentCancellableAmount } = body;
 
     if (!paymentId) {
       return NextResponse.json(
@@ -42,7 +43,12 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
 
     const cancelBody: Record<string, unknown> = { reason: cancelReason };
-    if (cancelAmount) cancelBody.amount = { total: cancelAmount };
+    if (cancelAmount) {
+      cancelBody.amount = { total: cancelAmount };
+    }
+    if (currentCancellableAmount) {
+      cancelBody.currentCancellableAmount = currentCancellableAmount;
+    }
 
     const portoneRes = await fetch(
       `https://api.portone.io/payments/${encodeURIComponent(paymentId)}/cancel`,
