@@ -115,9 +115,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "조회 실패" }, { status: 500 });
     }
 
+    // 출고 송장번호(delivery_tracking_no)를 shipments 테이블에서 배치 조회
+    let enrichedData = data ?? [];
+    if (enrichedData.length > 0) {
+      const orderIds = enrichedData.map((r: { id: string }) => r.id);
+      const { data: shipments } = await supabaseAdmin
+        .from("shipments")
+        .select("order_id, delivery_tracking_no")
+        .in("order_id", orderIds);
+
+      if (shipments && shipments.length > 0) {
+        const shipmentMap = new Map(
+          shipments.map((s: { order_id: string; delivery_tracking_no: string | null }) => [
+            s.order_id,
+            s.delivery_tracking_no,
+          ])
+        );
+        enrichedData = enrichedData.map((r: { id: string }) => ({
+          ...r,
+          delivery_tracking_no: shipmentMap.get(r.id) ?? null,
+        }));
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      data: data ?? [],
+      data: enrichedData,
       stats,
       totalCount: count ?? 0,
       page,

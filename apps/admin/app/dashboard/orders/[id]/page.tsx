@@ -15,7 +15,7 @@ import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
 import { canShowReturnShipmentUi, getEffectiveOrderStatus } from "@/lib/order-return-flow";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
-import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image } from "lucide-react";
+import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image, RotateCcw } from "lucide-react";
 
 interface OrderDetailPageProps {
   // params is now handled via useParams() in Next.js 15
@@ -40,6 +40,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
   const [selectedVideo, setSelectedVideo] = useState<MediaVideo | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isCompletingReturn, setIsCompletingReturn] = useState(false);
+  const [sendingPushVideoId, setSendingPushVideoId] = useState<string | null>(null);
   const [barcodes, setBarcodes] = useState<any[]>([]);
   const [photos, setPhotos] = useState<Record<number, { before?: string; after?: string }>>({});
   const [portonePaymentInfo, setPortonePaymentInfo] = useState<{
@@ -300,6 +301,37 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
     }
   };
 
+  // CS 영상 앱 푸시 전송
+  const handleSendCsVideoPush = async (video: MediaVideo) => {
+    if (!order?.id) return;
+    const videoTypeLabel = getVideoTypeLabel(video.type);
+
+    if (!confirm(`고객(${order.customer_name || "고객"})에게 ${videoTypeLabel} 링크를 앱 푸시로 전송하시겠습니까?`)) {
+      return;
+    }
+
+    setSendingPushVideoId(video.id);
+    try {
+      const res = await fetch("/api/admin/cs-video/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          videoId: video.path,
+          videoType: video.type,
+          videoLabel: videoTypeLabel,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "전송 실패");
+      alert(`✅ ${data.message}`);
+    } catch (e: any) {
+      alert(`❌ 전송 실패: ${e.message}`);
+    } finally {
+      setSendingPushVideoId(null);
+    }
+  };
+
   const handleCancelShipment = async () => {
     const isPaid =
       order?.payment_id &&
@@ -503,6 +535,16 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                {displayOrder.deliveryTrackingNo && (
+                  <LabelPrintDialog
+                    trackingNo={displayOrder.deliveryTrackingNo}
+                    type="delivery"
+                    orderId={displayOrder.id}
+                    buttonLabel="출고 송장 재출력"
+                    buttonVariant="outline"
+                    buttonSize="default"
+                  />
+                )}
                 <Button
                   onClick={handleCompleteReturn}
                   disabled={isCompletingReturn || !displayOrder.deliveryTrackingNo}
@@ -510,7 +552,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                 >
                   {isCompletingReturn ? "처리중..." : (
                     <>
-                      <FileText className="h-4 w-4 mr-2" />
+                      <RotateCcw className="h-4 w-4 mr-2" />
                       반송 완료 처리
                     </>
                   )}
@@ -527,6 +569,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
           status={order.extra_charge_status}
           data={order.extra_charge_data}
           orderId={order.id}
+          deliveryTrackingNo={displayOrder.deliveryTrackingNo}
           onReturnShipmentCreated={() => loadOrder()}
         />
       )}

@@ -1,6 +1,4 @@
 "use client";
-
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,21 +8,15 @@ import {
   Package,
   Truck,
   AlertCircle,
+  Printer,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
 
 interface ExtraChargeStatusCardProps {
   status: string;
   data: any;
   orderId: string;
+  deliveryTrackingNo?: string | null;
   onReturnShipmentCreated?: () => void;
 }
 
@@ -74,12 +66,9 @@ export function ExtraChargeStatusCard({
   status, 
   data, 
   orderId,
-  onReturnShipmentCreated 
+  deliveryTrackingNo,
+  onReturnShipmentCreated: _onReturnShipmentCreated,
 }: ExtraChargeStatusCardProps) {
-  const [isCreatingShipment, setIsCreatingShipment] = useState(false);
-  const [showReturnDialog, setShowReturnDialog] = useState(false);
-  const [returnTrackingNo, setReturnTrackingNo] = useState<string | null>(null);
-
   const config = statusConfig[status];
   if (!config) return null;
 
@@ -89,33 +78,6 @@ export function ExtraChargeStatusCard({
   const customerAction = data?.customerAction || "";
   const completedAt = data?.completedAt;
   const returnFee = data?.returnFee || 6000;
-
-  // 반송 송장 생성
-  const handleCreateReturnShipment = async () => {
-    setIsCreatingShipment(true);
-    try {
-      const response = await fetch(`/api/orders/${orderId}/return-shipment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ returnFee }),
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || "반송 송장 생성 실패");
-      }
-
-      setReturnTrackingNo(result.trackingNo);
-      setShowReturnDialog(true);
-      onReturnShipmentCreated?.();
-    } catch (error: any) {
-      console.error("반송 송장 생성 실패:", error);
-      alert(`반송 송장 생성 실패: ${error.message}`);
-    } finally {
-      setIsCreatingShipment(false);
-    }
-  };
 
   return (
     <>
@@ -180,103 +142,46 @@ export function ExtraChargeStatusCard({
             </div>
           )}
 
-          {/* 반송 요청인 경우 송장 생성 버튼 */}
+          {/* 반송 요청인 경우 출고 송장 재출력 안내 */}
           {status === "RETURN_REQUESTED" && (
-            <div className="pt-4 border-t border-dashed">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-medium text-red-700">반송 처리</p>
-                  <p className="text-sm text-muted-foreground">
-                    반송 배송비: ₩{returnFee.toLocaleString()} (고객 부담)
-                  </p>
-                </div>
+            <div className="pt-4 border-t border-dashed space-y-3">
+              <div>
+                <p className="font-medium text-red-700">반송 처리</p>
+                <p className="text-sm text-muted-foreground">
+                  입고 시 발급된 출고 송장을 재출력하여 상품에 부착한 뒤 발송하세요.
+                </p>
               </div>
-              
-              {data?.returnTrackingNo ? (
+
+              {deliveryTrackingNo ? (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-3 bg-white rounded-lg">
-                    <Truck className="h-5 w-5 text-blue-600" />
+                  <div className="flex items-center gap-2 p-3 bg-white rounded-lg border">
+                    <Truck className="h-5 w-5 text-blue-600 shrink-0" />
                     <div>
-                      <p className="text-sm text-muted-foreground">반송 송장번호</p>
-                      <p className="font-mono font-bold">{data.returnTrackingNo}</p>
+                      <p className="text-xs text-muted-foreground">출고 송장번호 (반송에 사용)</p>
+                      <p className="font-mono font-bold text-sm">{deliveryTrackingNo}</p>
                     </div>
                   </div>
                   <LabelPrintDialog
-                    trackingNo={data.returnTrackingNo}
+                    trackingNo={deliveryTrackingNo}
                     type="delivery"
                     orderId={orderId}
-                    buttonLabel="송장 출력"
+                    buttonLabel="출고 송장 재출력"
                     buttonClassName="w-full"
                     buttonVariant="outline"
                     buttonSize="default"
                   />
                 </div>
               ) : (
-                <Button
-                  className="w-full bg-red-600 hover:bg-red-700"
-                  onClick={handleCreateReturnShipment}
-                  disabled={isCreatingShipment}
-                >
-                  {isCreatingShipment ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      송장 생성중...
-                    </>
-                  ) : (
-                    <>
-                      <Package className="h-4 w-4 mr-2" />
-                      반송 송장 생성
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  출고 송장번호를 찾을 수 없습니다. 주문 상세의 배송 정보를 확인해 주세요.
+                </div>
               )}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* 반송 송장 생성 완료 다이얼로그 */}
-      <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-green-600">
-              <CheckCircle className="h-5 w-5" />
-              반송 송장 생성 완료
-            </DialogTitle>
-            <DialogDescription>
-              고객에게 반송할 송장이 생성되었습니다.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-muted-foreground mb-1">송장번호</p>
-              <p className="text-2xl font-mono font-bold">{returnTrackingNo}</p>
-            </div>
-            
-            <div className="text-sm text-muted-foreground">
-              <p>• 송장을 출력하여 상품에 부착해주세요</p>
-              <p>• 우체국 택배 기사가 수거합니다</p>
-              <p>• 반송 배송비 ₩{returnFee.toLocaleString()}은 고객에게 청구됩니다</p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowReturnDialog(false)}>
-              닫기
-            </Button>
-            {returnTrackingNo && (
-              <LabelPrintDialog
-                trackingNo={returnTrackingNo}
-                type="delivery"
-                orderId={orderId}
-                buttonLabel="송장 출력"
-                buttonSize="default"
-              />
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

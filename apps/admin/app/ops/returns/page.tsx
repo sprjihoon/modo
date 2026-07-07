@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
 import {
   RotateCcw,
   CheckCircle2,
@@ -35,6 +36,7 @@ interface QueueRow {
   extra_charge_status: string | null;
   extra_charge_data: { returnTrackingNo?: string } | null;
   tracking_no: string | null;
+  delivery_tracking_no: string | null;
   total_price: number;
   cancellation_reason: string | null;
   created_at: string;
@@ -244,12 +246,13 @@ export default function OpsReturnsPage() {
                   row.queue_kind === "RETURN_SHIPPING" ||
                   row.status === "RETURN_PENDING" ||
                   row.status === "RETURN_SHIPPING";
-                const returnTracking = row.extra_charge_data?.returnTrackingNo;
+                // 반송에는 입고 시 발급된 출고 송장을 그대로 사용
+                const printTrackingNo = row.delivery_tracking_no;
 
                 return (
                   <div
                     key={row.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    className="flex items-start justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors gap-4"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -262,20 +265,29 @@ export default function OpsReturnsPage() {
                         {row.order_number} • {row.customer_name || row.customer_email || "고객"}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {returnTracking
-                          ? `반송 송장: ${returnTracking}`
-                          : row.tracking_no
-                          ? `출고 송장: ${row.tracking_no}`
-                          : "송장 미발급"}
+                        {printTrackingNo
+                          ? `출고 송장: ${printTrackingNo}`
+                          : "출고 송장 없음"}
                       </p>
                       {row.cancellation_reason && (
                         <p className="text-xs text-rose-600 mt-0.5">사유: {row.cancellation_reason}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 ml-4">
+                    <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
                       <span className="text-xs text-muted-foreground hidden md:block">
                         {formatDate(row.updated_at)}
                       </span>
+                      {/* 출고 송장 재출력 */}
+                      {printTrackingNo && (
+                        <LabelPrintDialog
+                          trackingNo={printTrackingNo}
+                          type="delivery"
+                          orderId={row.id}
+                          buttonLabel="송장 재출력"
+                          buttonSize="sm"
+                          buttonVariant="outline"
+                        />
+                      )}
                       <Link href={`/dashboard/orders/${row.id}`} target="_blank">
                         <Button size="sm" variant="outline">
                           <ExternalLink className="h-4 w-4 mr-1" />
