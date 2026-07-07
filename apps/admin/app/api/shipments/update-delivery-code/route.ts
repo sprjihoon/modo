@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { lookupDeliveryCode } from '@/lib/delivery-code-lookup';
-import { requireAdmin } from '@/lib/ops-auth';
+import { requireStaff } from '@/lib/ops-auth';
 
 /**
  * 배송 송장의 집배코드 정보를 재조회하여 업데이트하는 API
@@ -10,7 +10,7 @@ import { requireAdmin } from '@/lib/ops-auth';
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAdmin();
+    const auth = await requireStaff();
     if (auth.response) return auth.response;
 
     const body = await request.json();

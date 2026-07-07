@@ -276,12 +276,12 @@ export function LabelPrintDialog({
       const companyName = companyInfo?.company_name?.split('(')[0].trim() || "모두의수선";
       const companyPhone = companyInfo?.phone || "010-2723-9490";
 
-      // 고객 주소 정보
-      const isSameAddress = order.is_pickup_delivery_same !== false && order.is_same_address !== false;
+      // 고객 주소 정보 — delivery_address가 있으면 우선 사용, 없으면 pickup_address로 fallback
       const pickupAddr = [order.pickup_address, order.pickup_address_detail].filter(Boolean).join(" ");
       const deliveryAddr = [order.delivery_address, order.delivery_address_detail].filter(Boolean).join(" ");
-      const customerAddress = isSameAddress ? pickupAddr : deliveryAddr;
-      const customerZipcode = isSameAddress ? order.pickup_zipcode : order.delivery_zipcode;
+      const hasDeliveryAddress = !!order.delivery_address;
+      const customerAddress = hasDeliveryAddress ? deliveryAddr : pickupAddr;
+      const customerZipcode = hasDeliveryAddress ? (order.delivery_zipcode || order.pickup_zipcode) : order.pickup_zipcode;
 
       const senderAddress = companyAddress;
       const senderName = companyName;
