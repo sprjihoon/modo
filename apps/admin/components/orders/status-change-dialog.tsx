@@ -71,7 +71,14 @@ export function StatusChangeDialog({
 
   // 현재 상태에서 이동 가능한 상태 목록 (없으면 전체)
   const allowedNext = ALLOWED_TRANSITIONS[currentStatus] ?? Object.keys(STATUS_LABELS);
-  const availableStatuses = allowedNext.map((v) => ({ value: v, label: STATUS_LABELS[v] ?? v }));
+  const availableStatuses = allowedNext.map((v) => ({
+    value: v,
+    label:
+      v === "CANCELLED" &&
+      ["INBOUND", "PROCESSING", "HOLD", "READY_TO_SHIP", "PICKED_UP"].includes(currentStatus)
+        ? "취소 (반송 대기)"
+        : STATUS_LABELS[v] ?? v,
+  }));
 
   // currentStatus prop이 변경되면 selectedStatus도 동기화
   useEffect(() => {

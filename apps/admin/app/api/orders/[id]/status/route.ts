@@ -1,5 +1,9 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/ops-auth";
+import {
+  buildReturnPendingOrderUpdate,
+  isPostInboundOrderStatus,
+} from "@/lib/order-return-flow";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -73,7 +77,7 @@ export async function PATCH(
     // 현재 주문 상태 조회 (역행 방지 검증용)
     const { data: current, error: currentError } = await supabase
       .from("orders")
-      .select("status")
+      .select("status, extra_charge_data")
       .eq("id", orderId)
       .single();
 
@@ -87,7 +91,12 @@ export async function PATCH(
     const currentStatus = current.status as string;
     const allowed = ALLOWED_TRANSITIONS[currentStatus];
 
-    if (allowed !== undefined && !allowed.includes(status)) {
+    let targetStatus = status;
+    if (status === "CANCELLED" && isPostInboundOrderStatus(currentStatus)) {
+      targetStatus = "RETURN_PENDING";
+    }
+
+    if (allowed !== undefined && !allowed.includes(status) && !(status === "CANCELLED" && targetStatus === "RETURN_PENDING")) {
       return NextResponse.json(
         {
           success: false,
@@ -98,13 +107,33 @@ export async function PATCH(
       );
     }
 
-    // 1. 주문 상태 변경
+    const orderUpdate: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (targetStatus === "RETURN_PENDING" && status === "CANCELLED") {
+      Object.assign(
+        orderUpdate,
+        buildReturnPendingOrderUpdate(current.extra_charge_data as Record<string, unknown> | null, {
+          reason: "관리자 상태 변경 — 입고 후 취소 (반송 필요)",
+          source: "ADMIN_STATUS_CANCEL",
+        })
+      );
+    } else if (targetStatus === "RETURN_PENDING") {
+      Object.assign(
+        orderUpdate,
+        buildReturnPendingOrderUpdate(current.extra_charge_data as Record<string, unknown> | null, {
+          reason: "관리자 반송 대기 처리",
+          source: "ADMIN_RETURN_PENDING",
+        })
+      );
+    } else {
+      orderUpdate.status = targetStatus;
+    }
+
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .update({ 
-        status,
-        updated_at: new Date().toISOString(),
-      })
+      .update(orderUpdate)
       .eq("id", orderId)
       .select()
       .single();
@@ -123,11 +152,11 @@ export async function PATCH(
       "BOOKED", "PICKED_UP", "INBOUND", "PROCESSING",
       "READY_TO_SHIP", "OUT_FOR_DELIVERY", "DELIVERED",
     ];
-    if (SHIPMENT_SYNC_STATUSES.includes(status)) {
+    if (SHIPMENT_SYNC_STATUSES.includes(targetStatus)) {
       const { error: shipmentError } = await supabase
         .from("shipments")
         .update({
-          status,
+          status: targetStatus,
           updated_at: new Date().toISOString(),
         })
         .eq("order_id", orderId);
@@ -146,7 +175,7 @@ export async function PATCH(
         entity_id: orderId,
         details: {
           previousStatus: currentStatus,
-          newStatus: status,
+          newStatus: targetStatus,
           trackingNo,
         },
         created_at: new Date().toISOString(),

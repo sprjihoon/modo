@@ -366,6 +366,7 @@ Deno.serve(async (req) => {
       reqNo: epostResult.reqNo,
       resNo: epostResult.resNo,
       price: epostResult.price,
+      deliveryInfo,
       message: isReturn ? '반송 송장이 생성되었습니다' : '출고 송장이 생성되었습니다',
     });
   } catch (error: any) {

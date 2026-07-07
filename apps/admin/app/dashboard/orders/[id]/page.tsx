@@ -14,6 +14,7 @@ import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
 import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review-dialog";
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
 import { ReturnShipmentButton } from "@/components/orders/return-shipment-button";
+import { canShowReturnShipmentUi } from "@/lib/order-return-flow";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
 import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image } from "lucide-react";
 
@@ -448,10 +449,8 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
       {/* Timeline */}
       <OrderTimeline status={displayOrder.status} />
 
-      {/* 반송 처리 배너 — RETURN_PENDING / RETURN_SHIPPING / RETURN_REQUESTED 상태에서 노출 */}
-      {(order?.status === "RETURN_PENDING" ||
-        order?.status === "RETURN_SHIPPING" ||
-        (order?.extra_charge_status === "RETURN_REQUESTED" && order?.status !== "RETURN_DONE")) && (
+      {/* 반송 처리 배너 */}
+      {order && canShowReturnShipmentUi(order) && order.status !== "RETURN_DONE" && (
         <Card className="border-rose-300 bg-rose-50/40 dark:bg-rose-950/20">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -462,7 +461,9 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                   <p className="text-sm text-muted-foreground mt-1">
                     {order?.status === "RETURN_PENDING" && "반송 송장을 발급해 주세요. 송장 발급 후 고객에게 자동 안내됩니다."}
                     {order?.status === "RETURN_SHIPPING" && "반송 송장이 발급되어 배송 중입니다. 도착 확인 후 '반송 완료 처리' 를 눌러 마무리하세요."}
-                    {order?.status !== "RETURN_PENDING" && order?.status !== "RETURN_SHIPPING" &&
+                    {order?.status === "CANCELLED" && !order?.extra_charge_data?.returnTrackingNo &&
+                      "입고 후 취소된 주문입니다. 고객에게 반송할 출고 송장(계약택배)을 발급해 주세요."}
+                    {order?.status !== "RETURN_PENDING" && order?.status !== "RETURN_SHIPPING" && order?.status !== "CANCELLED" &&
                       order?.extra_charge_status === "RETURN_REQUESTED" &&
                       "고객이 반송을 요청했습니다. 반송 송장 발급 → 도착 확인 → 반송 완료 처리 순으로 진행해 주세요."}
                   </p>
@@ -471,18 +472,26 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                   )}
                 </div>
               </div>
-              <Button
-                onClick={handleCompleteReturn}
-                disabled={isCompletingReturn}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {isCompletingReturn ? "처리중..." : (
-                  <>
-                    <FileText className="h-4 w-4 mr-2" />
-                    반송 완료 처리
-                  </>
+              <div className="flex items-center gap-2 flex-wrap">
+                {!order?.extra_charge_data?.returnTrackingNo && (
+                  <ReturnShipmentButton
+                    orderId={displayOrder.id}
+                    onCreated={() => loadOrder()}
+                  />
                 )}
-              </Button>
+                <Button
+                  onClick={handleCompleteReturn}
+                  disabled={isCompletingReturn || !order?.extra_charge_data?.returnTrackingNo}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isCompletingReturn ? "처리중..." : (
+                    <>
+                      <FileText className="h-4 w-4 mr-2" />
+                      반송 완료 처리
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -798,8 +807,8 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
               </div>
             )}
 
-            {/* 반송 송장 정보 - 반송 요청 상태인 경우에만 표시 */}
-            {order?.extra_charge_status === 'RETURN_REQUESTED' && (
+            {/* 반송 송장 — 입고 후 취소·반송 요청 */}
+            {order && canShowReturnShipmentUi(order) && (
               <div className="border-t pt-4 mt-4">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-medium text-red-600 flex items-center gap-2">
@@ -838,7 +847,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                     </Button>
                     <LabelPrintDialog 
                       trackingNo={order.extra_charge_data.returnTrackingNo} 
-                      type="return"
+                      type="delivery"
                       orderId={displayOrder.id}
                     />
                   </div>

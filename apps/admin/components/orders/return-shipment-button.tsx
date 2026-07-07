@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Package, Printer, CheckCircle } from "lucide-react";
+import { Package, CheckCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
 
 interface ReturnShipmentButtonProps {
   orderId: string;
@@ -21,7 +22,6 @@ export function ReturnShipmentButton({ orderId, onCreated }: ReturnShipmentButto
   const [isCreating, setIsCreating] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [trackingNo, setTrackingNo] = useState<string | null>(null);
-  const [labelUrl, setLabelUrl] = useState<string | null>(null);
 
   const handleCreate = async () => {
     setIsCreating(true);
@@ -39,7 +39,6 @@ export function ReturnShipmentButton({ orderId, onCreated }: ReturnShipmentButto
       }
 
       setTrackingNo(result.trackingNo);
-      setLabelUrl(result.labelUrl);
       setShowDialog(true);
       onCreated?.();
     } catch (error: any) {
@@ -47,12 +46,6 @@ export function ReturnShipmentButton({ orderId, onCreated }: ReturnShipmentButto
       alert(`반송 송장 생성 실패: ${error.message}`);
     } finally {
       setIsCreating(false);
-    }
-  };
-
-  const handlePrint = () => {
-    if (labelUrl) {
-      window.open(labelUrl, "_blank");
     }
   };
 
@@ -106,14 +99,18 @@ export function ReturnShipmentButton({ orderId, onCreated }: ReturnShipmentButto
             <Button variant="outline" onClick={() => setShowDialog(false)}>
               닫기
             </Button>
-            <Button onClick={handlePrint} disabled={!labelUrl}>
-              <Printer className="h-4 w-4 mr-2" />
-              송장 출력
-            </Button>
+            {trackingNo && (
+              <LabelPrintDialog
+                trackingNo={trackingNo}
+                type="delivery"
+                orderId={orderId}
+                buttonLabel="송장 출력"
+                buttonSize="default"
+              />
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 }
-

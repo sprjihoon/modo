@@ -108,7 +108,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. 기존 delivery_info와 병합
-    let existingDeliveryInfo = shipment.delivery_info;
+    const isReturnTracking = order.extra_charge_data?.returnTrackingNo === trackingNo;
+
+    let existingDeliveryInfo = isReturnTracking
+      ? order.extra_charge_data?.returnDeliveryInfo
+      : shipment.delivery_info;
     if (typeof existingDeliveryInfo === 'string') {
       try {
         existingDeliveryInfo = JSON.parse(existingDeliveryInfo);
@@ -127,21 +131,41 @@ export async function POST(request: NextRequest) {
 
     console.log('📦 [UpdateDeliveryCode] 업데이트할 delivery_info:', updatedDeliveryInfo);
 
-    // 6. shipments 테이블 업데이트
-    const { error: updateError } = await supabaseAdmin
-      .from('shipments')
-      .update({
-        delivery_info: updatedDeliveryInfo,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('order_id', orderId);
+    if (isReturnTracking) {
+      const { error: returnUpdateError } = await supabaseAdmin
+        .from('orders')
+        .update({
+          extra_charge_data: {
+            ...order.extra_charge_data,
+            returnDeliveryInfo: updatedDeliveryInfo,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
 
-    if (updateError) {
-      console.error('❌ [UpdateDeliveryCode] 업데이트 실패:', updateError);
-      return NextResponse.json(
-        { success: false, error: `업데이트 실패: ${updateError.message}` },
-        { status: 500 }
-      );
+      if (returnUpdateError) {
+        console.error('❌ [UpdateDeliveryCode] 반송 delivery_info 업데이트 실패:', returnUpdateError);
+        return NextResponse.json(
+          { success: false, error: `업데이트 실패: ${returnUpdateError.message}` },
+          { status: 500 }
+        );
+      }
+    } else {
+      const { error: updateError } = await supabaseAdmin
+        .from('shipments')
+        .update({
+          delivery_info: updatedDeliveryInfo,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('order_id', orderId);
+
+      if (updateError) {
+        console.error('❌ [UpdateDeliveryCode] 업데이트 실패:', updateError);
+        return NextResponse.json(
+          { success: false, error: `업데이트 실패: ${updateError.message}` },
+          { status: 500 }
+        );
+      }
     }
 
     console.log('✅ [UpdateDeliveryCode] 집배코드 업데이트 완료');

@@ -4,14 +4,12 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  CheckCircle, 
-  XCircle, 
-  SkipForward, 
-  Package, 
-  Printer,
+import {
+  CheckCircle,
+  SkipForward,
+  Package,
   Truck,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -21,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
 
 interface ExtraChargeStatusCardProps {
   status: string;
@@ -80,7 +79,6 @@ export function ExtraChargeStatusCard({
   const [isCreatingShipment, setIsCreatingShipment] = useState(false);
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [returnTrackingNo, setReturnTrackingNo] = useState<string | null>(null);
-  const [returnLabelUrl, setReturnLabelUrl] = useState<string | null>(null);
 
   const config = statusConfig[status];
   if (!config) return null;
@@ -109,7 +107,6 @@ export function ExtraChargeStatusCard({
       }
 
       setReturnTrackingNo(result.trackingNo);
-      setReturnLabelUrl(result.labelUrl);
       setShowReturnDialog(true);
       onReturnShipmentCreated?.();
     } catch (error: any) {
@@ -117,13 +114,6 @@ export function ExtraChargeStatusCard({
       alert(`반송 송장 생성 실패: ${error.message}`);
     } finally {
       setIsCreatingShipment(false);
-    }
-  };
-
-  // 송장 출력
-  const handlePrintLabel = () => {
-    if (returnLabelUrl) {
-      window.open(returnLabelUrl, "_blank");
     }
   };
 
@@ -211,16 +201,15 @@ export function ExtraChargeStatusCard({
                       <p className="font-mono font-bold">{data.returnTrackingNo}</p>
                     </div>
                   </div>
-                  {data?.returnLabelUrl && (
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={() => window.open(data.returnLabelUrl, "_blank")}
-                    >
-                      <Printer className="h-4 w-4 mr-2" />
-                      송장 출력
-                    </Button>
-                  )}
+                  <LabelPrintDialog
+                    trackingNo={data.returnTrackingNo}
+                    type="delivery"
+                    orderId={orderId}
+                    buttonLabel="송장 출력"
+                    buttonClassName="w-full"
+                    buttonVariant="outline"
+                    buttonSize="default"
+                  />
                 </div>
               ) : (
                 <Button
@@ -276,10 +265,15 @@ export function ExtraChargeStatusCard({
             <Button variant="outline" onClick={() => setShowReturnDialog(false)}>
               닫기
             </Button>
-            <Button onClick={handlePrintLabel} disabled={!returnLabelUrl}>
-              <Printer className="h-4 w-4 mr-2" />
-              송장 출력
-            </Button>
+            {returnTrackingNo && (
+              <LabelPrintDialog
+                trackingNo={returnTrackingNo}
+                type="delivery"
+                orderId={orderId}
+                buttonLabel="송장 출력"
+                buttonSize="default"
+              />
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

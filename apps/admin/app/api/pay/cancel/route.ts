@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  buildReturnPendingOrderUpdate,
+  isPostInboundOrderStatus,
+} from "@/lib/order-return-flow";
 
 export const dynamic = "force-dynamic";
 
@@ -72,23 +76,52 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    let affectedOrder: { id: string; user_id: string; order_number: string; total_price: number } | null = null;
+    let affectedOrder: {
+      id: string;
+      user_id: string;
+      order_number: string;
+      total_price: number;
+      status: string;
+      extra_charge_data: Record<string, unknown> | null;
+    } | null = null;
 
     if (!extraChargeReq) {
-      const orderUpdate: Record<string, unknown> = {
-        payment_status: newPaymentStatus,
-        canceled_at: new Date().toISOString(),
-      };
-      if (isTotalCancel) {
-        orderUpdate.status = "CANCELLED";
-      }
-      const { data: updatedOrder } = await supabase
+      const { data: existingOrder } = await supabase
         .from("orders")
-        .update(orderUpdate)
+        .select("id, user_id, order_number, total_price, status, extra_charge_data")
         .eq("payment_id", paymentId)
-        .select("id, user_id, order_number, total_price")
         .maybeSingle();
-      affectedOrder = updatedOrder;
+
+      if (existingOrder) {
+        const orderUpdate: Record<string, unknown> = {
+          payment_status: newPaymentStatus,
+        };
+
+        if (isTotalCancel) {
+          if (isPostInboundOrderStatus(existingOrder.status)) {
+            Object.assign(
+              orderUpdate,
+              buildReturnPendingOrderUpdate(existingOrder.extra_charge_data, {
+                reason: cancelReason || "관리자 결제 취소 (입고 후 — 반송 필요)",
+                source: "ADMIN_PAYMENT_CANCEL",
+              })
+            );
+          } else {
+            orderUpdate.status = "CANCELLED";
+            orderUpdate.canceled_at = new Date().toISOString();
+          }
+        } else {
+          orderUpdate.canceled_at = new Date().toISOString();
+        }
+
+        const { data: updatedOrder } = await supabase
+          .from("orders")
+          .update(orderUpdate)
+          .eq("id", existingOrder.id)
+          .select("id, user_id, order_number, total_price, status, extra_charge_data")
+          .maybeSingle();
+        affectedOrder = updatedOrder;
+      }
     }
 
     // 고객에게 알림 발송 (DB insert + FCM 푸시)

@@ -53,6 +53,33 @@ type CancelView =
   | "RETURN_SHIPPING"
   | "RETURN_DONE";
 
+const CANCEL_VIEW_VALUES = new Set<CancelView>([
+  "OFF",
+  "ALL",
+  "PENDING",
+  "PRE_PICKUP_CANCEL",
+  "RETURN_PENDING",
+  "RETURN_SHIPPING",
+  "RETURN_DONE",
+]);
+
+function resolveCancelViewFromSearchParams(searchParams: URLSearchParams): CancelView {
+  const cancelViewParam = searchParams.get("cancelView");
+  if (cancelViewParam) {
+    const normalized = cancelViewParam.toUpperCase() as CancelView;
+    if (CANCEL_VIEW_VALUES.has(normalized) && normalized !== "OFF") {
+      return normalized;
+    }
+  }
+
+  // 레거시: ?view=cancel
+  if (searchParams.get("view") === "cancel") {
+    return "PENDING";
+  }
+
+  return "OFF";
+}
+
 const cancelKindLabel: Record<string, { label: string; color: string }> = {
   PRE_PICKUP_CANCEL: { label: "수거 전 취소", color: "bg-red-100 text-red-700" },
   RETURN_REQUESTED: { label: "반송 요청", color: "bg-rose-100 text-rose-700" },
@@ -154,7 +181,7 @@ export default function OrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // 취소/반송 통합 보기
-  const initialCancelView = (searchParams.get("cancelView") || "OFF").toUpperCase() as CancelView;
+  const initialCancelView = resolveCancelViewFromSearchParams(searchParams);
   const [cancelView, setCancelView] = useState<CancelView>(initialCancelView);
   const [cancelStats, setCancelStats] = useState<CancellationStats | null>(null);
   const [completingId, setCompletingId] = useState<string | null>(null);
@@ -187,6 +214,10 @@ export default function OrdersPage() {
   useEffect(() => {
     loadCancelStats();
   }, [loadCancelStats]);
+
+  useEffect(() => {
+    setCancelView(resolveCancelViewFromSearchParams(searchParams));
+  }, [searchParams]);
 
   useEffect(() => {
     loadOrders();

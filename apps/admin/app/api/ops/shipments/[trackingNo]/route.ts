@@ -113,6 +113,41 @@ export async function GET(
       }
     }
 
+    // 반송 송장번호(extra_charge_data.returnTrackingNo)로 조회
+    if (!resolvedShipment) {
+      const { data: returnOrder, error: returnOrderError } = await supabaseAdmin
+        .from("orders")
+        .select("id, extra_charge_data")
+        .filter("extra_charge_data->>returnTrackingNo", "eq", trackingNo)
+        .maybeSingle();
+
+      if (returnOrderError) {
+        return NextResponse.json({ error: returnOrderError.message }, { status: 500 });
+      }
+
+      if (returnOrder?.id) {
+        const { data: shipmentByOrder, error: shipmentByOrderError } = await supabaseAdmin
+          .from("shipments")
+          .select("*")
+          .eq("order_id", returnOrder.id)
+          .maybeSingle();
+
+        if (shipmentByOrderError) {
+          return NextResponse.json({ error: shipmentByOrderError.message }, { status: 500 });
+        }
+
+        if (shipmentByOrder) {
+          const returnDeliveryInfo = (returnOrder.extra_charge_data as { returnDeliveryInfo?: unknown } | null)
+            ?.returnDeliveryInfo;
+          resolvedShipment = {
+            ...shipmentByOrder,
+            delivery_tracking_no: trackingNo,
+            delivery_info: returnDeliveryInfo ?? shipmentByOrder.delivery_info,
+          };
+        }
+      }
+    }
+
     if (!resolvedShipment) {
       return NextResponse.json({ error: "Shipment not found" }, { status: 404 });
     }

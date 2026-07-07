@@ -1,7 +1,64 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  buildReturnPendingOrderUpdate,
+  isPostInboundOrderStatus,
+  isReturnWorkflowStatus,
+  POST_INBOUND_SHIPMENT_STATUSES,
+} from "@/lib/order-return-flow";
 
 export const dynamic = 'force-dynamic';
+
+async function canCreateReturnShipment(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orderId: string,
+  order: {
+    status: string;
+    extra_charge_status: string | null;
+    extra_charge_data: Record<string, unknown> | null;
+  }
+): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  if (order.extra_charge_data?.returnTrackingNo) {
+    return {
+      ok: false,
+      error: "이미 반송 송장이 생성되었습니다",
+      status: 400,
+    };
+  }
+
+  if (
+    order.extra_charge_status === "RETURN_REQUESTED" ||
+    isReturnWorkflowStatus(order.status)
+  ) {
+    return { ok: true };
+  }
+
+  if (isPostInboundOrderStatus(order.status)) {
+    return { ok: true };
+  }
+
+  if (order.status === "CANCELLED") {
+    const { data: shipment } = await supabase
+      .from("shipments")
+      .select("status, inbound_at")
+      .eq("order_id", orderId)
+      .maybeSingle();
+
+    const wasInbound =
+      !!shipment?.inbound_at ||
+      (!!shipment?.status && POST_INBOUND_SHIPMENT_STATUSES.has(shipment.status));
+
+    if (wasInbound) {
+      return { ok: true };
+    }
+  }
+
+  return {
+    ok: false,
+    error: "입고 후 취소·반송 요청 상태에서만 반송 송장을 발급할 수 있습니다.",
+    status: 400,
+  };
+}
 
 export async function POST(
   request: NextRequest,
@@ -12,10 +69,9 @@ export async function POST(
     const supabase = await createClient();
     const { returnFee = 6000 } = await request.json();
 
-    // 1. 주문 조회
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id, extra_charge_status, extra_charge_data, user_id, item_name, order_number")
+      .select("id, status, extra_charge_status, extra_charge_data, user_id, item_name, order_number")
       .eq("id", orderId)
       .single();
 
@@ -26,25 +82,39 @@ export async function POST(
       );
     }
 
-    // 2. 반송 요청 상태인지 확인
-    if (order.extra_charge_status !== "RETURN_REQUESTED") {
+    const eligibility = await canCreateReturnShipment(supabase, orderId, order);
+    if (!eligibility.ok) {
       return NextResponse.json(
-        { error: "반송 요청 상태가 아닙니다" },
-        { status: 400 }
+        { error: eligibility.error, trackingNo: order.extra_charge_data?.returnTrackingNo },
+        { status: eligibility.status }
       );
     }
 
-    // 3. 이미 반송 송장이 있는지 확인
-    const existingReturnTracking = order.extra_charge_data?.returnTrackingNo;
-    if (existingReturnTracking) {
-      return NextResponse.json(
-        { error: "이미 반송 송장이 생성되었습니다", trackingNo: existingReturnTracking },
-        { status: 400 }
-      );
+    // 입고 후 취소인데 아직 반송 워크플로우 필드가 없으면 먼저 세팅
+    if (
+      order.extra_charge_status !== "RETURN_REQUESTED" &&
+      !isReturnWorkflowStatus(order.status)
+    ) {
+      const returnPendingUpdate = buildReturnPendingOrderUpdate(order.extra_charge_data, {
+        reason: "관리자 반송 송장 발급 (입고 후 취소)",
+        source: "ADMIN_RETURN_PENDING",
+        returnFee,
+      });
+
+      const { error: prepareError } = await supabase
+        .from("orders")
+        .update(returnPendingUpdate)
+        .eq("id", orderId);
+
+      if (prepareError) {
+        console.error("반송 대기 상태 전환 실패:", prepareError);
+        return NextResponse.json(
+          { error: "반송 대기 상태로 전환하지 못했습니다." },
+          { status: 500 }
+        );
+      }
     }
 
-    // 4. shipments-create-outbound Edge Function을 통해 반송 송장 생성
-    // isReturn: true → 추가 결제 체크 건너뜀, shipments 테이블 덮어쓰기 없음
     const { data: fnData, error: fnError } = await supabase.functions.invoke(
       "shipments-create-outbound",
       { body: { orderId, isReturn: true } }
@@ -59,15 +129,19 @@ export async function POST(
     }
 
     const trackingNo: string = fnData.data.trackingNo;
-    // 우체국 등기 조회/출력 페이지 URL (직접 접근 가능)
-    const labelUrl: string = `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${trackingNo}&displayHeader=N`;
+    const returnDeliveryInfo = fnData.data.deliveryInfo ?? null;
 
-    // 5. extra_charge_data 업데이트
+    const { data: latestOrder } = await supabase
+      .from("orders")
+      .select("extra_charge_data")
+      .eq("id", orderId)
+      .single();
+
     const updatedExtraChargeData = {
-      ...order.extra_charge_data,
+      ...(latestOrder?.extra_charge_data ?? order.extra_charge_data ?? {}),
       returnTrackingNo: trackingNo,
-      returnLabelUrl: labelUrl,
-      returnFee: returnFee,
+      returnDeliveryInfo,
+      returnFee,
       returnCreatedAt: new Date().toISOString(),
     };
 
@@ -75,7 +149,8 @@ export async function POST(
       .from("orders")
       .update({
         extra_charge_data: updatedExtraChargeData,
-        status: "RETURN_SHIPPING" as any, // 반송 배송중 상태로 변경 (DB enum: 마이그레이션 후 유효)
+        extra_charge_status: "RETURN_REQUESTED",
+        status: "RETURN_SHIPPING" as any,
         updated_at: new Date().toISOString(),
       })
       .eq("id", orderId);
@@ -88,7 +163,6 @@ export async function POST(
       );
     }
 
-    // 6. 고객에게 알림 전송
     if (order.user_id) {
       await supabase.from("notifications").insert({
         user_id: order.user_id,
@@ -102,7 +176,6 @@ export async function POST(
       });
     }
 
-    // 7. 액션 로그 기록
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       const { data: user } = await supabase
@@ -127,7 +200,6 @@ export async function POST(
     return NextResponse.json({
       success: true,
       trackingNo,
-      labelUrl,
       message: "반송 송장이 생성되었습니다",
     });
   } catch (error: any) {
@@ -138,4 +210,3 @@ export async function POST(
     );
   }
 }
-
