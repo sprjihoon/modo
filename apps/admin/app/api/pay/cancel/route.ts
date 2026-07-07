@@ -43,10 +43,10 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
 
     const cancelBody: Record<string, unknown> = { reason: cancelReason };
-    if (cancelAmount) {
-      cancelBody.amount = { total: cancelAmount };
+    if (cancelAmount && cancelAmount > 0) {
+      cancelBody.amount = cancelAmount;
     }
-    if (currentCancellableAmount) {
+    if (currentCancellableAmount && currentCancellableAmount > 0) {
       cancelBody.currentCancellableAmount = currentCancellableAmount;
     }
 
