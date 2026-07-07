@@ -137,6 +137,14 @@ export default function HomePage() {
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-07-07 | FCM 탭 딥링크 오류 수정 | 푸시 알림 탭 시 `/orders/detail/:id` (존재하지 않는 경로) → `/orders/:id`로 수정. GoRouter 실제 경로와 일치 |
+| 2026-07-07 | 수거완료(PICKED_UP) 상태 누락 수정 | `shipments-track`에서 우체국 수거 완료 시 `orders.status`를 `INBOUND`로 덮어쓰던 문제 → `PICKED_UP`으로 변경. `INBOUND`는 센터 작업자 수동 입고 처리 시에만 설정 |
+| 2026-07-07 | 모바일 주문 상태 오표시 수정 | `OrderStatus` enum에 `PICKED_UP`, `OUT_FOR_DELIVERY`, `RETURN_SHIPPING`, `RETURN_DONE` 추가. 누락 상태 시 "수거예약"으로 잘못 표시되던 문제 해소 |
+| 2026-07-07 | 웹 HOLD 상태 표시 누락 수정 | `ORDER_STATUS_MAP`에 `HOLD`(추가결제 대기) 추가. 타임라인 `DB_STATUS_STEP`에 HOLD·RETURN_* 매핑 추가 |
+| 2026-07-07 | 작업자 추가비용 요청 시 관리자 알림 미전송 수정 | `ops/extra-charge/route.ts`의 TODO 구현. 작업자가 요청하면 MANAGER/ADMIN/SUPER_ADMIN 전원에게 알림 DB 저장 + FCM 푸시 발송 |
+| 2026-07-07 | 모바일 의류 SVG 아이콘 적용 | 주문 목록 카드에 의류 종류(청바지·바지·원피스·치마·티셔츠·셔츠·아우터·정장·니트·가죽)에 맞는 SVG 아이콘 표시. 웹과 동일한 키워드 매핑 |
+| 2026-07-07 | 배송완료 자동 폴링 Cron 추가 | `poll-delivery-tracking` Edge Function 신규 배포. pg_cron으로 KST 08:00~20:30 매 30분마다 `OUT_FOR_DELIVERY` 주문 자동 추적 → `DELIVERED` 자동 전환 |
+| 2026-07-07 | SUPER_ADMIN 추가결제 직접 요청 DB 수정 | `request_extra_charge` RPC에 `SUPER_ADMIN` 역할 추가 (기존: MANAGER/ADMIN만 직접 청구 가능) |
 | 2026-07-06 | 결제 완료 알림 한글 깨짐 | `payments-confirm` Edge Function 파일 인코딩 오류로 한글이 `??`로 저장 → 파일 전체 UTF-8 재작성. 기존 깨진 알림은 Supabase에서 직접 수정 필요 |
 | 2026-07-06 | 결제 취소 후 주문 상태 미변경 | `pay/cancel` API·`webhook` (`Transaction.Cancelled`) 전체 취소 시 `orders.status`를 `CANCELLED`로 업데이트하지 않던 문제 수정 |
 | 2026-07-06 | 취소/반송 보기 목록 0건 표시 | 통계는 날짜 필터 없이 전체, 목록은 30일 필터 적용 → 불일치. 취소/반송 보기에서 날짜 필터 제거 |

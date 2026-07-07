@@ -11,10 +11,11 @@ BEGIN
   END IF;
 END $$;
 
--- 30분마다 poll-delivery-tracking 엣지함수 호출
+-- KST 8시~20시(UTC 23시 + UTC 0~11시)에만 30분마다 폴링 — 국내 배송 운영 시간대
+-- UTC 23 = KST 8시, UTC 0~11 = KST 9~20시
 SELECT cron.schedule(
   'poll-delivery-tracking',
-  '*/30 * * * *',
+  '0,30 0-11,23 * * *',
   $$
   SELECT net.http_post(
     url := 'https://rzrwediccbamxluegnex.supabase.co/functions/v1/poll-delivery-tracking',
