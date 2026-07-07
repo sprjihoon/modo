@@ -116,7 +116,9 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
             item.href === "/ops/returns" ||
             item.href === "/ops/reprint" ||
             item.href === "/ops/my-dashboard" ||
-            item.href === "/ops/work-history"
+            item.href === "/ops/work-history" ||
+            item.href === "/ops/label-editor" ||
+            item.href === "/ops/barcode-layout"
         );
         console.log("📦 입출고관리자 메뉴:", managerMenu.map((m) => m.name));
         return managerMenu;
