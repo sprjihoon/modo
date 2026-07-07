@@ -84,6 +84,13 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
   const [extraChargeAmount, setExtraChargeAmount] = useState("");
   const [extraChargeNote, setExtraChargeNote] = useState("");
   const [isSubmittingExtraCharge, setIsSubmittingExtraCharge] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => r.json()).then(d => {
+      if (d.success && d.user) setCurrentUserRole(d.user.role);
+    }).catch(() => {});
+  }, []);
   
   // Load order data from API
   useEffect(() => {
@@ -190,8 +197,13 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
     }
   };
 
+  const isManagerRole = ["MANAGER", "ADMIN", "SUPER_ADMIN"].includes(currentUserRole ?? "");
+
   const handleRequestExtraCharge = async () => {
     if (!extraChargeReason.trim() || !params.id) return;
+    if (isManagerRole && (!extraChargeAmount || Number(extraChargeAmount) <= 0)) {
+      alert("청구 금액을 입력해주세요."); return;
+    }
     setIsSubmittingExtraCharge(true);
     try {
       const res = await fetch("/api/ops/extra-charge", {
@@ -206,7 +218,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "요청 실패");
-      alert(data.message || "추가 결제 요청이 완료됐습니다.");
+      alert(data.message || (isManagerRole ? "고객에게 추가 결제 요청을 보냈습니다." : "관리자 승인 대기 중입니다."));
       setShowExtraChargeDialog(false);
       setExtraChargeReason("");
       setExtraChargeAmount("");
@@ -1448,7 +1460,9 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
           <DialogHeader>
             <DialogTitle>추가 결제 요청</DialogTitle>
             <DialogDescription>
-              추가 비용 금액과 사유를 입력하여 고객에게 청구하세요.
+              {isManagerRole
+                ? "추가 비용 금액과 사유를 입력하여 고객에게 청구하세요."
+                : "추가 비용 발생 사유를 입력해주세요. 관리자가 검토 후 고객에게 안내합니다."}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -1462,27 +1476,31 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                 rows={3}
               />
             </div>
-            <div>
-              <Label htmlFor="ec-amount" className="mb-2 block">청구 금액 (원) *</Label>
-              <input
-                id="ec-amount"
-                type="number"
-                placeholder="10000"
-                value={extraChargeAmount}
-                onChange={(e) => setExtraChargeAmount(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-            </div>
-            <div>
-              <Label htmlFor="ec-note" className="mb-2 block">고객 안내 메시지 (선택)</Label>
-              <Textarea
-                id="ec-note"
-                placeholder="고객에게 전달할 내용"
-                value={extraChargeNote}
-                onChange={(e) => setExtraChargeNote(e.target.value)}
-                rows={2}
-              />
-            </div>
+            {isManagerRole && (
+              <>
+                <div>
+                  <Label htmlFor="ec-amount" className="mb-2 block">청구 금액 (원) *</Label>
+                  <input
+                    id="ec-amount"
+                    type="number"
+                    placeholder="10000"
+                    value={extraChargeAmount}
+                    onChange={(e) => setExtraChargeAmount(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ec-note" className="mb-2 block">고객 안내 메시지 (선택)</Label>
+                  <Textarea
+                    id="ec-note"
+                    placeholder="고객에게 전달할 내용"
+                    value={extraChargeNote}
+                    onChange={(e) => setExtraChargeNote(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -1494,10 +1512,14 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
             </Button>
             <Button
               onClick={handleRequestExtraCharge}
-              disabled={!extraChargeReason.trim() || !extraChargeAmount || isSubmittingExtraCharge}
+              disabled={!extraChargeReason.trim() || isSubmittingExtraCharge}
               className="bg-orange-600 hover:bg-orange-700 text-white"
             >
-              {isSubmittingExtraCharge ? "요청 중..." : "고객에게 청구"}
+              {isSubmittingExtraCharge
+                ? "요청 중..."
+                : isManagerRole
+                ? "고객에게 청구"
+                : "요청 보내기"}
             </Button>
           </DialogFooter>
         </DialogContent>
