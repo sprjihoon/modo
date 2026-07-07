@@ -4,7 +4,7 @@ const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' }, // ops 페이지는 아래에서 덮어씀
   {
     key: 'Content-Security-Policy',
     value: [
@@ -33,6 +33,13 @@ const nextConfig = {
       {
         source: '/(.*)',
         headers: securityHeaders,
+      },
+      {
+        // ops 페이지: 카메라·마이크 허용 (사진 촬영 기능)
+        source: '/ops/(.*)',
+        headers: [
+          { key: 'Permissions-Policy', value: 'camera=self, microphone=(), geolocation=()' },
+        ],
       },
     ];
   },
