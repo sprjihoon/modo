@@ -468,14 +468,133 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     );
   }
 
-  /// 🆕 추가 결제 요청 카드 빌드
+  /// 🆕 추가 결제 요청 카드 빌드 (PENDING / 완료 내역 공용)
   Widget _buildExtraChargeCard(BuildContext context) {
-    // extra_charge_status 확인
     final extraChargeStatusStr = _orderData?['extra_charge_status'] as String?;
-    if (extraChargeStatusStr == null ||
-        extraChargeStatusStr != 'PENDING_CUSTOMER') {
-      return const SizedBox.shrink();
+    if (extraChargeStatusStr == null) return const SizedBox.shrink();
+
+    final isDone = ['COMPLETED', 'SKIPPED', 'RETURN_REQUESTED']
+        .contains(extraChargeStatusStr);
+
+    // 완료된 경우 → 내역 요약 카드
+    if (isDone) {
+      final extraChargeDataJson = _orderData?['extra_charge_data'];
+      final data = extraChargeDataJson is Map<String, dynamic>
+          ? extraChargeDataJson
+          : <String, dynamic>{};
+      final price = (data['managerPrice'] as num?)?.toInt() ?? 0;
+      final note = (data['managerNote'] as String?) ?? '';
+      final memo = (data['workerMemo'] as String?) ?? '';
+      // ignore: unused_local_variable
+      final customerAction = (data['customerAction'] as String?) ?? '';
+      final completedAt = data['completedAt'] as String?;
+
+      String actionLabel;
+      Color actionColor;
+      IconData actionIcon;
+      switch (extraChargeStatusStr) {
+        case 'COMPLETED':
+          actionLabel = '추가 결제 완료';
+          actionColor = Colors.green[700]!;
+          actionIcon = Icons.check_circle_outline;
+          break;
+        case 'SKIPPED':
+          actionLabel = '기존 작업만 진행';
+          actionColor = Colors.blue[700]!;
+          actionIcon = Icons.skip_next_outlined;
+          break;
+        case 'RETURN_REQUESTED':
+          actionLabel = '반송 요청';
+          actionColor = Colors.red[700]!;
+          actionIcon = Icons.replay_outlined;
+          break;
+        default:
+          actionLabel = extraChargeStatusStr;
+          actionColor = Colors.grey[700]!;
+          actionIcon = Icons.info_outline;
+      }
+
+      return Card(
+        margin: const EdgeInsets.all(16),
+        elevation: 0,
+        color: Colors.grey[50],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey[200]!, width: 1),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(actionIcon, color: actionColor, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    '추가 결제 내역',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: actionColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: actionColor.withAlpha(60)),
+                ),
+                child: Text(
+                  actionLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: actionColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (price > 0)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('청구 금액', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                    Text(
+                      '${price.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}원',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              if (note.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text('안내 메시지', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                Text(note, style: const TextStyle(fontSize: 13)),
+              ],
+              if (memo.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text('현장 메모', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                Text(memo, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+              ],
+              if (completedAt != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '처리 일시: ${_formatDateTime(completedAt)}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
     }
+
+    // PENDING_CUSTOMER 인 경우 → 기존 인터랙티브 카드
+    if (extraChargeStatusStr != 'PENDING_CUSTOMER') return const SizedBox.shrink();
 
     // extra_charge_data 파싱
     final extraChargeDataJson = _orderData?['extra_charge_data'];

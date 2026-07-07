@@ -578,6 +578,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   // PENDING_PAYMENT 는 폐지됨. 레거시 row 방어용으로만 남김.
   const isPendingPayment = order.status === "PENDING_PAYMENT";
   const isPendingCharge = order.extra_charge_status === "PENDING_CUSTOMER";
+  const isExtraChargeDone = ["COMPLETED", "SKIPPED", "RETURN_REQUESTED"].includes(order.extra_charge_status ?? "");
   // 수거 전(BOOKED) 또는 수거 후/입고 후(PICKED_UP, INBOUND)에는 고객이 직접 취소 가능.
   // - BOOKED         : 우체국 수거 취소 + 전액 환불
   // - PICKED_UP/INBOUND : 왕복 배송비 차감 후 부분 환불 + 의류 반송
@@ -705,6 +706,55 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                 })()}
                 이 차감됩니다
               </p>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── 추가결제 완료/처리 내역 ── */}
+      {isExtraChargeDone && (() => {
+        const extraData = order.extra_charge_data;
+        const price = extraData?.managerPrice ?? 0;
+        const note = extraData?.managerNote ?? "";
+        const memo = extraData?.workerMemo ?? "";
+        const action = (extraData as any)?.customerAction ?? "";
+        const completedAt = (extraData as any)?.completedAt;
+        const actionLabel =
+          action === "PAY" ? { text: "추가 결제 완료", color: "text-green-700 bg-green-50 border-green-200" } :
+          action === "SKIP" ? { text: "기존 작업만 진행", color: "text-blue-700 bg-blue-50 border-blue-200" } :
+          action === "RETURN" ? { text: "반송 요청", color: "text-red-700 bg-red-50 border-red-200" } :
+          { text: order.extra_charge_status ?? "", color: "text-gray-700 bg-gray-50 border-gray-200" };
+        return (
+          <div className="mx-4 mt-3 p-4 bg-gray-50 border border-gray-200 rounded-2xl">
+            <p className="text-sm font-bold text-gray-700 mb-3">추가 결제 내역</p>
+            <div className={`inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full border mb-3 ${actionLabel.color}`}>
+              {actionLabel.text}
+            </div>
+            <div className="space-y-1.5">
+              {price > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">청구 금액</span>
+                  <span className="font-bold">{formatPrice(price)}</span>
+                </div>
+              )}
+              {note && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-gray-400">안내 메시지</span>
+                  <span className="text-sm text-gray-700">{note}</span>
+                </div>
+              )}
+              {memo && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-gray-400">현장 메모</span>
+                  <span className="text-sm text-gray-600">{memo}</span>
+                </div>
+              )}
+              {completedAt && (
+                <div className="flex justify-between text-xs text-gray-400 pt-1">
+                  <span>처리 일시</span>
+                  <span>{new Date(completedAt).toLocaleString("ko-KR")}</span>
+                </div>
+              )}
             </div>
           </div>
         );
