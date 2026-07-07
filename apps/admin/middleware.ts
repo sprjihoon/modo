@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
 
 // 허용된 관리자 도메인 목록 (환경변수로 추가 지정 가능)
 const ALLOWED_ADMIN_DOMAINS = new Set([
@@ -25,7 +26,7 @@ export function middleware(request: NextRequest) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
-  return NextResponse.next();
+  return updateSession(request);
 }
 
 export const config = {

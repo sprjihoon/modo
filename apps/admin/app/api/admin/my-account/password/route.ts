@@ -1,10 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 export const dynamic = 'force-dynamic';
 
-// Supabase Admin Client
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -23,7 +23,7 @@ const supabaseAdmin = createClient(
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { currentPassword, newPassword } = body;
+    const { newPassword } = body;
 
     if (!newPassword) {
       return NextResponse.json(
@@ -39,70 +39,56 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // 쿠키에서 이메일 가져오기
-    const cookieStore = await cookies();
-    const emailFromCookie = cookieStore.get('admin-email')?.value;
+    const supabase = await createServerClient();
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (!emailFromCookie) {
-      return NextResponse.json(
-        { success: false, error: "인증이 필요합니다." },
-        { status: 401 }
-      );
-    }
+    let authId = session?.user?.id ?? null;
+    let userEmail = session?.user?.email ?? null;
 
-    // staff 테이블에서 auth_id 조회
-    const { data: staff, error: staffError } = await supabaseAdmin
-      .from("staff")
-      .select("auth_id, email")
-      .eq("email", emailFromCookie)
-      .eq("is_active", true)
-      .maybeSingle();
+    if (!authId) {
+      const cookieStore = await cookies();
+      const emailFromCookie = cookieStore.get("admin-email")?.value;
 
-    if (staffError || !staff) {
-      // users 테이블에서 시도 (레거시)
-      const { data: user } = await supabaseAdmin
+      if (!emailFromCookie) {
+        return NextResponse.json(
+          { success: false, error: "인증이 필요합니다." },
+          { status: 401 }
+        );
+      }
+
+      const { data: userByEmail } = await supabaseAdmin
         .from("users")
         .select("auth_id, email")
         .eq("email", emailFromCookie)
         .maybeSingle();
 
-      if (!user) {
-        return NextResponse.json(
-          { success: false, error: "사용자를 찾을 수 없습니다." },
-          { status: 404 }
-        );
+      if (userByEmail?.auth_id) {
+        authId = userByEmail.auth_id;
+        userEmail = userByEmail.email;
+      } else {
+        const { data: staffByEmail } = await supabaseAdmin
+          .from("staff")
+          .select("auth_id, email")
+          .eq("email", emailFromCookie)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (staffByEmail?.auth_id) {
+          authId = staffByEmail.auth_id;
+          userEmail = staffByEmail.email;
+        }
       }
-
-      // 비밀번호 변경
-      const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
-        user.auth_id,
-        { password: newPassword }
-      );
-
-      if (passwordError) {
-        console.error("❌ 비밀번호 변경 실패:", passwordError);
-        return NextResponse.json(
-          { success: false, error: passwordError.message },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: "비밀번호가 변경되었습니다.",
-      });
     }
 
-    if (!staff.auth_id) {
+    if (!authId) {
       return NextResponse.json(
-        { success: false, error: "인증 정보를 찾을 수 없습니다." },
-        { status: 400 }
+        { success: false, error: "사용자를 찾을 수 없습니다." },
+        { status: 404 }
       );
     }
 
-    // 비밀번호 변경
     const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
-      staff.auth_id,
+      authId,
       { password: newPassword }
     );
 
@@ -114,7 +100,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    console.log("✅ 비밀번호 변경 완료:", staff.email);
+    console.log("✅ 비밀번호 변경 완료:", userEmail);
 
     return NextResponse.json({
       success: true,
@@ -128,4 +114,3 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
-
