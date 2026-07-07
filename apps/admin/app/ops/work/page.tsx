@@ -383,9 +383,75 @@ export default function WorkPage() {
 
           {/* 오른쪽: 작업 아이템 관리 */}
           <div className="space-y-4">
+
+            {/* 추가결제 상태 배너 */}
+            {result.extraChargeStatus && result.extraChargeStatus !== "NONE" && (() => {
+              const ec = result.extraChargeData ?? {};
+              const status = result.extraChargeStatus;
+              const price = (ec.managerPrice as number | undefined) ?? 0;
+              const workerMemo = (ec.workerMemo as string | undefined) ?? "";
+              const managerNote = (ec.managerNote as string | undefined) ?? "";
+
+              if (status === "PENDING_CUSTOMER") {
+                return (
+                  <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0" />
+                      <p className="text-sm font-bold text-orange-800">⏳ 추가결제 고객 대기 중</p>
+                    </div>
+                    {price > 0 && (
+                      <p className="text-sm text-orange-700 font-semibold">
+                        청구 금액: ₩{price.toLocaleString()}
+                      </p>
+                    )}
+                    {workerMemo && <p className="text-xs text-orange-700 mt-1">요청 사유: {workerMemo}</p>}
+                    {managerNote && <p className="text-xs text-orange-600 mt-0.5">고객 안내: {managerNote}</p>}
+                    <p className="text-xs text-orange-500 mt-2">고객이 결제를 완료하면 추가 작업 항목이 활성화됩니다.</p>
+                  </div>
+                );
+              }
+
+              if (status === "COMPLETED") {
+                return (
+                  <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+                      <p className="text-sm font-bold text-green-800">✅ 추가결제 완료 — 추가 작업 진행</p>
+                    </div>
+                    {price > 0 && (
+                      <p className="text-sm text-green-700 font-semibold">
+                        추가 청구 금액: ₩{price.toLocaleString()}
+                      </p>
+                    )}
+                    {workerMemo && <p className="text-xs text-green-700 mt-1">추가 작업 내용: {workerMemo}</p>}
+                    {managerNote && <p className="text-xs text-green-600 mt-0.5">안내: {managerNote}</p>}
+                  </div>
+                );
+              }
+
+              if (status === "SKIPPED") {
+                return (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm font-semibold text-blue-700">⏭ 추가 작업 건너뜀 — 기존 항목만 진행</p>
+                  </div>
+                );
+              }
+
+              if (status === "RETURN_REQUESTED") {
+                return (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm font-semibold text-red-700">📦 반송 요청 — 작업 중단, 반송 처리 필요</p>
+                  </div>
+                );
+              }
+
+              return null;
+            })()}
+
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <h2 className="text-sm font-semibold text-gray-700 mb-3">
-                작업 아이템 ({result.repairParts?.length ?? 0}개)
+                작업 아이템 ({result.repairParts?.length ?? 0}개
+                {result.extraChargeStatus === "COMPLETED" ? " + 추가 1개" : ""})
               </h2>
 
               {(!result.repairParts || result.repairParts.length === 0) && (
@@ -495,6 +561,59 @@ export default function WorkPage() {
                   );
                 })}
               </div>
+
+              {/* 추가결제 완료 시 추가 작업 항목 */}
+              {result.extraChargeStatus === "COMPLETED" && (() => {
+                const ec = result.extraChargeData ?? {};
+                const workerMemo = (ec.workerMemo as string | undefined) ?? "추가 작업";
+                const extraIdx = result.repairParts?.length ?? 0;
+                const workItem = getWorkItemStatus(extraIdx);
+                const isInProgress = workItem?.status === "IN_PROGRESS";
+                const isCompleted = workItem?.status === "COMPLETED";
+                const isProc = isProcessing[extraIdx] || false;
+
+                return (
+                  <div className="border-2 border-orange-200 bg-orange-50 rounded-lg p-3 mt-2">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold">추가</span>
+                          <span className="font-semibold text-gray-900 text-sm">{workerMemo}</span>
+                          {isCompleted && <span className="px-2 py-0.5 bg-green-600 text-white text-xs rounded">완료</span>}
+                          {isInProgress && <span className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded flex items-center gap-1"><Clock className="h-3 w-3" />작업 중</span>}
+                          {!workItem && <span className="px-2 py-0.5 bg-gray-400 text-white text-xs rounded">대기</span>}
+                        </div>
+                        {workItem?.worker_name && <p className="text-xs text-gray-500 mt-0.5">작업자: {workItem.worker_name}</p>}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleStartWork(extraIdx, workerMemo)}
+                        disabled={isInProgress || isCompleted || isProc}
+                        className={`px-3 py-1.5 rounded text-white flex items-center gap-1.5 text-xs font-medium ${isInProgress || isCompleted || isProc ? "bg-gray-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+                      >
+                        <Play className="h-3 w-3" />시작
+                      </button>
+                      <button
+                        onClick={() => handleCompleteWork(extraIdx)}
+                        disabled={!isInProgress || isCompleted || isProc}
+                        className={`px-3 py-1.5 rounded text-white flex items-center gap-1.5 text-xs font-medium ${!isInProgress || isCompleted || isProc ? "bg-gray-300 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"}`}
+                      >
+                        <CheckCircle className="h-3 w-3" />완료
+                      </button>
+                      {isCompleted && (
+                        <button
+                          onClick={() => handleReopenWork(extraIdx)}
+                          disabled={isProc}
+                          className={`px-3 py-1.5 rounded text-white flex items-center gap-1.5 text-xs font-medium ${isProc ? "bg-gray-300 cursor-not-allowed" : "bg-orange-600 hover:bg-orange-700"}`}
+                        >
+                          <RotateCcw className="h-3 w-3" />되돌리기
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 수선 완료처리 버튼 — 항목이 1개 이상 있고 작업이 시작된 경우 표시 */}
               {result?.repairParts && result.repairParts.length > 0 && workItems.length > 0 && (
