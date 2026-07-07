@@ -159,9 +159,14 @@ export async function GET(request: NextRequest) {
       let expectedPickupDate: Date | null = null;
       
       // 수거 예약 상태(BOOKED)이고 아직 수거 완료되지 않은 경우
+      // 주문이 취소/반송완료/배송완료된 경우 지연 표시 제외
+      const orderStatus = (shipment as any).orders?.status;
+      const isCancelledOrder = ['CANCELLED', 'CANCEL_REQUESTED', 'RETURN_DONE', 'DELIVERED'].includes(orderStatus);
+
       if (shipment.status === 'BOOKED' && 
           shipment.pickup_requested_at && 
-          !shipment.pickup_completed_at) {
+          !shipment.pickup_completed_at &&
+          !isCancelledOrder) {
         const pickupRequestedAt = new Date(shipment.pickup_requested_at);
         
         // 예상 수거일: 예약일 + 1일 (도서산간 +1일 추가)
@@ -193,7 +198,8 @@ export async function GET(request: NextRequest) {
       if ((shipment.status === 'READY_TO_SHIP' || 
           shipment.status === 'OUT_FOR_DELIVERY' || 
           shipment.status === 'IN_TRANSIT') &&
-          !shipment.delivery_completed_at) {
+          !shipment.delivery_completed_at &&
+          !isCancelledOrder) {
         
         // 배송 시작일 기준
         const deliveryStartDate = shipment.delivery_started_at 
@@ -300,20 +306,25 @@ export async function GET(request: NextRequest) {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
-    // 통계 계산 (필터링 전 전체 데이터 기준)
+    // 통계 계산 (취소된 주문의 shipment는 집계에서 제외)
+    const activeShipments = processedShipments.filter((s: any) => {
+      const os = s.orders?.status;
+      return !['CANCELLED', 'CANCEL_REQUESTED'].includes(os);
+    });
+
     const stats = {
-      total: processedShipments.length,
-      pickupPending: processedShipments.filter((s: any) => s.status === 'BOOKED').length,
-      pickupCompleted: processedShipments.filter((s: any) => s.status === 'PICKED_UP').length,
-      inDelivery: processedShipments.filter((s: any) => 
+      total: activeShipments.length,
+      pickupPending: activeShipments.filter((s: any) => s.status === 'BOOKED').length,
+      pickupCompleted: activeShipments.filter((s: any) => s.status === 'PICKED_UP').length,
+      inDelivery: activeShipments.filter((s: any) => 
         ['OUT_FOR_DELIVERY', 'IN_TRANSIT'].includes(s.status)
       ).length,
-      delivered: processedShipments.filter((s: any) => s.status === 'DELIVERED').length,
-      delayed: processedShipments.filter((s: any) => s.isDelayed).length,
-      pickupDelayed: processedShipments.filter((s: any) => s.isPickupDelayed).length,
-      deliveryDelayed: processedShipments.filter((s: any) => s.isDeliveryDelayed).length,
-      island: processedShipments.filter((s: any) => s.isIsland).length,
-      saturdayClosed: processedShipments.filter((s: any) => s.isSaturdayClosed).length,
+      delivered: activeShipments.filter((s: any) => s.status === 'DELIVERED').length,
+      delayed: activeShipments.filter((s: any) => s.isDelayed).length,
+      pickupDelayed: activeShipments.filter((s: any) => s.isPickupDelayed).length,
+      deliveryDelayed: activeShipments.filter((s: any) => s.isDeliveryDelayed).length,
+      island: activeShipments.filter((s: any) => s.isIsland).length,
+      saturdayClosed: activeShipments.filter((s: any) => s.isSaturdayClosed).length,
     };
 
     // 페이징 처리
