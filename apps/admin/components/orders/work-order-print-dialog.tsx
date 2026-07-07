@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, Printer, Loader2, X } from "lucide-react";
-import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin } from "@/components/ops/work-order-sheet";
+import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin, type ExtraChargeInfo } from "@/components/ops/work-order-sheet";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface WorkOrderPrintDialogProps {
@@ -16,9 +16,9 @@ export function WorkOrderPrintDialog({ order }: WorkOrderPrintDialogProps) {
   const [error, setError] = useState("");
   const [workOrderData, setWorkOrderData] = useState<WorkOrderData | null>(null);
 
-  // 다이얼로그가 열릴 때 데이터 준비
+  // 다이얼로그가 열릴 때마다 최신 데이터로 재로드
   useEffect(() => {
-    if (open && !workOrderData) {
+    if (open) {
       loadWorkOrderData();
     }
   }, [open]);
@@ -72,6 +72,20 @@ export function WorkOrderPrintDialog({ order }: WorkOrderPrintDialogProps) {
         outboundTrackingNo = deliveryInfo?.regiNo || deliveryInfo?.trackingNo;
       }
 
+      // 추가결제 정보 추출
+      let extraCharge: ExtraChargeInfo | undefined;
+      const ecStatus = order.extra_charge_status as string | null | undefined;
+      if (ecStatus && ecStatus !== "NONE") {
+        const ecData = order.extra_charge_data as Record<string, unknown> | null | undefined ?? {};
+        extraCharge = {
+          status: ecStatus,
+          workerMemo: ecData.workerMemo as string | undefined,
+          managerPrice: ecData.managerPrice as number | undefined,
+          managerNote: ecData.managerNote as string | undefined,
+          customerAction: ecData.customerAction as string | undefined,
+        };
+      }
+
       const data: WorkOrderData = {
         trackingNo: order.tracking_no || order.shipment?.pickup_tracking_no || "",
         outboundTrackingNo: outboundTrackingNo,
@@ -81,6 +95,7 @@ export function WorkOrderPrintDialog({ order }: WorkOrderPrintDialogProps) {
         summary: order.item_description || order.item_name || "수선 요청 정보 없음",
         repairParts: Array.isArray(order.repair_parts) ? order.repair_parts : [],
         images: convertToWorkOrderImages(imageUrls, order.images_with_pins),
+        extraCharge,
       };
 
       setWorkOrderData(data);

@@ -669,8 +669,8 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                 } as Record<string,string>)[getEffectiveOrderStatus(order)] || getEffectiveOrderStatus(order)
               }</Badge>
             </div>
-            {/* 작업지시서는 입고처리(INBOUND/RECEIVED) 이후만 표시 */}
-            {['INBOUND', 'PROCESSING', 'READY_TO_SHIP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(displayOrder.status) && (
+            {/* 작업지시서: 입고 이후 또는 추가결제 대기(HOLD) 상태에서도 출력 가능 */}
+            {['INBOUND', 'PROCESSING', 'HOLD', 'READY_TO_SHIP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(displayOrder.status) && (
               <div className="pt-4 border-t">
                 <WorkOrderPrintDialog order={order} />
               </div>

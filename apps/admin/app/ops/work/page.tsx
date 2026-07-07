@@ -27,6 +27,7 @@ import {
   WorkOrderSheet,
   type WorkOrderData,
   type WorkOrderImage,
+  type ExtraChargeInfo,
 } from "@/components/ops/work-order-sheet";
 import { normalizeRepairPart } from "@/lib/barcode";
 
@@ -42,6 +43,8 @@ type LookupResult = {
   summary?: string;
   images?: WorkOrderImage[];
   scannedItemSeq?: number | null;
+  extraChargeStatus?: string | null;
+  extraChargeData?: Record<string, unknown> | null;
 };
 
 type WorkItemStatus = {
@@ -57,6 +60,17 @@ type WorkItemStatus = {
 };
 
 function buildWorkOrderData(result: LookupResult): WorkOrderData {
+  let extraCharge: ExtraChargeInfo | undefined;
+  if (result.extraChargeStatus && result.extraChargeStatus !== "NONE") {
+    const ec = result.extraChargeData ?? {};
+    extraCharge = {
+      status: result.extraChargeStatus,
+      workerMemo: ec.workerMemo as string | undefined,
+      managerPrice: ec.managerPrice as number | undefined,
+      managerNote: ec.managerNote as string | undefined,
+      customerAction: ec.customerAction as string | undefined,
+    };
+  }
   return {
     trackingNo: result.trackingNo || "",
     outboundTrackingNo: result.outboundTrackingNo ?? undefined,
@@ -66,6 +80,7 @@ function buildWorkOrderData(result: LookupResult): WorkOrderData {
     summary: result.summary || result.repairParts?.join(", ") || "",
     repairParts: result.repairParts ?? [],
     images: result.images ?? [],
+    extraCharge,
   };
 }
 
@@ -148,6 +163,8 @@ export default function WorkPage() {
         summary: order.repair_summary || repairParts.join(", "),
         images,
         scannedItemSeq: scannedItemSeq ?? null,
+        extraChargeStatus: order.extra_charge_status ?? null,
+        extraChargeData: order.extra_charge_data ?? null,
       };
       setResult(found);
       setOrderCompleted(false);

@@ -2,6 +2,14 @@
 
 import { MapPin } from "lucide-react";
 
+export interface ExtraChargeInfo {
+  status: string;          // PENDING_CUSTOMER | COMPLETED | SKIPPED | RETURN_REQUESTED
+  workerMemo?: string;
+  managerPrice?: number;
+  managerNote?: string;
+  customerAction?: string; // PAY | SKIP | RETURN
+}
+
 export interface WorkOrderData {
   trackingNo: string;
   outboundTrackingNo?: string;
@@ -12,6 +20,7 @@ export interface WorkOrderData {
   // text[] 컬럼이라 부위명 문자열 / JSON 직렬화 객체가 혼재 가능
   repairParts?: Array<string | { name?: string; price?: number; quantity?: number; detail?: string }>;
   images?: WorkOrderImage[];
+  extraCharge?: ExtraChargeInfo;
 }
 
 // repair_parts 항목을 표시 가능한 형태로 정규화
@@ -274,6 +283,49 @@ export function WorkOrderSheet({
             </div>
           </div>
         )}
+        {/* 추가결제 섹션 */}
+        {data.extraCharge && data.extraCharge.status !== "NONE" && (() => {
+          const ec = data.extraCharge!;
+          const statusLabel: Record<string, string> = {
+            PENDING_CUSTOMER: "⏳ 고객 결제 대기",
+            COMPLETED:        "✅ 추가 결제 완료",
+            SKIPPED:          "⏭ 기존 작업만 진행",
+            RETURN_REQUESTED: "📦 반송 요청",
+          };
+          const label = statusLabel[ec.status] ?? ec.status;
+          return (
+            <div className="p-1.5 border-2 border-orange-300 bg-orange-50 rounded text-xs">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-orange-800">추가 결제</label>
+                <span className="text-xs font-semibold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded-full">
+                  {label}
+                </span>
+              </div>
+              <div className="space-y-0.5">
+                {ec.managerPrice != null && ec.managerPrice > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">청구 금액</span>
+                    <span className="font-bold text-orange-900">
+                      ₩{ec.managerPrice.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {ec.workerMemo && (
+                  <div>
+                    <span className="text-gray-500">현장 메모: </span>
+                    <span className="text-gray-800">{ec.workerMemo}</span>
+                  </div>
+                )}
+                {ec.managerNote && (
+                  <div>
+                    <span className="text-gray-500">고객 안내: </span>
+                    <span className="text-gray-800">{ec.managerNote}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
         <div className="mt-1 p-1.5 border border-gray-300 rounded text-xs">
           <div className="grid grid-cols-3 gap-1.5">
             <div>
