@@ -11,6 +11,12 @@
  *   - Transaction.PartialCancelled
  *   - Transaction.Failed
  */
+import {
+  buildPrePickupCancelUpdate,
+  buildReturnPendingOrderUpdate,
+  isPostInboundOrderStatus,
+  wasInboundOrder,
+} from "@/lib/order-return-flow";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -130,12 +136,46 @@ export async function POST(request: NextRequest) {
         const newPaymentStatus = type === "Transaction.PartialCancelled" ? "PARTIAL_CANCELED" : "CANCELED";
         const orderUpdate: Record<string, unknown> = {
           payment_status: newPaymentStatus,
-          canceled_at: new Date().toISOString(),
         };
-        // 전체 취소 시 주문 상태도 CANCELLED로 변경
+
         if (type === "Transaction.Cancelled") {
-          orderUpdate.status = "CANCELLED";
+          const { data: existingOrder } = await (supabase as any)
+            .from("orders")
+            .select("id, status, extra_charge_data, tracking_no")
+            .eq("payment_id", paymentId)
+            .maybeSingle();
+
+          if (existingOrder) {
+            const { data: shipment } = await (supabase as any)
+              .from("shipments")
+              .select("status, inbound_at, pickup_tracking_no")
+              .eq("order_id", existingOrder.id)
+              .maybeSingle();
+
+            const orderContext = { ...existingOrder, shipment };
+
+            if (isPostInboundOrderStatus(existingOrder.status) || wasInboundOrder(orderContext)) {
+              Object.assign(
+                orderUpdate,
+                buildReturnPendingOrderUpdate(existingOrder.extra_charge_data, {
+                  reason: "결제 취소 (입고 후 — 반송 필요)",
+                  source: "WEBHOOK_PAYMENT_CANCEL",
+                })
+              );
+            } else {
+              Object.assign(
+                orderUpdate,
+                buildPrePickupCancelUpdate("결제 취소 (수거 전)")
+              );
+            }
+          } else {
+            orderUpdate.status = "CANCELLED";
+            orderUpdate.canceled_at = new Date().toISOString();
+          }
+        } else {
+          orderUpdate.canceled_at = new Date().toISOString();
         }
+
         await (supabase as any)
           .from("orders")
           .update(orderUpdate)

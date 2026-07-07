@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import {
+  buildPrePickupCancelUpdate,
   buildReturnPendingOrderUpdate,
   isPostInboundOrderStatus,
+  wasInboundOrder,
 } from "@/lib/order-return-flow";
 
 export const dynamic = "force-dynamic";
@@ -93,12 +95,19 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (existingOrder) {
+        const { data: shipment } = await supabase
+          .from("shipments")
+          .select("status, inbound_at, pickup_tracking_no")
+          .eq("order_id", existingOrder.id)
+          .maybeSingle();
+
+        const orderContext = { ...existingOrder, shipment };
         const orderUpdate: Record<string, unknown> = {
           payment_status: newPaymentStatus,
         };
 
         if (isTotalCancel) {
-          if (isPostInboundOrderStatus(existingOrder.status)) {
+          if (isPostInboundOrderStatus(existingOrder.status) || wasInboundOrder(orderContext)) {
             Object.assign(
               orderUpdate,
               buildReturnPendingOrderUpdate(existingOrder.extra_charge_data, {
@@ -107,8 +116,10 @@ export async function POST(request: NextRequest) {
               })
             );
           } else {
-            orderUpdate.status = "CANCELLED";
-            orderUpdate.canceled_at = new Date().toISOString();
+            Object.assign(
+              orderUpdate,
+              buildPrePickupCancelUpdate(cancelReason || "관리자 결제 취소")
+            );
           }
         } else {
           orderUpdate.canceled_at = new Date().toISOString();

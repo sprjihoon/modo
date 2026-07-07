@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/ops-auth";
 import {
   buildReturnPendingOrderUpdate,
   isPostInboundOrderStatus,
+  wasInboundOrder,
 } from "@/lib/order-return-flow";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -77,7 +78,7 @@ export async function PATCH(
     // 현재 주문 상태 조회 (역행 방지 검증용)
     const { data: current, error: currentError } = await supabase
       .from("orders")
-      .select("status, extra_charge_data")
+      .select("status, extra_charge_data, tracking_no, canceled_at, cancellation_reason")
       .eq("id", orderId)
       .single();
 
@@ -88,6 +89,14 @@ export async function PATCH(
       );
     }
 
+    const { data: shipment } = await supabase
+      .from("shipments")
+      .select("status, inbound_at, pickup_tracking_no")
+      .eq("order_id", orderId)
+      .maybeSingle();
+
+    const orderContext = { ...current, shipment };
+
     const currentStatus = current.status as string;
     const allowed = ALLOWED_TRANSITIONS[currentStatus];
 
@@ -96,7 +105,17 @@ export async function PATCH(
       targetStatus = "RETURN_PENDING";
     }
 
-    if (allowed !== undefined && !allowed.includes(status) && !(status === "CANCELLED" && targetStatus === "RETURN_PENDING")) {
+    const legacyReturnRepair =
+      currentStatus === "CANCELLED" &&
+      status === "RETURN_PENDING" &&
+      wasInboundOrder(orderContext);
+
+    if (
+      allowed !== undefined &&
+      !allowed.includes(status) &&
+      !(status === "CANCELLED" && targetStatus === "RETURN_PENDING") &&
+      !legacyReturnRepair
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -111,14 +130,24 @@ export async function PATCH(
       updated_at: new Date().toISOString(),
     };
 
-    if (targetStatus === "RETURN_PENDING" && status === "CANCELLED") {
+    if (
+      targetStatus === "RETURN_PENDING" &&
+      (status === "CANCELLED" || legacyReturnRepair || isPostInboundOrderStatus(currentStatus))
+    ) {
       Object.assign(
         orderUpdate,
         buildReturnPendingOrderUpdate(current.extra_charge_data as Record<string, unknown> | null, {
-          reason: "관리자 상태 변경 — 입고 후 취소 (반송 필요)",
-          source: "ADMIN_STATUS_CANCEL",
+          reason:
+            (current.cancellation_reason as string) ||
+            (legacyReturnRepair
+              ? "입고 후 취소 주문 — 반송 처리 시작"
+              : "관리자 상태 변경 — 입고 후 취소 (반송 필요)"),
+          source: legacyReturnRepair ? "ADMIN_RETURN_PENDING" : "ADMIN_STATUS_CANCEL",
         })
       );
+      if (current.canceled_at) {
+        orderUpdate.canceled_at = current.canceled_at;
+      }
     } else if (targetStatus === "RETURN_PENDING") {
       Object.assign(
         orderUpdate,

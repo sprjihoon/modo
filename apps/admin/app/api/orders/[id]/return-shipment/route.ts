@@ -4,7 +4,7 @@ import {
   buildReturnPendingOrderUpdate,
   isPostInboundOrderStatus,
   isReturnWorkflowStatus,
-  POST_INBOUND_SHIPMENT_STATUSES,
+  wasInboundOrder,
 } from "@/lib/order-return-flow";
 
 export const dynamic = 'force-dynamic';
@@ -40,15 +40,11 @@ async function canCreateReturnShipment(
   if (order.status === "CANCELLED") {
     const { data: shipment } = await supabase
       .from("shipments")
-      .select("status, inbound_at")
+      .select("status, inbound_at, pickup_tracking_no")
       .eq("order_id", orderId)
       .maybeSingle();
 
-    const wasInbound =
-      !!shipment?.inbound_at ||
-      (!!shipment?.status && POST_INBOUND_SHIPMENT_STATUSES.has(shipment.status));
-
-    if (wasInbound) {
+    if (wasInboundOrder({ ...order, shipment })) {
       return { ok: true };
     }
   }
