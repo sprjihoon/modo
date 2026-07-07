@@ -8,10 +8,10 @@ import { normalizeRepairPart } from "@/lib/barcode";
 import {
   loadBarcodeLayout,
   BARCODE_LAYOUT_KEY,
-  DEFAULT_CONFIG,
+  DEFAULT_BARCODE_CONFIG as DEFAULT_CONFIG,
   type BarcodeLayoutConfig,
   type BarcodeLayoutElement,
-} from "@/app/ops/barcode-layout/page";
+} from "@/lib/barcode-layout";
 
 interface BarcodeRow {
   id: string;
