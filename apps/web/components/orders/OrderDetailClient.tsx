@@ -1376,60 +1376,6 @@ function CancelConfirmDialog({
   );
 }
 
-function VideoCard({
-  title,
-  url,
-  onPlay,
-  compact = false,
-}: {
-  title: string;
-  url: string | null;
-  onPlay: (url: string) => void;
-  compact?: boolean;
-}) {
-  const hasVideo = !!url;
-  return (
-    <button
-      onClick={() => url && onPlay(url)}
-      disabled={!hasVideo}
-      className={cn(
-        "w-full rounded-xl border flex flex-col items-center justify-center transition-colors",
-        compact ? "py-3 gap-1.5" : "py-6 gap-3",
-        hasVideo
-          ? "border-[#00C896]/20 bg-[#00C896]/5 active:bg-[#00C896]/10"
-          : "border-gray-200 bg-gray-50"
-      )}
-    >
-      <div
-        className={cn(
-          "rounded-full flex items-center justify-center",
-          compact ? "w-9 h-9" : "w-14 h-14",
-          hasVideo ? "bg-[#00C896]" : "bg-gray-300"
-        )}
-      >
-        {hasVideo ? (
-          <Play className={cn("text-white ml-0.5", compact ? "w-4 h-4" : "w-6 h-6")} />
-        ) : (
-          <Clock className={cn("text-white", compact ? "w-4 h-4" : "w-6 h-6")} />
-        )}
-      </div>
-      <div className="text-center">
-        <p
-          className={cn(
-            "font-semibold",
-            compact ? "text-xs" : "text-sm",
-            hasVideo ? "text-gray-800" : "text-gray-500"
-          )}
-        >
-          {title}
-        </p>
-        {!hasVideo && (
-          <p className="text-xs text-gray-400 mt-0.5">준비 중</p>
-        )}
-      </div>
-    </button>
-  );
-}
 
 function InfoRow({
   label,

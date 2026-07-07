@@ -62,12 +62,15 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   /// 00~02: 수거준비(취소 가능), 03~05: 접수/발송/도착(취소 불가 → 문의하기)
   String? _pickupTreatStusCd;
 
-  // 입고/출고 영상 URL (단일)
+  // 입고/출고 영상 URL (단일) — CS 내부 전용, 고객에게 직접 표시 안 함
   String? _inboundVideoUrl;
   String? _outboundVideoUrl;
 
   // 여러 아이템의 영상 쌍 (순차 재생용)
   List<Map<String, String>> _videoItems = [];
+
+  // 수선 전/후 사진 (media 테이블 before_photo / after_photo)
+  List<Map<String, dynamic>> _repairPhotoItems = [];
 
   // 주기적 새로고침을 위한 타이머
   // 네트워크 에러 메시지 (UI에 배너로 표시)
@@ -255,8 +258,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         }
       }
 
-      // 입고/출고 영상 URL 조회 (비동기, 별도 처리)
+      // 입고/출고 영상 URL 조회 (CS 내부 전용 — 고객 미노출)
       _loadVideoUrls();
+
+      // 수선 전/후 사진 조회 (고객 노출)
+      _loadRepairPhotos(order);
 
       // 🚚 배송/수거 완료 자동 체크
       // - BOOKED: 수거 완료 시 → INBOUND로 변경
@@ -406,9 +412,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
                   if (canEdit) _buildEditablePhotosSection(context),
                   if (canEdit) const SizedBox(height: 16),
 
-                  // 영상 섹션
-                  _buildVideoSection(context),
-                  const SizedBox(height: 16),
+                  // 수선 전/후 사진 비교
+                  if (_repairPhotoItems.isNotEmpty) ...[
+                    _buildRepairPhotosSection(context),
+                    const SizedBox(height: 16),
+                  ],
 
                   // 배송 정보
                   _buildShippingInfo(context),
@@ -2372,13 +2380,168 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     );
   }
 
+  /// 수선 전/후 사진 비교 섹션
+  Widget _buildRepairPhotosSection(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.content_cut,
+                  color: Theme.of(context).colorScheme.primary, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                '수선 전 · 후 사진',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_repairPhotoItems.length}개 항목',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._repairPhotoItems.map((item) {
+            final seq = item['sequence'] as int;
+            final label = item['label'] as String;
+            final beforeUrl = item['before'] as String?;
+            final afterUrl = item['after'] as String?;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '#$seq $label',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      // 수선 전
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text('수선 전',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange.shade600,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            AspectRatio(
+                              aspectRatio: 1,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: Colors.orange.shade100),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: beforeUrl != null
+                                    ? Image.network(beforeUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            _photoPlaceholder(Icons.camera_alt,
+                                                Colors.grey))
+                                    : _photoPlaceholder(
+                                        Icons.camera_alt, Colors.orange),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // 수선 후
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text('수선 후',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 4),
+                            AspectRatio(
+                              aspectRatio: 1,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withOpacity(0.2)),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: afterUrl != null
+                                    ? Image.network(afterUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            _photoPlaceholder(Icons.camera_alt,
+                                                Colors.grey))
+                                    : _photoPlaceholder(
+                                        Icons.access_time, Colors.grey),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _photoPlaceholder(IconData icon, Color color) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color.withOpacity(0.4), size: 28),
+          const SizedBox(height: 4),
+          Text('준비 중',
+              style: TextStyle(
+                  fontSize: 10, color: color.withOpacity(0.5))),
+        ],
+      ),
+    );
+  }
+
   Widget _buildVideoSection(BuildContext context) {
-    // media 테이블에서 조회한 영상 URL 사용
+    // 입고/출고 영상은 CS 내부 전용 — 고객에게 직접 표시하지 않음
+    // 관리자가 '영상링크 전송' 버튼으로 고객 요청 시에만 공개 (앱 알림으로 전달)
+    return const SizedBox.shrink();
+
+    // ignore: dead_code
     final hasInboundVideo = _inboundVideoUrl != null;
     final hasOutboundVideo = _outboundVideoUrl != null;
     final hasBothVideos = hasInboundVideo && hasOutboundVideo;
 
-    // 영상이 하나도 없으면 섹션 숨기기
     if (!hasInboundVideo && !hasOutboundVideo) {
       return const SizedBox.shrink();
     }
@@ -2755,6 +2918,91 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     return true;
   }
 
+  /// 수선 전/후 사진 조회 (media 테이블 before_photo / after_photo)
+  /// 입고 시 촬영 → before_photo, 출고 시 촬영 → after_photo
+  Future<void> _loadRepairPhotos(Map<String, dynamic> order) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final supabaseUrl = const String.fromEnvironment('SUPABASE_URL',
+          defaultValue: 'https://rzrwediccbamxluegnex.supabase.co');
+
+      // 가능한 모든 송장번호로 조회
+      final candidates = <String>[
+        if (_shipmentData?['pickup_tracking_no'] != null)
+          _shipmentData!['pickup_tracking_no'] as String,
+        if (_shipmentData?['delivery_tracking_no'] != null)
+          _shipmentData!['delivery_tracking_no'] as String,
+        if (_shipmentData?['tracking_no'] != null)
+          _shipmentData!['tracking_no'] as String,
+        order['id'] as String,
+      ];
+
+      final unique = candidates.toSet().toList();
+      if (unique.isEmpty) return;
+
+      final photos = await supabase
+          .from('media')
+          .select('type, path, provider, sequence')
+          .inFilter('final_waybill_no', unique)
+          .inFilter('type', ['before_photo', 'after_photo']).order('sequence',
+              ascending: true);
+
+      if ((photos as List).isEmpty) return;
+
+      // repair_parts에서 항목 이름 추출
+      final rawParts = order['repair_parts'] as List<dynamic>? ?? [];
+      final repairPartNames = rawParts.map<String>((p) {
+        if (p is String) return p;
+        if (p is Map) return (p['name'] as String?) ?? '';
+        return '';
+      }).where((s) => s.isNotEmpty).toList();
+
+      // sequence별 그룹화
+      final Map<int, Map<String, String?>> bySeq = {};
+      for (final p in photos) {
+        final seq = (p['sequence'] as int?) ?? 1;
+        final path = p['path'] as String? ?? '';
+        final provider = p['provider'] as String? ?? '';
+
+        String? url;
+        if (path.startsWith('http')) {
+          url = path;
+        } else if (provider == 'supabase' && path.isNotEmpty) {
+          final envUrl = const String.fromEnvironment('NEXT_PUBLIC_SUPABASE_URL');
+          final baseUrl = envUrl.isNotEmpty ? envUrl : supabaseUrl;
+          url = '$baseUrl/storage/v1/object/public/repair-photos/$path';
+        }
+        if (url == null) continue;
+
+        bySeq[seq] ??= {};
+        if (p['type'] == 'before_photo') {
+          bySeq[seq]!['before'] = url;
+        } else if (p['type'] == 'after_photo') {
+          bySeq[seq]!['after'] = url;
+        }
+      }
+
+      final items = bySeq.keys.toList()
+        ..sort();
+      final result = items
+          .map((seq) => {
+                'sequence': seq,
+                'label': seq <= repairPartNames.length
+                    ? repairPartNames[seq - 1]
+                    : '수선 항목 $seq',
+                'before': bySeq[seq]!['before'],
+                'after': bySeq[seq]!['after'],
+              })
+          .toList();
+
+      if (mounted) {
+        setState(() => _repairPhotoItems = result);
+      }
+    } catch (e) {
+      debugPrint('수선 전/후 사진 조회 실패: $e');
+    }
+  }
+
   Future<void> _loadVideoUrls() async {
     try {
       debugPrint('🔍 shipmentData: ${_shipmentData?.keys.toList()}');
@@ -2780,7 +3028,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         return;
       }
 
-      debugPrint('🔍 영상 조회 시도 (${candidates.length}개 후보): $candidates');
+      debugPrint('🔍 CS 영상 조회 시도 (${candidates.length}개 후보): $candidates');
 
       final supabase = Supabase.instance.client;
       final videos = await supabase

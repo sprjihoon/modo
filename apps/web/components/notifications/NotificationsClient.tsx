@@ -2,22 +2,33 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, Play, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
 
+interface NotificationMetadata {
+  video_url?: string;
+  video_id?: string;
+  video_type?: string;
+  video_label?: string;
+  [key: string]: string | undefined;
+}
+
 interface Notification {
   id: string;
+  type?: string;
   title?: string;
   body?: string;
   is_read: boolean;
   created_at?: string;
   order_id?: string;
+  metadata?: NotificationMetadata;
 }
 
 export function NotificationsClient() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [playingVideo, setPlayingVideo] = useState<{ url: string; label: string } | null>(null);
 
   useEffect(() => {
     loadNotifications();
@@ -40,7 +51,7 @@ export function NotificationsClient() {
 
       const { data } = await supabase
         .from("notifications")
-        .select("id, title, body, is_read, created_at, order_id")
+        .select("id, type, title, body, is_read, created_at, order_id, metadata")
         .eq("user_id", userRow.id)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -84,22 +95,76 @@ export function NotificationsClient() {
   }
 
   return (
-    <div className="divide-y divide-gray-50">
-      {notifications.map((n) => (
+    <>
+      <div className="divide-y divide-gray-50">
+        {notifications.map((n) => {
+          const isVideoNotif = n.type === "CS_VIDEO_SHARED" && n.metadata?.video_url;
+
+          return (
+            <div
+              key={n.id}
+              className={`px-5 py-4 ${!n.is_read ? "bg-[#00C896]/5" : "bg-white"}`}
+            >
+              {isVideoNotif ? (
+                <div>
+                  <NotificationItem notification={n} />
+                  <button
+                    className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00C896] text-white text-sm font-semibold active:opacity-80"
+                    onClick={() =>
+                      setPlayingVideo({
+                        url: n.metadata!.video_url!,
+                        label: n.metadata?.video_label || "CS 영상",
+                      })
+                    }
+                  >
+                    <Play className="w-4 h-4 fill-white" />
+                    영상 보기
+                  </button>
+                </div>
+              ) : n.order_id ? (
+                <Link href={`/orders/${n.order_id}`} className="block active:opacity-80">
+                  <NotificationItem notification={n} />
+                </Link>
+              ) : (
+                <NotificationItem notification={n} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 영상 플레이어 모달 */}
+      {playingVideo && (
         <div
-          key={n.id}
-          className={`px-5 py-4 ${!n.is_read ? "bg-[#00C896]/5" : "bg-white"}`}
+          className="fixed inset-0 z-50 bg-black/80 flex flex-col"
+          onClick={() => setPlayingVideo(null)}
         >
-          {n.order_id ? (
-            <Link href={`/orders/${n.order_id}`} className="block active:opacity-80">
-              <NotificationItem notification={n} />
-            </Link>
-          ) : (
-            <NotificationItem notification={n} />
-          )}
+          <div
+            className="flex items-center justify-between px-4 py-3 text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold">{playingVideo.label}</p>
+            <button
+              onClick={() => setPlayingVideo(null)}
+              className="p-1 rounded-full bg-white/10 active:bg-white/20"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div
+            className="flex-1 flex items-center justify-center px-4 pb-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              src={playingVideo.url}
+              className="w-full aspect-video rounded-xl"
+              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
         </div>
-      ))}
-    </div>
+      )}
+    </>
   );
 }
 

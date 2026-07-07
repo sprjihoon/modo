@@ -911,11 +911,6 @@ export function RepairTypeStep({
                       {displayName}
                     </p>
 
-                    {/* 가격 */}
-                    <p className="text-xs text-gray-400">
-                      {type.price_range || formatPrice(type.price)}
-                    </p>
-
                     {/* 세부항목/치수 있음 표시 */}
                     {(type.has_sub_parts || type.requires_measurement) && !active && (
                       <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />

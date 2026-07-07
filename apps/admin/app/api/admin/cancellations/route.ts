@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
     // 출고 송장번호(delivery_tracking_no)를 shipments 테이블에서 배치 조회
     let enrichedData = data ?? [];
     if (enrichedData.length > 0) {
-      const orderIds = enrichedData.map((r: { id: string }) => r.id);
+      const orderIds = enrichedData.map((r) => r.id).filter((id): id is string => id != null);
       const { data: shipments } = await supabaseAdmin
         .from("shipments")
         .select("order_id, delivery_tracking_no")
@@ -131,9 +131,9 @@ export async function GET(request: NextRequest) {
             s.delivery_tracking_no,
           ])
         );
-        enrichedData = enrichedData.map((r: { id: string }) => ({
+        enrichedData = enrichedData.map((r) => ({
           ...r,
-          delivery_tracking_no: shipmentMap.get(r.id) ?? null,
+          delivery_tracking_no: r.id ? (shipmentMap.get(r.id) ?? null) : null,
         }));
       }
     }

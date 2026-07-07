@@ -4,6 +4,24 @@ import Link from "next/link";
 import { ChevronRight, Shirt, CreditCard } from "lucide-react";
 import { formatDate, formatPrice, ORDER_STATUS_MAP } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { InlineSvg } from "@/components/ui/InlineSvg";
+
+/** clothing_type 텍스트 → /public/icons/*.svg 파일명 매핑 */
+function getClothingIconSrc(clothingType?: string): string | null {
+  if (!clothingType) return null;
+  const t = clothingType.toLowerCase();
+  if (t.includes("청바지") || t.includes("진")) return "/icons/jeans.svg";
+  if (t.includes("바지") || t.includes("팬츠") || t.includes("슬랙스")) return "/icons/pants.svg";
+  if (t.includes("원피스") || t.includes("드레스")) return "/icons/dress.svg";
+  if (t.includes("치마") || t.includes("스커트")) return "/icons/skirt.svg";
+  if (t.includes("티셔츠") || t.includes("맨투맨") || t.includes("후드")) return "/icons/tshirt.svg";
+  if (t.includes("셔츠") || t.includes("블라우스")) return "/icons/shirt.svg";
+  if (t.includes("아우터") || t.includes("코트") || t.includes("자켓") || t.includes("점퍼") || t.includes("패딩")) return "/icons/outer.svg";
+  if (t.includes("정장") || t.includes("수트") || t.includes("슈트")) return "/icons/suit.svg";
+  if (t.includes("스웨터") || t.includes("니트") || t.includes("가디건")) return "/icons/sweater.svg";
+  if (t.includes("가죽") || t.includes("레더")) return "/icons/leather.svg";
+  return null;
+}
 
 const PROGRESS_STEPS = ["PAID", "BOOKED", "INBOUND", "PROCESSING", "READY_TO_SHIP", "OUT_FOR_DELIVERY", "DELIVERED"];
 
@@ -26,6 +44,7 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
   const isPendingCustomer = order.extra_charge_status === "PENDING_CUSTOMER";
   const isCancelled = order.status === "CANCELLED";
   const dateStr = order.created_at ? formatDate(order.created_at) : "";
+  const clothingIconSrc = getClothingIconSrc(order.clothing_type);
 
   const currentStepIdx = PROGRESS_STEPS.indexOf(order.status);
   const showProgress = !isCancelled && currentStepIdx >= 0;
@@ -58,6 +77,11 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
             >
               {isPendingCustomer ? (
                 <CreditCard className="w-6 h-6 text-orange-500" />
+              ) : clothingIconSrc && !isCancelled ? (
+                <InlineSvg
+                  src={clothingIconSrc}
+                  className="w-7 h-7 flex items-center justify-center text-[#00C896] [&>svg]:w-full [&>svg]:h-full [&>svg]:fill-current"
+                />
               ) : (
                 <Shirt className={cn("w-6 h-6", isCancelled ? "text-gray-300" : "text-[#00C896]")} />
               )}

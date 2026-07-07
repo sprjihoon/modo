@@ -993,7 +993,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                     <p className="text-xs text-muted-foreground">
                       {new Date(video.created_at).toLocaleDateString('ko-KR')}
                     </p>
-                    {/* 공유 버튼 (카카오톡 상담용) */}
+                    {/* 공유 버튼 (카카오톡 상담용 + 앱 푸시) */}
                     <div className="flex gap-2 pt-2 border-t">
                       <Button
                         variant="outline"
@@ -1002,7 +1002,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                         onClick={() => handleCopyVideoLink(video)}
                       >
                         <Copy className="h-3 w-3 mr-1" />
-                        링크만 복사
+                        링크 복사
                       </Button>
                       <Button
                         variant="default"
@@ -1011,9 +1011,25 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                         onClick={() => handleCopyVideoWithMessage(video)}
                       >
                         <Send className="h-3 w-3 mr-1" />
-                        상담용 복사
+                        상담용
                       </Button>
                     </div>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={sendingPushVideoId === video.id}
+                      onClick={() => handleSendCsVideoPush(video)}
+                    >
+                      {sendingPushVideoId === video.id ? (
+                        <>전송 중...</>
+                      ) : (
+                        <>
+                          <Send className="h-3 w-3 mr-1" />
+                          고객 앱 푸시 전송
+                        </>
+                      )}
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
@@ -1099,11 +1115,38 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                       </div>
                     )}
                   </div>
-                  <CardContent className="p-3">
+                  <CardContent className="p-3 space-y-2">
                     <p className="font-medium text-sm">출고 영상 {video.sequence ? `#${video.sequence}` : ''}</p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(video.created_at).toLocaleDateString('ko-KR')}
                     </p>
+                    <div className="flex gap-2 pt-2 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={() => handleCopyVideoLink(video)}
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        링크 복사
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="flex-1 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                        disabled={sendingPushVideoId === video.id}
+                        onClick={() => handleSendCsVideoPush(video)}
+                      >
+                        {sendingPushVideoId === video.id ? (
+                          <>전송 중...</>
+                        ) : (
+                          <>
+                            <Send className="h-3 w-3 mr-1" />
+                            앱 푸시 전송
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -1145,7 +1188,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                     <p className="text-xs text-muted-foreground">
                       {new Date(video.created_at).toLocaleDateString('ko-KR')}
                     </p>
-                    {/* 공유 버튼 (카카오톡 상담용) */}
+                    {/* 공유 버튼 */}
                     <div className="flex gap-2 pt-2 border-t">
                       <Button
                         variant="outline"
@@ -1154,7 +1197,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                         onClick={() => handleCopyVideoLink(video)}
                       >
                         <Copy className="h-3 w-3 mr-1" />
-                        링크만 복사
+                        링크 복사
                       </Button>
                       <Button
                         variant="default"
@@ -1163,9 +1206,25 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                         onClick={() => handleCopyVideoWithMessage(video)}
                       >
                         <Send className="h-3 w-3 mr-1" />
-                        상담용 복사
+                        상담용
                       </Button>
                     </div>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={sendingPushVideoId === video.id}
+                      onClick={() => handleSendCsVideoPush(video)}
+                    >
+                      {sendingPushVideoId === video.id ? (
+                        <>전송 중...</>
+                      ) : (
+                        <>
+                          <Send className="h-3 w-3 mr-1" />
+                          고객 앱 푸시 전송
+                        </>
+                      )}
+                    </Button>
                   </CardContent>
                 </Card>
               ))}

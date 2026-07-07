@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 통합 알림 센터
@@ -68,7 +69,7 @@ class _NotificationsPageState extends State<NotificationsPage>
       // 1. 개인 알림 조회 (notifications 테이블 + orders 조인하여 취소된 주문 필터링)
       final notificationsResponse = await _supabase
           .from('notifications')
-          .select('*, orders!left(id, status)')
+          .select('*, orders!left(id, status), metadata')
           .eq('user_id', userId)
           .order('created_at', ascending: false)
           .limit(50);
@@ -326,7 +327,16 @@ class _NotificationsPageState extends State<NotificationsPage>
     IconData icon = Icons.notifications;
     Color iconColor = Theme.of(context).primaryColor;
 
-    if (type?.contains('extra_charge') == true) {
+    // CS 영상 공유 알림
+    final isCsVideo = type == 'CS_VIDEO_SHARED';
+    final metadata = notification['metadata'] as Map<String, dynamic>?;
+    final videoUrl = metadata?['video_url'] as String?;
+    final videoLabel = metadata?['video_label'] as String? ?? 'CS 영상';
+
+    if (isCsVideo) {
+      icon = Icons.videocam;
+      iconColor = Colors.teal.shade600;
+    } else if (type?.contains('extra_charge') == true) {
       icon = Icons.payment;
       iconColor = Colors.orange.shade700;
     } else if (type?.contains('order') == true) {
@@ -337,12 +347,16 @@ class _NotificationsPageState extends State<NotificationsPage>
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: isRead ? 0 : 2,
-      color: isRead ? Colors.white : Colors.blue.shade50,
+      color: isCsVideo
+          ? (isRead ? Colors.teal.shade50 : Colors.teal.shade50)
+          : (isRead ? Colors.white : Colors.blue.shade50),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isRead ? Colors.grey.shade200 : Colors.blue.shade200,
-          width: isRead ? 1 : 2,
+          color: isCsVideo
+              ? Colors.teal.shade200
+              : (isRead ? Colors.grey.shade200 : Colors.blue.shade200),
+          width: (isCsVideo || !isRead) ? 2 : 1,
         ),
       ),
       child: InkWell(
@@ -352,99 +366,145 @@ class _NotificationsPageState extends State<NotificationsPage>
           if (!isRead) {
             _markAsRead(notification['id'] as String);
           }
+
+          // CS 영상 알림이면 바로 영상 재생 (아래 버튼으로도 가능)
+          if (isCsVideo && videoUrl != null) {
+            _openVideoUrl(videoUrl);
+            return;
+          }
           
           // order_id가 있으면 해당 주문 상세로 이동
           if (orderId != null && orderId.isNotEmpty) {
-            debugPrint('📦 주문 상세로 이동: /orders/$orderId');
             context.push('/orders/$orderId');
           } else {
-            // order_id가 없으면 주문 목록으로 이동
-            debugPrint('📋 order_id 없음, 주문 목록으로 이동');
             context.push('/orders');
           }
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 아이콘
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: iconColor, size: 24),
-              ),
-              const SizedBox(width: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 아이콘
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: iconColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: iconColor, size: 24),
+                  ),
+                  const SizedBox(width: 12),
 
-              // 내용
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                  // 내용
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (!isRead)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(right: 8),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
+                        Row(
+                          children: [
+                            if (!isRead)
+                              Container(
+                                width: 8,
+                                height: 8,
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          body,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                            height: 1.4,
                           ),
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
-                              color: Colors.black87,
-                            ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          timeAgo,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      body,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade700,
-                        height: 1.4,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  ),
+
+                  // 화살표 (CS 영상 제외)
+                  if (!isCsVideo && orderId != null && orderId.isNotEmpty)
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: Colors.grey.shade400,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      timeAgo,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ),
+                ],
               ),
 
-              // 화살표
-              if (orderId != null && orderId.isNotEmpty)
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey.shade400,
+              // CS 영상 보기 버튼
+              if (isCsVideo && videoUrl != null) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openVideoUrl(videoUrl),
+                    icon: const Icon(Icons.play_circle_fill, size: 18),
+                    label: Text('$videoLabel 보기'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal.shade600,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
                 ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _openVideoUrl(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('영상을 열 수 없습니다.')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('영상 URL 열기 실패: $e');
+    }
   }
 
   /// 공지사항 카드
