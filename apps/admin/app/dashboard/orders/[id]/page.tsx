@@ -649,7 +649,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                 <CreditCard className="h-5 w-5" />
                 결제 정보
               </CardTitle>
-              {(displayOrder.paymentStatus === "COMPLETED" || displayOrder.paymentStatus === "PARTIAL_CANCELED") && (
+              {(displayOrder.paymentStatus === "COMPLETED" || displayOrder.paymentStatus === "PARTIAL_CANCELED" || displayOrder.paymentStatus === "CANCELED") && (
                 <PaymentRefundDialog
                   orderId={displayOrder.id}
                   paymentId={displayOrder.paymentId}
