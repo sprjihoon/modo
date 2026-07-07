@@ -124,6 +124,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/icons/clothing/
     - .env
   
   # Fonts (선택사항)

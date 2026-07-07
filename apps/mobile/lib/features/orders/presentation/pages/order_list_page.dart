@@ -1,11 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/customer_event_service.dart';
 import '../../providers/cart_provider.dart';
+
+/// clothing_type 텍스트 → assets/icons/clothing/*.svg 매핑
+String? _getClothingAssetPath(String? clothingType) {
+  if (clothingType == null) return null;
+  final t = clothingType.toLowerCase();
+  if (t.contains('청바지') || t.contains('진')) return 'assets/icons/clothing/jeans.svg';
+  if (t.contains('바지') || t.contains('팬츠') || t.contains('슬랙스')) return 'assets/icons/clothing/pants.svg';
+  if (t.contains('원피스') || t.contains('드레스')) return 'assets/icons/clothing/dress.svg';
+  if (t.contains('치마') || t.contains('스커트')) return 'assets/icons/clothing/skirt.svg';
+  if (t.contains('티셔츠') || t.contains('맨투맨') || t.contains('후드')) return 'assets/icons/clothing/tshirt.svg';
+  if (t.contains('셔츠') || t.contains('블라우스')) return 'assets/icons/clothing/shirt.svg';
+  if (t.contains('아우터') || t.contains('코트') || t.contains('자켓') || t.contains('점퍼') || t.contains('패딩')) return 'assets/icons/clothing/outer.svg';
+  if (t.contains('정장') || t.contains('수트') || t.contains('슈트')) return 'assets/icons/clothing/suit.svg';
+  if (t.contains('스웨터') || t.contains('니트') || t.contains('가디건')) return 'assets/icons/clothing/sweater.svg';
+  if (t.contains('가죽') || t.contains('레더')) return 'assets/icons/clothing/leather.svg';
+  return null;
+}
 
 /// 주문 목록 화면
 class OrderListPage extends ConsumerStatefulWidget {
@@ -610,13 +628,20 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
 
   Widget _buildOrderCard(BuildContext context, Map<String, dynamic> order) {
     final statusMap = {
-      'PENDING': {'label': '결제대기', 'color': Colors.amber, 'icon': Icons.hourglass_empty_outlined},
-      'BOOKED': {'label': '수거예약', 'color': Colors.blue, 'icon': Icons.schedule_outlined},
-      'INBOUND': {'label': '입고완료', 'color': Colors.orange, 'icon': Icons.inventory_outlined},
-      'PROCESSING': {'label': '수선중', 'color': Colors.purple, 'icon': Icons.content_cut_rounded},
-      'READY_TO_SHIP': {'label': '출고완료', 'color': Colors.green, 'icon': Icons.done_all_outlined},
-      'DELIVERED': {'label': '배송완료', 'color': Colors.grey.shade600, 'icon': Icons.check_circle_outline},
-      'CANCELLED': {'label': '수거취소', 'color': Colors.red, 'icon': Icons.cancel_outlined},
+      'PENDING':          {'label': '결제대기',     'color': Colors.amber,          'icon': Icons.hourglass_empty_outlined},
+      'PAID':             {'label': '결제완료',     'color': Colors.blue.shade300,  'icon': Icons.check_outlined},
+      'BOOKED':           {'label': '수거예약',     'color': Colors.blue,           'icon': Icons.schedule_outlined},
+      'PICKED_UP':        {'label': '수거완료',     'color': Colors.indigo,         'icon': Icons.local_shipping_outlined},
+      'INBOUND':          {'label': '입고완료',     'color': Colors.orange,         'icon': Icons.inventory_outlined},
+      'PROCESSING':       {'label': '수선중',       'color': Colors.purple,         'icon': Icons.content_cut_rounded},
+      'HOLD':             {'label': '추가결제 대기', 'color': Colors.deepOrange,     'icon': Icons.pause_circle_outlined},
+      'READY_TO_SHIP':    {'label': '출고완료',     'color': Colors.green,          'icon': Icons.done_all_outlined},
+      'OUT_FOR_DELIVERY': {'label': '배송중',       'color': Colors.teal,           'icon': Icons.local_shipping_outlined},
+      'DELIVERED':        {'label': '배송완료',     'color': Colors.grey.shade600,  'icon': Icons.check_circle_outline},
+      'RETURN_PENDING':   {'label': '반송 대기',    'color': Colors.red.shade400,   'icon': Icons.undo_outlined},
+      'RETURN_SHIPPING':  {'label': '반송 중',      'color': Colors.red,            'icon': Icons.local_shipping_outlined},
+      'RETURN_DONE':      {'label': '반송 완료',    'color': Colors.grey,           'icon': Icons.cancel_outlined},
+      'CANCELLED':        {'label': '수거취소',     'color': Colors.red,            'icon': Icons.cancel_outlined},
     };
     
     // 결제 상태
@@ -736,21 +761,29 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.checkroom_rounded,
-                      color: statusColor,
-                      size: 28,
-                    ),
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: statusColor.withAlpha(26),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  child: Builder(builder: (context) {
+                    final svgPath = _getClothingAssetPath(order['clothing_type'] as String?);
+                    if (svgPath != null) {
+                      return Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: SvgPicture.asset(
+                          svgPath,
+                          colorFilter: ColorFilter.mode(statusColor, BlendMode.srcIn),
+                        ),
+                      );
+                    }
+                    return Icon(Icons.checkroom_rounded, color: statusColor, size: 28);
+                  }),
+                ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
