@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useRef } from "react";
 
 export interface ShippingLabelData {
   trackingNo: string;
@@ -212,6 +214,38 @@ const mapFieldToActualValue = (fieldKey: string, data: ShippingLabelData): strin
   return mapper ? mapper(data) : "";
 };
 
+// 바코드를 canvas에 직접 렌더링 (외부 API 불필요)
+function BarcodeCanvas({ value, width, height }: { value: string; width: number; height: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || !value) return;
+    const canvas = canvasRef.current;
+    import("bwip-js").then((bwipjs) => {
+      try {
+        bwipjs.toCanvas(canvas, {
+          bcid: "code128",
+          text: value,
+          scale: 2,
+          height: 12,
+          includetext: true,
+          textxalign: "center",
+          textsize: 9,
+        });
+      } catch (e) {
+        console.warn("바코드 생성 실패:", e);
+      }
+    });
+  }, [value]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ width: "100%", height: "100%", display: "block" }}
+    />
+  );
+}
+
 export function ShippingLabelSheet({ data, customLayout }: Props) {
   // 레이아웃 결정: customLayout이 유효하면 사용, 아니면 기본값 생성
   const layout = customLayout && customLayout.length > 0 ? customLayout : createDefaultLayout();
@@ -294,11 +328,6 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
           if (!actualValue) return null;
 
           if (element.type === "barcode") {
-            // tec-it 바코드 생성 URL
-            // showastext 옵션을 제거하여 숫자 표시 (기본값)
-            // 우편번호나 등기번호 바코드 아래 숫자가 나오도록 함
-            const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${actualValue}&code=Code128&dpi=203&translate-esc=on`;
-            
             return (
               <div
                 key={`${element.fieldKey}-${index}`}
@@ -312,16 +341,7 @@ export function ShippingLabelSheet({ data, customLayout }: Props) {
                   border: element.borderColor ? `2px solid ${element.borderColor}` : "none",
                 }}
               >
-                <img
-                  src={barcodeUrl}
-                  alt={`${element.fieldKey} 바코드`}
-                  style={{
-                    width: "100%",
-                    height: "100%", // 꽉 채우기
-                    objectFit: "contain", // 비율 유지하며 맞춤
-                    display: "block",
-                  }}
-                />
+                <BarcodeCanvas value={actualValue} width={width} height={height} />
               </div>
             );
           } else {

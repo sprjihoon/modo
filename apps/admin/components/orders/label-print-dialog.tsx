@@ -345,7 +345,7 @@ export function LabelPrintDialog({
         orderDate: formatOrderDate(order.created_at),
         recipientName: order.customer_name || "고객명",
         sellerName: senderName,
-        orderNumber: deliveryInfo?.resNo?.substring(deliveryInfo.resNo.length - 6) || orderId.substring(0, 6),
+        orderNumber: order.order_number || deliveryInfo?.resNo?.substring(deliveryInfo.resNo.length - 6) || orderId.substring(0, 6),
         customerOrderSource: senderName,
         
         // 보내는 분
