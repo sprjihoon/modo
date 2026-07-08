@@ -349,6 +349,21 @@ export default function CustomersPage() {
                       </div>
                       <div className="flex items-center space-x-6 text-right">
                         <div>
+                          <p className="text-sm text-muted-foreground">가입일</p>
+                          <div className="flex items-center gap-1 justify-end">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <p className="font-medium text-sm">
+                              {customer.created_at
+                                ? new Date(customer.created_at).toLocaleDateString('ko-KR', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                  }).replace(/\s/g, '')
+                                : "-"}
+                            </p>
+                          </div>
+                        </div>
+                        <div>
                           <p className="text-sm text-muted-foreground">주문 수</p>
                           <p className="font-medium">{customer.totalOrders || 0}건</p>
                         </div>
@@ -360,7 +375,7 @@ export default function CustomersPage() {
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">최근 주문</p>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 justify-end">
                             <Calendar className="h-3 w-3 text-muted-foreground" />
                             <p className="font-medium text-sm">
                               {customer.lastOrderDate 
@@ -368,7 +383,7 @@ export default function CustomersPage() {
                                     year: 'numeric',
                                     month: '2-digit',
                                     day: '2-digit',
-                                  }).replace(/\./g, '.').replace(/\s/g, '')
+                                  }).replace(/\s/g, '')
                                 : "주문 없음"}
                             </p>
                           </div>
