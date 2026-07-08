@@ -163,6 +163,32 @@ export async function POST(request: NextRequest) {
                 })
               );
             } else {
+              // 수거 전 취소: BOOKED 상태면 우체국 접수도 함께 취소
+              if (existingOrder.status === "BOOKED") {
+                try {
+                  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+                  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+                  const shipmentCancelRes = await fetch(
+                    `${supabaseUrl}/functions/v1/shipments-cancel`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${serviceRoleKey}`,
+                      },
+                      body: JSON.stringify({ order_id: existingOrder.id, delete_after_cancel: false }),
+                    }
+                  );
+                  if (!shipmentCancelRes.ok) {
+                    const result = await shipmentCancelRes.json();
+                    console.error("[admin webhook] ⚠️ 우체국 수거 취소 실패:", result);
+                  } else {
+                    console.log("[admin webhook] ✅ 우체국 수거 취소 완료");
+                  }
+                } catch (e) {
+                  console.error("[admin webhook] 우체국 수거 취소 오류:", e);
+                }
+              }
               Object.assign(
                 orderUpdate,
                 buildPrePickupCancelUpdate("결제 취소 (수거 전)")

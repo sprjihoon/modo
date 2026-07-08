@@ -86,6 +86,11 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
   const [isSubmittingExtraCharge, setIsSubmittingExtraCharge] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
+  // 항목 부분 취소
+  const [showCancelItemsDialog, setShowCancelItemsDialog] = useState(false);
+  const [selectedCancelItems, setSelectedCancelItems] = useState<Set<number>>(new Set());
+  const [isCancellingItems, setIsCancellingItems] = useState(false);
+
   useEffect(() => {
     fetch("/api/auth/me").then(r => r.json()).then(d => {
       if (d.success && d.user) setCurrentUserRole(d.user.role);
@@ -424,6 +429,34 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
     }
   };
 
+  const handleCancelItems = async () => {
+    if (selectedCancelItems.size === 0) return;
+    setShowCancelItemsDialog(false);
+    setIsCancellingItems(true);
+    try {
+      const res = await fetch(`/api/orders/${params.id}/cancel-items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemIndices: Array.from(selectedCancelItems),
+          reason: "관리자 - 항목 부분 취소",
+        }),
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        alert(result.message || "항목 취소 완료");
+        setSelectedCancelItems(new Set());
+        await loadOrder();
+      } else {
+        throw new Error(result.error || "항목 취소에 실패했습니다.");
+      }
+    } catch (e: any) {
+      alert(`항목 취소 실패\n\n${e.message || "알 수 없는 오류"}`);
+    } finally {
+      setIsCancellingItems(false);
+    }
+  };
+
   if (isLoadingOrder) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -640,9 +673,25 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
         {/* Order Info */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              주문 정보
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                주문 정보
+              </span>
+              {/* 항목 부분 취소 버튼: 수거 전/후 모두 가능 */}
+              {order && ["PENDING","PAID","BOOKED","PENDING_PAYMENT","PICKED_UP","INBOUND"].includes(order.status) &&
+                Array.isArray(order.repair_parts) && order.repair_parts.length > 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-200 hover:bg-red-50 text-xs"
+                  onClick={() => { setSelectedCancelItems(new Set()); setShowCancelItemsDialog(true); }}
+                  disabled={isCancellingItems}
+                >
+                  <XCircle className="h-3.5 w-3.5 mr-1" />
+                  항목 취소
+                </Button>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -650,6 +699,35 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
               <p className="text-sm text-muted-foreground">수선 항목</p>
               <p className="font-medium">{displayOrder.item}</p>
             </div>
+            {/* 수선 항목 상세 목록 */}
+            {Array.isArray(order?.repair_parts) && order.repair_parts.length > 0 && (() => {
+              const canceled: number[] = (order as any).canceled_repair_parts ?? [];
+              const canceledSet = new Set(canceled);
+              return (
+                <div className="space-y-1.5">
+                  {order.repair_parts.map((raw: string, i: number) => {
+                    let item: { name: string; price?: number; quantity?: number } = { name: raw };
+                    try { item = JSON.parse(raw); } catch {}
+                    const isCanceled = canceledSet.has(i);
+                    const amt = (item.price ?? 0) * (item.quantity ?? 1);
+                    return (
+                      <div key={i} className={`flex items-center justify-between text-sm py-1 border-b last:border-0 ${isCanceled ? "opacity-40" : ""}`}>
+                        <span className={isCanceled ? "line-through text-muted-foreground" : ""}>
+                          {item.name}
+                          {(item.quantity ?? 1) > 1 && <span className="text-muted-foreground ml-1">×{item.quantity}</span>}
+                          {isCanceled && <span className="ml-2 text-xs text-red-400 font-medium">(취소됨)</span>}
+                        </span>
+                        {amt > 0 && (
+                          <span className={`font-medium ${isCanceled ? "line-through text-muted-foreground" : ""}`}>
+                            ₩{amt.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
             <div>
               <p className="text-sm text-muted-foreground">상세 설명</p>
               <p className="font-medium">{displayOrder.description}</p>
@@ -1520,6 +1598,97 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                 : isManagerRole
                 ? "고객에게 청구"
                 : "요청 보내기"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 항목 취소 다이얼로그 */}
+      <Dialog open={showCancelItemsDialog} onOpenChange={(o) => { if (!isCancellingItems) setShowCancelItemsDialog(o); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>취소할 항목 선택</DialogTitle>
+            <DialogDescription>
+              취소할 수선 항목을 선택하세요. 선택한 항목 금액이 고객에게 환불됩니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-64 overflow-y-auto py-2">
+            {Array.isArray(order?.repair_parts) && order.repair_parts.map((raw: string, i: number) => {
+              let item: { name: string; price?: number; quantity?: number } = { name: raw };
+              try { item = JSON.parse(raw); } catch {}
+              const canceledSet = new Set<number>((order as any).canceled_repair_parts ?? []);
+              const isCanceled = canceledSet.has(i);
+              const isSelected = selectedCancelItems.has(i);
+              const amt = (item.price ?? 0) * (item.quantity ?? 1);
+              return (
+                <button
+                  key={i}
+                  disabled={isCanceled}
+                  onClick={() => {
+                    if (isCanceled) return;
+                    setSelectedCancelItems(prev => {
+                      const next = new Set(prev);
+                      if (next.has(i)) next.delete(i); else next.add(i);
+                      return next;
+                    });
+                  }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
+                    isCanceled ? "opacity-40 cursor-not-allowed bg-gray-50"
+                    : isSelected ? "bg-red-50 border-red-300"
+                    : "hover:bg-gray-50 border-gray-200"
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                    isCanceled ? "border-gray-300" : isSelected ? "border-red-500 bg-red-500" : "border-gray-400"
+                  }`}>
+                    {isSelected && !isCanceled && <span className="text-white text-xs">✓</span>}
+                  </div>
+                  <span className={`flex-1 text-sm ${isCanceled ? "line-through text-muted-foreground" : ""}`}>
+                    {item.name}
+                    {isCanceled && <span className="ml-2 text-red-400">(취소됨)</span>}
+                  </span>
+                  {amt > 0 && (
+                    <span className={`text-sm font-medium ${isCanceled ? "line-through text-muted-foreground" : ""}`}>
+                      ₩{amt.toLocaleString()}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {selectedCancelItems.size > 0 && (() => {
+            const parts: string[] = order?.repair_parts ?? [];
+            const canceledSet = new Set<number>((order as any)?.canceled_repair_parts ?? []);
+            const activeCount = parts.filter((_, i) => !canceledSet.has(i)).length;
+            const isAllSelected = Array.from(selectedCancelItems).every(i => !canceledSet.has(i)) &&
+              selectedCancelItems.size === activeCount;
+            const selectedTotal = Array.from(selectedCancelItems).reduce((sum, i) => {
+              let item: { price?: number; quantity?: number } = {};
+              try { item = JSON.parse(parts[i] ?? "{}"); } catch {}
+              return sum + (item.price ?? 0) * (item.quantity ?? 1);
+            }, 0);
+            return (
+              <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">선택 항목 금액</span>
+                  <span className="font-semibold">₩{selectedTotal.toLocaleString()}</span>
+                </div>
+                {isAllSelected && (
+                  <p className="text-xs text-orange-600 font-medium">⚠️ 전체 항목 선택 — 전체 취소와 동일하게 처리됩니다.</p>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCancelItemsDialog(false)} disabled={isCancellingItems}>
+              닫기
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelItems}
+              disabled={isCancellingItems || selectedCancelItems.size === 0}
+            >
+              {isCancellingItems ? "처리 중..." : `${selectedCancelItems.size}개 항목 취소`}
             </Button>
           </DialogFooter>
         </DialogContent>

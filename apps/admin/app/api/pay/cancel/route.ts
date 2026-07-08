@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
       status: string;
       extra_charge_data: Record<string, unknown> | null;
     } | null = null;
+    let shipmentCancelWarning: string | null = null;
 
     if (!extraChargeReq) {
       const { data: existingOrder } = await supabase
@@ -101,6 +102,35 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (existingOrder) {
+        // 전체 취소 + 수거 예약 상태(BOOKED)인 경우 우체국 접수도 함께 취소
+        if (isTotalCancel && existingOrder.status === "BOOKED") {
+          try {
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+            const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            const shipmentCancelRes = await fetch(
+              `${supabaseUrl}/functions/v1/shipments-cancel`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${serviceRoleKey}`,
+                },
+                body: JSON.stringify({ order_id: existingOrder.id, delete_after_cancel: false }),
+              }
+            );
+            if (!shipmentCancelRes.ok) {
+              const result = await shipmentCancelRes.json();
+              console.error("⚠️ 우체국 수거 취소 실패 (결제 취소는 완료됨):", result);
+              shipmentCancelWarning = result.error || "우체국 수거 취소 실패";
+            } else {
+              console.log("✅ 우체국 수거 취소 완료 (결제 취소와 함께)");
+            }
+          } catch (e) {
+            console.error("우체국 수거 취소 오류:", e);
+            shipmentCancelWarning = (e as Error).message || "우체국 수거 취소 오류";
+          }
+        }
+
         const { data: shipment } = await supabase
           .from("shipments")
           .select("status, inbound_at, pickup_tracking_no")
@@ -206,6 +236,7 @@ export async function POST(request: NextRequest) {
       paymentId,
       status: portoneData.payment?.status,
       canceledAt: new Date().toISOString(),
+      ...(shipmentCancelWarning ? { shipmentCancelWarning } : {}),
     });
   } catch (error: unknown) {
     console.error("결제 취소 처리 오류:", error);

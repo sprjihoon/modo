@@ -137,6 +137,8 @@ export default function HomePage() {
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-07-08 | 결제 취소 시 우체국 접수 미취소 수정 | 어드민 `/api/pay/cancel`(결제 취소 다이얼로그) 및 PortOne 웹훅 `Transaction.Cancelled`에서 `BOOKED` 상태 주문의 우체국 수거 접수를 취소하지 않던 문제 수정. 이제 수거 전 전체 취소 시 `shipments-cancel` Edge Function 자동 호출 |
+| 2026-07-08 | 수선 항목 부분 취소 기능 추가 | 고객·관리자 모두 여러 수선 항목 중 일부만 선택해서 취소 가능. 취소 항목 금액만 환불(배송비 유지). 전 항목 취소 시 전체 취소와 동일 처리(수거 전: 우체국 접수 취소+전액 환불, 수거 후: 수선 항목 금액만 환불+반송). DB 마이그레이션: `orders.canceled_repair_parts integer[]` 컬럼 추가 (`apps/sql/migrations/add_cancel_items.sql`). API: `POST /api/orders/[id]/cancel-items` (web·admin). UI: 고객 주문 상세 수선 항목 카드에 "항목 취소" 버튼·다이얼로그, 어드민 주문 상세 주문 정보 카드에 "항목 취소" 버튼 추가 |
 | 2026-07-07 | FCM 탭 딥링크 오류 수정 | 푸시 알림 탭 시 `/orders/detail/:id` (존재하지 않는 경로) → `/orders/:id`로 수정. GoRouter 실제 경로와 일치 |
 | 2026-07-07 | 수거완료(PICKED_UP) 상태 누락 수정 | `shipments-track`에서 우체국 수거 완료 시 `orders.status`를 `INBOUND`로 덮어쓰던 문제 → `PICKED_UP`으로 변경. `INBOUND`는 센터 작업자 수동 입고 처리 시에만 설정 |
 | 2026-07-07 | 모바일 주문 상태 오표시 수정 | `OrderStatus` enum에 `PICKED_UP`, `OUT_FOR_DELIVERY`, `RETURN_SHIPPING`, `RETURN_DONE` 추가. 누락 상태 시 "수거예약"으로 잘못 표시되던 문제 해소 |
