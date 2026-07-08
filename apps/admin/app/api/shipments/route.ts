@@ -256,11 +256,14 @@ export async function GET(request: NextRequest) {
     let filteredShipments = processedShipments;
 
     // CANCELLED 상태를 명시적으로 조회하는 경우가 아니면
-    // 취소된 주문(orders.status = CANCELLED/CANCEL_REQUESTED)의 shipment는 목록에서 제외
+    // 취소된 shipment 및 취소/반송 완료된 주문은 목록에서 제외
     if (status !== 'CANCELLED') {
       filteredShipments = filteredShipments.filter((s: any) => {
+        // shipment 자체가 CANCELLED 이면 제외
+        if (s.status === 'CANCELLED') return false;
+        // 주문이 취소·반송완료 상태이면 제외
         const os = s.orders?.status;
-        return !['CANCELLED', 'CANCEL_REQUESTED'].includes(os);
+        return !['CANCELLED', 'CANCEL_REQUESTED', 'RETURN_DONE'].includes(os);
       });
     }
 
@@ -312,10 +315,11 @@ export async function GET(request: NextRequest) {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
-    // 통계 계산 (취소된 주문의 shipment는 집계에서 제외)
+    // 통계 계산 (취소 shipment 및 취소·반송완료 주문은 집계에서 제외)
     const activeShipments = processedShipments.filter((s: any) => {
+      if (s.status === 'CANCELLED') return false;
       const os = s.orders?.status;
-      return !['CANCELLED', 'CANCEL_REQUESTED'].includes(os);
+      return !['CANCELLED', 'CANCEL_REQUESTED', 'RETURN_DONE'].includes(os);
     });
 
     const stats = {

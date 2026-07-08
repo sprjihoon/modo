@@ -615,10 +615,17 @@ function ShipmentsList({
     );
   }
 
-  // 지연 항목과 일반 항목 분리
-  const pickupDelayedShipments = shipments.filter(s => s.isPickupDelayed);
-  const deliveryDelayedShipments = shipments.filter(s => s.isDeliveryDelayed && !s.isPickupDelayed);
-  const normalShipments = shipments.filter(s => !s.isDelayed);
+  // 취소·반송 상태 판별 (shipment 자체 또는 주문 상태 기준)
+  const CANCELLED_ORDER_STATUSES = new Set(['CANCELLED', 'CANCEL_REQUESTED', 'RETURN_PENDING', 'RETURN_SHIPPING', 'RETURN_DONE']);
+  const isCancelledOrReturn = (s: ShipmentWithOrder) =>
+    s.status === 'CANCELLED' ||
+    CANCELLED_ORDER_STATUSES.has((s as any).orders?.status ?? '');
+
+  // 지연 항목과 일반 항목 분리 (취소/반송 제외)
+  const pickupDelayedShipments = shipments.filter(s => s.isPickupDelayed && !isCancelledOrReturn(s));
+  const deliveryDelayedShipments = shipments.filter(s => s.isDeliveryDelayed && !s.isPickupDelayed && !isCancelledOrReturn(s));
+  const cancelledShipments = shipments.filter(s => isCancelledOrReturn(s));
+  const normalShipments = shipments.filter(s => !s.isDelayed && !isCancelledOrReturn(s));
 
   return (
     <div className="space-y-4">
@@ -706,6 +713,29 @@ function ShipmentsList({
           </div>
           <div className="space-y-2">
             {normalShipments.filter(s => !s.isIsland).map((shipment) => (
+              <ShipmentCard 
+                key={shipment.id} 
+                shipment={shipment} 
+                formatDate={formatDate}
+                formatEstimatedDate={formatEstimatedDate}
+                isDelayed={false}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 취소/반송 섹션 */}
+      {cancelledShipments.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="h-5 w-5 text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-500">
+              취소 · 반송 ({cancelledShipments.length}건)
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {cancelledShipments.map((shipment) => (
               <ShipmentCard 
                 key={shipment.id} 
                 shipment={shipment} 
