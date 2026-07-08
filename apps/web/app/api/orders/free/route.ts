@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     });
 
     const p = quote.pickupPayload;
-    const orderNumber = `ORD${Date.now()}`;
+    const orderNumber = `ORD${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
     const insertData: Record<string, unknown> = {
       user_id: user.internalUserId,
@@ -100,6 +100,23 @@ export async function POST(request: NextRequest) {
     if (!inserted) {
       console.error("0원 주문 생성 실패:", lastErr);
       return NextResponse.json({ error: "주문 생성 실패" }, { status: 500 });
+    }
+
+    // 프로모션 코드 사용 기록
+    if (p.promotionCodeId) {
+      try {
+        await admin.rpc("increment_promotion_code_usage", { promo_id: p.promotionCodeId });
+        await admin.from("promotion_code_usages").insert({
+          promotion_code_id: p.promotionCodeId,
+          user_id: user.internalUserId,
+          order_id: inserted.id,
+          discount_amount: p.promotionDiscountAmount ?? 0,
+          original_amount: p.originalTotalPrice ?? 0,
+          final_amount: 0,
+        });
+      } catch (e) {
+        console.error("0원 주문 프로모션 코드 사용 기록 실패(무시):", e);
+      }
     }
 
     // 수거 예약 호출

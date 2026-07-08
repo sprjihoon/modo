@@ -69,7 +69,7 @@ serve(async (req) => {
     const { data: order, error: orderErr } = await admin
       .from('orders')
       .select(
-        'id, status, payment_status, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number',
+        'id, status, payment_status, payment_id, payment_key, total_price, remote_area_fee, user_id, extra_charge_status, extra_charge_data, item_name, order_number',
       )
       .eq('id', orderId)
       .maybeSingle()
@@ -133,18 +133,18 @@ serve(async (req) => {
       )
     }
 
-    // 2) Toss 부분환불
-    const paymentKey = order.payment_key as string | null
+    // 2) PortOne 부분환불
+    const paymentId = (order.payment_id ?? order.payment_key) as string | null
     let refundResult: Record<string, unknown> | null = null
     let refundError: string | null = null
 
-    if (paymentKey && refundAmount > 0) {
+    if (paymentId && refundAmount > 0) {
       if (!PORTONE_API_SECRET) {
         refundError = 'PORTONE_API_SECRET 환경 변수가 설정되지 않았습니다.'
       } else {
         try {
           const portoneRes = await fetch(
-            `https://api.portone.io/payments/${encodeURIComponent(paymentKey)}/cancel`,
+            `https://api.portone.io/payments/${encodeURIComponent(paymentId)}/cancel`,
             {
               method: 'POST',
               headers: {
@@ -181,7 +181,7 @@ serve(async (req) => {
             try {
               await admin.from('payment_logs').insert({
                 order_id: orderId,
-                payment_id: paymentKey,
+                payment_id: paymentId,
                 amount: refundAmount,
                 status: 'PARTIAL_CANCELED',
                 provider: 'PORTONE',
@@ -195,8 +195,8 @@ serve(async (req) => {
           refundError = (e as Error)?.message || String(e)
         }
       }
-    } else if (!paymentKey) {
-      refundError = '결제 정보(payment_key)가 없어 환불 처리되지 않았습니다.'
+    } else if (!paymentId) {
+      refundError = '결제 정보(payment_id)가 없어 환불 처리되지 않았습니다.'
     }
 
     // 3) 관리자 알림 fan-out (입고 후 취소와 동일한 패턴)

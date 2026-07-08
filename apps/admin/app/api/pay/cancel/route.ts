@@ -102,8 +102,13 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (existingOrder) {
-        // 전체 취소 + 수거 예약 상태(BOOKED)인 경우 우체국 접수도 함께 취소
-        if (isTotalCancel && existingOrder.status === "BOOKED") {
+        // 전체 취소이고 수거 전(PAID/BOOKED) 상태이거나 tracking_no가 있는 경우 우체국 접수도 함께 취소
+        const PRE_PICKUP_STATUSES = new Set(["PENDING", "PAID", "BOOKED", "PENDING_PAYMENT"]);
+        const needsShipmentCancel =
+          isTotalCancel &&
+          (PRE_PICKUP_STATUSES.has(existingOrder.status) || existingOrder.status === "BOOKED");
+
+        if (needsShipmentCancel) {
           try {
             const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
             const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -120,8 +125,11 @@ export async function POST(request: NextRequest) {
             );
             if (!shipmentCancelRes.ok) {
               const result = await shipmentCancelRes.json();
-              console.error("⚠️ 우체국 수거 취소 실패 (결제 취소는 완료됨):", result);
-              shipmentCancelWarning = result.error || "우체국 수거 취소 실패";
+              // SHIPMENT_NOT_FOUND 는 수거 접수 전이므로 정상
+              if (result?.code !== "SHIPMENT_NOT_FOUND" && shipmentCancelRes.status !== 404) {
+                console.error("⚠️ 우체국 수거 취소 실패 (결제 취소는 완료됨):", result);
+                shipmentCancelWarning = result.error || "우체국 수거 취소 실패";
+              }
             } else {
               console.log("✅ 우체국 수거 취소 완료 (결제 취소와 함께)");
             }

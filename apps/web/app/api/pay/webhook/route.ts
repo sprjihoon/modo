@@ -51,14 +51,17 @@ export async function POST(request: NextRequest) {
     const webhookSecret = process.env.PORTONE_WEBHOOK_SECRET;
 
     // 웹훅 시그니처 검증 (포트원 Standard Webhooks)
-    if (webhookSecret) {
-      try {
-        const { Webhook } = await import("@portone/server-sdk");
-        await Webhook.verify(webhookSecret, rawBody, Object.fromEntries(request.headers));
-      } catch (e) {
-        console.warn("포트원 웹훅 시그니처 검증 실패:", e);
-        return NextResponse.json({ error: "Webhook verification failed" }, { status: 400 });
-      }
+    // PORTONE_WEBHOOK_SECRET 이 설정되지 않은 경우 위변조 방지 불가 → 요청 거부
+    if (!webhookSecret) {
+      console.error("[webhook] PORTONE_WEBHOOK_SECRET 환경변수가 설정되지 않아 요청을 거부합니다.");
+      return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
+    }
+    try {
+      const { Webhook } = await import("@portone/server-sdk");
+      await Webhook.verify(webhookSecret, rawBody, Object.fromEntries(request.headers));
+    } catch (e) {
+      console.warn("포트원 웹훅 시그니처 검증 실패:", e);
+      return NextResponse.json({ error: "Webhook verification failed" }, { status: 400 });
     }
 
     const type = body.type as string | undefined;

@@ -253,7 +253,7 @@ serve(async (req) => {
       const internalUserId = (orderData as any)._intent_user_id as string
       const intentId = (orderData as any)._intent_id as string
 
-      const orderNumber = `ORD${Date.now()}`
+      const orderNumber = `ORD${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`
       const insertData: Record<string, any> = {
         user_id: internalUserId,
         status: 'PAID',
@@ -341,7 +341,24 @@ serve(async (req) => {
           .update({ consumed_at: new Date().toISOString(), consumed_order_id: newOrderId })
           .eq('id', intentId)
       } catch (e) {
-        console.log('intent consume ?? ??(??):', e)
+        console.log('intent consume 업데이트 실패(무시):', e)
+      }
+
+      // 프로모션 코드 사용 처리
+      if (pickup.promotionCodeId) {
+        try {
+          await supabaseClient.rpc('increment_promotion_code_usage', { promo_id: pickup.promotionCodeId })
+          await supabaseClient.from('promotion_code_usages').insert({
+            promotion_code_id: pickup.promotionCodeId,
+            user_id: internalUserId,
+            order_id: newOrderId,
+            discount_amount: pickup.promotionDiscountAmount ?? 0,
+            original_amount: pickup.originalTotalPrice ?? amount,
+            final_amount: amount,
+          })
+        } catch (e) {
+          console.log('프로모션 코드 사용 기록 실패(무시):', e)
+        }
       }
 
       try {
