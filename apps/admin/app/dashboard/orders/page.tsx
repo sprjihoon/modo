@@ -174,7 +174,9 @@ export default function OrdersPage() {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>(
+    searchParams.get("status") || "ALL"
+  );
   const [sortBy, setSortBy] = useState<string>("date");
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);

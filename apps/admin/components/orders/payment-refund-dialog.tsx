@@ -165,6 +165,10 @@ export function PaymentRefundDialog({
   const remainingAmount = maxRefundableAmount - partialRefundAmount;
   const alreadyCanceled =
     (portonePayment?.totalAmount ?? originalAmount) - maxRefundableAmount;
+  // portone 상태가 CANCELLED이면 금액 계산 결과와 무관하게 추가 취소 불가
+  const isAlreadyCancelled =
+    portonePayment?.status === "CANCELLED" ||
+    (portonePayment?.status === "PARTIAL_CANCELLED" && maxRefundableAmount <= 0);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -262,7 +266,7 @@ export function PaymentRefundDialog({
                 </div>
               )}
 
-              {maxRefundableAmount <= 0 && (
+              {isAlreadyCancelled && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
@@ -271,7 +275,7 @@ export function PaymentRefundDialog({
                 </Alert>
               )}
 
-              {maxRefundableAmount > 0 && (
+              {!isAlreadyCancelled && maxRefundableAmount > 0 && (
                 <>
                   <div className="space-y-3">
                     <Label>취소 유형</Label>
@@ -382,7 +386,7 @@ export function PaymentRefundDialog({
           </Button>
           <Button
             onClick={handleRefund}
-            disabled={loading || !paymentId || maxRefundableAmount <= 0 || !reason.trim()}
+            disabled={loading || !paymentId || isAlreadyCancelled || maxRefundableAmount <= 0 || !reason.trim()}
             variant="destructive"
           >
             {loading ? (

@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/ops-auth";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +13,6 @@ export async function GET(request: NextRequest) {
   try {
     const authGuard = await requireAdmin();
     if (authGuard.response) return authGuard.response;
-
-    const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     
     // 쿼리 파라미터
@@ -29,7 +27,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
     
     // 기본 쿼리 - orders에서 결제 관련 정보 조회
-    let query = supabase
+    let query = supabaseAdmin
       .from("orders")
       .select(`
         id,
@@ -84,11 +82,20 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // 통계 조회
-    const { data: statsData } = await supabase
+    // 통계 조회 (목록과 동일한 날짜 필터 적용)
+    let statsQuery = supabaseAdmin
       .from("orders")
       .select("payment_status, total_price, payment_method")
       .not("payment_status", "is", null);
+
+    if (startDate) {
+      statsQuery = statsQuery.gte("created_at", `${startDate}T00:00:00`);
+    }
+    if (endDate) {
+      statsQuery = statsQuery.lte("created_at", `${endDate}T23:59:59`);
+    }
+
+    const { data: statsData } = await statsQuery;
     
     const stats = {
       total: statsData?.length || 0,

@@ -255,26 +255,32 @@ export async function GET(request: NextRequest) {
     // 필터별 정렬 및 필터링
     let filteredShipments = processedShipments;
 
+    // CANCELLED 상태를 명시적으로 조회하는 경우가 아니면
+    // 취소된 주문(orders.status = CANCELLED/CANCEL_REQUESTED)의 shipment는 목록에서 제외
+    if (status !== 'CANCELLED') {
+      filteredShipments = filteredShipments.filter((s: any) => {
+        const os = s.orders?.status;
+        return !['CANCELLED', 'CANCEL_REQUESTED'].includes(os);
+      });
+    }
+
     if (filter === 'delayed') {
-      // 전체 지연 (수거 지연 + 배송 지연)
-      filteredShipments = processedShipments.filter((s: any) => s.isDelayed);
+      filteredShipments = filteredShipments.filter((s: any) => s.isDelayed);
     } else if (filter === 'pickupDelayed') {
-      // 수거 지연만
-      filteredShipments = processedShipments.filter((s: any) => s.isPickupDelayed);
+      filteredShipments = filteredShipments.filter((s: any) => s.isPickupDelayed);
     } else if (filter === 'deliveryDelayed') {
-      // 배송 지연만
-      filteredShipments = processedShipments.filter((s: any) => s.isDeliveryDelayed);
+      filteredShipments = filteredShipments.filter((s: any) => s.isDeliveryDelayed);
     } else if (filter === 'island') {
-      filteredShipments = processedShipments.filter((s: any) => s.isIsland);
+      filteredShipments = filteredShipments.filter((s: any) => s.isIsland);
     } else if (filter === 'pickup') {
       // 수거 관련: BOOKED, PICKED_UP
-      filteredShipments = processedShipments.filter((s: any) => 
+      filteredShipments = filteredShipments.filter((s: any) =>
         ['BOOKED', 'PICKED_UP'].includes(s.status)
       );
     } else if (filter === 'delivery') {
-      // 배송 관련: OUT_FOR_DELIVERY, DELIVERED
-      filteredShipments = processedShipments.filter((s: any) => 
-        ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(s.status)
+      // 배송 중: OUT_FOR_DELIVERY, IN_TRANSIT (inDelivery 통계와 일치)
+      filteredShipments = filteredShipments.filter((s: any) =>
+        ['OUT_FOR_DELIVERY', 'IN_TRANSIT'].includes(s.status)
       );
     }
 

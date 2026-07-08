@@ -100,20 +100,24 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: statsData } = await statsQuery;
-    
+
+    // 취소/반송 완료된 주문은 활성 집계(total/revenue)에서 제외
+    const CLOSED_STATUSES = ['CANCELLED', 'RETURN_PENDING', 'RETURN_SHIPPING', 'RETURN_DONE'];
+    const activeStatsData = statsData?.filter(o => !CLOSED_STATUSES.includes(o.status)) ?? [];
+
     const stats = {
-      total: statsData?.length || 0,
-      pending: statsData?.filter(o => o.status === 'PENDING').length || 0,
-      paid: statsData?.filter(o => o.status === 'PAID').length || 0,
-      booked: statsData?.filter(o => o.status === 'BOOKED').length || 0,
-      inbound: statsData?.filter(o => o.status === 'INBOUND').length || 0,
-      processing: statsData?.filter(o => o.status === 'PROCESSING').length || 0,
-      readyToShip: statsData?.filter(o => o.status === 'READY_TO_SHIP').length || 0,
-      delivered: statsData?.filter(o => o.status === 'DELIVERED').length || 0,
+      total: activeStatsData.length,
+      pending: activeStatsData.filter(o => o.status === 'PENDING').length,
+      paid: activeStatsData.filter(o => o.status === 'PAID').length,
+      booked: activeStatsData.filter(o => o.status === 'BOOKED').length,
+      inbound: activeStatsData.filter(o => o.status === 'INBOUND').length,
+      processing: activeStatsData.filter(o => o.status === 'PROCESSING').length,
+      readyToShip: activeStatsData.filter(o => o.status === 'READY_TO_SHIP').length,
+      delivered: activeStatsData.filter(o => o.status === 'DELIVERED').length,
       cancelled: statsData?.filter(o => o.status === 'CANCELLED').length || 0,
-      promotionUsed: statsData?.filter(o => o.promotion_code_id).length || 0,
-      totalDiscount: statsData?.reduce((sum, o) => sum + (o.promotion_discount_amount || 0), 0) || 0,
-      totalRevenue: statsData?.reduce((sum, o) => sum + (o.total_price || 0), 0) || 0,
+      promotionUsed: activeStatsData.filter(o => o.promotion_code_id).length,
+      totalDiscount: activeStatsData.reduce((sum, o) => sum + (o.promotion_discount_amount || 0), 0),
+      totalRevenue: activeStatsData.reduce((sum, o) => sum + (o.total_price || 0), 0),
     };
 
     return NextResponse.json({ 

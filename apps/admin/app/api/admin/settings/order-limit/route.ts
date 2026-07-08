@@ -22,7 +22,7 @@ export async function GET() {
       .select("*", { count: "exact", head: true })
       .gte("created_at", `${today}T00:00:00+09:00`)
       .lt("created_at", `${today}T23:59:59+09:00`)
-      .neq("status", "CANCELLED");
+      .not("status", "in", '("CANCELLED","RETURN_PENDING","RETURN_SHIPPING","RETURN_DONE")');
 
     // 대기자 수 조회
     const { count: waitlistCount } = await supabaseAdmin

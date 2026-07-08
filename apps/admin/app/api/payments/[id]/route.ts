@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +21,8 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: orderId } = await params;
-    const supabase = await createClient();
 
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .select(`
         id, created_at, customer_name, customer_phone, customer_email,
@@ -69,7 +68,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    const { data: paymentLogs } = await supabase
+    const { data: paymentLogs } = await supabaseAdmin
       .from("payment_logs")
       .select("*")
       .eq("order_id", orderId)

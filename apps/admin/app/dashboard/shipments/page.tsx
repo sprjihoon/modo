@@ -237,8 +237,8 @@ export default function ShipmentsPage() {
             </CardContent>
           </Card>
           <Card 
-            className={`cursor-pointer transition-all hover:shadow-md hover:border-indigo-300 ${statusFilter === 'IN_TRANSIT' ? 'ring-2 ring-indigo-500 border-indigo-300' : ''}`}
-            onClick={() => { setActiveTab('all'); setStatusFilter('IN_TRANSIT'); }}
+            className={`cursor-pointer transition-all hover:shadow-md hover:border-indigo-300 ${activeTab === 'delivery' && statusFilter === 'ALL' ? 'ring-2 ring-indigo-500 border-indigo-300' : ''}`}
+            onClick={() => { setActiveTab('delivery'); setStatusFilter('ALL'); }}
           >
             <CardHeader className="pb-2">
               <CardDescription>배송 중</CardDescription>
