@@ -120,7 +120,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
         ))}
 
         {/* 모바일: 클릭 시 하단 시트 */}
-        <div className="flex items-center justify-center pt-1 pb-2 xl:hidden">
+        <div className="flex items-center justify-center pt-1 pb-2 min-[1100px]:hidden">
           <button
             type="button"
             onClick={() => setShowGuide(true)}
