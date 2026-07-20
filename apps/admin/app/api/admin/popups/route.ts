@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       highlight_text: body.highlight_text?.trim() || null,
       items: Array.isArray(body.items) ? body.items : [],
       cta_text: body.cta_text?.trim() || "확인",
-      dismiss_label: body.dismiss_label?.trim() || "오늘 하루 보지 않기",
+      dismiss_label: body.dismiss_label?.trim() || "오늘 그만보기",
       dismiss_hours:
         typeof body.dismiss_hours === "number" ? body.dismiss_hours : 24,
       is_active: body.is_active ?? false,

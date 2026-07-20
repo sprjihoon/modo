@@ -24,6 +24,13 @@ function storageKey(id: string) {
   return `popup_hidden_until_${id}`;
 }
 
+/** 오늘 자정(로컬)까지의 타임스탬프 */
+function endOfTodayMs() {
+  const d = new Date();
+  d.setHours(23, 59, 59, 999);
+  return d.getTime();
+}
+
 function renderTitle(title: string, highlight: string | null) {
   if (!highlight || !title.includes(highlight)) {
     return <span className="whitespace-pre-line">{title}</span>;
@@ -46,6 +53,7 @@ function renderTitle(title: string, highlight: string | null) {
 export function LaunchAnnouncementPopup() {
   const [popup, setPopup] = useState<Popup | null>(null);
   const [open, setOpen] = useState(false);
+  const [hideToday, setHideToday] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,17 +96,16 @@ export function LaunchAnnouncementPopup() {
       setOpen(false);
       return;
     }
-    const hours = popup.dismiss_hours ?? 24;
-    localStorage.setItem(
-      storageKey(popup.id),
-      String(Date.now() + hours * 60 * 60 * 1000)
-    );
+    if (hideToday) {
+      localStorage.setItem(storageKey(popup.id), String(endOfTodayMs()));
+    }
     setOpen(false);
   }
 
   if (!open || !popup) return null;
 
   const items = Array.isArray(popup.items) ? popup.items : [];
+  const dismissLabel = popup.dismiss_label || "오늘 그만보기";
 
   return (
     <div
@@ -131,12 +138,9 @@ export function LaunchAnnouncementPopup() {
         </div>
 
         {items.length > 0 && (
-          <div className="space-y-3 mb-6">
+          <div className="space-y-3 mb-5">
             {items.map((item, i) => (
-              <div
-                key={i}
-                className="rounded-xl bg-gray-50 px-4 py-3.5"
-              >
+              <div key={i} className="rounded-xl bg-gray-50 px-4 py-3.5">
                 <p className="text-sm font-bold text-gray-900">{item.title}</p>
                 <p className="text-sm text-gray-600 mt-0.5">
                   {item.description}
@@ -146,15 +150,18 @@ export function LaunchAnnouncementPopup() {
           </div>
         )}
 
+        <label className="flex items-center justify-center gap-2 mb-4 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={hideToday}
+            onChange={(e) => setHideToday(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-[#00C896] accent-[#00C896] focus:ring-[#00C896]"
+          />
+          <span className="text-sm text-gray-500">{dismissLabel}</span>
+        </label>
+
         <button onClick={dismiss} className="btn-brand w-full text-base py-3.5">
           {popup.cta_text || "확인"}
-        </button>
-
-        <button
-          onClick={dismiss}
-          className="w-full mt-2 py-2 text-sm text-gray-400 active:text-gray-600"
-        >
-          {popup.dismiss_label || "오늘 하루 보지 않기"}
         </button>
       </div>
     </div>

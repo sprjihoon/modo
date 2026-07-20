@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.popups (
   highlight_text TEXT,                        -- 제목 내 강조 문구
   items JSONB NOT NULL DEFAULT '[]'::jsonb,   -- [{ "title": "...", "description": "..." }]
   cta_text TEXT NOT NULL DEFAULT '확인',
-  dismiss_label TEXT NOT NULL DEFAULT '오늘 하루 보지 않기',
+  dismiss_label TEXT NOT NULL DEFAULT '오늘 그만보기',
   dismiss_hours INTEGER NOT NULL DEFAULT 24 CHECK (dismiss_hours >= 0),
 
   -- 노출 제어
@@ -130,7 +130,7 @@ SELECT
     {"title": "Android · iOS", "description": "순차 오픈 예정"}
   ]'::jsonb,
   '확인',
-  '오늘 하루 보지 않기',
+  '오늘 그만보기',
   24,
   true,
   10

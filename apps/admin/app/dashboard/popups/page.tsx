@@ -390,7 +390,7 @@ function PopupModal({
   );
   const [ctaText, setCtaText] = useState(popup?.cta_text || "확인");
   const [dismissLabel, setDismissLabel] = useState(
-    popup?.dismiss_label || "오늘 하루 보지 않기"
+    popup?.dismiss_label || "오늘 그만보기"
   );
   const [dismissHours, setDismissHours] = useState(popup?.dismiss_hours ?? 24);
   const [isActive, setIsActive] = useState(popup?.is_active ?? true);
@@ -487,12 +487,13 @@ function PopupModal({
                     </div>
                   ))}
               </div>
+              <label className="flex items-center justify-center gap-2 mb-3 text-xs text-gray-500">
+                <input type="checkbox" disabled className="h-3.5 w-3.5" />
+                {dismissLabel || "오늘 그만보기"}
+              </label>
               <div className="w-full rounded-xl bg-[#00C896] text-white text-center text-sm font-bold py-3">
                 {ctaText || "확인"}
               </div>
-              <p className="text-center text-xs text-gray-400 mt-2">
-                {dismissLabel}
-              </p>
             </div>
           </div>
 
@@ -584,11 +585,12 @@ function PopupModal({
               />
             </div>
             <div>
-              <Label htmlFor="dismissLabel">다시 보지 않기 문구</Label>
+              <Label htmlFor="dismissLabel">오늘 그만보기 체크박스 문구</Label>
               <Input
                 id="dismissLabel"
                 value={dismissLabel}
                 onChange={(e) => setDismissLabel(e.target.value)}
+                placeholder="오늘 그만보기"
                 className="mt-1"
               />
             </div>

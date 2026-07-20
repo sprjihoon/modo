@@ -60,7 +60,7 @@ export async function PUT(
     if (body.cta_text !== undefined)
       payload.cta_text = body.cta_text?.trim() || "확인";
     if (body.dismiss_label !== undefined)
-      payload.dismiss_label = body.dismiss_label?.trim() || "오늘 하루 보지 않기";
+      payload.dismiss_label = body.dismiss_label?.trim() || "오늘 그만보기";
     if (body.dismiss_hours !== undefined)
       payload.dismiss_hours = body.dismiss_hours;
     if (body.is_active !== undefined) payload.is_active = body.is_active;
