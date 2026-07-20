@@ -133,10 +133,49 @@ export default function HomePage() {
 
 ---
 
+## 치수 재는 방법 · 이용 방법 가이드
+
+수거신청(`/order/new`)에서 PC(`lg`+)는 중앙 앱(600px) **양옆 여백**에 위젯을 띄웁니다.
+
+### UX
+
+| 위치 | 위젯 | 표시 조건 |
+|---|---|---|
+| 왼쪽 | 치수 재는 방법 | 치수 입력 단계만 (`MeasureGuideSideWidget`) |
+| 오른쪽 | 이용 방법 | 수거신청 전 구간 상시 (`OrderHowToSideWidget`) — **원하는 날짜에 우체국택배 방문 수거** 강조 |
+| 모바일 (`< lg`) | 치수 가이드 아코디언 | 치수 입력 화면 안 (이용 방법은 `/guide/easy` 참고) |
+
+### 매칭
+
+- DB 컬럼: `repair_categories.measure_guide_key`, `repair_types.measure_guide_key`
+- 어드민 **수선 메뉴** 편집에서 「치수 재는 방법 가이드」 선택
+- 키가 없으면 항목/의류 이름으로 자동 추정 (`apps/web/lib/measure-guide.ts`)
+- 마이그레이션: `apps/sql/migrations/add_measure_guide_key.sql`, `add_length_leg_width_guide.sql`
+
+### 가이드 ID
+
+| ID | 설명 |
+|---|---|
+| `sleeve-length` | 소매기장 줄임 |
+| `shoulder` | 어깨길이 줄임 |
+| `width-top` | 전체 품 줄임 (상의, 원피스) |
+| `total-length-top` | 총 기장 줄임 (상의, 원피스) |
+| `arm-width` | 전체팔통 줄임 |
+| `total-length-bottom` | 총 기장 줄임 (바지, 스커트) |
+| `waist-hip` | 허리/힙 줄임 |
+| `leg-width` | 전체 통 줄임 (바지, 스커트) |
+| `rise` | 밑위 줄임 |
+| `length-leg-width` | **기장 + 밑통** — 총기장·전체 통 가이드를 드롭다운으로 둘 다 표시 |
+
+관련 코드: `MeasureGuideClient`, `MeasureGuideAccordion`, `MeasureGuideSideWidget`, `OrderHowToSideWidget`, 어드민 `apps/admin/lib/measure-guide.ts`
+
+---
+
 ## 알려진 이슈 / 수정 이력
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-07-20 | 치수·이용방법 위젯 | 수선 항목별 가이드 연결(`measure_guide_key`). PC 왼쪽 치수 위젯 / 오른쪽 이용방법 위젯(원하는 날짜·우체국택배 강조). `length-leg-width` 복합 가이드. 치수 입력 뒤로가기 시 세부 부위 복귀 |
 | 2026-07-08 | 결제 취소 시 우체국 접수 미취소 수정 | 어드민 `/api/pay/cancel`(결제 취소 다이얼로그) 및 PortOne 웹훅 `Transaction.Cancelled`에서 `BOOKED` 상태 주문의 우체국 수거 접수를 취소하지 않던 문제 수정. 이제 수거 전 전체 취소 시 `shipments-cancel` Edge Function 자동 호출 |
 | 2026-07-08 | 수선 항목 부분 취소 기능 추가 | 고객·관리자 모두 여러 수선 항목 중 일부만 선택해서 취소 가능. 취소 항목 금액만 환불(배송비 유지). 전 항목 취소 시 전체 취소와 동일 처리(수거 전: 우체국 접수 취소+전액 환불, 수거 후: 수선 항목 금액만 환불+반송). DB 마이그레이션: `orders.canceled_repair_parts integer[]` 컬럼 추가 (`apps/sql/migrations/add_cancel_items.sql`). API: `POST /api/orders/[id]/cancel-items` (web·admin). UI: 고객 주문 상세 수선 항목 카드에 "항목 취소" 버튼·다이얼로그, 어드민 주문 상세 주문 정보 카드에 "항목 취소" 버튼 추가 |
 | 2026-07-07 | FCM 탭 딥링크 오류 수정 | 푸시 알림 탭 시 `/orders/detail/:id` (존재하지 않는 경로) → `/orders/:id`로 수정. GoRouter 실제 경로와 일치 |

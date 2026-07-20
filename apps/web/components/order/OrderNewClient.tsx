@@ -14,6 +14,7 @@ import {
   OrderFlowProgress,
   getOrderFlowStepIndex,
 } from "./OrderFlowProgress";
+import { OrderHowToSideWidget } from "./OrderHowToSideWidget";
 import { addCartItem, removeCartItem } from "@/lib/cart";
 import { Analytics } from "@/lib/analytics";
 
@@ -612,6 +613,9 @@ export function OrderNewClient() {
 
   return (
     <div className="h-full flex flex-col">
+      {/* PC: 오른쪽 여백에 이용 방법 위젯 */}
+      <OrderHowToSideWidget />
+
       <OrderFlowProgress currentStep={currentFlowStep} />
 
       <div className="flex-1 flex flex-col min-h-0">
