@@ -142,7 +142,7 @@ export default function HomePage() {
 | 위치 | 위젯 | 표시 조건 |
 |---|---|---|
 | 왼쪽 | 치수 재는 방법 | 치수 입력 단계만 (`MeasureGuideSideWidget`) |
-| 오른쪽 | 이용 방법 | 수거신청 전 구간 상시 (`OrderHowToSideWidget`) — **원하는 날짜에 우체국택배 방문 수거** 강조 |
+| 오른쪽 | 이용 방법 | 수거신청 전 구간 **상시 펼침** (`OrderHowToSideWidget`) — **원하는 날짜에 우체국택배 방문 수거** 강조 |
 | 모바일 (`< lg`) | 치수 가이드 아코디언 | 치수 입력 화면 안 (이용 방법은 `/guide/easy` 참고) |
 
 ### 매칭
