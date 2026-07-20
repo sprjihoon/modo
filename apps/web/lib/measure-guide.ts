@@ -98,16 +98,28 @@ export function resolveMeasureGuideId(
   }
   if (n.includes("어깨")) return "shoulder";
   if (n.includes("팔통") || (n.includes("arm") && n.includes("width"))) return "arm-width";
-  if (n.includes("밑위") || n.includes("rise")) return "rise";
-  if (n.includes("허리") || n.includes("힙") || n.includes("hip") || n.includes("waist")) {
-    return "waist-hip";
-  }
+  if (n.includes("밑위") || n.includes("rise") || n.includes("가랑이")) return "rise";
+
+  // 상의 전체품(허리 포함 표기)은 waist-hip보다 우선
   if (
     n.includes("전체품") ||
     n.includes("품줄임") ||
-    (n.includes("품") && !n.includes("팔통"))
+    (n.includes("품") && !n.includes("팔통") && !n.includes("힙"))
   ) {
     return "width-top";
+  }
+
+  // 허리/힙/엉덩이 (바지·치마·청바지 공통)
+  if (
+    n.includes("허리힙") ||
+    n.includes("허리") ||
+    n.includes("힙") ||
+    n.includes("엉덩이") ||
+    n.includes("히프") ||
+    n.includes("hip") ||
+    n.includes("waist")
+  ) {
+    return "waist-hip";
   }
   if (
     n.includes("전체통") ||

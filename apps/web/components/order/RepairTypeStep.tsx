@@ -79,6 +79,7 @@ export function RepairTypeStep({
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [subPartsLoading, setSubPartsLoading] = useState(false);
   const [categoryIconName, setCategoryIconName] = useState<string | null>(null);
+  const [categoryMeasureGuideKey, setCategoryMeasureGuideKey] = useState<string | null>(null);
   const [showGrid, setShowGrid] = useState(false);
 
   // 세부 부위 인라인 뷰 상태 (모달 대신 화면 전환)
@@ -160,17 +161,23 @@ export function RepairTypeStep({
   }, [clothingType, clothingCategoryId]);
 
   async function loadCategoryIcon() {
-    if (!clothingCategoryId) { setCategoryIconName(null); return; }
+    if (!clothingCategoryId) {
+      setCategoryIconName(null);
+      setCategoryMeasureGuideKey(null);
+      return;
+    }
     try {
       const supabase = createClient();
       const { data } = await supabase
         .from("repair_categories")
-        .select("icon_name")
+        .select("icon_name, measure_guide_key")
         .eq("id", clothingCategoryId)
         .single();
       setCategoryIconName(data?.icon_name ?? null);
+      setCategoryMeasureGuideKey((data as { measure_guide_key?: string | null } | null)?.measure_guide_key ?? null);
     } catch {
       setCategoryIconName(null);
+      setCategoryMeasureGuideKey(null);
     }
   }
 
@@ -663,9 +670,17 @@ export function RepairTypeStep({
       : [{ key: "_single", title: "" }];
     const hasAnyValue = measureValues.some((v) => v.trim() !== "");
     const guideTypeId = resolveMeasureGuideId(
-      [repairType.name, repairType.sub_type].filter(Boolean).join(" "),
+      [
+        clothingType,
+        repairType.name,
+        repairType.sub_type,
+        ...(chosenParts?.map((p) => p.name) ?? []),
+      ]
+        .filter(Boolean)
+        .join(" "),
       {
-        measureGuideKey: repairType.measure_guide_key,
+        measureGuideKey:
+          repairType.measure_guide_key || categoryMeasureGuideKey,
         clothingHint: clothingType,
       }
     );

@@ -679,12 +679,20 @@ export function MeasureGuideClient({
           <div className="bg-gray-50 rounded-2xl p-4 flex items-start justify-around">
             {tab === "compare" && (
               <SupplyItem
-                src={IMG_SRC.sweaterTilted}
+                src={
+                  current.clothing === "bottom"
+                    ? IMG_SRC.pantsFront
+                    : IMG_SRC.sweaterTilted
+                }
                 label="수선할 의류"
               />
             )}
             <SupplyItem
-              src={IMG_SRC.sweaterFront}
+              src={
+                current.clothing === "bottom"
+                  ? IMG_SRC.pantsFront
+                  : IMG_SRC.sweaterFront
+              }
               label="평소 잘 맞는 의류"
             />
             <SupplyItem src="/images/measure/ruler.png" label="자" />

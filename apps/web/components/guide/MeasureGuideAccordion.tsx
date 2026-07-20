@@ -75,6 +75,7 @@ export function MeasureGuideAccordion({
         {hydrated && open && (
           <div className="border-t border-gray-100 max-h-[55vh] overflow-y-auto overscroll-contain">
             <MeasureGuideClient
+              key={initialTypeId || "default"}
               initialTypeId={initialTypeId}
               lockType={!!initialTypeId}
             />
