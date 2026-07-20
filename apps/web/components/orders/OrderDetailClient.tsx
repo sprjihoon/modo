@@ -1550,7 +1550,7 @@ function CancelItemsDialog({
   canceledIndices,
   selected,
   onToggle,
-  totalPrice: _totalPrice,
+  totalPrice,
   orderStatus,
   onCancel,
   onConfirm,
@@ -1568,11 +1568,6 @@ function CancelItemsDialog({
 }) {
   const isPostPickup = orderStatus === "PICKED_UP" || orderStatus === "INBOUND";
 
-  // 활성 항목 총액 (미사용이지만 향후 활용)
-  const _activeTotal = repairItems.reduce(
-    (sum, item, i) => (canceledIndices.has(i) ? sum : sum + (item.price ?? 0) * (item.quantity ?? 1)),
-    0
-  );
   // 선택한 항목 취소 금액
   const selectedTotal = repairItems.reduce(
     (sum, item, i) => (selected.has(i) ? sum + (item.price ?? 0) * (item.quantity ?? 1) : sum),
