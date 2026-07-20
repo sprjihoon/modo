@@ -116,6 +116,10 @@ export function RepairTypeStep({
     childBackRef.current = () => {
       if (measureView) {
         setMeasureView(null);
+        // 세부 부위 화면이 남아 있으면 그쪽으로 복귀
+        if (subPartsView) return true;
+        // 수선 항목이 1개뿐이면 의미 없는 그리드 대신 이전 단계로
+        if (repairTypes.length <= 1) return false;
         return true;
       }
       if (subPartsView) {
@@ -126,6 +130,8 @@ export function RepairTypeStep({
         setSubPartsView(null);
         return true;
       }
+      // 수선 항목 1개만 있는 그리드는 건너뛰고 이전 단계로
+      if (repairTypes.length <= 1) return false;
       return false;
     };
     return () => { childBackRef.current = null; };
@@ -350,13 +356,13 @@ export function RepairTypeStep({
     if (!subPartsView) return;
     const { repairType, subParts, selectedMode, selectedIds } = subPartsView;
 
-    setSubPartsView(null);
-
     if (selectedMode === "all") {
       const allPrice = repairType.all_option_price ?? repairType.price;
       if (repairType.requires_measurement) {
+        // 치수 입력으로 이동 — 뒤로가기 시 세부 부위 화면으로 복귀하도록 subPartsView 유지
         openMeasureView(repairType, [], allPrice);
       } else {
+        setSubPartsView(null);
         addSimpleItem(repairType, undefined, allPrice);
       }
       return;
@@ -367,10 +373,12 @@ export function RepairTypeStep({
     if (chosenParts.length === 0) return;
 
     if (repairType.requires_measurement) {
+      // 치수 입력으로 이동 — 뒤로가기 시 세부 부위 화면으로 복귀하도록 subPartsView 유지
       openMeasureView(repairType, chosenParts);
       return;
     }
 
+    setSubPartsView(null);
     const newItems: SelectedItem[] = chosenParts.map((part) => ({
       id: `${repairType.id}_${part.id}`,
       name: `${repairType.name} - ${part.name}`,
@@ -393,6 +401,7 @@ export function RepairTypeStep({
         .join(", ");
       addSimpleItem(repairType, detail, overridePrice);
       setMeasureView(null);
+      setSubPartsView(null);
       return;
     }
 
@@ -414,6 +423,7 @@ export function RepairTypeStep({
     });
     setSelectedItems((prev) => [...prev, ...newItems]);
     setMeasureView(null);
+    setSubPartsView(null);
   }
 
   function updateQuantity(id: string, delta: number) {
@@ -440,8 +450,8 @@ export function RepairTypeStep({
     );
   }
 
-  // ── 세부 부위 인라인 뷰 ─────────────────────────────────────────────────
-  if (subPartsView) {
+  // ── 세부 부위 인라인 뷰 (치수 입력이 열려 있으면 치수 화면 우선) ─────────
+  if (subPartsView && !measureView) {
     const { repairType, subParts, selectedMode, selectedIds } = subPartsView;
     const rtIconSrc = getIconSrc(repairType.icon_name);
     const selectionLabel =
@@ -771,7 +781,13 @@ export function RepairTypeStep({
         {/* 하단 버튼 */}
         <div className="px-4 py-4 border-t border-gray-50 flex gap-3">
           <button
-            onClick={() => setMeasureView(null)}
+            onClick={() => {
+              setMeasureView(null);
+              // 세부 부위가 없으면: 항목 1개짜리 그리드 대신 이전 단계로
+              if (!subPartsView && repairTypes.length <= 1) {
+                onBack();
+              }
+            }}
             className="touch-target flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
           >
             이전
