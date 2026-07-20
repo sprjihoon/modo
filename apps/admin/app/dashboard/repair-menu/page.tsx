@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ChevronRight, ArrowUp, ArrowDown, Upload, X, Image, FolderOpen, Folder } from "lucide-react";
+import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ChevronRight, ArrowUp, ArrowDown, Upload, X, Image, FolderOpen, Folder, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
 
@@ -292,6 +292,12 @@ export default function RepairMenuPage() {
                     </Button>
                   </div>
                   <EditCategoryDialog category={main} onUpdated={loadData} />
+                  <CloneCategoryDialog
+                    source={main}
+                    level="main"
+                    mainCategories={mainCategories}
+                    onCloned={loadData}
+                  />
                   {/* 소카테고리 추가 (가격 없는 중간 단계) */}
                   <AddCategoryDialog
                     onAdded={loadData}
@@ -329,6 +335,7 @@ export default function RepairMenuPage() {
                             category={sub}
                             index={subIdx}
                             total={subs.length}
+                            mainCategories={mainCategories}
                             onMoveUp={() => moveCategoryOrder(sub.id, 'up')}
                             onMoveDown={() => moveCategoryOrder(sub.id, 'down')}
                             onDelete={() => deleteCategory(sub.id)}
@@ -340,6 +347,7 @@ export default function RepairMenuPage() {
                             category={sub}
                             index={subIdx}
                             total={subs.length}
+                            mainCategories={mainCategories}
                             expanded={expandedCategories.has(sub.id)}
                             onToggle={() => toggleCategory(sub.id)}
                             onMoveUp={() => moveCategoryOrder(sub.id, 'up')}
@@ -375,6 +383,7 @@ export default function RepairMenuPage() {
                     category={category}
                     index={index}
                     total={flatCategories.length}
+                    mainCategories={mainCategories}
                     expanded={expandedCategories.has(category.id)}
                     onToggle={() => toggleCategory(category.id)}
                     onMoveUp={() => moveCategoryOrder(category.id, 'up')}
@@ -400,6 +409,7 @@ function DirectItemCard({
   category,
   index,
   total,
+  mainCategories = [],
   onMoveUp,
   onMoveDown,
   onDelete,
@@ -408,6 +418,7 @@ function DirectItemCard({
   category: RepairCategory;
   index: number;
   total: number;
+  mainCategories?: RepairCategory[];
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDelete: () => void;
@@ -450,6 +461,12 @@ function DirectItemCard({
           <ArrowDown className="h-3 w-3" />
         </Button>
         <EditCategoryDialog category={category} onUpdated={onReload} />
+        <CloneCategoryDialog
+          source={category}
+          level="item"
+          mainCategories={mainCategories}
+          onCloned={onReload}
+        />
         <Button variant="outline" size="sm" onClick={onDelete}>
           <Trash2 className="h-3 w-3" />
         </Button>
@@ -463,6 +480,7 @@ function SubCategoryCard({
   category,
   index,
   total,
+  mainCategories = [],
   expanded,
   onToggle,
   onMoveUp,
@@ -476,6 +494,7 @@ function SubCategoryCard({
   category: RepairCategory;
   index: number;
   total: number;
+  mainCategories?: RepairCategory[];
   expanded: boolean;
   onToggle: () => void;
   onMoveUp: () => void;
@@ -523,6 +542,12 @@ function SubCategoryCard({
               <ArrowDown className="h-3 w-3" />
             </Button>
             <EditCategoryDialog category={category} onUpdated={onReload} />
+            <CloneCategoryDialog
+              source={category}
+              level="sub"
+              mainCategories={mainCategories}
+              onCloned={onReload}
+            />
             {/* 세부항목 추가 (직접가격 자식 카테고리) */}
             <AddCategoryDialog
               onAdded={onReload}
@@ -551,6 +576,7 @@ function SubCategoryCard({
                     category={item}
                     index={idx}
                     total={subItems.length}
+                    mainCategories={mainCategories}
                     onMoveUp={() => onMoveItem(item.id, 'up')}
                     onMoveDown={() => onMoveItem(item.id, 'down')}
                     onDelete={() => onDeleteItem(item.id)}
@@ -592,6 +618,11 @@ function SubCategoryCard({
                     <div className="flex items-center gap-2">
                       {!type.is_active && <Badge variant="secondary">비활성</Badge>}
                       <EditRepairTypeDialog repairType={type} categoryName={category.name} onUpdated={onReload} />
+                      <CloneRepairTypeDialog
+                        repairType={type}
+                        mainCategories={mainCategories}
+                        onCloned={onReload}
+                      />
                       <Button variant="ghost" size="sm" onClick={() => onDeleteType(type.id)}>
                         <Trash2 className="h-4 w-4 text-red-600" />
                       </Button>
@@ -2876,4 +2907,270 @@ function AddRepairTypeDialog({
   );
 }
 
+type CloneLevel = "main" | "sub" | "item";
+
+function buildCloneTargets(
+  level: CloneLevel,
+  mainCategories: RepairCategory[],
+  sourceId: string
+): { id: string | null; label: string }[] {
+  if (level === "main") {
+    return [{ id: null, label: "최상위 대카테고리로 복제" }];
+  }
+
+  const targets: { id: string | null; label: string }[] = [];
+
+  for (const main of mainCategories) {
+    if (level === "sub") {
+      targets.push({ id: main.id, label: `대카테고리 · ${main.name}` });
+      continue;
+    }
+
+    // item: 대카테고리 바로 아래 또는 소카테고리 아래
+    targets.push({ id: main.id, label: `대카테고리 · ${main.name}` });
+    for (const sub of main.sub_categories || []) {
+      if (sub.price != null) continue; // 세부항목은 폴더가 아님
+      if (sub.id === sourceId) continue;
+      targets.push({ id: sub.id, label: `${main.name} › ${sub.name}` });
+    }
+  }
+
+  return targets;
+}
+
+function CloneCategoryDialog({
+  source,
+  level,
+  mainCategories,
+  onCloned,
+}: {
+  source: RepairCategory;
+  level: CloneLevel;
+  mainCategories: RepairCategory[];
+  onCloned: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [newName, setNewName] = useState(source.name);
+  const [isLoading, setIsLoading] = useState(false);
+  const targets = buildCloneTargets(level, mainCategories, source.id);
+  const [targetId, setTargetId] = useState<string>(
+    targets[0]?.id === null ? "__root__" : targets[0]?.id || ""
+  );
+
+  useEffect(() => {
+    if (open) {
+      setNewName(source.name);
+      const next = buildCloneTargets(level, mainCategories, source.id);
+      setTargetId(next[0]?.id === null ? "__root__" : next[0]?.id || "");
+    }
+  }, [open, source, level, mainCategories]);
+
+  const handleClone = async () => {
+    setIsLoading(true);
+    try {
+      const target_parent_category_id =
+        targetId === "__root__" ? null : targetId || null;
+
+      const response = await fetch("/api/admin/repair-menu/clone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_kind: "category",
+          source_id: source.id,
+          target_parent_category_id,
+          new_name: newName.trim() || source.name,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "복제 실패");
+      }
+      setOpen(false);
+      onCloned();
+    } catch (error: any) {
+      alert(error.message || "복제 실패");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const levelLabel =
+    level === "main" ? "대카테고리" : level === "sub" ? "소카테고리" : "세부항목";
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" title="복제">
+          <Copy className="h-3.5 w-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{levelLabel} 복제</DialogTitle>
+          <DialogDescription>
+            &ldquo;{source.name}&rdquo;을(를) 복제합니다. 하위 항목도 함께 복사됩니다.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <Label htmlFor={`clone-name-${source.id}`}>새 이름</Label>
+            <Input
+              id={`clone-name-${source.id}`}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="mt-1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              같은 위치에 동일 이름이 있으면 자동으로 &ldquo;복사&rdquo;가 붙습니다.
+            </p>
+          </div>
+          {level !== "main" && (
+            <div>
+              <Label htmlFor={`clone-target-${source.id}`}>복제할 위치</Label>
+              <select
+                id={`clone-target-${source.id}`}
+                value={targetId}
+                onChange={(e) => setTargetId(e.target.value)}
+                className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {targets.map((t) => (
+                  <option
+                    key={t.id ?? "__root__"}
+                    value={t.id ?? "__root__"}
+                  >
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            취소
+          </Button>
+          <Button onClick={handleClone} disabled={isLoading || !newName.trim()}>
+            {isLoading ? "복제 중..." : "복제"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CloneRepairTypeDialog({
+  repairType,
+  mainCategories,
+  onCloned,
+}: {
+  repairType: RepairType;
+  mainCategories: RepairCategory[];
+  onCloned: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [newName, setNewName] = useState(repairType.name);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const targets: { id: string; label: string }[] = [];
+  for (const main of mainCategories) {
+    for (const sub of main.sub_categories || []) {
+      if (sub.price != null) continue;
+      targets.push({ id: sub.id, label: `${main.name} › ${sub.name}` });
+    }
+    // 대카테고리 직속도 허용
+    targets.push({ id: main.id, label: `대카테고리 · ${main.name}` });
+  }
+
+  const [targetId, setTargetId] = useState(
+    repairType.category_id || targets[0]?.id || ""
+  );
+
+  useEffect(() => {
+    if (open) {
+      setNewName(repairType.name);
+      setTargetId(repairType.category_id || targets[0]?.id || "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, repairType]);
+
+  const handleClone = async () => {
+    if (!targetId) {
+      alert("복제할 위치를 선택해주세요.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/admin/repair-menu/clone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_kind: "repair_type",
+          source_id: repairType.id,
+          target_parent_category_id: targetId,
+          new_name: newName.trim() || repairType.name,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "복제 실패");
+      }
+      setOpen(false);
+      onCloned();
+    } catch (error: any) {
+      alert(error.message || "복제 실패");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" title="복제">
+          <Copy className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>수선 항목 복제</DialogTitle>
+          <DialogDescription>
+            &ldquo;{repairType.name}&rdquo;을(를) 다른 카테고리로 복제합니다. 세부부위도 함께 복사됩니다.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <Label>새 이름</Label>
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label>복제할 위치</Label>
+            <select
+              value={targetId}
+              onChange={(e) => setTargetId(e.target.value)}
+              className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {targets.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            취소
+          </Button>
+          <Button onClick={handleClone} disabled={isLoading || !newName.trim() || !targetId}>
+            {isLoading ? "복제 중..." : "복제"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
