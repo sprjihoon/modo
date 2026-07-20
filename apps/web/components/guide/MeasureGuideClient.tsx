@@ -527,11 +527,11 @@ function DailyIllustration({ item }: { item: DailyItem }) {
 function SupplyItem({ src, label }: { src: string; label: string }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
-      <div className="flex aspect-square w-full max-w-[140px] items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-white p-3">
+      <div className="flex h-[132px] w-full max-w-[160px] items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-white px-2 py-3 sm:h-[152px]">
         <img
           src={src}
           alt={label}
-          className="h-full w-full object-contain"
+          className="h-full w-full origin-center object-contain scale-[1.35]"
           draggable={false}
         />
       </div>
@@ -694,7 +694,7 @@ export function MeasureGuideClient({
             <span className="text-red-500 font-medium">평소 잘 맞는 의류</span>와 측정을 위한{" "}
             <span className="text-red-500 font-medium">자</span>를 준비해주세요.
           </p>
-          <div className="bg-gray-50 rounded-2xl p-4 flex items-start justify-around">
+          <div className="bg-gray-50 rounded-2xl p-4 flex items-start justify-around gap-2">
             {tab === "compare" && (
               <SupplyItem
                 src={
@@ -709,7 +709,7 @@ export function MeasureGuideClient({
               src={
                 current.clothing === "bottom"
                   ? IMG_SRC.pantsFront
-                  : IMG_SRC.sweaterFront
+                  : IMG_SRC.sweaterTilted
               }
               label="평소 잘 맞는 의류"
             />
