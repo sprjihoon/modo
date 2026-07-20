@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Analytics } from "@vercel/analytics/react";
+import { OrderHowToSideWidget } from "@/components/order/OrderHowToSideWidget";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -40,12 +41,14 @@ export default function RootLayout({
     <html lang="ko" suppressHydrationWarning>
       <body>
         <Providers>
-          {/* 데스크톱: 회색 배경 위 중앙 430px 컨테이너 */}
+          {/* 데스크톱: 회색 배경 위 중앙 600px 컨테이너 */}
           <div className="min-h-screen bg-gray-100 flex justify-center">
             <div className="app-container w-full shadow-sm flex flex-col">
               {children}
             </div>
           </div>
+          {/* PC: 오른쪽 여백 이용 방법 위젯 (메인·전 페이지) */}
+          <OrderHowToSideWidget />
         </Providers>
         <Analytics mode="auto" />
         {process.env.NEXT_PUBLIC_CLARITY_ID && (
