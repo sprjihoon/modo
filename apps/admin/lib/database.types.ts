@@ -300,6 +300,57 @@ export type Database = {
         }
         Relationships: []
       }
+      popups: {
+        Row: {
+          id: string
+          subtitle: string | null
+          title: string
+          highlight_text: string | null
+          items: Json
+          cta_text: string
+          dismiss_label: string
+          dismiss_hours: number
+          is_active: boolean
+          starts_at: string | null
+          ends_at: string | null
+          display_priority: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          subtitle?: string | null
+          title: string
+          highlight_text?: string | null
+          items?: Json
+          cta_text?: string
+          dismiss_label?: string
+          dismiss_hours?: number
+          is_active?: boolean
+          starts_at?: string | null
+          ends_at?: string | null
+          display_priority?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          subtitle?: string | null
+          title?: string
+          highlight_text?: string | null
+          items?: Json
+          cta_text?: string
+          dismiss_label?: string
+          dismiss_hours?: number
+          is_active?: boolean
+          starts_at?: string | null
+          ends_at?: string | null
+          display_priority?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cart_drafts: {
         Row: {
           created_at: string

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { BannerSlider } from "./BannerSlider";
 import { RecentOrderCard } from "./RecentOrderCard";
 import { OrderStartDialog } from "./OrderStartDialog";
+import { LaunchAnnouncementPopup } from "./LaunchAnnouncementPopup";
 
 interface UserProfile {
   name?: string;
@@ -254,6 +255,9 @@ export function HomePageClient() {
         open={showOrderDialog}
         onClose={() => setShowOrderDialog(false)}
       />
+
+      {/* 정식 오픈 안내 팝업 */}
+      <LaunchAnnouncementPopup />
     </>
   );
 }
