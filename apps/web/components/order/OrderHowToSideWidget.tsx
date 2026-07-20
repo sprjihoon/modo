@@ -31,7 +31,7 @@ const STEPS = [
   {
     icon: Truck,
     title: "배송 완료",
-    desc: "수선이 끝난 의류를 택배로 보내드립니다.",
+    desc: "수선이 끝난 의류를 우체국 택배로 보내드립니다.",
   },
 ] as const;
 
