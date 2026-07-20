@@ -54,9 +54,6 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* PC 와이드: 왼쪽 사이드 위젯 */}
-      <MeasureGuideSideWidget initialTypeId={guideTypeId} />
-
       <div className="px-4 py-4 border-b border-gray-100">
         <h2 className="text-lg font-bold text-gray-900">치수를 입력해주세요</h2>
       </div>
