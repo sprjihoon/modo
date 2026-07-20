@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .from("orders")
       .select(`
         id, created_at, customer_name, customer_phone, customer_email,
-        total_price, payment_status, payment_method, payment_id,
+        total_price, payment_status, payment_id,
         paid_at, canceled_at, status, item_name, clothing_type, repair_type
       `)
       .eq("id", orderId)
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       customerPhone: (order as any).customer_phone,
       customerEmail: (order as any).customer_email,
       amount: (order as any).total_price || 0,
-      method: (order as any).payment_method || "CARD",
+      method: portonePayment?.method || "CARD",
       status: (order as any).payment_status || "PENDING",
       paymentId,
       orderStatus: (order as any).status,

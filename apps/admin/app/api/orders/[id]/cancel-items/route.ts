@@ -159,14 +159,18 @@ export async function POST(
         const d = await portoneRes.json();
         if (portoneRes.ok) {
           paymentCanceled = true;
-          await supabase.from("payment_logs" as any).insert({
-            order_id: orderId,
-            payment_id: paymentId,
-            amount: totalPrice,
-            status: "CANCELED",
-            provider: "PORTONE",
-            response_data: d,
-          }).catch(() => {});
+          try {
+            await supabase.from("payment_logs" as any).insert({
+              order_id: orderId,
+              payment_id: paymentId,
+              amount: totalPrice,
+              status: "CANCELED",
+              provider: "PORTONE",
+              response_data: d,
+            });
+          } catch {
+            // 로그 실패는 무시
+          }
         } else {
           paymentCancelError = d?.message || "결제 취소 실패";
         }
@@ -224,14 +228,18 @@ export async function POST(
         const d = await portoneRes.json();
         if (portoneRes.ok) {
           refundOk = true;
-          await supabase.from("payment_logs" as any).insert({
-            order_id: orderId,
-            payment_id: paymentId,
-            amount: refundAmount,
-            status: "PARTIAL_CANCELED",
-            provider: "PORTONE",
-            response_data: d,
-          }).catch(() => {});
+          try {
+            await supabase.from("payment_logs" as any).insert({
+              order_id: orderId,
+              payment_id: paymentId,
+              amount: refundAmount,
+              status: "PARTIAL_CANCELED",
+              provider: "PORTONE",
+              response_data: d,
+            });
+          } catch {
+            // 로그 실패는 무시
+          }
         } else {
           refundError = d?.message || "환불 실패";
         }
@@ -294,14 +302,18 @@ export async function POST(
       const d = await portoneRes.json();
       if (portoneRes.ok) {
         refundOk = true;
-        await supabase.from("payment_logs" as any).insert({
-          order_id: orderId,
-          payment_id: paymentId,
-          amount: cancelAmount,
-          status: "PARTIAL_CANCELED",
-          provider: "PORTONE",
-          response_data: d,
-        }).catch(() => {});
+        try {
+          await supabase.from("payment_logs" as any).insert({
+            order_id: orderId,
+            payment_id: paymentId,
+            amount: cancelAmount,
+            status: "PARTIAL_CANCELED",
+            provider: "PORTONE",
+            response_data: d,
+          });
+        } catch {
+          // 로그 실패는 무시
+        }
       } else {
         refundError = d?.message || "부분 환불 실패";
       }

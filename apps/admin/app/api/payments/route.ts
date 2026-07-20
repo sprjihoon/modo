@@ -37,7 +37,6 @@ export async function GET(request: NextRequest) {
         customer_email,
         total_price,
         payment_status,
-        payment_method,
         payment_id,
         paid_at,
         canceled_at,
@@ -48,13 +47,20 @@ export async function GET(request: NextRequest) {
     
     // 상태 필터
     if (status !== "ALL") {
-      query = query.eq("payment_status", status);
+      query = query.eq(
+        "payment_status",
+        status as
+          | "PENDING"
+          | "PAID"
+          | "FAILED"
+          | "REFUNDED"
+          | "CANCELED"
+          | "PARTIAL_CANCELED"
+      );
     }
-    
-    // 결제 방법 필터
-    if (paymentMethod !== "ALL") {
-      query = query.eq("payment_method", paymentMethod);
-    }
+
+    // payment_method 컬럼은 orders에 없음 — 필터는 무시
+    void paymentMethod;
     
     // 날짜 필터
     if (startDate) {
@@ -85,7 +91,7 @@ export async function GET(request: NextRequest) {
     // 통계 조회 (목록과 동일한 날짜 필터 적용)
     let statsQuery = supabaseAdmin
       .from("orders")
-      .select("payment_status, total_price, payment_method")
+      .select("payment_status, total_price")
       .not("payment_status", "is", null);
 
     if (startDate) {
@@ -99,11 +105,20 @@ export async function GET(request: NextRequest) {
     
     const stats = {
       total: statsData?.length || 0,
-      completed: statsData?.filter(o => o.payment_status === "PAID" || o.payment_status === "COMPLETED").length || 0,
-      pending: statsData?.filter(o => o.payment_status === "PENDING").length || 0,
-      failed: statsData?.filter(o => o.payment_status === "FAILED").length || 0,
-      canceled: statsData?.filter(o => o.payment_status === "CANCELED" || o.payment_status === "PARTIAL_CANCELED").length || 0,
-      totalRevenue: statsData?.filter(o => o.payment_status === "PAID" || o.payment_status === "COMPLETED").reduce((sum, o) => sum + (o.total_price || 0), 0) || 0,
+      completed: statsData?.filter((o) => o.payment_status === "PAID").length || 0,
+      pending: statsData?.filter((o) => o.payment_status === "PENDING").length || 0,
+      failed: statsData?.filter((o) => o.payment_status === "FAILED").length || 0,
+      canceled:
+        statsData?.filter(
+          (o) =>
+            o.payment_status === "CANCELED" ||
+            o.payment_status === "PARTIAL_CANCELED" ||
+            o.payment_status === "REFUNDED"
+        ).length || 0,
+      totalRevenue:
+        statsData
+          ?.filter((o) => o.payment_status === "PAID")
+          .reduce((sum, o) => sum + (o.total_price || 0), 0) || 0,
     };
     
     // 결제 데이터 변환
@@ -114,7 +129,7 @@ export async function GET(request: NextRequest) {
       customerPhone: order.customer_phone,
       customerEmail: order.customer_email,
       amount: order.total_price || 0,
-      method: order.payment_method || "CARD",
+      method: "CARD",
       status: order.payment_status || "PENDING",
       paymentId: (order as any).payment_id,
       orderStatus: order.status,
