@@ -7,6 +7,7 @@ import { RepairItem } from "./OrderNewClient";
 import { InlineSvg } from "@/components/ui/InlineSvg";
 import { createClient } from "@/lib/supabase/client";
 import { MeasureGuideClient } from "@/components/guide/MeasureGuideClient";
+import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
 
 interface RepairType {
@@ -670,6 +671,8 @@ export function RepairTypeStep({
 
     return (
       <div className="flex flex-col min-h-0">
+        <MeasureGuideSideWidget initialTypeId={guideTypeId} />
+
         <div className="px-4 py-4 border-b border-gray-100">
           <h2 className="text-lg font-bold text-gray-900">치수를 입력해주세요</h2>
         </div>
@@ -741,7 +744,7 @@ export function RepairTypeStep({
             </div>
           ))}
 
-          <div className="flex items-center justify-center pt-1 pb-2">
+          <div className="flex items-center justify-center pt-1 pb-2 xl:hidden">
             <button
               type="button"
               onClick={() => setShowMeasureGuide(true)}

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { InlineSvg } from "@/components/ui/inlineSvg";
+import { InlineSvg } from "@/components/ui/InlineSvg";
 import { MeasureGuideClient } from "@/components/guide/MeasureGuideClient";
+import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
 
 export interface MeasurementGroup {
@@ -56,6 +57,8 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
+      <MeasureGuideSideWidget initialTypeId={guideTypeId} />
+
       {/* 헤더 */}
       <div className="px-4 py-4 border-b border-gray-100">
         <h2 className="text-lg font-bold text-gray-900">치수를 입력해주세요</h2>
@@ -119,8 +122,8 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           </div>
         ))}
 
-        {/* 치수 재는 방법 텍스트 링크 */}
-        <div className="flex items-center justify-center pt-1 pb-2">
+        {/* 모바일/태블릿: 치수 재는 방법 링크 (PC는 왼쪽 위젯) */}
+        <div className="flex items-center justify-center pt-1 pb-2 xl:hidden">
           <button
             type="button"
             onClick={() => setShowGuide(true)}
