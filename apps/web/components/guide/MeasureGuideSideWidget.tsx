@@ -48,12 +48,13 @@ export function MeasureGuideSideWidget({
 
   return createPortal(
     <aside
-      className="pointer-events-none fixed z-40 hidden min-[1100px]:flex flex-col"
+      className="pointer-events-none fixed z-40 hidden lg:flex flex-col"
       style={{
         top: 16,
         bottom: open ? 16 : "auto",
-        left: "max(8px, calc(50% - 300px - 12px - min(340px, calc(50% - 300px - 20px))))",
-        width: "min(340px, calc(50% - 300px - 20px))",
+        // 중앙 앱(600px) 왼쪽 여백에 배치
+        left: "max(8px, calc(50% - 300px - 12px - min(360px, calc(50% - 300px - 20px))))",
+        width: "min(360px, calc(50% - 300px - 20px))",
       }}
       aria-label="치수 재는 방법"
     >
@@ -92,6 +93,7 @@ export function MeasureGuideSideWidget({
           {open && (
             <div className="h-full overflow-y-auto">
               <MeasureGuideClient
+                key={initialTypeId || "default"}
                 initialTypeId={initialTypeId}
                 lockType={!!initialTypeId}
               />

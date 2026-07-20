@@ -7,6 +7,7 @@ import { RepairItem } from "./OrderNewClient";
 import { InlineSvg } from "@/components/ui/InlineSvg";
 import { createClient } from "@/lib/supabase/client";
 import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion";
+import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
 
 interface RepairType {
@@ -687,6 +688,9 @@ export function RepairTypeStep({
 
     return (
       <div className="flex flex-col min-h-0">
+        {/* PC: 왼쪽 사이드 위젯 */}
+        <MeasureGuideSideWidget initialTypeId={guideTypeId} />
+
         <div className="px-4 py-4 border-b border-gray-100">
           <h2 className="text-lg font-bold text-gray-900">치수를 입력해주세요</h2>
         </div>
@@ -758,8 +762,10 @@ export function RepairTypeStep({
             </div>
           ))}
 
-          {/* 화면 안 아코디언 위젯 */}
-          <MeasureGuideAccordion initialTypeId={guideTypeId} defaultOpen />
+          {/* 모바일/태블릿: 화면 안 아코디언 (PC는 사이드 위젯) */}
+          <div className="lg:hidden">
+            <MeasureGuideAccordion initialTypeId={guideTypeId} defaultOpen />
+          </div>
         </div>
 
         {/* 하단 버튼 */}

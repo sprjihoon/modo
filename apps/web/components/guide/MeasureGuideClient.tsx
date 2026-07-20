@@ -525,11 +525,18 @@ function DailyIllustration({ item }: { item: DailyItem }) {
 
 function SupplyItem({ src, label }: { src: string; label: string }) {
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="w-20 h-20 flex items-center justify-center bg-white rounded-xl p-1">
-        <img src={src} alt={label} className="max-w-full max-h-full object-contain" />
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
+      <div className="flex aspect-square w-full max-w-[140px] items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-white p-3">
+        <img
+          src={src}
+          alt={label}
+          className="h-full w-full object-contain"
+          draggable={false}
+        />
       </div>
-      <span className="text-xs text-gray-500 font-medium text-center">{label}</span>
+      <span className="px-0.5 text-center text-xs font-medium leading-tight text-gray-600">
+        {label}
+      </span>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { InlineSvg } from "@/components/ui/InlineSvg";
 import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion";
+import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
 
 export interface MeasurementGroup {
@@ -54,6 +55,9 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
+      {/* PC: 왼쪽 사이드 위젯 */}
+      <MeasureGuideSideWidget initialTypeId={guideTypeId} />
+
       <div className="px-4 py-4 border-b border-gray-100">
         <h2 className="text-lg font-bold text-gray-900">치수를 입력해주세요</h2>
       </div>
@@ -114,8 +118,10 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           </div>
         ))}
 
-        {/* 화면 안 아코디언 위젯 (모바일·태블릿에서도 항상 보임) */}
-        <MeasureGuideAccordion initialTypeId={guideTypeId} defaultOpen />
+        {/* 모바일/태블릿: 화면 안 아코디언 (PC는 사이드 위젯) */}
+        <div className="lg:hidden">
+          <MeasureGuideAccordion initialTypeId={guideTypeId} defaultOpen />
+        </div>
       </div>
 
       {noteLines.length > 0 && (
