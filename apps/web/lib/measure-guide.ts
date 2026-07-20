@@ -9,11 +9,38 @@ export const MEASURE_GUIDE_OPTIONS = [
   { id: "waist-hip", name: "허리/힙 줄임", clothing: "bottom" as const },
   { id: "leg-width", name: "전체 통 줄임 (바지, 스커트)", clothing: "bottom" as const },
   { id: "rise", name: "밑위 줄임", clothing: "bottom" as const },
+  /** 복합: 총기장 + 전체 통 가이드를 모두 선택 가능 */
+  {
+    id: "length-leg-width",
+    name: "기장 + 밑통 줄임 (바지, 스커트)",
+    clothing: "bottom" as const,
+  },
 ] as const;
 
 export type MeasureGuideId = (typeof MEASURE_GUIDE_OPTIONS)[number]["id"];
 
+/** 복합 가이드 → 실제 콘텐츠 타입 ID들 */
+export const COMPOSITE_MEASURE_GUIDES: Record<string, readonly string[]> = {
+  "length-leg-width": ["total-length-bottom", "leg-width"],
+};
+
 const VALID_IDS = new Set(MEASURE_GUIDE_OPTIONS.map((o) => o.id));
+const CONTENT_TYPE_IDS = new Set(
+  MEASURE_GUIDE_OPTIONS.map((o) => o.id).filter((id) => !COMPOSITE_MEASURE_GUIDES[id])
+);
+
+/** 가이드 키를 MeasureGuideClient가 보여줄 타입 ID 목록으로 펼침 */
+export function expandMeasureGuideTypeIds(guideId?: string | null): string[] {
+  if (!guideId?.trim()) return [];
+  const key = guideId.trim();
+  if (COMPOSITE_MEASURE_GUIDES[key]) {
+    return [...COMPOSITE_MEASURE_GUIDES[key]];
+  }
+  if (CONTENT_TYPE_IDS.has(key as MeasureGuideId)) {
+    return [key];
+  }
+  return [];
+}
 
 function normalize(text: string) {
   return text.toLowerCase().replace(/\s+/g, "").replace(/[-_/]/g, "");
@@ -31,7 +58,8 @@ function clothingHintIsBottom(hint?: string | null) {
     n.includes("pants") ||
     n.includes("skirt") ||
     n.includes("shorts") ||
-    n.includes("반바지")
+    n.includes("반바지") ||
+    n.includes("청바지")
   );
 }
 
@@ -81,7 +109,8 @@ export function resolveMeasureGuideId(
     clothingHintIsBottom(itemName) ||
     n.includes("바지") ||
     n.includes("스커트") ||
-    n.includes("치마");
+    n.includes("치마") ||
+    n.includes("청바지");
   const isTop =
     !isBottom &&
     (clothingHintIsTop(options?.clothingHint) ||
@@ -121,12 +150,18 @@ export function resolveMeasureGuideId(
   ) {
     return "waist-hip";
   }
+
+  // 기장 + 밑통 복합 (전체 통/총기장보다 먼저)
+  if (n.includes("기장") && n.includes("밑통")) {
+    return "length-leg-width";
+  }
+
   if (
     n.includes("전체통") ||
     n.includes("통줄임") ||
     n.includes("바지통") ||
     n.includes("스커트통") ||
-    (n.includes("통") && isBottom && !n.includes("팔통"))
+    (n.includes("통") && isBottom && !n.includes("팔통") && !n.includes("기장"))
   ) {
     return "leg-width";
   }
@@ -138,7 +173,6 @@ export function resolveMeasureGuideId(
   ) {
     if (isBottom) return "total-length-bottom";
     if (isTop) return "total-length-top";
-    // 의류 힌트가 없으면 항목명만으로 추정 (하의 키워드 없을 때 상의 기본)
     return isBottom ? "total-length-bottom" : "total-length-top";
   }
 

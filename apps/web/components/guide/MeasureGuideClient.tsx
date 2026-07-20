@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { expandMeasureGuideTypeIds } from "@/lib/measure-guide";
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 const LIME = "#CDEE00";
@@ -621,23 +622,33 @@ export function MeasureGuideClient({
   initialTypeId,
   lockType = false,
 }: MeasureGuideClientProps = {}) {
+  const allowedTypes = useMemo(() => {
+    if (!lockType || !initialTypeId) return TYPES;
+    const ids = expandMeasureGuideTypeIds(initialTypeId);
+    if (ids.length === 0) return TYPES;
+    const filtered = TYPES.filter((t) => ids.includes(t.id));
+    return filtered.length > 0 ? filtered : TYPES;
+  }, [initialTypeId, lockType]);
+
+  const strictlyLocked = lockType && allowedTypes.length === 1;
   const initial =
-    TYPES.find((t) => t.id === initialTypeId)?.id ?? TYPES[0].id;
+    allowedTypes.find((t) => t.id === expandMeasureGuideTypeIds(initialTypeId)[0])?.id ??
+    allowedTypes[0]?.id ??
+    TYPES[0].id;
+
   const [tab, setTab] = useState<"daily" | "compare">("compare");
   const [selectedId, setSelectedId] = useState(initial);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
-    if (initialTypeId && TYPES.some((t) => t.id === initialTypeId)) {
-      setSelectedId(initialTypeId);
-    }
-  }, [initialTypeId]);
+    const ids = expandMeasureGuideTypeIds(initialTypeId);
+    const next =
+      allowedTypes.find((t) => t.id === ids[0])?.id ?? allowedTypes[0]?.id;
+    if (next) setSelectedId(next);
+  }, [initialTypeId, allowedTypes]);
 
-  const current = TYPES.find((t) => t.id === selectedId) ?? TYPES[0];
-  const dailyTypes =
-    lockType && initialTypeId
-      ? TYPES.filter((t) => t.id === initialTypeId)
-      : TYPES;
+  const current = allowedTypes.find((t) => t.id === selectedId) ?? allowedTypes[0] ?? TYPES[0];
+  const dailyTypes = lockType ? allowedTypes : TYPES;
 
   return (
     <div className="pb-10">
@@ -721,46 +732,54 @@ export function MeasureGuideClient({
             아래 수선 부위별 치수 재는 안내를 차근차근 따라서 단면 치수를 측정해주세요.
           </p>
 
-          {/* Dropdown (compare 탭, 잠금이 아닐 때만) */}
-          {tab === "compare" && !lockType && (
-          <div className="relative mb-4">
-            <button
-              onClick={() => setDropdownOpen((v) => !v)}
-              className="w-full flex items-center justify-between px-4 py-3.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 bg-white"
-            >
-              <span>{current.name}</span>
-              <ChevronDown
-                className={`w-4 h-4 text-gray-400 transition-transform ${
-                  dropdownOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-            {dropdownOpen && (
-              <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                {TYPES.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      setSelectedId(t.id);
-                      setDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-3 text-sm border-b border-gray-50 last:border-0 transition-colors ${
-                      selectedId === t.id
-                        ? "text-[#00C896] font-semibold bg-[#00C896]/5"
-                        : "text-gray-700"
-                    }`}
-                  >
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          )}
-
-          {tab === "compare" && lockType && (
+          {/* 단일 가이드 잠금 */}
+          {tab === "compare" && strictlyLocked && (
             <div className="mb-4 px-4 py-3 border border-[#00C896]/30 bg-[#00C896]/5 rounded-xl text-sm font-semibold text-[#00C896]">
               {current.name}
+            </div>
+          )}
+
+          {/* 드롭다운: 전체 목록 또는 복합 가이드(기장+밑통 등) 선택 */}
+          {tab === "compare" && !strictlyLocked && (
+            <div className="relative mb-4">
+              {lockType && allowedTypes.length > 1 && (
+                <p className="mb-2 text-xs text-[#00C896] font-medium">
+                  이 수선은 아래 가이드를 모두 확인해 주세요
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setDropdownOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 bg-white"
+              >
+                <span>{current.name}</span>
+                <ChevronDown
+                  className={`w-4 h-4 text-gray-400 transition-transform ${
+                    dropdownOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              {dropdownOpen && (
+                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                  {(lockType ? allowedTypes : TYPES).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(t.id);
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 text-sm border-b border-gray-50 last:border-0 transition-colors ${
+                        selectedId === t.id
+                          ? "text-[#00C896] font-semibold bg-[#00C896]/5"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

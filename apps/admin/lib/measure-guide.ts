@@ -9,6 +9,7 @@ export const MEASURE_GUIDE_OPTIONS = [
   { id: "waist-hip", name: "허리/힙 줄임" },
   { id: "leg-width", name: "전체 통 줄임 (바지, 스커트)" },
   { id: "rise", name: "밑위 줄임" },
+  { id: "length-leg-width", name: "기장 + 밑통 줄임 (바지, 스커트) — 두 가이드" },
 ] as const;
 
 export type MeasureGuideId = (typeof MEASURE_GUIDE_OPTIONS)[number]["id"];
