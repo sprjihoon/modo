@@ -42,6 +42,7 @@ DROP POLICY IF EXISTS "Admins can update popups" ON public.popups;
 DROP POLICY IF EXISTS "Admins can delete popups" ON public.popups;
 
 -- 고객: 활성 + 기간 내 팝업만 조회
+-- 관리자 쓰기는 service role(API)이 RLS를 우회하므로 auth.users 참조 정책은 두지 않음
 CREATE POLICY "Anyone can view active scheduled popups"
   ON public.popups
   FOR SELECT
@@ -49,50 +50,6 @@ CREATE POLICY "Anyone can view active scheduled popups"
     is_active = true
     AND (starts_at IS NULL OR starts_at <= NOW())
     AND (ends_at IS NULL OR ends_at > NOW())
-  );
-
-CREATE POLICY "Admins can view all popups"
-  ON public.popups
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
-      AND email LIKE '%@admin.modorepair.com'
-    )
-  );
-
-CREATE POLICY "Admins can insert popups"
-  ON public.popups
-  FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
-      AND email LIKE '%@admin.modorepair.com'
-    )
-  );
-
-CREATE POLICY "Admins can update popups"
-  ON public.popups
-  FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
-      AND email LIKE '%@admin.modorepair.com'
-    )
-  );
-
-CREATE POLICY "Admins can delete popups"
-  ON public.popups
-  FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
-      AND email LIKE '%@admin.modorepair.com'
-    )
   );
 
 CREATE OR REPLACE FUNCTION update_popups_updated_at()
