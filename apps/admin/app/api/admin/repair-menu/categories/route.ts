@@ -10,6 +10,7 @@ const DIRECT_PRICING_FIELDS = [
   "input_labels",
   "description",
   "sub_selection_label",
+  "measure_guide_key",
 ] as const;
 
 /**

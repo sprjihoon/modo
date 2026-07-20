@@ -78,6 +78,7 @@ async function cloneRepairType(
       show_all_option: source.show_all_option,
       all_option_price: source.all_option_price,
       sub_parts_title: source.sub_parts_title,
+      measure_guide_key: (source as any).measure_guide_key ?? null,
     })
     .select()
     .single();
@@ -148,6 +149,7 @@ async function cloneCategoryDeep(
       input_count: source.input_count,
       input_labels: source.input_labels,
       sub_selection_label: source.sub_selection_label,
+      measure_guide_key: (source as any).measure_guide_key ?? null,
     } as any)
     .select()
     .single();

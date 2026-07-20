@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       all_option_price,
       sub_parts_title,
       sub_parts,
+      measure_guide_key,
     } = body;
 
     if (!category_id || !name || (!price && !has_sub_parts)) {
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
         show_all_option: show_all_option !== false,
         all_option_price: (show_all_option !== false && all_option_price != null) ? parseInt(all_option_price) : null,
         sub_parts_title: sub_parts_title || null,
+        measure_guide_key: measure_guide_key || null,
       })
       .select()
       .single();
@@ -123,6 +125,7 @@ export async function PUT(request: NextRequest) {
       all_option_price,
       sub_parts_title,
       sub_parts,
+      measure_guide_key,
     } = body;
 
     if (!id || !name || (!price && !has_sub_parts)) {
@@ -148,6 +151,7 @@ export async function PUT(request: NextRequest) {
         show_all_option: show_all_option !== false,
         all_option_price: (show_all_option !== false && all_option_price != null) ? parseInt(all_option_price) : null,
         sub_parts_title: sub_parts_title || null,
+        measure_guide_key: measure_guide_key || null,
       })
       .eq('id', id)
       .select();

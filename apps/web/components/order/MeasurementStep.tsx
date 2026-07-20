@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { InlineSvg } from "@/components/ui/InlineSvg";
+import { InlineSvg } from "@/components/ui/inlineSvg";
 import { MeasureGuideClient } from "@/components/guide/MeasureGuideClient";
+import { resolveMeasureGuideId } from "@/lib/measure-guide";
 
 export interface MeasurementGroup {
   key: string;
@@ -18,6 +19,8 @@ export interface MeasurementConfig {
   price?: number;
   iconName?: string;
   notes?: string | null;
+  measureGuideKey?: string | null;
+  clothingHint?: string | null;
 }
 
 interface MeasurementStepProps {
@@ -45,6 +48,11 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
   const noteLines = config.notes
     ? config.notes.split("\n").map((l) => l.trim()).filter(Boolean)
     : [];
+
+  const guideTypeId = resolveMeasureGuideId(itemName, {
+    measureGuideKey: config.measureGuideKey,
+    clothingHint: config.clothingHint,
+  });
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -114,10 +122,11 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
         {/* 치수 재는 방법 텍스트 링크 */}
         <div className="flex items-center justify-center pt-1 pb-2">
           <button
+            type="button"
             onClick={() => setShowGuide(true)}
-            className="text-sm text-gray-400 px-3 py-1"
+            className="text-sm text-[#00C896] underline underline-offset-2 px-3 py-1 active:opacity-60"
           >
-            길이 측정 방법
+            길이 재는 방법
           </button>
         </div>
       </div>
@@ -153,7 +162,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
         </button>
       </div>
 
-      {/* 치수 재는 방법 모달 */}
+      {/* 치수 재는 방법 모달 — 해당 제품 가이드로 오픈 */}
       {showGuide && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowGuide(false)} />
@@ -168,7 +177,10 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
               </button>
             </div>
             <div className="overflow-y-auto flex-1">
-              <MeasureGuideClient />
+              <MeasureGuideClient
+                initialTypeId={guideTypeId}
+                lockType={!!guideTypeId}
+              />
             </div>
           </div>
         </div>

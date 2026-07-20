@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, GripVertical, ChevronDown, ChevronUp, ChevronRight, ArrowUp, ArrowDown, Upload, X, Image, FolderOpen, Folder, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
+import { MEASURE_GUIDE_OPTIONS } from "@/lib/measure-guide";
 
 interface RepairCategory {
   id: string;
@@ -26,6 +27,7 @@ interface RepairCategory {
   input_labels?: string[] | null;
   description?: string | null;
   sub_selection_label?: string | null;
+  measure_guide_key?: string | null;
   repair_types?: RepairType[];
   sub_categories?: RepairCategory[];
   sub_items?: RepairCategory[]; // 소카테고리의 자식 = 3단계 세부항목
@@ -49,6 +51,7 @@ interface RepairType {
   sub_parts_title?: string;
   show_all_option?: boolean;
   all_option_price?: number | null;
+  measure_guide_key?: string | null;
 }
 
 export default function RepairMenuPage() {
@@ -710,6 +713,38 @@ function SvgPreview({ url, size = 64 }: { url: string; size?: number }) {
   );
 }
 
+function MeasureGuideSelect({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <Label htmlFor={id}>치수 재는 방법 가이드</Label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+      >
+        <option value="">자동 매칭 (이름 기준)</option>
+        {MEASURE_GUIDE_OPTIONS.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </select>
+      <p className="text-xs text-muted-foreground mt-1">
+        고객 치수 입력 시 해당 가이드 팝업이 표시됩니다.
+      </p>
+    </div>
+  );
+}
+
 // 카테고리 수정 Dialog
 function EditCategoryDialog({
   category,
@@ -737,6 +772,7 @@ function EditCategoryDialog({
   );
   const [hasDirectPrice, setHasDirectPrice] = useState(category.price != null);
   const [subSelectionLabel, setSubSelectionLabel] = useState(category.sub_selection_label || "");
+  const [measureGuideKey, setMeasureGuideKey] = useState(category.measure_guide_key || "");
 
   useEffect(() => {
     if (open) {
@@ -754,6 +790,7 @@ function EditCategoryDialog({
       );
       setHasDirectPrice(category.price != null);
       setSubSelectionLabel(category.sub_selection_label || "");
+      setMeasureGuideKey(category.measure_guide_key || "");
     }
   }, [open, category]);
 
@@ -814,9 +851,11 @@ function EditCategoryDialog({
           if (requiresMeasurement) {
             body.input_count = inputCount;
             body.input_labels = inputLabels.filter(Boolean);
+            body.measure_guide_key = measureGuideKey || null;
           } else {
             body.input_count = 1;
             body.input_labels = null;
+            body.measure_guide_key = null;
           }
         } else {
           body.price = null;
@@ -825,6 +864,7 @@ function EditCategoryDialog({
           body.requires_measurement = false;
           body.input_count = 1;
           body.input_labels = null;
+          body.measure_guide_key = null;
         }
       }
 
@@ -1060,6 +1100,11 @@ function EditCategoryDialog({
                           }}
                         />
                       ))}
+                      <MeasureGuideSelect
+                        id="edit-measure-guide"
+                        value={measureGuideKey}
+                        onChange={setMeasureGuideKey}
+                      />
                     </div>
                   )}
                 </div>
@@ -1129,6 +1174,7 @@ function AddCategoryDialog({
   const [requiresMeasurement, setRequiresMeasurement] = useState(defaultHasPrice);
   const [inputCount, setInputCount] = useState(1);
   const [inputLabels, setInputLabels] = useState<string[]>(["치수 (cm)"]);
+  const [measureGuideKey, setMeasureGuideKey] = useState("");
 
   // icon_name이 URL인지 확인
   const isIconUrl = iconName.startsWith("http");
@@ -1189,6 +1235,7 @@ function AddCategoryDialog({
         if (requiresMeasurement) {
           body.input_count = inputCount;
           body.input_labels = inputLabels.filter(Boolean);
+          body.measure_guide_key = measureGuideKey || null;
         }
       } else if (isSubCat && description) {
         body.description = description;
@@ -1450,6 +1497,11 @@ function AddCategoryDialog({
                           }}
                         />
                       ))}
+                      <MeasureGuideSelect
+                        id="add-measure-guide"
+                        value={measureGuideKey}
+                        onChange={setMeasureGuideKey}
+                      />
                     </div>
                   )}
                 </div>
@@ -1507,6 +1559,7 @@ function EditRepairTypeDialog({
   const [showAllOption, setShowAllOption] = useState(repairType.show_all_option !== false);
   const [allOptionPrice, setAllOptionPrice] = useState(repairType.all_option_price != null ? String(repairType.all_option_price) : "");
   const [subPartsTitle, setSubPartsTitle] = useState(repairType.sub_parts_title || "");
+  const [measureGuideKey, setMeasureGuideKey] = useState(repairType.measure_guide_key || "");
   const [subParts, setSubParts] = useState<Array<{id?: string, name: string, icon?: string, price?: number}>>([]);
   const [editingSubPartIndex, setEditingSubPartIndex] = useState<number | null>(null);
   const [newSubPartName, setNewSubPartName] = useState("");
@@ -1656,6 +1709,7 @@ function EditRepairTypeDialog({
           all_option_price: (hasSubParts && showAllOption && allOptionPrice) ? parseInt(allOptionPrice) : null,
           sub_parts_title: hasSubParts && subPartsTitle ? subPartsTitle : null,
           sub_parts: subParts,
+          measure_guide_key: requiresMeasurement ? (measureGuideKey || null) : null,
         }),
       });
 
@@ -1851,6 +1905,11 @@ function EditRepairTypeDialog({
                     />
                   </div>
                 )}
+                <MeasureGuideSelect
+                  id="edit-type-measure-guide"
+                  value={measureGuideKey}
+                  onChange={setMeasureGuideKey}
+                />
               </div>
             )}
 
@@ -2220,6 +2279,7 @@ function AddRepairTypeDialog({
   const [showAllOption, setShowAllOption] = useState(true);
   const [allOptionPrice, setAllOptionPrice] = useState("");
   const [subPartsTitle, setSubPartsTitle] = useState("");
+  const [measureGuideKey, setMeasureGuideKey] = useState("");
   const [subParts, setSubParts] = useState<Array<{name: string, icon?: string, price?: number}>>([]);
   const [editingSubPartIndex, setEditingSubPartIndex] = useState<number | null>(null);
   const [newSubPartName, setNewSubPartName] = useState("");
@@ -2330,6 +2390,7 @@ function AddRepairTypeDialog({
           all_option_price: (hasSubParts && showAllOption && allOptionPrice) ? parseInt(allOptionPrice) : null,
           sub_parts_title: hasSubParts && subPartsTitle ? subPartsTitle : null,
           sub_parts: subParts,
+          measure_guide_key: requiresMeasurement ? (measureGuideKey || null) : null,
         }),
       });
 
@@ -2348,6 +2409,7 @@ function AddRepairTypeDialog({
       setRequiresMultipleInputs(false);
       setInputCount("1");
       setInputLabel1("");
+      setMeasureGuideKey("");
       setInputLabel2("");
       setHasSubParts(false);
       setAllowMultipleSubParts(false);
@@ -2574,6 +2636,11 @@ function AddRepairTypeDialog({
                   </div>
                 </div>
               )}
+                <MeasureGuideSelect
+                  id="add-type-measure-guide"
+                  value={measureGuideKey}
+                  onChange={setMeasureGuideKey}
+                />
               </div>
             )}
 

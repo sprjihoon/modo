@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { RepairItem } from "./OrderNewClient";
 import { InlineSvg } from "@/components/ui/InlineSvg";
 import { createClient } from "@/lib/supabase/client";
+import { MeasureGuideClient } from "@/components/guide/MeasureGuideClient";
+import { resolveMeasureGuideId } from "@/lib/measure-guide";
 
 interface RepairType {
   id: string;
@@ -26,6 +28,7 @@ interface RepairType {
   // DB에서 string 또는 string[] 모두 가능
   input_labels?: string | string[];
   input_count?: number;
+  measure_guide_key?: string | null;
 }
 
 interface SubPart {
@@ -95,6 +98,7 @@ export function RepairTypeStep({
     overridePrice?: number;
   } | null>(null);
   const [measureValues, setMeasureValues] = useState<string[]>([]);
+  const [showMeasureGuide, setShowMeasureGuide] = useState(false);
 
   function openMeasureView(repairType: RepairType, chosenParts?: SubPart[], overridePrice?: number) {
     const labels = getInputLabels(repairType);
@@ -202,6 +206,7 @@ export function RepairTypeStep({
         requires_multiple_inputs: d.requires_multiple_inputs ?? false,
         input_labels: d.input_labels ?? "치수 (cm)",
         input_count: d.input_count ?? 1,
+        measure_guide_key: d.measure_guide_key ?? null,
       }));
 
       // has_sub_parts인 항목이 하나뿐이면 바로 세부 부위 뷰로 진입 (중간 목록 생략)
@@ -658,6 +663,10 @@ export function RepairTypeStep({
       ? chosenParts.map((p) => ({ key: p.id, title: p.name }))
       : [{ key: "_single", title: "" }];
     const hasAnyValue = measureValues.some((v) => v.trim() !== "");
+    const guideTypeId = resolveMeasureGuideId(repairType.name, {
+      measureGuideKey: repairType.measure_guide_key,
+      clothingHint: clothingType,
+    });
 
     return (
       <div className="flex flex-col min-h-0">
@@ -731,6 +740,16 @@ export function RepairTypeStep({
               })}
             </div>
           ))}
+
+          <div className="flex items-center justify-center pt-1 pb-2">
+            <button
+              type="button"
+              onClick={() => setShowMeasureGuide(true)}
+              className="text-sm text-[#00C896] underline underline-offset-2 px-3 py-1 active:opacity-60"
+            >
+              길이 재는 방법
+            </button>
+          </div>
         </div>
 
         {/* 하단 버튼 */}
@@ -749,6 +768,32 @@ export function RepairTypeStep({
             확인
           </button>
         </div>
+
+        {showMeasureGuide && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setShowMeasureGuide(false)}
+            />
+            <div className="relative w-full max-w-[600px] bg-white rounded-2xl max-h-[90vh] flex flex-col shadow-xl">
+              <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0">
+                <h2 className="text-base font-bold text-gray-900">치수 재는 방법</h2>
+                <button
+                  onClick={() => setShowMeasureGuide(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"
+                >
+                  <X className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1">
+                <MeasureGuideClient
+                  initialTypeId={guideTypeId}
+                  lockType={!!guideTypeId}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -383,6 +383,8 @@ export function OrderNewClient() {
           price: prePhaseSelection.directPrice,
           iconName: prePhaseSelection.iconName ?? undefined,
           notes: prePhaseSelection.description ?? undefined,
+          measureGuideKey: prePhaseSelection.measureGuideKey ?? undefined,
+          clothingHint: stagingClothingType || prePhaseSelection.name,
         });
         pushMode("addMeasurement");
       } else {
@@ -438,6 +440,8 @@ export function OrderNewClient() {
             price: effectiveSelection.directPrice,
             iconName: effectiveSelection.iconName ?? undefined,
             notes: effectiveSelection.description ?? undefined,
+            measureGuideKey: effectiveSelection.measureGuideKey ?? undefined,
+            clothingHint: stagingClothingType || type || effectiveSelection.name,
           });
           pushMode("addMeasurement");
         } else {

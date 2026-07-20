@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
@@ -576,13 +576,13 @@ function CompareContent({ type }: { type: MeasureType }) {
 
 // ─── Daily Method Content ────────────────────────────────────────────────────
 
-function DailyContent() {
+function DailyContent({ types }: { types: MeasureType[] }) {
   const allNotes = Array.from(
-    new Set(TYPES.flatMap((t) => t.notes))
+    new Set(types.flatMap((t) => t.notes))
   );
   return (
     <div className="space-y-6">
-      {TYPES.flatMap((type) =>
+      {types.flatMap((type) =>
         type.daily.map((item, i) => (
           <DailyIllustration key={`${type.id}-${i}`} item={item} />
         ))
@@ -603,13 +603,34 @@ function DailyContent() {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function MeasureGuideClient() {
+interface MeasureGuideClientProps {
+  /** 특정 수선 항목에 맞는 가이드로 시작 */
+  initialTypeId?: string | null;
+  /** true면 해당 가이드만 표시 (드롭다운 숨김) */
+  lockType?: boolean;
+}
+
+export function MeasureGuideClient({
+  initialTypeId,
+  lockType = false,
+}: MeasureGuideClientProps = {}) {
+  const initial =
+    TYPES.find((t) => t.id === initialTypeId)?.id ?? TYPES[0].id;
   const [tab, setTab] = useState<"daily" | "compare">("compare");
-  const [selectedId, setSelectedId] = useState(TYPES[0].id);
+  const [selectedId, setSelectedId] = useState(initial);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const current = TYPES.find((t) => t.id === selectedId)!;
-  const isTop = current.clothing === "top";
+  useEffect(() => {
+    if (initialTypeId && TYPES.some((t) => t.id === initialTypeId)) {
+      setSelectedId(initialTypeId);
+    }
+  }, [initialTypeId]);
+
+  const current = TYPES.find((t) => t.id === selectedId) ?? TYPES[0];
+  const dailyTypes =
+    lockType && initialTypeId
+      ? TYPES.filter((t) => t.id === initialTypeId)
+      : TYPES;
 
   return (
     <div className="pb-10">
@@ -685,8 +706,8 @@ export function MeasureGuideClient() {
             아래 수선 부위별 치수 재는 안내를 차근차근 따라서 단면 치수를 측정해주세요.
           </p>
 
-          {/* Dropdown (compare 탭에서만 표시) */}
-          {tab === "compare" && (
+          {/* Dropdown (compare 탭, 잠금이 아닐 때만) */}
+          {tab === "compare" && !lockType && (
           <div className="relative mb-4">
             <button
               onClick={() => setDropdownOpen((v) => !v)}
@@ -722,10 +743,16 @@ export function MeasureGuideClient() {
           </div>
           )}
 
+          {tab === "compare" && lockType && (
+            <div className="mb-4 px-4 py-3 border border-[#00C896]/30 bg-[#00C896]/5 rounded-xl text-sm font-semibold text-[#00C896]">
+              {current.name}
+            </div>
+          )}
+
           {tab === "compare" ? (
             <CompareContent type={current} />
           ) : (
-            <DailyContent />
+            <DailyContent types={dailyTypes.length > 0 ? dailyTypes : [current]} />
           )}
         </section>
       </div>
