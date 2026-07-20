@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 import { RepairItem } from "./OrderNewClient";
 import { InlineSvg } from "@/components/ui/InlineSvg";
 import { createClient } from "@/lib/supabase/client";
-import { MeasureGuideClient } from "@/components/guide/MeasureGuideClient";
 import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
+import { MeasureGuideBottomSheet } from "@/components/guide/MeasureGuideBottomSheet";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
 
 interface RepairType {
@@ -664,13 +664,17 @@ export function RepairTypeStep({
       ? chosenParts.map((p) => ({ key: p.id, title: p.name }))
       : [{ key: "_single", title: "" }];
     const hasAnyValue = measureValues.some((v) => v.trim() !== "");
-    const guideTypeId = resolveMeasureGuideId(repairType.name, {
-      measureGuideKey: repairType.measure_guide_key,
-      clothingHint: clothingType,
-    });
+    const guideTypeId = resolveMeasureGuideId(
+      [repairType.name, repairType.sub_type].filter(Boolean).join(" "),
+      {
+        measureGuideKey: repairType.measure_guide_key,
+        clothingHint: clothingType,
+      }
+    );
 
     return (
       <div className="flex flex-col min-h-0">
+        {/* PC: 왼쪽 위젯으로 가이드 상시 표시 */}
         <MeasureGuideSideWidget initialTypeId={guideTypeId} />
 
         <div className="px-4 py-4 border-b border-gray-100">
@@ -744,13 +748,14 @@ export function RepairTypeStep({
             </div>
           ))}
 
+          {/* 모바일: 클릭 시 하단 시트 */}
           <div className="flex items-center justify-center pt-1 pb-2 xl:hidden">
             <button
               type="button"
               onClick={() => setShowMeasureGuide(true)}
               className="text-sm text-[#00C896] underline underline-offset-2 px-3 py-1 active:opacity-60"
             >
-              길이 재는 방법
+              치수 재는 방법
             </button>
           </div>
         </div>
@@ -772,31 +777,11 @@ export function RepairTypeStep({
           </button>
         </div>
 
-        {showMeasureGuide && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <div
-              className="absolute inset-0 bg-black/50"
-              onClick={() => setShowMeasureGuide(false)}
-            />
-            <div className="relative w-full max-w-[600px] bg-white rounded-2xl max-h-[90vh] flex flex-col shadow-xl">
-              <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0">
-                <h2 className="text-base font-bold text-gray-900">치수 재는 방법</h2>
-                <button
-                  onClick={() => setShowMeasureGuide(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"
-                >
-                  <X className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-              <div className="overflow-y-auto flex-1">
-                <MeasureGuideClient
-                  initialTypeId={guideTypeId}
-                  lockType={!!guideTypeId}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        <MeasureGuideBottomSheet
+          open={showMeasureGuide}
+          onClose={() => setShowMeasureGuide(false)}
+          initialTypeId={guideTypeId}
+        />
       </div>
     );
   }

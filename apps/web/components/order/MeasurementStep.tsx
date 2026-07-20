@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
 import { InlineSvg } from "@/components/ui/InlineSvg";
-import { MeasureGuideClient } from "@/components/guide/MeasureGuideClient";
 import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
+import { MeasureGuideBottomSheet } from "@/components/guide/MeasureGuideBottomSheet";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
 
 export interface MeasurementGroup {
@@ -57,15 +56,14 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
+      {/* PC: 왼쪽 위젯으로 가이드 상시 표시 */}
       <MeasureGuideSideWidget initialTypeId={guideTypeId} />
 
-      {/* 헤더 */}
       <div className="px-4 py-4 border-b border-gray-100">
         <h2 className="text-lg font-bold text-gray-900">치수를 입력해주세요</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
-        {/* 선택된 항목 카드 */}
         <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
           <div className="w-10 h-10 rounded-xl bg-[#00C896]/10 flex items-center justify-center shrink-0">
             {iconSrc ? (
@@ -91,7 +89,6 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           </div>
         </div>
 
-        {/* 입력 필드 */}
         {effectiveGroups.map((group, gIdx) => (
           <div key={group.key} className="space-y-3">
             {group.title && (
@@ -122,19 +119,18 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           </div>
         ))}
 
-        {/* 모바일/태블릿: 치수 재는 방법 링크 (PC는 왼쪽 위젯) */}
+        {/* 모바일: 클릭 시 하단 시트 */}
         <div className="flex items-center justify-center pt-1 pb-2 xl:hidden">
           <button
             type="button"
             onClick={() => setShowGuide(true)}
             className="text-sm text-[#00C896] underline underline-offset-2 px-3 py-1 active:opacity-60"
           >
-            길이 재는 방법
+            치수 재는 방법
           </button>
         </div>
       </div>
 
-      {/* 수선 유형 안내 사항 */}
       {noteLines.length > 0 && (
         <div className="px-4 pb-4">
           <ul className="space-y-2">
@@ -148,7 +144,6 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
         </div>
       )}
 
-      {/* 하단 버튼 */}
       <div className="sticky bottom-0 bg-white px-4 py-4 border-t border-gray-50 flex gap-3">
         <button
           onClick={onBack}
@@ -165,29 +160,11 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
         </button>
       </div>
 
-      {/* 치수 재는 방법 모달 — 해당 제품 가이드로 오픈 */}
-      {showGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowGuide(false)} />
-          <div className="relative w-full max-w-[600px] bg-white rounded-2xl max-h-[90vh] flex flex-col shadow-xl">
-            <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 shrink-0">
-              <h2 className="text-base font-bold text-gray-900">치수 재는 방법</h2>
-              <button
-                onClick={() => setShowGuide(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"
-              >
-                <X className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
-            <div className="overflow-y-auto flex-1">
-              <MeasureGuideClient
-                initialTypeId={guideTypeId}
-                lockType={!!guideTypeId}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <MeasureGuideBottomSheet
+        open={showGuide}
+        onClose={() => setShowGuide(false)}
+        initialTypeId={guideTypeId}
+      />
     </div>
   );
 }

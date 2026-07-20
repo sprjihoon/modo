@@ -7,8 +7,8 @@ interface MeasureGuideSideWidgetProps {
 }
 
 /**
- * PC 전용: 중앙 앱 컨테이너 왼쪽 여백에 치수 가이드를 위젯으로 표시.
- * xl(1280px)+ 에서만 보이며, 모바일/태블릿은 모달 링크를 사용.
+ * PC 전용: 앱 컨테이너 왼쪽 여백에 치수 가이드를 상시 표시.
+ * xl(1280px)+ 에서만 보이며, 모바일은 하단 시트 링크를 사용.
  */
 export function MeasureGuideSideWidget({
   initialTypeId,

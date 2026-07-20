@@ -29,7 +29,31 @@ function clothingHintIsBottom(hint?: string | null) {
     n.includes("하의") ||
     n.includes("bottom") ||
     n.includes("pants") ||
-    n.includes("skirt")
+    n.includes("skirt") ||
+    n.includes("shorts") ||
+    n.includes("반바지")
+  );
+}
+
+function clothingHintIsTop(hint?: string | null) {
+  if (!hint) return false;
+  const n = normalize(hint);
+  return (
+    n.includes("상의") ||
+    n.includes("자켓") ||
+    n.includes("재킷") ||
+    n.includes("코트") ||
+    n.includes("셔츠") ||
+    n.includes("블라우스") ||
+    n.includes("니트") ||
+    n.includes("티셔츠") ||
+    n.includes("원피스") ||
+    n.includes("아우터") ||
+    n.includes("top") ||
+    n.includes("jacket") ||
+    n.includes("coat") ||
+    n.includes("shirt") ||
+    n.includes("dress")
   );
 }
 
@@ -48,29 +72,61 @@ export function resolveMeasureGuideId(
     return key as MeasureGuideId;
   }
 
-  if (!itemName?.trim()) return null;
-  const n = normalize(itemName);
-  const isBottom = clothingHintIsBottom(options?.clothingHint) || clothingHintIsBottom(itemName);
+  const hints = [itemName, options?.clothingHint].filter(Boolean).join(" ");
+  if (!hints.trim()) return null;
+
+  const n = normalize(hints);
+  const isBottom =
+    clothingHintIsBottom(options?.clothingHint) ||
+    clothingHintIsBottom(itemName) ||
+    n.includes("바지") ||
+    n.includes("스커트") ||
+    n.includes("치마");
+  const isTop =
+    !isBottom &&
+    (clothingHintIsTop(options?.clothingHint) ||
+      clothingHintIsTop(itemName) ||
+      n.includes("상의") ||
+      n.includes("원피스"));
 
   // 구체적 키워드 우선
-  if (n.includes("소매기장") || n.includes("sleeve")) return "sleeve-length";
+  if (n.includes("소매기장") || n.includes("소매길이") || n.includes("sleeve")) {
+    return "sleeve-length";
+  }
+  if (n.includes("소매") && (n.includes("줄임") || n.includes("기장") || n.includes("길이"))) {
+    return "sleeve-length";
+  }
   if (n.includes("어깨")) return "shoulder";
-  if (n.includes("팔통") || n.includes("arm")) return "arm-width";
+  if (n.includes("팔통") || (n.includes("arm") && n.includes("width"))) return "arm-width";
   if (n.includes("밑위") || n.includes("rise")) return "rise";
   if (n.includes("허리") || n.includes("힙") || n.includes("hip") || n.includes("waist")) {
     return "waist-hip";
   }
-  if (n.includes("전체품") || (n.includes("품") && !n.includes("팔통"))) {
+  if (
+    n.includes("전체품") ||
+    n.includes("품줄임") ||
+    (n.includes("품") && !n.includes("팔통"))
+  ) {
     return "width-top";
   }
   if (
     n.includes("전체통") ||
-    (n.includes("통줄임") && isBottom) ||
+    n.includes("통줄임") ||
+    n.includes("바지통") ||
+    n.includes("스커트통") ||
     (n.includes("통") && isBottom && !n.includes("팔통"))
   ) {
     return "leg-width";
   }
-  if (n.includes("총기장") || (n.includes("기장") && !n.includes("소매"))) {
+  if (
+    n.includes("총기장") ||
+    n.includes("기장줄임") ||
+    n.includes("밑단") ||
+    (n.includes("기장") && !n.includes("소매"))
+  ) {
+    if (isBottom) return "total-length-bottom";
+    if (isTop) return "total-length-top";
+    // 의류 힌트가 없으면 항목명만으로 추정 (하의 키워드 없을 때 상의 기본)
     return isBottom ? "total-length-bottom" : "total-length-top";
   }
 
