@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getNaverCallbackUrl } from "@/lib/utils";
+import { applyStashedInviteCode } from "@/lib/invite";
 import { Suspense } from "react";
 
 function NaverCallbackContent() {
@@ -65,6 +66,7 @@ function NaverCallbackContent() {
             },
             { onConflict: "auth_id", ignoreDuplicates: true }
           );
+          await applyStashedInviteCode();
         }
       }
 

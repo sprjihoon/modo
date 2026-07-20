@@ -3,12 +3,17 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   getNaverCallbackUrl,
   getOAuthCallbackUrl,
 } from "@/lib/utils";
+import {
+  applyStashedInviteCode,
+  normalizeInviteCode,
+  stashInviteCode,
+} from "@/lib/invite";
 
 const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
 const SAVED_CREDENTIALS_KEY = "modo_web_saved_credentials";
@@ -20,10 +25,25 @@ export function LoginPageClient() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const invite = searchParams.get("invite");
+    if (invite) {
+      const code = normalizeInviteCode(invite);
+      stashInviteCode(code);
+      setInviteCode(code);
+    }
+  }, [searchParams]);
+
+  function persistInviteBeforeOAuth() {
+    const code = normalizeInviteCode(inviteCode);
+    if (code) stashInviteCode(code);
+  }
 
   useEffect(() => {
     try {
@@ -70,6 +90,10 @@ export function LoginPageClient() {
         localStorage.removeItem(SAVED_CREDENTIALS_KEY);
       }
 
+      const code = normalizeInviteCode(inviteCode);
+      if (code) stashInviteCode(code);
+      await applyStashedInviteCode();
+
       router.push(redirectTo);
       router.refresh();
     } catch {
@@ -80,6 +104,7 @@ export function LoginPageClient() {
   }
 
   async function handleKakaoLogin() {
+    persistInviteBeforeOAuth();
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
@@ -90,6 +115,7 @@ export function LoginPageClient() {
   }
 
   async function handleGoogleLogin() {
+    persistInviteBeforeOAuth();
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -100,6 +126,7 @@ export function LoginPageClient() {
   }
 
   async function handleNaverLogin() {
+    persistInviteBeforeOAuth();
     if (!NAVER_CLIENT_ID) {
       setError("네이버 로그인 설정이 누락되었습니다. 관리자에게 문의해주세요.");
       return;
@@ -116,6 +143,7 @@ export function LoginPageClient() {
   }
 
   async function handleAppleLogin() {
+    persistInviteBeforeOAuth();
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: "apple",
@@ -211,7 +239,10 @@ export function LoginPageClient() {
           비밀번호 찾기
         </Link>
         <span>|</span>
-        <Link href="/signup" className="active:opacity-60">
+        <Link
+          href={inviteCode ? `/signup?invite=${encodeURIComponent(inviteCode)}` : "/signup"}
+          className="active:opacity-60"
+        >
           회원가입
         </Link>
       </div>
@@ -221,6 +252,24 @@ export function LoginPageClient() {
         <div className="flex-1 h-px bg-gray-100" />
         <span className="text-xs text-gray-300">또는</span>
         <div className="flex-1 h-px bg-gray-100" />
+      </div>
+
+      {/* 소셜 가입 시 초대 코드 */}
+      <div className="mb-3">
+        <div className="relative">
+          <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="초대 코드 (소셜 가입 시, 선택)"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+            className="w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm font-mono tracking-wide outline-none focus:border-[#00C896] transition-colors"
+            autoComplete="off"
+          />
+        </div>
+        <p className="mt-1.5 px-1 text-xs text-gray-400">
+          카카오·네이버 등으로 처음 가입할 때 적용됩니다
+        </p>
       </div>
 
       {/* 소셜 로그인 */}

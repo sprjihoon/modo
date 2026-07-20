@@ -1,25 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, EyeOff, Mail, Lock, User, Phone, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  applyStashedInviteCode,
+  normalizeInviteCode,
+  stashInviteCode,
+} from "@/lib/invite";
 
 export function SignupPageClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
     passwordConfirm: "",
+    inviteCode: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
+
+  useEffect(() => {
+    const invite = searchParams.get("invite");
+    if (invite) {
+      const code = normalizeInviteCode(invite);
+      stashInviteCode(code);
+      setForm((prev) => ({ ...prev, inviteCode: code }));
+    }
+  }, [searchParams]);
 
   function handleChange(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -49,6 +65,9 @@ export function SignupPageClient() {
     setIsLoading(true);
     setError("");
 
+    const inviteCode = normalizeInviteCode(form.inviteCode);
+    if (inviteCode) stashInviteCode(inviteCode);
+
     try {
       const supabase = createClient();
       const { data, error: authError } = await supabase.auth.signUp({
@@ -66,7 +85,6 @@ export function SignupPageClient() {
       }
 
       if (data.user) {
-        // users 테이블에 프로필 저장
         await supabase.from("users").insert({
           auth_id: data.user.id,
           name: form.name,
@@ -76,6 +94,18 @@ export function SignupPageClient() {
           agreed_to_privacy: true,
           role: "CUSTOMER",
         });
+
+        if (inviteCode) {
+          const applyRes = await fetch("/api/invite/apply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: inviteCode }),
+          });
+          if (!applyRes.ok) {
+            // 세션이 아직 없으면 스태시해 두고 다음 로그인 때 적용
+            await applyStashedInviteCode();
+          }
+        }
 
         router.push("/");
         router.refresh();
@@ -90,7 +120,6 @@ export function SignupPageClient() {
   return (
     <div className="px-5 py-6">
       <form onSubmit={handleSignup} className="space-y-3">
-        {/* 이름 */}
         <div className="relative">
           <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -102,7 +131,6 @@ export function SignupPageClient() {
           />
         </div>
 
-        {/* 이메일 */}
         <div className="relative">
           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -115,7 +143,6 @@ export function SignupPageClient() {
           />
         </div>
 
-        {/* 전화번호 */}
         <div className="relative">
           <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -127,7 +154,6 @@ export function SignupPageClient() {
           />
         </div>
 
-        {/* 비밀번호 */}
         <div className="relative">
           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -142,11 +168,14 @@ export function SignupPageClient() {
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
           >
-            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {showPassword ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
           </button>
         </div>
 
-        {/* 비밀번호 확인 */}
         <div className="relative">
           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -158,7 +187,26 @@ export function SignupPageClient() {
           />
         </div>
 
-        {/* 약관 동의 */}
+        {/* 초대 코드 */}
+        <div>
+          <div className="relative">
+            <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="초대 코드 (선택)"
+              value={form.inviteCode}
+              onChange={(e) =>
+                handleChange("inviteCode", e.target.value.toUpperCase())
+              }
+              className="w-full pl-11 pr-4 py-4 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors font-mono tracking-wide"
+              autoComplete="off"
+            />
+          </div>
+          <p className="mt-1.5 px-1 text-xs text-gray-400">
+            친구가 알려준 초대 코드가 있으면 입력해주세요
+          </p>
+        </div>
+
         <div className="border border-gray-100 rounded-xl p-4 space-y-2.5 mt-2">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
@@ -200,12 +248,8 @@ export function SignupPageClient() {
           </label>
         </div>
 
-        {/* 에러 */}
-        {error && (
-          <p className="text-xs text-red-500 text-center">{error}</p>
-        )}
+        {error && <p className="text-xs text-red-500 text-center">{error}</p>}
 
-        {/* 회원가입 버튼 */}
         <button
           type="submit"
           disabled={isLoading}

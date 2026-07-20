@@ -2,6 +2,20 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
+function readInviteCookie(request: Request): string {
+  const raw = request.headers.get("cookie") || "";
+  const match = raw
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith("modo_invite_code="));
+  if (!match) return "";
+  try {
+    return decodeURIComponent(match.split("=")[1] || "").trim().toUpperCase();
+  } catch {
+    return "";
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
@@ -11,7 +25,6 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error && data.user) {
-      // OAuth 신규 유저를 public.users에 upsert (카카오/구글/애플 등)
       const srk = process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (srk) {
         const admin = createSupabaseClient(
@@ -39,9 +52,27 @@ export async function GET(request: Request) {
           },
           { onConflict: "auth_id", ignoreDuplicates: true }
         );
+
+        const inviteCode = readInviteCookie(request);
+        if (inviteCode) {
+          const { data: userRow } = await admin
+            .from("users")
+            .select("id")
+            .eq("auth_id", data.user.id)
+            .maybeSingle();
+          if (userRow?.id) {
+            await admin.rpc("apply_invite_on_signup", {
+              p_invitee_user_id: userRow.id,
+              p_invite_code: inviteCode,
+            });
+          }
+        }
       }
 
-      return NextResponse.redirect(`${origin}${redirectTo}`);
+      const res = NextResponse.redirect(`${origin}${redirectTo}`);
+      // 적용 시도 후 쿠키 정리
+      res.cookies.set("modo_invite_code", "", { path: "/", maxAge: 0 });
+      return res;
     }
   }
 

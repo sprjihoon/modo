@@ -33,9 +33,13 @@ export default function PointSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSetting, setEditingSetting] = useState<PointSetting | null>(null);
+  const [inviteReward, setInviteReward] = useState(1000);
+  const [inviteActive, setInviteActive] = useState(true);
+  const [inviteSaving, setInviteSaving] = useState(false);
 
   useEffect(() => {
     fetchSettings();
+    fetchInviteSettings();
   }, []);
 
   const fetchSettings = async () => {
@@ -47,6 +51,45 @@ export default function PointSettingsPage() {
       console.error("포인트 설정 조회 실패:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInviteSettings = async () => {
+    try {
+      const res = await fetch("/api/invite/settings");
+      const data = await res.json();
+      setInviteReward(data.invite_reward_amount ?? 1000);
+      setInviteActive(data.is_active ?? true);
+    } catch (error) {
+      console.error("초대 설정 조회 실패:", error);
+    }
+  };
+
+  const saveInviteSettings = async () => {
+    if (!Number.isInteger(inviteReward) || inviteReward < 0) {
+      alert("적립 금액은 0 이상의 정수여야 합니다.");
+      return;
+    }
+    setInviteSaving(true);
+    try {
+      const res = await fetch("/api/invite/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invite_reward_amount: inviteReward,
+          is_active: inviteActive,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "저장 실패");
+      }
+      alert("친구 초대 적립 설정이 저장되었습니다.");
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "저장 중 오류가 발생했습니다.");
+    } finally {
+      setInviteSaving(false);
     }
   };
 
@@ -141,6 +184,45 @@ export default function PointSettingsPage() {
           새 설정 추가
         </Button>
       </div>
+
+      {/* 친구 초대 적립 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>친구 초대 적립</CardTitle>
+          <CardDescription>
+            친구가 초대 코드로 가입하면 초대자에게 지급되는 포인트입니다
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="text-sm text-muted-foreground">적립 금액 (P)</label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={inviteReward}
+                onChange={(e) => setInviteReward(Number(e.target.value))}
+                className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex items-end gap-3">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={inviteActive}
+                  onChange={(e) => setInviteActive(e.target.checked)}
+                  className="accent-blue-600"
+                />
+                초대 적립 활성
+              </label>
+            </div>
+          </div>
+          <Button onClick={saveInviteSettings} disabled={inviteSaving}>
+            {inviteSaving ? "저장 중..." : "초대 적립 저장"}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* 현재 적용 중인 설정 */}
       {currentSetting && (
