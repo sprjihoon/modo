@@ -6,8 +6,7 @@ import { cn } from "@/lib/utils";
 import { RepairItem } from "./OrderNewClient";
 import { InlineSvg } from "@/components/ui/InlineSvg";
 import { createClient } from "@/lib/supabase/client";
-import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
-import { MeasureGuideBottomSheet } from "@/components/guide/MeasureGuideBottomSheet";
+import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
 
 interface RepairType {
@@ -99,7 +98,6 @@ export function RepairTypeStep({
     overridePrice?: number;
   } | null>(null);
   const [measureValues, setMeasureValues] = useState<string[]>([]);
-  const [showMeasureGuide, setShowMeasureGuide] = useState(false);
 
   function openMeasureView(repairType: RepairType, chosenParts?: SubPart[], overridePrice?: number) {
     const labels = getInputLabels(repairType);
@@ -748,16 +746,8 @@ export function RepairTypeStep({
             </div>
           ))}
 
-          {/* 모바일: 클릭 시 하단 시트 */}
-          <div className="flex items-center justify-center pt-1 pb-2 min-[1100px]:hidden">
-            <button
-              type="button"
-              onClick={() => setShowMeasureGuide(true)}
-              className="text-sm text-[#00C896] underline underline-offset-2 px-3 py-1 active:opacity-60"
-            >
-              치수 재는 방법
-            </button>
-          </div>
+          {/* 화면 안 아코디언 위젯 */}
+          <MeasureGuideAccordion initialTypeId={guideTypeId} defaultOpen />
         </div>
 
         {/* 하단 버튼 */}
@@ -776,12 +766,6 @@ export function RepairTypeStep({
             확인
           </button>
         </div>
-
-        <MeasureGuideBottomSheet
-          open={showMeasureGuide}
-          onClose={() => setShowMeasureGuide(false)}
-          initialTypeId={guideTypeId}
-        />
       </div>
     );
   }

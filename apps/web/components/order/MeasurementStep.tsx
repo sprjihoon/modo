@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { InlineSvg } from "@/components/ui/InlineSvg";
-import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
-import { MeasureGuideBottomSheet } from "@/components/guide/MeasureGuideBottomSheet";
+import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
 
 export interface MeasurementGroup {
@@ -36,7 +35,6 @@ function getIconSrc(iconName?: string): string | null {
 }
 
 export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepProps) {
-  const [showGuide, setShowGuide] = useState(false);
   const { itemName, subType, labels, groups, price, iconName } = config;
   const iconSrc = getIconSrc(iconName);
   const effectiveGroups = groups && groups.length > 0 ? groups : [{ key: "_single", title: "" }];
@@ -56,7 +54,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* PC: 왼쪽 위젯으로 가이드 상시 표시 */}
+      {/* PC 와이드: 왼쪽 사이드 위젯 */}
       <MeasureGuideSideWidget initialTypeId={guideTypeId} />
 
       <div className="px-4 py-4 border-b border-gray-100">
@@ -119,16 +117,8 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           </div>
         ))}
 
-        {/* 모바일: 클릭 시 하단 시트 */}
-        <div className="flex items-center justify-center pt-1 pb-2 min-[1100px]:hidden">
-          <button
-            type="button"
-            onClick={() => setShowGuide(true)}
-            className="text-sm text-[#00C896] underline underline-offset-2 px-3 py-1 active:opacity-60"
-          >
-            치수 재는 방법
-          </button>
-        </div>
+        {/* 화면 안 아코디언 위젯 (모바일·태블릿에서도 항상 보임) */}
+        <MeasureGuideAccordion initialTypeId={guideTypeId} defaultOpen />
       </div>
 
       {noteLines.length > 0 && (
@@ -159,12 +149,6 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           확인
         </button>
       </div>
-
-      <MeasureGuideBottomSheet
-        open={showGuide}
-        onClose={() => setShowGuide(false)}
-        initialTypeId={guideTypeId}
-      />
     </div>
   );
 }
