@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/order_service.dart';
+import '../../../../services/point_service.dart';
 import '../../domain/models/image_pin.dart';
 
 /// 결제 페이지 - 토스페이먼츠 사용
@@ -22,7 +23,9 @@ class PaymentPage extends ConsumerStatefulWidget {
 
 class _PaymentPageState extends ConsumerState<PaymentPage> {
   final _orderService = OrderService();
+  final _pointService = PointService();
   final _supabase = Supabase.instance.client;
+  final _pointsInputController = TextEditingController();
   
   bool _isLoading = false;
   Map<String, dynamic>? _orderData;
@@ -33,6 +36,19 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
   //   _orderData 는 intent.payload 로부터 구성된 가상 주문 데이터.
   bool _isIntentFlow = false;
   String? _intentId;
+
+  int _pointBalance = 0;
+  int _pointsUsed = 0;
+  int? _chargeBeforePoints;
+  bool _usePoints = false;
+  bool _pointsApplying = false;
+  String? _pointsError;
+
+  @override
+  void dispose() {
+    _pointsInputController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -80,7 +96,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     try {
       final intent = await _supabase
           .from('payment_intents')
-          .select('id, total_price, payload, expires_at, consumed_at')
+          .select(
+            'id, total_price, payload, expires_at, consumed_at, points_used, charge_before_points',
+          )
           .eq('id', widget.orderId)
           .maybeSingle();
 
@@ -128,8 +146,11 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           (payload['shippingDiscountAmount'] as num?)?.toInt() ?? 0;
       final basePriceFromPayload = (payload['basePrice'] as num?)?.toInt();
       final totalPriceVal = (intent['total_price'] as num?)?.toInt() ?? 0;
+      final pointsUsed = (intent['points_used'] as num?)?.toInt() ?? 0;
+      final chargeBefore = (intent['charge_before_points'] as num?)?.toInt() ??
+          (totalPriceVal + pointsUsed);
       final basePrice = basePriceFromPayload ??
-          (totalPriceVal -
+          (chargeBefore -
               (shippingFee - shippingDiscount).clamp(0, 1 << 31) -
               remoteAreaFee);
 
@@ -166,13 +187,66 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         _orderData = virtual;
         _isIntentFlow = true;
         _intentId = intent['id']?.toString();
+        _pointsUsed = pointsUsed;
+        _chargeBeforePoints = chargeBefore;
+        _usePoints = pointsUsed > 0;
+        if (pointsUsed > 0) {
+          _pointsInputController.text = pointsUsed.toString();
+        }
       });
+      await _loadPointBalance();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('주문 조회 실패: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _loadPointBalance() async {
+    try {
+      final balance = await _pointService.getPointBalance();
+      if (mounted) setState(() => _pointBalance = balance);
+    } catch (e) {
+      debugPrint('포인트 잔액 로드 실패: $e');
+    }
+  }
+
+  Future<void> _applyPoints(int pointsToUse) async {
+    if (!_isIntentFlow || _intentId == null) return;
+    setState(() {
+      _pointsApplying = true;
+      _pointsError = null;
+    });
+    try {
+      final data = await _pointService.applyPointsToPaymentIntent(
+        intentId: _intentId!,
+        pointsToUse: pointsToUse,
+      );
+      if (!mounted) return;
+      setState(() {
+        _pointsUsed = (data['points_used'] as num?)?.toInt() ?? 0;
+        _chargeBeforePoints =
+            (data['charge_before_points'] as num?)?.toInt();
+        _pointBalance = (data['point_balance'] as num?)?.toInt() ?? _pointBalance;
+        _usePoints = _pointsUsed > 0;
+        _orderData = {
+          ...?_orderData,
+          'total_price': (data['total_price'] as num?)?.toInt() ?? 0,
+        };
+        if (_pointsUsed > 0) {
+          _pointsInputController.text = _pointsUsed.toString();
+        } else {
+          _pointsInputController.clear();
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _pointsError = _pointService.mapApplyPointsError(e));
+      }
+    } finally {
+      if (mounted) setState(() => _pointsApplying = false);
     }
   }
 
@@ -190,6 +264,36 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     }
 
     final amount = (_orderData!['total_price'] as num?)?.toInt() ?? 0;
+
+    // 포인트 전액 결제
+    if (_isIntentFlow && amount == 0 && _pointsUsed > 0) {
+      setState(() => _isLoading = true);
+      try {
+        final orderId =
+            await _pointService.completePaymentWithPoints(_intentId!);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('포인트로 결제가 완료되었습니다.'),
+            backgroundColor: Color(0xFF00C896),
+          ),
+        );
+        context.go('/orders/$orderId');
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', '')),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+      return;
+    }
+
     final orderName = (_orderData!['item_name'] as String?) ?? '수선';
     final customerName = (_orderData!['customer_name'] as String?) ?? '고객';
 
@@ -468,6 +572,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                   
                   // 결제 금액
                   _buildPriceSection(formattedAmount),
+                  if (_isIntentFlow) ...[
+                    const SizedBox(height: 16),
+                    _buildPointsSection(),
+                  ],
                   const SizedBox(height: 16),
                 ],
               ),
@@ -614,6 +722,13 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
               isDiscount: true,
             ),
 
+          if (_pointsUsed > 0)
+            _buildInfoRow(
+              '포인트 사용',
+              '-₩${_formatPrice(_pointsUsed)}',
+              isDiscount: true,
+            ),
+
           Divider(height: 24, color: Colors.grey.shade200),
           Container(
             padding: const EdgeInsets.all(16),
@@ -643,6 +758,178 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPointsSection() {
+    final canUse = _pointBalance >= kMinPointsUse || _pointsUsed > 0;
+    final chargeBefore = _chargeBeforePoints ??
+        (((_orderData?['total_price'] as num?)?.toInt() ?? 0) + _pointsUsed);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.stars_outlined,
+                color: Theme.of(context).colorScheme.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '포인트 사용',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '보유 ${_formatPrice(_pointBalance)}P',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (!canUse)
+            Text(
+              '${_formatPrice(kMinPointsUse)}P 이상 모이면 결제 시 사용할 수 있습니다.',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            )
+          else ...[
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                '포인트 사용하기 (${_formatPrice(kMinPointsUse)}P부터)',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
+              ),
+              value: _usePoints,
+              activeThumbColor: const Color(0xFF00C896),
+              onChanged: _pointsApplying
+                  ? null
+                  : (on) async {
+                      setState(() {
+                        _usePoints = on;
+                        _pointsError = null;
+                      });
+                      if (!on) {
+                        await _applyPoints(0);
+                        return;
+                      }
+                      final maxUsable = [
+                        _pointBalance + _pointsUsed,
+                        chargeBefore,
+                      ].reduce((a, b) => a < b ? a : b);
+                      final initial = maxUsable < kMinPointsUse
+                          ? 0
+                          : kMinPointsUse.clamp(kMinPointsUse, maxUsable);
+                      if (initial < kMinPointsUse) {
+                        setState(() {
+                          _usePoints = false;
+                          _pointsError =
+                              '사용 가능한 포인트가 ${kMinPointsUse}P 미만입니다.';
+                        });
+                        return;
+                      }
+                      _pointsInputController.text = initial.toString();
+                      await _applyPoints(initial);
+                    },
+            ),
+            if (_usePoints) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _pointsInputController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        hintText: '$kMinPointsUse 이상',
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _pointsApplying
+                        ? null
+                        : () async {
+                            final n = int.tryParse(
+                              _pointsInputController.text.trim(),
+                            );
+                            if (n == null) {
+                              setState(
+                                () => _pointsError = '올바른 금액을 입력해주세요.',
+                              );
+                              return;
+                            }
+                            await _applyPoints(n);
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00C896),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(_pointsApplying ? '적용 중' : '적용'),
+                  ),
+                  const SizedBox(width: 6),
+                  OutlinedButton(
+                    onPressed: _pointsApplying
+                        ? null
+                        : () async {
+                            final maxUsable = [
+                              _pointBalance + _pointsUsed,
+                              chargeBefore,
+                            ].reduce((a, b) => a < b ? a : b);
+                            _pointsInputController.text = maxUsable.toString();
+                            await _applyPoints(maxUsable);
+                          },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('전액'),
+                  ),
+                ],
+              ),
+            ],
+            if (_pointsError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _pointsError!,
+                style: const TextStyle(fontSize: 12, color: Colors.red),
+              ),
+            ],
+          ],
         ],
       ),
     );
@@ -697,11 +984,11 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
               ),
               const SizedBox(height: 8),
             ],
-            // 토스페이먼츠 결제 버튼 - 클릭 시 결제 페이지로 이동
+            // 토스페이먼츠 결제 버튼 (0원이면 포인트 전액 결제)
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _goToTossPayment,
+                onPressed: _isLoading || _pointsApplying ? null : _goToTossPayment,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(
@@ -726,7 +1013,15 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                           const Icon(Icons.lock_outline, size: 20, color: Colors.white),
                           const SizedBox(width: 8),
                           Text(
-                            '₩$formattedAmount 결제하기',
+                            (() {
+                              final amount =
+                                  (_orderData?['total_price'] as num?)?.toInt() ??
+                                      0;
+                              if (amount == 0 && _pointsUsed > 0) {
+                                return '포인트로 결제 완료';
+                              }
+                              return '₩$formattedAmount 결제하기';
+                            })(),
                             style: const TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
