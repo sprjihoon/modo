@@ -90,7 +90,7 @@ serve(async (req) => {
 
       const { data: intent, error: intentErr } = await supabaseClient
         .from('payment_intents')
-        .select('id, user_id, total_price, payload, expires_at, consumed_at, consumed_order_id')
+        .select('id, user_id, total_price, points_used, charge_before_points, payload, expires_at, consumed_at, consumed_order_id')
         .eq('id', intentId)
         .maybeSingle()
 
@@ -121,6 +121,8 @@ serve(async (req) => {
         _intent_id: intentId,
         _intent_user_id: intent.user_id,
         _pickup: intent.payload,
+        _points_used: intent.points_used ?? 0,
+        _charge_before_points: intent.charge_before_points ?? null,
       }
 
     } else {
@@ -252,6 +254,8 @@ serve(async (req) => {
       const pickup = (orderData as any)._pickup as Record<string, any>
       const internalUserId = (orderData as any)._intent_user_id as string
       const intentId = (orderData as any)._intent_id as string
+      const pointsUsed = Number((orderData as any)._points_used ?? 0) || 0
+      const chargeBeforePoints = (orderData as any)._charge_before_points as number | null
 
       const orderNumber = `ORD${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`
       const insertData: Record<string, any> = {
@@ -285,7 +289,8 @@ serve(async (req) => {
         remote_area_fee: pickup.remoteAreaFee ?? 0,
         promotion_code_id: pickup.promotionCodeId || null,
         promotion_discount_amount: pickup.promotionDiscountAmount ?? null,
-        original_total_price: pickup.originalTotalPrice ?? null,
+        original_total_price: chargeBeforePoints ?? pickup.originalTotalPrice ?? null,
+        points_used: pointsUsed,
         repair_parts: Array.isArray(pickup.repairParts) && pickup.repairParts.length > 0 ? pickup.repairParts : null,
         images_with_pins: Array.isArray(pickup.imagesWithPins) && pickup.imagesWithPins.length > 0 ? pickup.imagesWithPins : null,
         images: Array.isArray(pickup.imageUrls) && pickup.imageUrls.length > 0 ? { urls: pickup.imageUrls } : null,
@@ -342,6 +347,21 @@ serve(async (req) => {
           .eq('id', intentId)
       } catch (e) {
         console.log('intent consume 업데이트 실패(무시):', e)
+      }
+
+      // 포인트 사용 예약 건에 order_id 연결
+      if (pointsUsed > 0) {
+        try {
+          await supabaseClient
+            .from('point_transactions')
+            .update({ order_id: newOrderId })
+            .eq('user_id', internalUserId)
+            .eq('type', 'USED')
+            .is('order_id', null)
+            .like('description', `%intent:${intentId}%`)
+        } catch (e) {
+          console.log('points_used link 실패(무시):', e)
+        }
       }
 
       // 프로모션 코드 사용 처리

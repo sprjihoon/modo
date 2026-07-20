@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
-import { Scissors, MapPin, CreditCard, AlertCircle, X, ShoppingCart } from "lucide-react";
+import { Scissors, MapPin, CreditCard, AlertCircle, X, ShoppingCart, Coins } from "lucide-react";
 import { Analytics } from "@/lib/analytics";
 import { addCartItem } from "@/lib/cart";
 import { CompanyFooter } from "@/components/layout/CompanyFooter";
@@ -33,10 +33,14 @@ interface IntentPayload {
 interface PaymentIntent {
   id: string;
   total_price: number;
+  points_used?: number | null;
+  charge_before_points?: number | null;
   payload: IntentPayload;
   expires_at: string;
   consumed_at: string | null;
 }
+
+const MIN_POINTS_USE = 1000;
 
 function getStoreId(): string {
   const id = process.env.NEXT_PUBLIC_PORTONE_STORE_ID?.trim();
@@ -72,6 +76,12 @@ export function PaymentClient() {
   const popstateHandlerRef = useRef<(() => void) | null>(null);
   const isPaymentInProgressRef = useRef(false);
   const [isSavingToCart, setIsSavingToCart] = useState(false);
+
+  const [pointBalance, setPointBalance] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointsInput, setPointsInput] = useState("");
+  const [pointsApplying, setPointsApplying] = useState(false);
+  const [pointsError, setPointsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!intentId) {
@@ -188,7 +198,9 @@ export function PaymentClient() {
           : intentId;
       const { data, error: e1 } = await supabase
         .from("payment_intents")
-        .select("id, total_price, payload, expires_at, consumed_at")
+        .select(
+          "id, total_price, points_used, charge_before_points, payload, expires_at, consumed_at"
+        )
         .eq("id", normalizedIntentId)
         .maybeSingle();
 
@@ -202,11 +214,61 @@ export function PaymentClient() {
         throw new Error("결제 시간이 만료되었습니다. 주문을 다시 시작해주세요.");
       }
       setIntent(data as PaymentIntent);
+      if ((data.points_used ?? 0) > 0) {
+        setUsePoints(true);
+        setPointsInput(String(data.points_used));
+      }
       Analytics.paymentStart(data.id, data.total_price);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: userRow } = await supabase
+          .from("users")
+          .select("point_balance")
+          .eq("auth_id", user.id)
+          .maybeSingle();
+        setPointBalance(userRow?.point_balance ?? 0);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "주문 정보를 불러올 수 없습니다.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function applyPoints(pointsToUse: number) {
+    if (!intent) return;
+    setPointsApplying(true);
+    setPointsError(null);
+    try {
+      const res = await fetch(`/api/payment-intents/${intent.id}/apply-points`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pointsToUse }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "포인트 적용 실패");
+      }
+      setIntent((prev) =>
+        prev
+          ? {
+              ...prev,
+              total_price: data.total_price,
+              points_used: data.points_used,
+              charge_before_points: data.charge_before_points,
+            }
+          : prev
+      );
+      setPointBalance(data.point_balance ?? pointBalance);
+      setPointsInput(pointsToUse > 0 ? String(pointsToUse) : "");
+      setUsePoints(pointsToUse > 0);
+    } catch (e) {
+      setPointsError(e instanceof Error ? e.message : "포인트 적용 실패");
+    } finally {
+      setPointsApplying(false);
     }
   }
 
@@ -215,9 +277,23 @@ export function PaymentClient() {
     setIsRequesting(true);
     setError(null);
     try {
-      const PortOne = await import("@portone/browser-sdk/v2");
-
       isPaymentInProgressRef.current = true;
+
+      // 포인트로 전액 결제
+      if (Math.round(intent.total_price) === 0) {
+        const res = await fetch(
+          `/api/payment-intents/${intent.id}/complete-with-points`,
+          { method: "POST" }
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.error || "포인트 결제 처리 실패");
+        }
+        router.replace(`/orders/${data.orderId}`);
+        return;
+      }
+
+      const PortOne = await import("@portone/browser-sdk/v2");
 
       const p = intent.payload;
       const intAmount = Math.max(1, Math.round(intent.total_price));
@@ -416,11 +492,112 @@ export function PaymentClient() {
                 <span className="text-orange-600 font-bold">+{formatPrice(remoteAreaFee)}</span>
               </div>
             )}
+            {(intent.points_used ?? 0) > 0 && (
+              <div className="flex items-center justify-between text-sm text-[#00C896] font-semibold">
+                <span>포인트 사용</span>
+                <span>-{formatPrice(intent.points_used ?? 0)}</span>
+              </div>
+            )}
             <div className="border-t border-[#00C896]/20 pt-2 mt-1" />
           </div>
           <p className="text-2xl font-bold text-gray-900">
             {formatPrice(intent.total_price)}
           </p>
+        </div>
+
+        {/* 포인트 사용 */}
+        <div className="mx-4 mt-3 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Coins className="w-4 h-4 text-[#00C896]" />
+              <p className="text-sm font-bold text-gray-800">포인트 사용</p>
+            </div>
+            <p className="text-xs text-gray-500">
+              보유 {pointBalance.toLocaleString("ko-KR")}P
+            </p>
+          </div>
+          {pointBalance < MIN_POINTS_USE ? (
+            <p className="text-xs text-gray-400">
+              {MIN_POINTS_USE.toLocaleString("ko-KR")}P 이상 모이면 결제 시 사용할 수 있습니다.
+            </p>
+          ) : (
+            <>
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={usePoints}
+                  disabled={pointsApplying}
+                  onChange={async (e) => {
+                    const on = e.target.checked;
+                    setUsePoints(on);
+                    setPointsError(null);
+                    if (!on) {
+                      await applyPoints(0);
+                      return;
+                    }
+                    const chargeBefore =
+                      intent.charge_before_points ??
+                      intent.total_price + (intent.points_used ?? 0);
+                    const maxUsable = Math.min(pointBalance + (intent.points_used ?? 0), chargeBefore);
+                    const initial = Math.max(MIN_POINTS_USE, Math.min(maxUsable, MIN_POINTS_USE));
+                    setPointsInput(String(initial));
+                    await applyPoints(initial);
+                  }}
+                  className="w-4 h-4 accent-[#00C896]"
+                />
+                포인트 사용하기 ({MIN_POINTS_USE.toLocaleString("ko-KR")}P부터)
+              </label>
+              {usePoints && (
+                <div className="mt-3 flex gap-2">
+                  <input
+                    type="number"
+                    min={MIN_POINTS_USE}
+                    step={1}
+                    value={pointsInput}
+                    onChange={(e) => setPointsInput(e.target.value)}
+                    className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#00C896]"
+                    placeholder={`${MIN_POINTS_USE} 이상`}
+                  />
+                  <button
+                    type="button"
+                    disabled={pointsApplying}
+                    onClick={async () => {
+                      const n = Math.floor(Number(pointsInput));
+                      if (!Number.isFinite(n)) {
+                        setPointsError("올바른 금액을 입력해주세요.");
+                        return;
+                      }
+                      await applyPoints(n);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-50"
+                  >
+                    {pointsApplying ? "적용 중" : "적용"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pointsApplying}
+                    onClick={async () => {
+                      const chargeBefore =
+                        intent.charge_before_points ??
+                        intent.total_price + (intent.points_used ?? 0);
+                      const maxUsable = Math.min(
+                        pointBalance + (intent.points_used ?? 0),
+                        chargeBefore
+                      );
+                      setPointsInput(String(maxUsable));
+                      await applyPoints(maxUsable);
+                    }}
+                    className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 disabled:opacity-50"
+                  >
+                    전액
+                  </button>
+                </div>
+              )}
+              {pointsError && (
+                <p className="mt-2 text-xs text-red-500">{pointsError}</p>
+              )}
+            </>
+          )}
         </div>
 
         {showTestButtons && (
@@ -459,7 +636,11 @@ export function PaymentClient() {
           disabled={isRequesting || testRequesting !== null}
           className="touch-target w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-full shadow-lg shadow-[#00C896]/30 disabled:opacity-50 active:bg-[#00A07B] active:shadow-none transition-all"
         >
-          {isRequesting ? "결제 진행 중..." : `${formatPrice(intent.total_price)} 결제하기`}
+          {isRequesting
+            ? "결제 진행 중..."
+            : intent.total_price === 0
+              ? "포인트로 결제 완료하기"
+              : `${formatPrice(intent.total_price)} 결제하기`}
         </button>
       </div>
 

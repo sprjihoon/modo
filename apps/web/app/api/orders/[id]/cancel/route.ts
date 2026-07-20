@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getShippingSettings } from "@/lib/shipping-settings";
+import { restoreOrderPointsUsed } from "@/lib/restore-order-points";
 
 const PAID_STATUSES = new Set(["PAID", "COMPLETED", "DONE"]);
 // BOOKED: 수거 전 → 수거 취소 + 전액 환불
@@ -278,6 +279,10 @@ export async function POST(
               refundError ? ` (${refundError})` : ""
             } 고객센터로 문의해 주세요.`;
 
+      if (refundResult || noRefundRequired) {
+        await restoreOrderPointsUsed(admin, orderId);
+      }
+
       return NextResponse.json({
         success: true,
         flow: "POST_PICKUP_RETURN",
@@ -476,6 +481,8 @@ export async function POST(
         { status: 502 }
       );
     }
+
+    await restoreOrderPointsUsed(admin, orderId);
 
     return NextResponse.json({
       success: true,
