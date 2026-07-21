@@ -4,22 +4,22 @@ import Link from "next/link";
 import { ChevronRight, Shirt, CreditCard } from "lucide-react";
 import { formatDate, formatPrice, ORDER_STATUS_MAP } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { InlineSvg } from "@/components/ui/inline-svg";
+import { InlineSvg } from "@/components/ui/InlineSvg";
 
-/** clothing_type ?�스????/public/icons/*.svg ?�일�?매핑 */
+/** clothing_type 텍스트 → /public/icons/*.svg 파일명 매핑 */
 function getClothingIconSrc(clothingType?: string): string | null {
   if (!clothingType) return null;
   const t = clothingType.toLowerCase();
-  if (t.includes("�?��지") || t.includes("�?)) return "/icons/jeans.svg";
-  if (t.includes("바�?") || t.includes("?�츠") || t.includes("?�랙??)) return "/icons/pants.svg";
-  if (t.includes("?�피??) || t.includes("?�레??)) return "/icons/dress.svg";
-  if (t.includes("치마") || t.includes("?�커??)) return "/icons/skirt.svg";
-  if (t.includes("?�셔�?) || t.includes("맨투�?) || t.includes("?�드")) return "/icons/tshirt.svg";
-  if (t.includes("?�츠") || t.includes("블라?�스")) return "/icons/shirt.svg";
-  if (t.includes("?�우??) || t.includes("코트") || t.includes("?�켓") || t.includes("?�퍼") || t.includes("?�딩")) return "/icons/outer.svg";
-  if (t.includes("?�장") || t.includes("?�트") || t.includes("?�트")) return "/icons/suit.svg";
-  if (t.includes("?�웨??) || t.includes("?�트") || t.includes("가?�건")) return "/icons/sweater.svg";
-  if (t.includes("가�?) || t.includes("?�더")) return "/icons/leather.svg";
+  if (t.includes("청바지") || t.includes("진")) return "/icons/jeans.svg";
+  if (t.includes("바지") || t.includes("팬츠") || t.includes("슬랙스")) return "/icons/pants.svg";
+  if (t.includes("원피스") || t.includes("드레스")) return "/icons/dress.svg";
+  if (t.includes("치마") || t.includes("스커트")) return "/icons/skirt.svg";
+  if (t.includes("티셔츠") || t.includes("맨투맨") || t.includes("후드")) return "/icons/tshirt.svg";
+  if (t.includes("셔츠") || t.includes("블라우스")) return "/icons/shirt.svg";
+  if (t.includes("아우터") || t.includes("코트") || t.includes("자켓") || t.includes("점퍼") || t.includes("패딩")) return "/icons/outer.svg";
+  if (t.includes("정장") || t.includes("수트") || t.includes("슈트")) return "/icons/suit.svg";
+  if (t.includes("스웨터") || t.includes("니트") || t.includes("가디건")) return "/icons/sweater.svg";
+  if (t.includes("가죽") || t.includes("레더")) return "/icons/leather.svg";
   return null;
 }
 
@@ -63,7 +63,7 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
     >
       <div className="p-4">
         <div className="flex items-start gap-3">
-          {/* ?�이�?*/}
+          {/* 아이콘 */}
           <div className="relative shrink-0">
             <div
               className={cn(
@@ -93,12 +93,12 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
             )}
           </div>
 
-          {/* ?�보 */}
+          {/* 정보 */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1 flex-wrap">
               {isPendingCustomer && (
                 <span className="text-xs font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded">
-                  추�?결제
+                  추가결제
                 </span>
               )}
               <span
@@ -116,7 +116,7 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
             </div>
 
             <p className={cn("text-sm font-bold truncate", isCancelled ? "text-gray-400" : "text-gray-900")}>
-              {order.item_name || "?�선 ??��"}
+              {order.item_name || "수선 항목"}
             </p>
 
             <div className="flex items-center gap-2 mt-0.5">
@@ -135,7 +135,7 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
 
             {order.pickup_date && order.status === "BOOKED" && (
               <p className="text-xs text-[#00C896] font-medium mt-1">
-                ?�거 ?�정: {formatDate(order.pickup_date)}
+                수거 예정: {formatDate(order.pickup_date)}
               </p>
             )}
           </div>
@@ -143,7 +143,7 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
           <ChevronRight className="w-4 h-4 text-gray-300 shrink-0 mt-1" />
         </div>
 
-        {/* 미니 진행 �?*/}
+        {/* 미니 진행 바 */}
         {showProgress && !compact && (
           <div className="mt-3 pt-3 border-t border-gray-50">
             <div className="flex items-center gap-0.5">
@@ -158,18 +158,18 @@ export function RecentOrderCard({ order, compact = false }: RecentOrderCardProps
               ))}
             </div>
             <div className="flex justify-between mt-1">
-              <span className="text-xs text-gray-400">?�거?�약</span>
+              <span className="text-xs text-gray-400">수거예약</span>
               <span className="text-xs text-[#00C896] font-semibold">{statusInfo.label}</span>
-              <span className="text-xs text-gray-400">배송?�료</span>
+              <span className="text-xs text-gray-400">배송완료</span>
             </div>
           </div>
         )}
 
-        {/* 추�?결제 금액 ?�시 */}
+        {/* 추가결제 금액 표시 */}
         {isPendingCustomer && (
           <div className="mt-2.5 pt-2.5 border-t border-orange-100 flex items-center justify-between">
-            <span className="text-xs text-orange-600">추�? 결제 ?�청??/span>
-            <span className="text-xs font-bold text-orange-700">??��???�인 ??/span>
+            <span className="text-xs text-orange-600">추가 결제 요청됨</span>
+            <span className="text-xs font-bold text-orange-700">탭하여 확인 →</span>
           </div>
         )}
       </div>

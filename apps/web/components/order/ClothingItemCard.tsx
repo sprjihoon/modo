@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Trash2, Scissors } from "lucide-react";
 import type { ClothingItem } from "./OrderNewClient";
-import { InlineSvg } from "@/components/ui/inline-svg";
+import { InlineSvg } from "@/components/ui/InlineSvg";
 
 interface Props {
   index: number;
@@ -12,7 +12,7 @@ interface Props {
 }
 
 function formatPrice(n: number) {
-  return `${n.toLocaleString("ko-KR")}??;
+  return `${n.toLocaleString("ko-KR")}원`;
 }
 
 function getIconSrc(iconName?: string): string | null {
@@ -63,14 +63,14 @@ export function ClothingItemCard({ index, item, onRemove }: Props) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-xs bg-[#00C896]/10 text-[#00C896] font-bold px-1.5 py-0.5 rounded">
-              ?�류 {index + 1}
+              의류 {index + 1}
             </span>
             <p className="text-sm font-bold text-gray-900 truncate">
-              {item.clothingType || "?�류"}
+              {item.clothingType || "의류"}
             </p>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            ?�선 {item.repairItems.length}�?
+            수선 {item.repairItems.length}개
             {repairTotal > 0 && (
               <span className="ml-2 font-semibold text-[#00C896]">
                 {formatPrice(repairTotal)}~
@@ -89,7 +89,7 @@ export function ClothingItemCard({ index, item, onRemove }: Props) {
             ))}
             {item.repairItems.length > 4 && (
               <span className="text-xs text-gray-400 px-1.5 py-0.5">
-                +{item.repairItems.length - 4}�?
+                +{item.repairItems.length - 4}개
               </span>
             )}
           </div>
@@ -111,7 +111,7 @@ export function ClothingItemCard({ index, item, onRemove }: Props) {
           type="button"
           onClick={onRemove}
           className="p-1.5 text-gray-300 active:text-red-400"
-          aria-label="??��"
+          aria-label="삭제"
         >
           <Trash2 className="w-4 h-4" />
         </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { InlineSvg } from "@/components/ui/inline-svg";
+import { InlineSvg } from "@/components/ui/InlineSvg";
 import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion";
 import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
@@ -55,11 +55,11 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* PC: ?�쪽 ?�이???�젯 */}
+      {/* PC: 왼쪽 사이드 위젯 */}
       <MeasureGuideSideWidget initialTypeId={guideTypeId} />
 
       <div className="px-4 py-4 border-b border-gray-100">
-        <h2 className="text-lg font-bold text-gray-900">치수�??�력?�주?�요</h2>
+        <h2 className="text-lg font-bold text-gray-900">치수를 입력해주세요</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
@@ -83,7 +83,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           <div className="flex-1">
             <span className="text-sm font-semibold text-gray-800">{displayName}</span>
             {price != null && price > 0 && (
-              <p className="text-xs text-[#00C896]">{price.toLocaleString("ko-KR")}??/p>
+              <p className="text-xs text-[#00C896]">{price.toLocaleString("ko-KR")}원</p>
             )}
           </div>
         </div>
@@ -103,7 +103,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
                   <input
                     type="number"
                     inputMode="decimal"
-                    placeholder="?? 30"
+                    placeholder="예: 30"
                     value={values[idx] || ""}
                     onChange={(e) => {
                       const next = [...values];
@@ -118,7 +118,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           </div>
         ))}
 
-        {/* 모바???�블�? ?�면 ???�코?�언 (PC???�이???�젯) */}
+        {/* 모바일/태블릿: 화면 안 아코디언 (PC는 사이드 위젯) */}
         <div className="lg:hidden">
           <MeasureGuideAccordion initialTypeId={guideTypeId} defaultOpen />
         </div>
@@ -129,7 +129,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           <ul className="space-y-2">
             {noteLines.map((line, i) => (
               <li key={i} className="flex items-start gap-2 text-xs text-gray-500 leading-relaxed">
-                <span className="mt-0.5 shrink-0">??/span>
+                <span className="mt-0.5 shrink-0">•</span>
                 <span>{line}</span>
               </li>
             ))}
@@ -142,14 +142,14 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           onClick={onBack}
           className="touch-target flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
         >
-          ?�전
+          이전
         </button>
         <button
           onClick={() => onConfirm(values)}
           disabled={!hasAnyValue}
           className="touch-target flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
         >
-          ?�인
+          확인
         </button>
       </div>
     </div>
