@@ -95,6 +95,13 @@ export function SignupPageClient() {
           role: "CUSTOMER",
         });
 
+        // 회원가입 축하 포인트 (DB 트리거 + 안전망)
+        try {
+          await fetch("/api/points/signup-reward", { method: "POST" });
+        } catch {
+          /* ignore */
+        }
+
         if (inviteCode) {
           const applyRes = await fetch("/api/invite/apply", {
             method: "POST",

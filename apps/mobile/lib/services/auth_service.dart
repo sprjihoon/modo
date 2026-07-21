@@ -7,6 +7,7 @@ import '../features/auth/domain/models/user_model.dart';
 import '../core/enums/user_role.dart';
 import '../core/enums/action_type.dart';
 import 'log_service.dart';
+import 'point_service.dart';
 
 /// Supabase Auth 서비스
 class AuthService {
@@ -150,6 +151,13 @@ class AuthService {
         } catch (retryError) {
           print('❌ 프로필 확인 실패: $retryError');
         }
+      }
+
+      // 회원가입 축하 포인트 (DB 트리거 + 멱등 안전망)
+      try {
+        await PointService().grantSignupReward();
+      } catch (e) {
+        print('⚠️ 가입 포인트 지급 호출 실패(무시): $e');
       }
 
       return response;

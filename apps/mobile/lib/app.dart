@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'services/network_monitor_service.dart';
 import 'services/notification_service.dart';
+import 'services/point_service.dart';
 
 /// 앱 라이프사이클 상태 Provider
 final appLifecycleProvider =
@@ -139,6 +140,13 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
         await Future.delayed(const Duration(milliseconds: 300));
 
         if (!mounted) return;
+
+        // 회원가입 축하 포인트 (신규 유저 트리거 누락 시 멱등 안전망)
+        try {
+          await PointService().grantSignupReward();
+        } catch (e) {
+          debugPrint('⚠️ [App] 가입 포인트 안전망 실패(무시): $e');
+        }
 
         // 프로필 완료 여부 확인
         final targetRoute = await _checkProfileAndGetRoute(session.user.id);

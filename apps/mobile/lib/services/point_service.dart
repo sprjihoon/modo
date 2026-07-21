@@ -99,6 +99,25 @@ class PointService {
     return '포인트 적용에 실패했습니다.';
   }
 
+  /// 회원가입 축하 포인트 지급 (멱등, DB 트리거 누락 시 안전망)
+  Future<Map<String, dynamic>?> grantSignupReward() async {
+    try {
+      final userId = await _currentUserId();
+      if (userId == null) return null;
+      final response = await _supabase.rpc(
+        'grant_signup_reward',
+        params: {'p_user_id': userId},
+      );
+      if (response is Map) {
+        return Map<String, dynamic>.from(response);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('회원가입 포인트 지급 실패(무시): $e');
+      return null;
+    }
+  }
+
   /// 포인트 전액 결제 (total_price == 0)
   Future<String> completePaymentWithPoints(String intentId) async {
     final response = await _supabase.functions.invoke(

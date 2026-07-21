@@ -53,14 +53,20 @@ export async function GET(request: Request) {
           { onConflict: "auth_id", ignoreDuplicates: true }
         );
 
-        const inviteCode = readInviteCookie(request);
-        if (inviteCode) {
-          const { data: userRow } = await admin
-            .from("users")
-            .select("id")
-            .eq("auth_id", data.user.id)
-            .maybeSingle();
-          if (userRow?.id) {
+        const { data: userRow } = await admin
+          .from("users")
+          .select("id")
+          .eq("auth_id", data.user.id)
+          .maybeSingle();
+
+        if (userRow?.id) {
+          // 회원가입 축하 포인트 (신규 INSERT 시 트리거 + 멱등 안전망)
+          await admin.rpc("grant_signup_reward", {
+            p_user_id: userRow.id,
+          });
+
+          const inviteCode = readInviteCookie(request);
+          if (inviteCode) {
             await admin.rpc("apply_invite_on_signup", {
               p_invitee_user_id: userRow.id,
               p_invite_code: inviteCode,

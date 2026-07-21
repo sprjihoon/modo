@@ -36,6 +36,9 @@ export default function PointSettingsPage() {
   const [inviteReward, setInviteReward] = useState(1000);
   const [inviteActive, setInviteActive] = useState(true);
   const [inviteSaving, setInviteSaving] = useState(false);
+  const [signupReward, setSignupReward] = useState(1000);
+  const [signupActive, setSignupActive] = useState(true);
+  const [signupSaving, setSignupSaving] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -60,8 +63,10 @@ export default function PointSettingsPage() {
       const data = await res.json();
       setInviteReward(data.invite_reward_amount ?? 1000);
       setInviteActive(data.is_active ?? true);
+      setSignupReward(data.signup_reward_amount ?? 1000);
+      setSignupActive(data.signup_reward_active ?? true);
     } catch (error) {
-      console.error("초대 설정 조회 실패:", error);
+      console.error("초대/가입 설정 조회 실패:", error);
     }
   };
 
@@ -90,6 +95,34 @@ export default function PointSettingsPage() {
       alert(error instanceof Error ? error.message : "저장 중 오류가 발생했습니다.");
     } finally {
       setInviteSaving(false);
+    }
+  };
+
+  const saveSignupSettings = async () => {
+    if (!Number.isInteger(signupReward) || signupReward < 0) {
+      alert("적립 금액은 0 이상의 정수여야 합니다.");
+      return;
+    }
+    setSignupSaving(true);
+    try {
+      const res = await fetch("/api/invite/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          signup_reward_amount: signupReward,
+          signup_reward_active: signupActive,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "저장 실패");
+      }
+      alert("회원가입 적립 설정이 저장되었습니다.");
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "저장 중 오류가 발생했습니다.");
+    } finally {
+      setSignupSaving(false);
     }
   };
 
@@ -184,6 +217,45 @@ export default function PointSettingsPage() {
           새 설정 추가
         </Button>
       </div>
+
+      {/* 회원가입 적립 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>회원가입 적립</CardTitle>
+          <CardDescription>
+            신규 고객이 가입하면 자동으로 지급되는 포인트입니다 (웹·앱 공통, 기본 1,000P)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="text-sm text-muted-foreground">적립 금액 (P)</label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={signupReward}
+                onChange={(e) => setSignupReward(Number(e.target.value))}
+                className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex items-end gap-3">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={signupActive}
+                  onChange={(e) => setSignupActive(e.target.checked)}
+                  className="accent-blue-600"
+                />
+                가입 적립 활성
+              </label>
+            </div>
+          </div>
+          <Button onClick={saveSignupSettings} disabled={signupSaving}>
+            {signupSaving ? "저장 중..." : "가입 적립 저장"}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* 친구 초대 적립 */}
       <Card>

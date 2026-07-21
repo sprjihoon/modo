@@ -5,7 +5,8 @@ import { useState, Suspense } from "react";
 import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 import { PageTracker } from "@/components/analytics/PageTracker";
 import { InviteBootstrap } from "@/components/auth/InviteBootstrap";
-import { preloadAllSvgs } from "@/components/ui/InlineSvg";
+import { SignupRewardBootstrap } from "@/components/auth/SignupRewardBootstrap";
+import { preloadAllSvgs } from "@/components/ui/inlineSvg";
 
 preloadAllSvgs();
 
@@ -28,6 +29,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <Suspense>
         <PageTracker />
         <InviteBootstrap />
+        <SignupRewardBootstrap />
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       </Suspense>
     </PostHogProvider>

@@ -13,7 +13,9 @@ export async function GET() {
   try {
     const { data, error } = await supabase
       .from("invite_settings")
-      .select("invite_reward_amount, is_active, updated_at")
+      .select(
+        "invite_reward_amount, is_active, signup_reward_amount, signup_reward_active, updated_at"
+      )
       .eq("id", 1)
       .maybeSingle();
 
@@ -25,6 +27,8 @@ export async function GET() {
     return NextResponse.json({
       invite_reward_amount: data?.invite_reward_amount ?? 1000,
       is_active: data?.is_active ?? true,
+      signup_reward_amount: data?.signup_reward_amount ?? 1000,
+      signup_reward_active: data?.signup_reward_active ?? true,
       updated_at: data?.updated_at ?? null,
     });
   } catch (e) {
@@ -36,27 +40,53 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const amount = Number(body?.invite_reward_amount);
-    const isActive =
-      typeof body?.is_active === "boolean" ? body.is_active : undefined;
+    const patch: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
 
-    if (!Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
+    if (body?.invite_reward_amount !== undefined) {
+      const amount = Number(body.invite_reward_amount);
+      if (!Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
+        return NextResponse.json(
+          { error: "초대 적립 금액은 0 이상의 정수여야 합니다." },
+          { status: 400 }
+        );
+      }
+      patch.invite_reward_amount = amount;
+    }
+
+    if (typeof body?.is_active === "boolean") {
+      patch.is_active = body.is_active;
+    }
+
+    if (body?.signup_reward_amount !== undefined) {
+      const amount = Number(body.signup_reward_amount);
+      if (!Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
+        return NextResponse.json(
+          { error: "가입 적립 금액은 0 이상의 정수여야 합니다." },
+          { status: 400 }
+        );
+      }
+      patch.signup_reward_amount = amount;
+    }
+
+    if (typeof body?.signup_reward_active === "boolean") {
+      patch.signup_reward_active = body.signup_reward_active;
+    }
+
+    if (Object.keys(patch).length <= 1) {
       return NextResponse.json(
-        { error: "적립 금액은 0 이상의 정수여야 합니다." },
+        { error: "변경할 값이 없습니다." },
         { status: 400 }
       );
     }
 
-    const patch: Record<string, unknown> = {
-      invite_reward_amount: amount,
-      updated_at: new Date().toISOString(),
-    };
-    if (isActive !== undefined) patch.is_active = isActive;
-
     const { data, error } = await supabase
       .from("invite_settings")
       .upsert({ id: 1, ...patch }, { onConflict: "id" })
-      .select("invite_reward_amount, is_active, updated_at")
+      .select(
+        "invite_reward_amount, is_active, signup_reward_amount, signup_reward_active, updated_at"
+      )
       .single();
 
     if (error) {
