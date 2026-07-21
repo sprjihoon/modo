@@ -39,6 +39,7 @@ import '../../features/profile/presentation/pages/points_history_page.dart';
 import '../../features/profile/presentation/pages/invite_friends_page.dart';
 import '../../features/announcements/presentation/pages/announcements_page.dart';
 import '../../features/profile/presentation/pages/customer_service_page.dart';
+import '../../features/profile/presentation/pages/faq_page.dart';
 import '../../features/profile/presentation/pages/app_settings_page.dart';
 import '../../features/video/presentation/pages/comparison_video_player_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
@@ -496,6 +497,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'customer-service',
             name: 'profile-customer-service',
             builder: (context, state) => const CustomerServicePage(),
+          ),
+          // 자주 묻는 질문
+          GoRoute(
+            path: 'faq',
+            name: 'profile-faq',
+            builder: (context, state) => const FaqPage(),
           ),
           // 앱 설정
           GoRoute(

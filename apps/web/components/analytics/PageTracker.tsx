@@ -19,6 +19,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/profile/settings": "설정",
   "/profile/account": "계정 정보",
   "/profile/support": "고객센터",
+  "/profile/support/faq": "자주 묻는 질문",
   "/profile/invite": "친구 초대",
   "/notifications": "알림",
   "/announcements": "공지사항",
