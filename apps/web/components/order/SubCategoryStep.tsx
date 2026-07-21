@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { InlineSvg } from "@/components/ui/InlineSvg";
+import { InlineSvg } from "@/components/ui/inline-svg";
 
 interface Category {
   id: string;

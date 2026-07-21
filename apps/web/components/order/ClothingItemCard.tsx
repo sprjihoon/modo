@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Trash2, Scissors } from "lucide-react";
 import type { ClothingItem } from "./OrderNewClient";
-import { InlineSvg } from "@/components/ui/InlineSvg";
+import { InlineSvg } from "@/components/ui/inline-svg";
 
 interface Props {
   index: number;

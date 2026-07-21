@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { InlineSvg } from "@/components/ui/InlineSvg";
+import { InlineSvg } from "@/components/ui/inline-svg";
 import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion";
 import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";

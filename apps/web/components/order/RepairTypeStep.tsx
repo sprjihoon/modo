@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, X, Minus, Plus, Trash2, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RepairItem } from "./OrderNewClient";
-import { InlineSvg } from "@/components/ui/InlineSvg";
+import { InlineSvg } from "@/components/ui/inline-svg";
 import { createClient } from "@/lib/supabase/client";
 import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion";
 import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";

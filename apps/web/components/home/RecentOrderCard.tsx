@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChevronRight, Shirt, CreditCard } from "lucide-react";
 import { formatDate, formatPrice, ORDER_STATUS_MAP } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { InlineSvg } from "@/components/ui/InlineSvg";
+import { InlineSvg } from "@/components/ui/inline-svg";
 
 /** clothing_type 텍스트 → /public/icons/*.svg 파일명 매핑 */
 function getClothingIconSrc(clothingType?: string): string | null {

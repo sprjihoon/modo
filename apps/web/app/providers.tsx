@@ -6,7 +6,7 @@ import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 import { PageTracker } from "@/components/analytics/PageTracker";
 import { InviteBootstrap } from "@/components/auth/InviteBootstrap";
 import { SignupRewardBootstrap } from "@/components/auth/SignupRewardBootstrap";
-import { preloadAllSvgs } from "@/components/ui/inlineSvg";
+import { preloadAllSvgs } from "@/components/ui/inline-svg";
 
 preloadAllSvgs();
 
