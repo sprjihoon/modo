@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { InlineSvg } from "@/components/ui/InlineSvg";
+import { InlineSvg } from "@/components/ui/inline-svg";
 
 interface Category {
   id: string;
@@ -62,7 +62,7 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
     <div>
       <div className="px-4 pt-5 pb-3">
         <h2 className="text-lg font-bold text-gray-900">
-          어떤 의류를 수선하시나요?
+          ?�떤 ?�류�??�선?�시?�요?
         </h2>
       </div>
 
@@ -121,12 +121,12 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
 }
 
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: "1", name: "티셔츠/맨투맨", icon_name: "tshirt" },
-  { id: "2", name: "셔츠/블라우스", icon_name: "shirt" },
-  { id: "3", name: "원피스", icon_name: "dress" },
-  { id: "4", name: "바지", icon_name: "pants" },
-  { id: "5", name: "청바지", icon_name: "jeans" },
+  { id: "1", name: "?�셔�?맨투�?, icon_name: "tshirt" },
+  { id: "2", name: "?�츠/블라?�스", icon_name: "shirt" },
+  { id: "3", name: "?�피??, icon_name: "dress" },
+  { id: "4", name: "바�?", icon_name: "pants" },
+  { id: "5", name: "�?��지", icon_name: "jeans" },
   { id: "6", name: "치마", icon_name: "skirt" },
-  { id: "7", name: "아우터", icon_name: "outer" },
-  { id: "8", name: "정장/수트", icon_name: "suit" },
+  { id: "7", name: "?�우??, icon_name: "outer" },
+  { id: "8", name: "?�장/?�트", icon_name: "suit" },
 ];
