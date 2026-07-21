@@ -524,14 +524,22 @@ function DailyIllustration({ item }: { item: DailyItem }) {
 
 // ─── Supply Item ─────────────────────────────────────────────────────────────
 
+/** 준비물: 수선할(라임) / 평소 잘 맞는(흰색) 구분 */
+const SUPPLY_IMG = {
+  topRepair: "/images/measure/supply-top-tilted.svg",
+  topFit: "/images/measure/supply-top.svg",
+  bottomRepair: "/images/measure/supply-pants.svg",
+  bottomFit: "/images/measure/supply-pants-fit.svg",
+} as const;
+
 function SupplyItem({ src, label }: { src: string; label: string }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
-      <div className="flex h-[132px] w-full max-w-[160px] items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-white px-2 py-3 sm:h-[152px]">
+      <div className="flex h-[120px] w-full max-w-[140px] items-center justify-center rounded-2xl border border-gray-100 bg-white p-3 sm:h-[136px]">
         <img
           src={src}
           alt={label}
-          className="h-full w-full origin-center object-contain scale-[1.35]"
+          className="max-h-full max-w-full object-contain"
           draggable={false}
         />
       </div>
@@ -699,8 +707,8 @@ export function MeasureGuideClient({
               <SupplyItem
                 src={
                   current.clothing === "bottom"
-                    ? IMG_SRC.pantsFront
-                    : IMG_SRC.sweaterTilted
+                    ? SUPPLY_IMG.bottomRepair
+                    : SUPPLY_IMG.topRepair
                 }
                 label="수선할 의류"
               />
@@ -708,8 +716,8 @@ export function MeasureGuideClient({
             <SupplyItem
               src={
                 current.clothing === "bottom"
-                  ? IMG_SRC.pantsFront
-                  : IMG_SRC.sweaterTilted
+                  ? SUPPLY_IMG.bottomFit
+                  : SUPPLY_IMG.topFit
               }
               label="평소 잘 맞는 의류"
             />

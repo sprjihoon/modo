@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 160" fill="none">
+  <!-- 평소 잘 맞는 의류: 흰색 -->
+  <path
+    d="M48 36 L38 50 L20 44 L16 56 L38 66 L42 138 H98 L102 66 L124 56 L120 44 L102 50 L92 36 C88 28 78 24 70 24 C62 24 52 28 48 36 Z"
+    fill="#FFFFFF"
+    stroke="#111827"
+    stroke-width="3"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M58 26 C62 32 78 32 82 26"
+    stroke="#111827"
+    stroke-width="3"
+    stroke-linecap="round"
+  />
+  <path d="M42 138 H98" stroke="#111827" stroke-width="3" stroke-linecap="round" />
+  <path d="M38 66 L42 138 M102 66 L98 138" stroke="#111827" stroke-width="2" opacity="0.35" />
+</svg>
