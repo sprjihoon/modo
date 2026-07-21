@@ -54,7 +54,7 @@ export async function GET() {
 
     const { data: settings } = await admin
       .from("invite_settings")
-      .select("invite_reward_amount, is_active")
+      .select("invite_reward_amount, invitee_reward_amount, is_active")
       .eq("id", 1)
       .maybeSingle();
 
@@ -66,6 +66,7 @@ export async function GET() {
       invite_count: userRow.invite_count ?? 0,
       invite_points_earned: userRow.invite_points_earned ?? 0,
       reward_amount: settings?.invite_reward_amount ?? 1000,
+      invitee_reward_amount: settings?.invitee_reward_amount ?? 1000,
       reward_active: settings?.is_active ?? true,
       can_apply_invite: canApplyInvite,
     });

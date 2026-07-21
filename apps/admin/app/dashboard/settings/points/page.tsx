@@ -34,6 +34,7 @@ export default function PointSettingsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSetting, setEditingSetting] = useState<PointSetting | null>(null);
   const [inviteReward, setInviteReward] = useState(1000);
+  const [inviteeReward, setInviteeReward] = useState(1000);
   const [inviteActive, setInviteActive] = useState(true);
   const [inviteSaving, setInviteSaving] = useState(false);
   const [signupReward, setSignupReward] = useState(1000);
@@ -62,6 +63,7 @@ export default function PointSettingsPage() {
       const res = await fetch("/api/invite/settings");
       const data = await res.json();
       setInviteReward(data.invite_reward_amount ?? 1000);
+      setInviteeReward(data.invitee_reward_amount ?? 1000);
       setInviteActive(data.is_active ?? true);
       setSignupReward(data.signup_reward_amount ?? 1000);
       setSignupActive(data.signup_reward_active ?? true);
@@ -72,7 +74,11 @@ export default function PointSettingsPage() {
 
   const saveInviteSettings = async () => {
     if (!Number.isInteger(inviteReward) || inviteReward < 0) {
-      alert("적립 금액은 0 이상의 정수여야 합니다.");
+      alert("초대자 적립 금액은 0 이상의 정수여야 합니다.");
+      return;
+    }
+    if (!Number.isInteger(inviteeReward) || inviteeReward < 0) {
+      alert("피초대자 적립 금액은 0 이상의 정수여야 합니다.");
       return;
     }
     setInviteSaving(true);
@@ -82,6 +88,7 @@ export default function PointSettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           invite_reward_amount: inviteReward,
+          invitee_reward_amount: inviteeReward,
           is_active: inviteActive,
         }),
       });
@@ -262,19 +269,30 @@ export default function PointSettingsPage() {
         <CardHeader>
           <CardTitle>친구 초대 적립</CardTitle>
           <CardDescription>
-            친구가 초대 코드로 가입하면 초대자에게 지급되는 포인트입니다
+            초대 코드로 가입·적용하면 초대자(친구)와 피초대자(코드 입력) 모두 포인트가 지급됩니다
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <label className="text-sm text-muted-foreground">적립 금액 (P)</label>
+              <label className="text-sm text-muted-foreground">초대자 적립 (P)</label>
               <input
                 type="number"
                 min={0}
                 step={1}
                 value={inviteReward}
                 onChange={(e) => setInviteReward(Number(e.target.value))}
+                className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">피초대자 적립 (P)</label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={inviteeReward}
+                onChange={(e) => setInviteeReward(Number(e.target.value))}
                 className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
               />
             </div>

@@ -14,7 +14,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("invite_settings")
       .select(
-        "invite_reward_amount, is_active, signup_reward_amount, signup_reward_active, updated_at"
+        "invite_reward_amount, invitee_reward_amount, is_active, signup_reward_amount, signup_reward_active, updated_at"
       )
       .eq("id", 1)
       .maybeSingle();
@@ -26,6 +26,7 @@ export async function GET() {
 
     return NextResponse.json({
       invite_reward_amount: data?.invite_reward_amount ?? 1000,
+      invitee_reward_amount: data?.invitee_reward_amount ?? 1000,
       is_active: data?.is_active ?? true,
       signup_reward_amount: data?.signup_reward_amount ?? 1000,
       signup_reward_active: data?.signup_reward_active ?? true,
@@ -48,11 +49,22 @@ export async function PATCH(request: NextRequest) {
       const amount = Number(body.invite_reward_amount);
       if (!Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
         return NextResponse.json(
-          { error: "초대 적립 금액은 0 이상의 정수여야 합니다." },
+          { error: "초대자 적립 금액은 0 이상의 정수여야 합니다." },
           { status: 400 }
         );
       }
       patch.invite_reward_amount = amount;
+    }
+
+    if (body?.invitee_reward_amount !== undefined) {
+      const amount = Number(body.invitee_reward_amount);
+      if (!Number.isFinite(amount) || amount < 0 || !Number.isInteger(amount)) {
+        return NextResponse.json(
+          { error: "피초대자 적립 금액은 0 이상의 정수여야 합니다." },
+          { status: 400 }
+        );
+      }
+      patch.invitee_reward_amount = amount;
     }
 
     if (typeof body?.is_active === "boolean") {
@@ -85,7 +97,7 @@ export async function PATCH(request: NextRequest) {
       .from("invite_settings")
       .upsert({ id: 1, ...patch }, { onConflict: "id" })
       .select(
-        "invite_reward_amount, is_active, signup_reward_amount, signup_reward_active, updated_at"
+        "invite_reward_amount, invitee_reward_amount, is_active, signup_reward_amount, signup_reward_active, updated_at"
       )
       .single();
 

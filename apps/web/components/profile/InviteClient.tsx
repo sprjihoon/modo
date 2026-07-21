@@ -10,6 +10,7 @@ export function InviteClient() {
   const [inviteCount, setInviteCount] = useState(0);
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [rewardAmount, setRewardAmount] = useState(1000);
+  const [inviteeRewardAmount, setInviteeRewardAmount] = useState(1000);
   const [canApplyInvite, setCanApplyInvite] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -28,6 +29,7 @@ export function InviteClient() {
       setInviteCount(data.invite_count ?? 0);
       setEarnedPoints(data.invite_points_earned ?? 0);
       setRewardAmount(data.reward_amount ?? 1000);
+      setInviteeRewardAmount(data.invitee_reward_amount ?? 1000);
       setCanApplyInvite(!!data.can_apply_invite);
     } catch {
       /* ignore */
@@ -49,7 +51,7 @@ export function InviteClient() {
 
   async function shareInvite() {
     const link = `${getSiteUrl()}/signup?invite=${encodeURIComponent(inviteCode)}`;
-    const text = `모두의수선 초대 코드: ${inviteCode}\n친구가 가입하면 ${rewardAmount.toLocaleString("ko-KR")}P 적립!\n${link}`;
+    const text = `모두의수선 초대 코드: ${inviteCode}\n가입하면 서로 포인트 적립! (초대자 ${rewardAmount.toLocaleString("ko-KR")}P / 가입자 ${inviteeRewardAmount.toLocaleString("ko-KR")}P)\n${link}`;
     if (navigator.share) {
       await navigator.share({ title: "모두의수선 초대", text });
     } else {
@@ -75,7 +77,12 @@ export function InviteClient() {
       });
       const data = await res.json().catch(() => ({}));
       if (data?.ok) {
-        setApplyMsg("초대 코드가 적용되었습니다.");
+        const got = Number(data?.invitee_amount ?? inviteeRewardAmount);
+        setApplyMsg(
+          got > 0
+            ? `초대 코드가 적용되었습니다. ${got.toLocaleString("ko-KR")}P가 적립됐어요.`
+            : "초대 코드가 적용되었습니다."
+        );
         setEnterCode("");
         setCanApplyInvite(false);
         await loadInviteInfo();
@@ -107,7 +114,8 @@ export function InviteClient() {
           함께 혜택 받기
         </h2>
         <p className="text-sm text-white/80">
-          친구가 가입하면 {rewardAmount.toLocaleString("ko-KR")}P 적립!
+          친구가 가입하면 서로 적립! (나 {rewardAmount.toLocaleString("ko-KR")}P · 친구{" "}
+          {inviteeRewardAmount.toLocaleString("ko-KR")}P)
         </p>
       </div>
 
@@ -118,7 +126,8 @@ export function InviteClient() {
             초대 코드 입력
           </p>
           <p className="text-xs text-gray-400 mb-3">
-            가입 때 코드를 넣지 않았다면 여기서 등록할 수 있습니다
+            코드를 입력하면 {inviteeRewardAmount.toLocaleString("ko-KR")}P가 적립됩니다
+            (가입 때 넣지 않았다면 여기서 등록)
           </p>
           <div className="relative">
             <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
