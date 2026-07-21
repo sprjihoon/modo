@@ -27,7 +27,8 @@ export function AnnouncementsClient() {
       const { data } = await supabase
         .from("announcements")
         .select("id, title, content, created_at")
-        .eq("is_published", true)
+        .eq("status", "sent")
+        .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false });
       setAnnouncements(data ?? []);
     } catch {
