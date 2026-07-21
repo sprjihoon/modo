@@ -12,13 +12,20 @@ const RED = "#E05252";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type ImgKey = "sweaterFront" | "sweaterSide" | "sweaterTilted" | "pantsFront";
+type ImgKey =
+  | "sweaterFront"
+  | "sweaterSide"
+  | "sweaterTilted"
+  | "pantsFront"
+  | "pantsTilted";
 
 const IMG_SRC: Record<ImgKey, string> = {
   sweaterFront: "/images/measure/sweater-front.png",
   sweaterSide: "/images/measure/sweater-side.png",
   sweaterTilted: "/images/measure/sweater-tilted.png",
-  pantsFront: "/images/measure/pants-front.png",
+  // 구 pants-front.png 는 캔버스만 크고 도형이 작아 SVG로 교체
+  pantsFront: "/images/measure/pants-front.svg",
+  pantsTilted: "/images/measure/pants-tilted.svg",
 };
 
 // Fold illustration uses CSS percentage-based positioning
@@ -354,8 +361,10 @@ const TYPES: MeasureType[] = [
 // ─── Fold Illustration (HTML/CSS) ────────────────────────────────────────────
 
 function FoldIllustration({ type }: { type: MeasureType }) {
-  const backImg = type.clothing === "top" ? IMG_SRC.sweaterTilted : IMG_SRC.pantsFront;
-  const frontImg = type.clothing === "top" ? IMG_SRC.sweaterFront : IMG_SRC.pantsFront;
+  const backImg =
+    type.clothing === "top" ? IMG_SRC.sweaterTilted : IMG_SRC.pantsTilted;
+  const frontImg =
+    type.clothing === "top" ? IMG_SRC.sweaterFront : IMG_SRC.pantsFront;
 
   return (
     <div className="bg-gray-50 rounded-2xl overflow-hidden">
@@ -441,11 +450,11 @@ function MeasureIllustration({ type }: { type: MeasureType }) {
     return <img src={measure.compareImage} alt="측정 방법" className="w-4/5 mx-auto block" />;
   }
 
-  const isBottom = type.clothing === "bottom";
-  const imgX = isBottom ? 28 : 18;
-  const imgY = isBottom ? 10 : 12;
-  const imgW = isBottom ? 100 : 118;
-  const imgH = isBottom ? 168 : 152;
+  // 상의·하의 모두 프레임을 비슷하게 채우도록 동일 스케일 사용
+  const imgX = 18;
+  const imgY = 8;
+  const imgW = 118;
+  const imgH = 168;
 
   const bigCx = 292;
   const bigCy = 115;
@@ -487,11 +496,10 @@ function MeasureIllustration({ type }: { type: MeasureType }) {
 // ─── Daily Illustration (SVG) ────────────────────────────────────────────────
 
 function DailyIllustration({ item }: { item: DailyItem }) {
-  const isBottom = item.img === "pantsFront";
-  const imgX = isBottom ? 75 : 70;
-  const imgY = isBottom ? 8 : 12;
-  const imgW = isBottom ? 100 : 118;
-  const imgH = isBottom ? 172 : 152;
+  const imgX = 70;
+  const imgY = 8;
+  const imgW = 118;
+  const imgH = 172;
 
   const { line: l } = item;
   const rulerX = Math.min(Math.max(l.x1, l.x2) + 10, 238);
