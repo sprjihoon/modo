@@ -1,11 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp, HelpCircle } from "lucide-react";
-import { FAQ_ITEMS } from "@/lib/faq";
+import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_FAQ_ITEMS, type FaqItem } from "@/lib/faq";
 
 export function FaqClient() {
-  const [expanded, setExpanded] = useState<string | null>(FAQ_ITEMS[0]?.id ?? null);
+  const [items, setItems] = useState<FaqItem[]>(DEFAULT_FAQ_ITEMS);
+  const [expanded, setExpanded] = useState<string | null>(
+    DEFAULT_FAQ_ITEMS[0]?.id ?? null
+  );
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadFaqs();
+  }, []);
+
+  async function loadFaqs() {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("faqs")
+        .select("id, question, answer")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const mapped = data.map((row) => ({
+          id: row.id as string,
+          question: row.question as string,
+          answer: row.answer as string,
+        }));
+        setItems(mapped);
+        setExpanded((prev) =>
+          prev && mapped.some((i) => i.id === prev) ? prev : mapped[0].id
+        );
+      }
+    } catch {
+      // 기본 FAQ 유지
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="bg-gray-50 min-h-screen p-4 space-y-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="py-20 text-center bg-gray-50 min-h-screen">
+        <HelpCircle className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+        <p className="text-sm text-gray-400">등록된 질문이 없습니다</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -15,7 +73,7 @@ export function FaqClient() {
       </div>
 
       <div className="divide-y divide-gray-100 bg-white">
-        {FAQ_ITEMS.map((item) => {
+        {items.map((item) => {
           const open = expanded === item.id;
           return (
             <div key={item.id}>

@@ -4,13 +4,13 @@ export interface FaqItem {
   answer: string;
 }
 
-/** 고객센터 · 자주 묻는 질문 (웹/앱 공통 문구) */
-export const FAQ_ITEMS: FaqItem[] = [
+/** DB 로드 실패 시 사용하는 기본 FAQ (수거 희망일 선택 플로우 반영) */
+export const DEFAULT_FAQ_ITEMS: FaqItem[] = [
   {
     id: "how-to-use",
     question: "이용 방법이 궁금해요",
     answer:
-      "수선 항목을 선택하고 결제한 뒤, 담당자가 연락하여 수거 일정을 잡습니다. 우체국 집배원이 방문 수거하면 수선 전·후 사진을 제공한 뒤 전문 수선이 진행되고, 완료되면 고객님 주소로 배송됩니다.",
+      "수선 항목을 선택하고 수거 희망일을 지정한 뒤 결제하면, 지정하신 날짜에 우체국 집배원이 방문 수거합니다. 수선 전·후 사진을 제공한 뒤 전문 수선이 진행되고, 완료되면 고객님 주소로 배송됩니다.",
   },
   {
     id: "duration",
@@ -28,7 +28,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "pickup",
     question: "의류는 어떻게 수거하나요?",
     answer:
-      "우체국 방문 수거를 이용합니다. 결제 후 담당자가 연락드리며, 원하시는 날짜에 우체국 집배원이 직접 방문해 수거합니다.",
+      "우체국 방문 수거를 이용합니다. 주문 시 원하시는 수거 희망일을 선택하면, 해당 날짜에 우체국 집배원이 직접 방문해 수거합니다.",
   },
   {
     id: "measure",
@@ -55,3 +55,6 @@ export const FAQ_ITEMS: FaqItem[] = [
       "고객센터에서 카카오톡 문의 또는 전화 문의를 이용할 수 있습니다. 운영시간은 평일 기준이며, 점심시간과 주말·공휴일 휴무는 고객센터 화면에 안내된 내용을 확인해 주세요.",
   },
 ];
+
+/** @deprecated DEFAULT_FAQ_ITEMS 사용 */
+export const FAQ_ITEMS = DEFAULT_FAQ_ITEMS;
