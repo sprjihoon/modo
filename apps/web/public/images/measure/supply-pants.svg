@@ -1,18 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 160" fill="none">
-  <!-- 준비물 · 수선할 바지 (라임, 크게) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 180" fill="none">
+  <!-- 수선할 바지: 라임, 카드 대부분을 채움 -->
   <path
-    d="M36 10 H104 C110 10 114 14 114 20 V44 L98 150 H76 L70 72 L64 150 H42 L26 44 V20 C26 14 30 10 36 10 Z"
+    d="M42 16 H118 C124 16 128 20 128 26 V52 L108 164 H84 L80 86 L76 164 H52 L32 52 V26 C32 20 36 16 42 16 Z"
     fill="#CDEE00"
     stroke="#111827"
-    stroke-width="3"
+    stroke-width="3.5"
     stroke-linejoin="round"
   />
-  <path d="M32 28 H108" stroke="#111827" stroke-width="2.5" stroke-linecap="round" />
-  <path d="M70 28 V72" stroke="#111827" stroke-width="2.5" stroke-linecap="round" />
+  <path d="M38 36 H122" stroke="#111827" stroke-width="3" stroke-linecap="round" />
+  <path d="M80 36 V86" stroke="#111827" stroke-width="3" stroke-linecap="round" />
   <path
-    d="M36 38 C44 48 50 52 56 52 M104 38 C96 48 90 52 84 52"
+    d="M42 48 C52 60 58 64 66 64 M118 48 C108 60 102 64 94 64"
     stroke="#111827"
-    stroke-width="2"
+    stroke-width="2.5"
     stroke-linecap="round"
     opacity="0.5"
   />

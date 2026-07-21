@@ -543,11 +543,11 @@ const SUPPLY_IMG = {
 function SupplyItem({ src, label }: { src: string; label: string }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
-      <div className="flex h-[120px] w-full max-w-[140px] items-center justify-center rounded-2xl border border-gray-100 bg-white p-3 sm:h-[136px]">
+      <div className="flex h-[112px] w-full max-w-[132px] items-center justify-center rounded-2xl border border-gray-100 bg-white p-2.5 sm:h-[128px]">
         <img
           src={src}
           alt={label}
-          className="max-h-full max-w-full object-contain"
+          className="h-[88%] w-[88%] object-contain"
           draggable={false}
         />
       </div>
