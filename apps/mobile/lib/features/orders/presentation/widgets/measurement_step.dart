@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/measure_guide.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
+import 'measure_guide_accordion.dart';
 
 /// 웹 MeasurementStep과 동일한 직접가격 카테고리용 치수 입력 UI.
 class MeasurementStepConfig {
@@ -11,6 +13,8 @@ class MeasurementStepConfig {
   final int? price;
   final String? iconName;
   final String? notes;
+  final String? measureGuideKey;
+  final String? clothingHint;
 
   const MeasurementStepConfig({
     required this.itemName,
@@ -19,6 +23,8 @@ class MeasurementStepConfig {
     this.price,
     this.iconName,
     this.notes,
+    this.measureGuideKey,
+    this.clothingHint,
   });
 }
 
@@ -84,6 +90,12 @@ class _MeasurementStepState extends State<MeasurementStep> {
         .toList();
   }
 
+  String? get _guideTypeId => resolveMeasureGuideId(
+        widget.config.itemName,
+        measureGuideKey: widget.config.measureGuideKey,
+        clothingHint: widget.config.clothingHint,
+      );
+
   String _formatPrice(int price) {
     final s = price.toString();
     final buf = StringBuffer();
@@ -92,6 +104,58 @@ class _MeasurementStepState extends State<MeasurementStep> {
       buf.write(s[i]);
     }
     return '${buf.toString()}원';
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: widget.onBack,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.grey.shade500,
+              side: BorderSide(color: Colors.grey.shade200),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              '이전',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: ElevatedButton(
+            onPressed: _hasAnyValue ? () => widget.onConfirm(_values) : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _brandColor,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: _brandColor.withValues(alpha: 0.4),
+              disabledForegroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            child: const Text(
+              '확인',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -260,69 +324,13 @@ class _MeasurementStepState extends State<MeasurementStep> {
                   ),
                 ),
               ],
+              const SizedBox(height: 8),
+              // 확인/이전: 치수 재는 방법보다 위
+              _buildActionButtons(),
+              const SizedBox(height: 16),
+              MeasureGuideAccordion(initialTypeId: _guideTypeId),
+              SizedBox(height: MediaQuery.paddingOf(context).bottom + 8),
             ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey.shade50)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: widget.onBack,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey.shade500,
-                      side: BorderSide(color: Colors.grey.shade200),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      '이전',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: _hasAnyValue
-                        ? () => widget.onConfirm(_values)
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _brandColor,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor:
-                          _brandColor.withValues(alpha: 0.4),
-                      disabledForegroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      '확인',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ],

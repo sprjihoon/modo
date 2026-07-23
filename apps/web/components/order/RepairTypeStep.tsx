@@ -772,33 +772,33 @@ export function RepairTypeStep({
             </div>
           ))}
 
-          {/* 모바일/태블릿: 화면 안 아코디언 (PC는 사이드 위젯) */}
-          <div className="lg:hidden">
+          {/* 확인/이전: 치수 재는 방법보다 위에 두어 바로 보이게 */}
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={() => {
+                setMeasureView(null);
+                // 세부 부위가 없으면: 항목 1개짜리 그리드 대신 이전 단계로
+                if (!subPartsView && repairTypes.length <= 1) {
+                  onBack();
+                }
+              }}
+              className="touch-target flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
+            >
+              이전
+            </button>
+            <button
+              onClick={() => confirmMeasurement(measureValues)}
+              disabled={!hasAnyValue}
+              className="touch-target flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
+            >
+              확인
+            </button>
+          </div>
+
+          {/* 모바일/태블릿: 버튼 아래 아코디언 (PC는 사이드 위젯) */}
+          <div className="lg:hidden pb-2">
             <MeasureGuideAccordion initialTypeId={guideTypeId} defaultOpen />
           </div>
-        </div>
-
-        {/* 하단 버튼 */}
-        <div className="px-4 py-4 border-t border-gray-50 flex gap-3">
-          <button
-            onClick={() => {
-              setMeasureView(null);
-              // 세부 부위가 없으면: 항목 1개짜리 그리드 대신 이전 단계로
-              if (!subPartsView && repairTypes.length <= 1) {
-                onBack();
-              }
-            }}
-            className="touch-target flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
-          >
-            이전
-          </button>
-          <button
-            onClick={() => confirmMeasurement(measureValues)}
-            disabled={!hasAnyValue}
-            className="touch-target flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
-          >
-            확인
-          </button>
         </div>
       </div>
     );

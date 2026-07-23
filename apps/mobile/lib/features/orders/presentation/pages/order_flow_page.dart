@@ -87,6 +87,8 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
       price: selection.directPrice,
       iconName: selection.iconName ?? _stagingIconName,
       notes: selection.description,
+      measureGuideKey: selection.measureGuideKey,
+      clothingHint: _stagingClothingType,
     );
   }
 
@@ -527,6 +529,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
     return RepairTypeStepWidget(
       clothingType: _stagingClothingType,
       clothingCategoryId: effectiveCategoryId,
+      categoryMeasureGuideKey: _stagingSubCategory?.measureGuideKey,
       onNext: (items) => handleRepairDone(items),
     );
   }

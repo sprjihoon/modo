@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../services/repair_service.dart';
+import '../../../../core/measure_guide.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
+import '../../../../services/repair_service.dart';
 import '../../domain/models/order_draft.dart' as models;
+import 'measure_guide_accordion.dart';
 import 'sub_category_step.dart' as sub_cat;
 
 const _brandColor = Color(0xFF00C896);
@@ -25,6 +27,7 @@ class _RepairType {
   final String? subPartsTitle;
   final bool requiresMultipleInputs;
   final List<String> inputLabels;
+  final String? measureGuideKey;
 
   _RepairType({
     required this.id,
@@ -43,6 +46,7 @@ class _RepairType {
     this.subPartsTitle,
     this.requiresMultipleInputs = false,
     this.inputLabels = const ['치수 (cm)'],
+    this.measureGuideKey,
   });
 
   String get displayName => subType != null ? '$name ($subType)' : name;
@@ -78,11 +82,13 @@ class _SelectedItem {
 class RepairTypeStepWidget extends StatefulWidget {
   final String clothingType;
   final String? clothingCategoryId;
+  final String? categoryMeasureGuideKey;
   final void Function(List<models.RepairItem> items) onNext;
 
   const RepairTypeStepWidget({
     required this.clothingType,
     this.clothingCategoryId,
+    this.categoryMeasureGuideKey,
     required this.onNext,
     super.key,
   });
@@ -157,6 +163,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
           subPartsTitle: d['sub_parts_title'] as String?,
           requiresMultipleInputs: d['requires_multiple_inputs'] == true,
           inputLabels: labels,
+          measureGuideKey: d['measure_guide_key'] as String?,
         );
       }).toList();
 
@@ -620,23 +627,35 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
         ? _measureChosenParts!.map((p) => p.name).toList()
         : <String>[];
     final hasAnyValue = _measureValues.any((v) => v.trim().isNotEmpty);
+    final partNames = _measureChosenParts?.map((p) => p.name).join(' ') ?? '';
+    final guideTypeId = resolveMeasureGuideId(
+      [
+        widget.clothingType,
+        type.name,
+        type.subType,
+        partNames,
+      ].whereType<String>().where((s) => s.isNotEmpty).join(' '),
+      measureGuideKey: type.measureGuideKey ?? widget.categoryMeasureGuideKey,
+      clothingHint: widget.clothingType,
+    );
 
     return Column(
       children: [
-        // Header with bottom border (web-style)
         Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
           ),
-          child: const Text('치수를 입력해주세요', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          child: const Text(
+            '치수를 입력해주세요',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
         ),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Item card - show repair type name like web
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -653,18 +672,31 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                         color: _brandColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Center(child: CategoryIconWidget(iconName: type.iconName, size: 28, color: _brandColor)),
+                      child: Center(
+                        child: CategoryIconWidget(
+                          iconName: type.iconName,
+                          size: 28,
+                          color: _brandColor,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(type.displayName,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          Text(
+                            type.displayName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           if ((_measureOverridePrice ?? type.price) > 0)
-                            Text(_formatPrice(_measureOverridePrice ?? type.price),
-                                style: const TextStyle(fontSize: 12, color: _brandColor)),
+                            Text(
+                              _formatPrice(_measureOverridePrice ?? type.price),
+                              style: const TextStyle(fontSize: 12, color: _brandColor),
+                            ),
                         ],
                       ),
                     ),
@@ -672,81 +704,82 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // Input fields
               if (groups.isEmpty)
                 ...labels.asMap().entries.map((e) => _buildInputField(e.value, e.key))
               else
                 ...groups.asMap().entries.expand((gEntry) {
                   return [
                     if (gEntry.key > 0) const SizedBox(height: 16),
-                    Text(gEntry.value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _brandColor)),
-                    const SizedBox(height: 8),
-                    ...labels.asMap().entries.map((lEntry) =>
-                        _buildInputField(lEntry.value, gEntry.key * labels.length + lEntry.key)),
-                  ];
-                }),
-            ],
-          ),
-        ),
-
-        // Bottom buttons (web-style)
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey.shade50)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => setState(() {
-                      _measureRepairType = null;
-                      _measureChosenParts = null;
-                      _measureValues = [];
-                    }),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey.shade500,
-                      side: BorderSide(color: Colors.grey.shade200),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    Text(
+                      gEntry.value,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: _brandColor,
+                      ),
                     ),
-                    child: const Text('이전', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: hasAnyValue
-                      ? ElevatedButton(
-                          onPressed: _confirmMeasurement,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _brandColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
-                          ),
-                          child: const Text('확인', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                        )
-                      : Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: _brandColor.withOpacity(0.4),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            '확인',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                    const SizedBox(height: 8),
+                    ...labels.asMap().entries.map(
+                          (lEntry) => _buildInputField(
+                            lEntry.value,
+                            gEntry.key * labels.length + lEntry.key,
                           ),
                         ),
-                ),
-              ],
-            ),
+                  ];
+                }),
+              const SizedBox(height: 8),
+              // 확인/이전: 치수 재는 방법보다 위
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => setState(() {
+                        _measureRepairType = null;
+                        _measureChosenParts = null;
+                        _measureValues = [];
+                      }),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.grey.shade500,
+                        side: BorderSide(color: Colors.grey.shade200),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        '이전',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: hasAnyValue ? _confirmMeasurement : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _brandColor,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: _brandColor.withOpacity(0.4),
+                        disabledForegroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        '확인',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              MeasureGuideAccordion(initialTypeId: guideTypeId),
+              SizedBox(height: MediaQuery.paddingOf(context).bottom + 8),
+            ],
           ),
         ),
       ],

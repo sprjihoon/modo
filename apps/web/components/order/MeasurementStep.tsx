@@ -118,14 +118,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
           </div>
         ))}
 
-        {/* 모바일/태블릿: 화면 안 아코디언 (PC는 사이드 위젯) */}
-        <div className="lg:hidden">
-          <MeasureGuideAccordion initialTypeId={guideTypeId} defaultOpen />
-        </div>
-      </div>
-
-      {noteLines.length > 0 && (
-        <div className="px-4 pb-4">
+        {noteLines.length > 0 && (
           <ul className="space-y-2">
             {noteLines.map((line, i) => (
               <li key={i} className="flex items-start gap-2 text-xs text-gray-500 leading-relaxed">
@@ -134,23 +127,29 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
 
-      <div className="sticky bottom-0 bg-white px-4 py-4 border-t border-gray-50 flex gap-3">
-        <button
-          onClick={onBack}
-          className="touch-target flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
-        >
-          이전
-        </button>
-        <button
-          onClick={() => onConfirm(values)}
-          disabled={!hasAnyValue}
-          className="touch-target flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
-        >
-          확인
-        </button>
+        {/* 확인/이전: 치수 재는 방법보다 위에 두어 바로 보이게 */}
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={onBack}
+            className="touch-target flex-1 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-500"
+          >
+            이전
+          </button>
+          <button
+            onClick={() => onConfirm(values)}
+            disabled={!hasAnyValue}
+            className="touch-target flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
+          >
+            확인
+          </button>
+        </div>
+
+        {/* 모바일/태블릿: 버튼 아래 아코디언 (PC는 사이드 위젯) */}
+        <div className="lg:hidden pb-2">
+          <MeasureGuideAccordion initialTypeId={guideTypeId} defaultOpen />
+        </div>
       </div>
     </div>
   );

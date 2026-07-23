@@ -22,6 +22,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   final _phoneController = TextEditingController();
   
   bool _isLoading = false;
+  bool _isSocialLoginInProgress = false;
   bool _obscurePassword = true;
   bool _obscurePasswordConfirm = true;
   bool _agreeToTerms = false;
@@ -224,8 +225,58 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     }
   }
 
+  Future<void> _handleSocialSignup(String provider) async {
+    setState(() => _isSocialLoginInProgress = true);
+    try {
+      final authService = ref.read(authServiceProvider);
+      bool success = false;
+      switch (provider) {
+        case 'apple':
+          success = await authService.signInWithApple();
+          break;
+        default:
+          success = false;
+      }
+      if (!success && mounted) {
+        setState(() => _isSocialLoginInProgress = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSocialLoginInProgress = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$provider 가입 실패: ${e.toString().replaceAll('Exception: ', '')}',
+            ),
+            backgroundColor: Colors.red.shade400,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isSocialLoginInProgress) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Apple로 이동 중...',
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const ModoAppBar(
@@ -665,15 +716,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                       'Apple',
                       Colors.black,
                       Colors.white,
-                      () {
-                        // TODO: 애플 회원가입
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('애플 회원가입 (준비 중)'),
-                            backgroundColor: Color(0xFF00C896),
-                          ),
-                        );
-                      },
+                      () => _handleSocialSignup('apple'),
                     ),
                     const SizedBox(width: 12),
                     _buildSocialButton(

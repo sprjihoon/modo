@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -25,10 +25,22 @@ interface CompanyFooterProps {
 export function CompanyFooter({ variant = "accordion" }: CompanyFooterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [info, setInfo] = useState<CompanyInfo | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadCompanyInfo();
   }, []);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    // 짧은 페이지에서 푸터가 화면 하단에 붙어 있으면 펼친 내용이
+    // 뷰포트 밖으로 생겨 "빈 아코디언"처럼 보이므로 스크롤로 노출
+    const id = requestAnimationFrame(() => {
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [isExpanded]);
 
   async function loadCompanyInfo() {
     try {
@@ -41,6 +53,8 @@ export function CompanyFooter({ variant = "accordion" }: CompanyFooterProps) {
       if (data) setInfo(data);
     } catch {
       // 기본값 사용
+    } finally {
+      setLoaded(true);
     }
   }
 
@@ -72,42 +86,6 @@ export function CompanyFooter({ variant = "accordion" }: CompanyFooterProps) {
     </div>
   );
 
-  if (variant === "payment") {
-    return (
-      <div className="px-4 py-3 bg-white text-xs text-gray-600 space-y-1.5">
-        <p className="text-sm font-semibold text-gray-800">{title}</p>
-        {info?.company_name && (
-          <p>
-            <span className="text-gray-500">회사명</span> {info.company_name}
-          </p>
-        )}
-        {info?.ceo_name && (
-          <p>
-            <span className="text-gray-500">대표</span> {info.ceo_name}
-          </p>
-        )}
-        {info?.business_number && (
-          <p>
-            <span className="text-gray-500">사업자등록번호</span>{" "}
-            {info.business_number}
-          </p>
-        )}
-        {info?.online_business_number && (
-          <p>
-            <span className="text-gray-500">통신판매업신고</span>{" "}
-            {info.online_business_number}
-          </p>
-        )}
-        {info?.phone && (
-          <p>
-            <span className="text-gray-500">고객센터</span> {info.phone}
-          </p>
-        )}
-        <div className="pt-1">{policyLinks}</div>
-      </div>
-    );
-  }
-
   const rows: { label: string; value: string }[] = [
     { label: "회사명", value: info?.company_name ?? "" },
     { label: "대표자", value: info?.ceo_name ?? "" },
@@ -117,13 +95,36 @@ export function CompanyFooter({ variant = "accordion" }: CompanyFooterProps) {
     { label: "개인정보관리책임자", value: info?.privacy_officer ?? "" },
     { label: "이메일", value: info?.email ?? "" },
     { label: "고객센터", value: info?.phone ?? "" },
-  ];
+  ].filter((row) => row.value.trim().length > 0);
+
+  if (variant === "payment") {
+    return (
+      <div className="px-4 py-3 bg-white text-xs text-gray-600 space-y-1.5">
+        <p className="text-sm font-semibold text-gray-800">{title}</p>
+        {rows.map(({ label, value }) => (
+          <p key={label}>
+            <span className="text-gray-500">{label}</span> {value}
+          </p>
+        ))}
+        <div className="pt-1">{policyLinks}</div>
+      </div>
+    );
+  }
+
+  function handleToggle() {
+    setIsExpanded((prev) => {
+      const next = !prev;
+      if (next) loadCompanyInfo();
+      return next;
+    });
+  }
 
   return (
     <div className="border-t border-gray-200 bg-white">
       <button
         type="button"
-        onClick={() => setIsExpanded((prev) => !prev)}
+        onClick={handleToggle}
+        aria-expanded={isExpanded}
         className="w-full flex items-center justify-between px-4 py-3"
       >
         <span className="text-sm font-medium text-gray-800">{title}</span>
@@ -134,15 +135,21 @@ export function CompanyFooter({ variant = "accordion" }: CompanyFooterProps) {
       </button>
 
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-2">
-          {rows.map(({ label, value }) => (
-            <div key={label} className="flex gap-2">
-              <span className="text-xs text-gray-500 w-[120px] shrink-0">
-                {label}
-              </span>
-              <span className="text-xs text-gray-800 flex-1">{value}</span>
-            </div>
-          ))}
+        <div ref={panelRef} className="px-4 pb-4 space-y-2">
+          {!loaded && rows.length === 0 ? (
+            <p className="text-xs text-gray-400 py-2">사업자 정보를 불러오는 중...</p>
+          ) : rows.length === 0 ? (
+            <p className="text-xs text-gray-400 py-2">사업자 정보를 불러오지 못했습니다.</p>
+          ) : (
+            rows.map(({ label, value }) => (
+              <div key={label} className="flex gap-2">
+                <span className="text-xs text-gray-500 w-[120px] shrink-0">
+                  {label}
+                </span>
+                <span className="text-xs text-gray-800 flex-1">{value}</span>
+              </div>
+            ))
+          )}
           <div className="pt-2">{policyLinks}</div>
         </div>
       )}

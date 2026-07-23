@@ -1,7 +1,7 @@
 name: modu_repair
 description: 모두의수선 - 비대면 의류 수선 플랫폼
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+4
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -95,6 +95,8 @@ dependencies:
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
   
   # Linting
