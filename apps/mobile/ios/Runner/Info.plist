@@ -166,5 +166,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- 표준 HTTPS만 사용 → 수출규정 서류 불필요. App Store Connect 매번 질문 생략 -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

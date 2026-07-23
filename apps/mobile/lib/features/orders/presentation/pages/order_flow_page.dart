@@ -10,6 +10,7 @@ import '../widgets/items_list_widget.dart';
 import '../widgets/clothing_type_step.dart';
 import '../widgets/sub_category_step.dart' as sub_cat;
 import '../widgets/image_pin_step.dart';
+import '../widgets/measurement_step.dart';
 import '../widgets/repair_type_step.dart';
 import '../widgets/order_flow_progress.dart';
 
@@ -31,8 +32,11 @@ class SubCategorySelection {
   final int? directPrice;
   final String? priceRange;
   final bool requiresMeasurement;
+  final int inputCount;
   final List<String>? inputLabels;
   final String? iconName;
+  final String? description;
+  final String? measureGuideKey;
 
   const SubCategorySelection({
     required this.id,
@@ -40,22 +44,11 @@ class SubCategorySelection {
     this.directPrice,
     this.priceRange,
     this.requiresMeasurement = false,
+    this.inputCount = 1,
     this.inputLabels,
     this.iconName,
-  });
-}
-
-class MeasurementConfig {
-  final String itemName;
-  final List<String> labels;
-  final int price;
-  final String? iconName;
-
-  const MeasurementConfig({
-    required this.itemName,
-    required this.labels,
-    required this.price,
-    this.iconName,
+    this.description,
+    this.measureGuideKey,
   });
 }
 
@@ -80,7 +73,37 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
   String? _stagingIconName;
   List<ImageWithPins> _stagingImages = [];
   SubCategorySelection? _stagingSubCategory;
+  MeasurementStepConfig? _measurementConfig;
   _SubCategoryPhase _subCategoryPhase = _SubCategoryPhase.pre;
+
+  MeasurementStepConfig _buildMeasurementConfig(SubCategorySelection selection) {
+    final labels = sub_cat.normalizeInputLabels(
+      selection.inputLabels,
+      inputCount: selection.inputCount,
+    );
+    return MeasurementStepConfig(
+      itemName: selection.name,
+      labels: labels,
+      price: selection.directPrice,
+      iconName: selection.iconName ?? _stagingIconName,
+      notes: selection.description,
+    );
+  }
+
+  SubCategorySelection _mapSubCategory(sub_cat.SubCategorySelection selection) {
+    return SubCategorySelection(
+      id: selection.id,
+      name: selection.name,
+      directPrice: selection.directPrice,
+      priceRange: selection.priceRange,
+      requiresMeasurement: selection.requiresMeasurement,
+      inputCount: selection.inputCount,
+      inputLabels: selection.inputLabels,
+      iconName: selection.iconName,
+      description: selection.description,
+      measureGuideKey: selection.measureGuideKey,
+    );
+  }
 
   @override
   void initState() {
@@ -111,6 +134,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
     _stagingIconName = null;
     _stagingImages = [];
     _stagingSubCategory = null;
+    _measurementConfig = null;
     _subCategoryPhase = _SubCategoryPhase.pre;
     _pushMode(_FlowMode.addClothing);
   }
@@ -133,8 +157,9 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
     if (_subCategoryPhase == _SubCategoryPhase.pre) {
       _pushMode(_FlowMode.addPhoto);
     } else {
-      if (selection.directPrice != null) {
+      if (selection.directPrice != null && selection.directPrice! > 0) {
         if (selection.requiresMeasurement) {
+          _measurementConfig = _buildMeasurementConfig(selection);
           _pushMode(_FlowMode.addMeasurement);
         } else {
           final item = RepairItem(
@@ -154,8 +179,11 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
   void handlePhotoDone(List<ImageWithPins> imagesWithPins) {
     _stagingImages = imagesWithPins;
 
-    if (_stagingSubCategory != null && _stagingSubCategory!.directPrice != null) {
+    if (_stagingSubCategory != null &&
+        _stagingSubCategory!.directPrice != null &&
+        _stagingSubCategory!.directPrice! > 0) {
       if (_stagingSubCategory!.requiresMeasurement) {
+        _measurementConfig = _buildMeasurementConfig(_stagingSubCategory!);
         _pushMode(_FlowMode.addMeasurement);
       } else {
         final item = RepairItem(
@@ -171,17 +199,30 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
     }
   }
 
-  void handleMeasurementDone(List<double> values) {
-    if (_stagingSubCategory == null) return;
+  void handleMeasurementDone(List<String> values) {
+    final config = _measurementConfig;
+    final selection = _stagingSubCategory;
+    if (config == null && selection == null) return;
 
-    final detail = values.map((v) => v.toStringAsFixed(1)).join(', ');
+    final labels = config?.labels ??
+        selection?.inputLabels ??
+        const ['치수 (cm)'];
+    final detail = labels.asMap().entries.map((entry) {
+      final value = entry.key < values.length && values[entry.key].isNotEmpty
+          ? values[entry.key]
+          : '-';
+      return '${entry.value}: $value';
+    }).join(', ');
+
+    final price = config?.price ?? selection?.directPrice ?? 0;
     final item = RepairItem(
-      name: _stagingSubCategory!.name,
-      price: _stagingSubCategory!.directPrice ?? 0,
-      priceRange: _stagingSubCategory!.priceRange ?? '',
+      name: config?.itemName ?? selection!.name,
+      price: price,
+      priceRange: selection?.priceRange ?? '',
       quantity: 1,
       detail: detail,
     );
+    _measurementConfig = null;
     handleRepairDone([item]);
   }
 
@@ -208,6 +249,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
       _stagingIconName = null;
       _stagingImages = [];
       _stagingSubCategory = null;
+      _measurementConfig = null;
       _modeHistory.clear();
       _currentMode = _FlowMode.list;
     });
@@ -441,16 +483,17 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
         handleSubCategoryDone(
           _stagingClothingType,
           _stagingCategoryId,
-          SubCategorySelection(
-            id: selection.id,
-            name: selection.name,
-            directPrice: selection.directPrice,
-            priceRange: selection.priceRange,
-            requiresMeasurement: selection.requiresMeasurement,
-            inputLabels: selection.inputLabels,
-            iconName: selection.iconName,
-          ),
+          _mapSubCategory(selection),
         );
+      },
+      onEmpty: () {
+        // 웹: 자식/직접가격 leaf 없음 → 사진 후 수선유형 단계
+        if (_subCategoryPhase == _SubCategoryPhase.pre) {
+          _stagingSubCategory = null;
+          _pushMode(_FlowMode.addPhoto);
+        } else {
+          _pushMode(_FlowMode.addRepair);
+        }
       },
     );
   }
@@ -464,9 +507,18 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
   }
 
   Widget _buildMeasurementStep() {
-    return _PlaceholderStep(
-      title: '치수 입력',
-      onNext: () => handleMeasurementDone([10.0, 20.0]),
+    final selection = _stagingSubCategory;
+    final config = _measurementConfig ??
+        (selection != null ? _buildMeasurementConfig(selection) : null);
+
+    if (config == null) {
+      return const Center(child: Text('치수 입력 정보를 불러올 수 없습니다.'));
+    }
+
+    return MeasurementStep(
+      config: config,
+      onConfirm: handleMeasurementDone,
+      onBack: _popMode,
     );
   }
 
@@ -532,46 +584,3 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
   }
 }
 
-class _PlaceholderStep extends StatelessWidget {
-  final String title;
-  final VoidCallback? onNext;
-
-  const _PlaceholderStep({
-    required this.title,
-    this.onNext,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Spacer(),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          const Spacer(),
-          if (onNext != null)
-            SizedBox(
-              height: 52,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00C896),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: onNext,
-                child: const Text('다음'),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}

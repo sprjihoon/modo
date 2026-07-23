@@ -48,11 +48,15 @@ class PortonePaymentPage extends StatefulWidget {
 class _PortonePaymentPageState extends State<PortonePaymentPage> {
   // redirectUrl: WebView 가 이 URL 로 이동하면 결제 완료로 간주하고 가로챈다.
   static const String _redirectUrl = 'https://modo.io.kr/payment/mobile-callback';
+  static const String _appScheme = 'modorepair';
 
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _handled = false; // 결제 결과 중복 처리 방지
   String? _errorMessage;
+
+  /// KCP: paymentId는 특수문자(하이픈) 미허용 — 웹 PaymentClient와 동일
+  String get _portonePaymentId => widget.orderId.replaceAll('-', '');
 
   static String get _storeId {
     final v = dotenv.env['PORTONE_STORE_ID'];
@@ -98,21 +102,43 @@ class _PortonePaymentPageState extends State<PortonePaymentPage> {
           },
           onNavigationRequest: _onNavigationRequest,
           onWebResourceError: (err) {
-            debugPrint('WebView 오류: ${err.description}');
+            debugPrint('WebView 오류: ${err.errorCode} ${err.description}');
+            // 메인 프레임 SDK/결제 페이지 로드 실패만 사용자에게 표시
+            if (err.isForMainFrame == true && mounted && !_handled) {
+              setState(() {
+                _isLoading = false;
+                _errorMessage = '결제 페이지를 불러오지 못했습니다.\n${err.description}';
+              });
+            }
           },
         ),
       )
-      ..loadHtmlString(_buildHtml());
+      ..loadHtmlString(
+        _buildHtml(),
+        baseUrl: 'https://modo.io.kr',
+      );
   }
 
   // ── 결제 결과 처리 ────────────────────────────────────────────
 
   NavigationDecision _onNavigationRequest(NavigationRequest request) {
     final url = request.url;
+    debugPrint('WebView navigate: $url');
+
+    // loadHtmlString / PortOne 내부 about:blank 는 WebView에서 허용해야 함
+    // (막으면 onPageFinished가 안 오고 로딩 스피너에 멈춤)
+    if (url.startsWith('about:')) {
+      return NavigationDecision.navigate;
+    }
 
     // redirectUrl 가로채기 → 결제 완료
-    if (url.startsWith(_redirectUrl)) {
-      _handleRedirect(Uri.parse(url));
+    if (url.startsWith(_redirectUrl) ||
+        url.startsWith('$_appScheme://payment') ||
+        url.startsWith('$_appScheme://')) {
+      final uri = Uri.tryParse(url);
+      if (uri != null) {
+        _handleRedirect(uri);
+      }
       return NavigationDecision.prevent;
     }
 
@@ -169,7 +195,8 @@ class _PortonePaymentPageState extends State<PortonePaymentPage> {
         return;
       }
       // 성공 (데스크톱형 promise 응답)
-      final paymentId = (data['paymentId'] ?? widget.orderId).toString();
+      final paymentId =
+          (data['paymentId'] ?? _portonePaymentId).toString();
       _confirm(paymentId);
     } catch (e) {
       _fail('결제 응답 처리 오류: $e');
@@ -183,7 +210,8 @@ class _PortonePaymentPageState extends State<PortonePaymentPage> {
       _fail(msg);
       return;
     }
-    final paymentId = uri.queryParameters['paymentId'] ?? widget.orderId;
+    final paymentId =
+        uri.queryParameters['paymentId'] ?? _portonePaymentId;
     _confirm(paymentId);
   }
 
@@ -246,14 +274,20 @@ class _PortonePaymentPageState extends State<PortonePaymentPage> {
   // ── HTML (PortOne V2 브라우저 SDK) ───────────────────────────
 
   String _buildHtml() {
-    final customerBlock = (widget.customerName != null &&
-            widget.customerName!.isNotEmpty)
-        ? '''
-        customer: {
-          fullName: ${jsonEncode(widget.customerName)},
-          email: ${jsonEncode(widget.customerEmail ?? '')},
-          phoneNumber: ${jsonEncode((widget.customerPhone ?? '').replaceAll('-', ''))}
-        },'''
+    // 웹과 동일: 빈 customer 필드는 제외 (KCP 파싱 에러 방지)
+    final customerFields = <String>[];
+    if (widget.customerName != null && widget.customerName!.trim().isNotEmpty) {
+      customerFields.add('fullName: ${jsonEncode(widget.customerName!.trim())}');
+    }
+    if (widget.customerEmail != null && widget.customerEmail!.trim().isNotEmpty) {
+      customerFields.add('email: ${jsonEncode(widget.customerEmail!.trim())}');
+    }
+    final phone = (widget.customerPhone ?? '').replaceAll('-', '').trim();
+    if (phone.isNotEmpty) {
+      customerFields.add('phoneNumber: ${jsonEncode(phone)}');
+    }
+    final customerBlock = customerFields.isNotEmpty
+        ? 'customer: { ${customerFields.join(', ')} },'
         : '';
 
     return '''
@@ -265,29 +299,35 @@ class _PortonePaymentPageState extends State<PortonePaymentPage> {
 <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
 <style>
   body { margin:0; font-family:-apple-system,BlinkMacSystemFont,sans-serif;
-         display:flex; align-items:center; justify-content:center; height:100vh; }
+         display:flex; align-items:center; justify-content:center; height:100vh; background:#fff; }
   .loading { color:#888; font-size:14px; }
 </style>
 </head>
 <body>
-<div class="loading">결제창을 여는 중입니다...</div>
+<div class="loading" id="status">결제창을 여는 중입니다...</div>
 <script>
   function send(obj){
     try { PortOneChannel.postMessage(JSON.stringify(obj)); } catch(e){}
   }
   async function start(){
     try {
+      if (typeof PortOne === 'undefined' || !PortOne.requestPayment) {
+        send({ code: "ERROR", message: "포트원 SDK 로드 실패" });
+        return;
+      }
       const response = await PortOne.requestPayment({
         storeId: ${jsonEncode(_storeId)},
         channelKey: ${jsonEncode(_channelKey)},
-        paymentId: ${jsonEncode(widget.orderId)},
+        paymentId: ${jsonEncode(_portonePaymentId)},
         orderName: ${jsonEncode(widget.orderName)},
         totalAmount: ${widget.amount},
         currency: "CURRENCY_KRW",
         payMethod: "CARD",
         redirectUrl: ${jsonEncode(_redirectUrl)},
+        appScheme: ${jsonEncode('$_appScheme://')},
         $customerBlock
       });
+      // 모바일 리다이렉트 진행 중이면 response 가 비어 있을 수 있음
       if (response) { send(response); }
     } catch (e) {
       send({ code: "ERROR", message: (e && e.message) ? e.message : String(e) });

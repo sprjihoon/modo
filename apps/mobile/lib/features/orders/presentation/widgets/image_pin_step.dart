@@ -239,10 +239,9 @@ class _ImagePinStepState extends State<ImagePinStep> {
             ],
           ),
         ),
-        const Spacer(),
         // Action buttons
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
           child: Row(
             children: [
               Expanded(
@@ -265,8 +264,6 @@ class _ImagePinStepState extends State<ImagePinStep> {
             ],
           ),
         ),
-        const SizedBox(height: 40),
-        const Spacer(),
       ],
     );
   }

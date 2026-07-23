@@ -59,15 +59,19 @@ modo/
       → 금액/상태 검증 후 DB 업데이트
 ```
 
-### 모바일 결제 방식
+### 모바일 결제 방식 (PortOne V2 + NHN KCP)
 
-`portone_flutter` 1.0.x 는 Dart 3.10+ 를 요구합니다. 현재 Flutter 환경(3.35 / Dart 3.9.2)과 버전이 맞지 않아,
-**WebView + PortOne V2 브라우저 SDK** 방식으로 구현되어 있습니다 (`portone_payment_page.dart`).
+`portone_flutter` 대신 **WebView + PortOne V2 브라우저 SDK** 방식 (`portone_payment_page.dart`).
+PG는 웹과 동일하게 **NHN KCP 단건결제 채널**을 사용합니다.
 
 - `webview_flutter` 로 결제창 HTML 로드
-- `redirectUrl` 가로채기로 결제 완료 감지
-- 외부 앱 스킴(`intent://`, 카카오페이, 네이버페이 등) 자동 처리
-- Dart SDK 가 3.10+ 로 업그레이드되면 `portone_flutter` 1.0.x 로 교체 가능
+- `redirectUrl`(`https://modo.io.kr/payment/mobile-callback`) 가로채기로 결제 완료 감지
+- `appScheme`: `modorepair://` (카드사 앱 복귀용)
+- **KCP `paymentId`**: UUID 하이픈 제거 (영문/숫자만, 웹 `PaymentClient`와 동일)
+- `about:blank` 등 WebView 내부 네비게이션 허용 (막으면 결제창 로딩에 멈춤)
+- 빈 `customer` 필드는 요청에서 제외 (KCP 파싱 오류 방지)
+- 외부 앱 스킴(`intent://`, 카카오페이, 네이버페이 등) → `url_launcher`
+- 모바일 `.env`의 `PORTONE_CHANNEL_KEY`는 웹 라이브(modo.io.kr)와 동일 채널 사용
 
 ### 웹훅 URL
 
@@ -257,10 +261,48 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ---
 
+## 앱스토어 / Play 출시 준비
+
+| 항목 | 값 |
+|---|---|
+| 앱 이름 | 모두의수선 |
+| Bundle / Application ID | `com.modurepair.app` |
+| 버전 | `apps/mobile/pubspec.yaml` → `1.0.0+1` |
+| 개인정보처리방침 | https://modo.io.kr/privacy-policy |
+| 이용약관 | https://modo.io.kr/terms |
+| Apple Team | `6R7TSV8PV4` |
+| iOS 수출규정 | `ITSAppUsesNonExemptEncryption = false` (표준 HTTPS만 사용) |
+
+### 빌드
+
+```bash
+cd apps/mobile
+
+# Android (Play 내부 테스트용 AAB)
+flutter build appbundle --release
+# → build/app/outputs/bundle/release/app-release.aab
+
+# iOS (TestFlight — Xcode Archive 또는)
+flutter build ipa --release
+```
+
+### 체크리스트
+
+1. App Store Connect / Play Console에 앱 등록 (`com.modurepair.app`)
+2. 실기기에서 로그인 · 주문 · **라이브 결제** 스모크 테스트
+3. iOS: Archive → TestFlight
+4. Android: AAB → 내부 테스트 트랙 업로드
+5. 스토어 메타데이터(스크린샷, 설명, 개인정보처리방침 URL)
+
+---
+
 ## 알려진 이슈 / 수정 이력
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-07-23 | 모바일 치수입력 구현 | 핀메모 이후 placeholder였던 직접가격 치수 단계를 웹 `MeasurementStep`과 동일 UI로 구현. 자식 없는 leaf 카테고리의 `requires_measurement`/`input_labels` 누락 수정. 수선유형 1개+치수필요 시 자동 진입 |
+| 2026-07-23 | 모바일 KCP 결제창 로딩 멈춤 | WebView가 `about:blank`를 외부 스킴으로 가로채 결제창이 안 열리던 문제 수정. KCP용 `paymentId` 하이픈 제거·`appScheme`·빈 customer 제외를 웹과 맞춤. 라이브 채널 키를 웹과 동기화 |
+| 2026-07-23 | iOS 수출규정 키 | `Info.plist`에 `ITSAppUsesNonExemptEncryption=false` 추가 (App Store Connect Missing Compliance 질문 생략) |
 | 2026-07-21 | 초대 양측 적립 | 초대 코드 적용 시 초대자·피초대자 모두 포인트 지급(각 기본 1000P, 어드민 개별 설정) |
 | 2026-07-21 | 회원가입 적립 | 신규 가입 시 축하 포인트(기본 **1,000P**, 어드민 설정). 웹·앱·OAuth 공통 DB 트리거 지급. 기존 회원 소급 없음 |
 | 2026-07-20 | 결제 시 포인트 사용 | 결제 화면에서 포인트 사용(최저 **1,000P**). 인텐트에 예약 차감 후 PortOne 금액 반영, 전액 포인트 시 PG 없이 주문 생성. 주문 취소 시 `USE_RESTORE`로 복구 |
@@ -324,13 +366,16 @@ cd apps/mobile
 
 # 환경변수 설정
 # apps/mobile/.env 에 PORTONE_STORE_ID, PORTONE_CHANNEL_KEY 입력
+# (채널 키는 웹 라이브 NHN KCP 단건결제 채널과 동일해야 함)
 
 flutter pub get
+cd ios && pod install && cd ..
 flutter run
 ```
 
 > Android 에뮬레이터: Android Studio AVD 또는 `flutter emulators --launch <id>`
 > WebView 결제창은 Android / iOS 기기(에뮬레이터 포함)에서만 동작합니다 (Windows/Web 대상 빌드 제외).
+> 시뮬레이터에서는 카드사 앱(ISP 등) 연동이 제한될 수 있어, 출시 전 실기기 결제 1회를 권장합니다.
 
 ### Edge Functions
 

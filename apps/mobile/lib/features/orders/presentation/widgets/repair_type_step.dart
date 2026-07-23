@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../services/repair_service.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
 import '../../domain/models/order_draft.dart' as models;
+import 'sub_category_step.dart' as sub_cat;
 
 const _brandColor = Color(0xFF00C896);
 
@@ -133,15 +134,11 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
       }
 
       final mapped = types.map((d) {
-        final rawLabels = d['input_labels'];
-        List<String> labels;
-        if (rawLabels is List) {
-          labels = rawLabels.map((e) => e.toString()).toList();
-        } else if (rawLabels is String && rawLabels.isNotEmpty) {
-          labels = [rawLabels];
-        } else {
-          labels = ['치수 (cm)'];
-        }
+        final inputCount = (d['input_count'] as num?)?.toInt() ?? 1;
+        final labels = sub_cat.normalizeInputLabels(
+          d['input_labels'],
+          inputCount: inputCount,
+        );
 
         return _RepairType(
           id: d['id'].toString(),
@@ -165,27 +162,27 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
 
       if (!mounted) return;
 
-      // Auto-proceed if single item with no sub-parts and no measurement
-      if (mapped.length == 1 && !mapped[0].hasSubParts && !mapped[0].requiresMeasurement) {
+      // 웹 RepairTypeStep과 동일: 항목 1개면 중간 목록 생략하고 바로 분기
+      if (mapped.length == 1) {
         final single = mapped[0];
-        widget.onNext([
-          models.RepairItem(
-            name: single.displayName,
-            price: single.price,
-            priceRange: single.priceRange,
-            quantity: 1,
-          ),
-        ]);
-        return;
-      }
-
-      // Auto-open sub-parts view if single has_sub_parts item
-      if (mapped.length == 1 && mapped[0].hasSubParts) {
         setState(() {
           _repairTypes = mapped;
           _isLoading = false;
         });
-        await _openSubPartsView(mapped[0]);
+        if (single.hasSubParts) {
+          await _openSubPartsView(single);
+        } else if (single.requiresMeasurement) {
+          _openMeasureView(single);
+        } else {
+          widget.onNext([
+            models.RepairItem(
+              name: single.displayName,
+              price: single.price,
+              priceRange: single.priceRange,
+              quantity: 1,
+            ),
+          ]);
+        }
         return;
       }
 

@@ -9,6 +9,7 @@ import '../../../../services/repair_service.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
 import '../../domain/models/image_pin.dart';
 import '../../providers/repair_items_provider.dart';
+import '../widgets/sub_category_step.dart' show normalizeInputLabels;
 
 final supabase = Supabase.instance.client;
 
@@ -131,11 +132,11 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
     final name = category['name'] as String;
     final price = category['price'] as int;
     final requiresMeasurement = category['requires_measurement'] as bool? ?? false;
-    final inputCount = category['input_count'] as int? ?? 1;
-    final rawLabels = category['input_labels'];
-    final List<String> inputLabels = rawLabels is List
-        ? rawLabels.map((e) => e.toString()).toList()
-        : ['치수 (cm)'];
+    final inputCount = (category['input_count'] as num?)?.toInt() ?? 1;
+    final inputLabels = normalizeInputLabels(
+      category['input_labels'],
+      inputCount: inputCount,
+    );
     final iconName = category['icon_name'] as String?;
 
     if (requiresMeasurement) {

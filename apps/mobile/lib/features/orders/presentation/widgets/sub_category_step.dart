@@ -11,9 +11,11 @@ class SubCategorySelection {
   final int? directPrice;
   final String? priceRange;
   final bool requiresMeasurement;
+  final int inputCount;
   final List<String>? inputLabels;
   final String? iconName;
   final String? description;
+  final String? measureGuideKey;
 
   const SubCategorySelection({
     required this.id,
@@ -21,12 +23,50 @@ class SubCategorySelection {
     this.directPrice,
     this.priceRange,
     this.requiresMeasurement = false,
+    this.inputCount = 1,
     this.inputLabels,
     this.iconName,
     this.description,
+    this.measureGuideKey,
   });
 
   bool get hasDirectPrice => directPrice != null && directPrice! > 0;
+}
+
+/// 웹 SubCategoryStep.getInputLabels / RepairTypeStep과 동일한 라벨 정규화
+List<String> normalizeInputLabels(dynamic rawLabels, {int inputCount = 1}) {
+  final count = inputCount > 0 ? inputCount : 1;
+  if (rawLabels is List) {
+    final labels = rawLabels.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+    if (labels.isNotEmpty) return labels;
+  }
+  if (rawLabels is String && rawLabels.trim().isNotEmpty) {
+    if (count <= 1) return [rawLabels.trim()];
+    final parts = rawLabels
+        .split(RegExp(r'(?<=\))\s+(?=\S)'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts.length >= count) return parts.take(count).toList();
+    return List.generate(count, (i) => '치수 ${i + 1} (cm)');
+  }
+  return List.generate(count, (_) => '치수 (cm)');
+}
+
+SubCategorySelection _selectionFromRow(Map<String, dynamic> row) {
+  final inputCount = (row['input_count'] as num?)?.toInt() ?? 1;
+  return SubCategorySelection(
+    id: row['id'].toString(),
+    name: (row['name'] as String?) ?? '',
+    directPrice: (row['price'] as num?)?.toInt(),
+    priceRange: row['price_range'] as String?,
+    requiresMeasurement: row['requires_measurement'] == true,
+    inputCount: inputCount,
+    inputLabels: normalizeInputLabels(row['input_labels'], inputCount: inputCount),
+    iconName: row['icon_name'] as String?,
+    description: row['description'] as String?,
+    measureGuideKey: row['measure_guide_key'] as String?,
+  );
 }
 
 class SubCategoryStep extends StatefulWidget {
@@ -34,10 +74,14 @@ class SubCategoryStep extends StatefulWidget {
   final String categoryName;
   final void Function(SubCategorySelection selection) onSelect;
 
+  /// 자식도 없고 부모도 직접가격 leaf가 아닐 때 (웹 onNext("", undefined)와 동일)
+  final VoidCallback? onEmpty;
+
   const SubCategoryStep({
     required this.categoryId,
     required this.categoryName,
     required this.onSelect,
+    this.onEmpty,
     super.key,
   });
 
@@ -59,30 +103,61 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
     try {
       final response = await Supabase.instance.client
           .from('repair_categories')
-          .select('id, name, icon_name, display_order, price, price_range, requires_measurement, input_count, input_labels, description')
+          .select(
+            'id, name, icon_name, display_order, price, price_range, '
+            'requires_measurement, input_count, input_labels, description, measure_guide_key',
+          )
           .eq('is_active', true)
           .eq('parent_category_id', widget.categoryId)
           .order('display_order', ascending: true);
 
       final subs = List<Map<String, dynamic>>.from(response);
 
-      if (mounted) {
-        if (subs.isEmpty) {
-          // No sub-categories → treat the parent as a direct selection
+      if (!mounted) return;
+
+      if (subs.isEmpty) {
+        // 웹과 동일: 자식 없으면 부모 카테고리 자체가 직접가격 leaf인지 조회
+        final parent = await Supabase.instance.client
+            .from('repair_categories')
+            .select(
+              'id, name, icon_name, price, price_range, '
+              'requires_measurement, input_count, input_labels, description, measure_guide_key',
+            )
+            .eq('id', widget.categoryId)
+            .maybeSingle();
+
+        if (!mounted) return;
+
+        if (parent != null) {
+          final price = (parent['price'] as num?)?.toInt();
+          if (price != null && price > 0) {
+            widget.onSelect(_selectionFromRow(Map<String, dynamic>.from(parent)));
+            return;
+          }
+        }
+
+        if (widget.onEmpty != null) {
+          widget.onEmpty!();
+        } else {
+          // fallback: 이름만 넘기던 기존 동작 대신 빈 선택으로 수리유형 단계로
           widget.onSelect(SubCategorySelection(
             id: widget.categoryId,
             name: widget.categoryName,
           ));
-        } else {
-          setState(() {
-            _subCategories = subs;
-            _isLoading = false;
-          });
         }
+        return;
       }
+
+      setState(() {
+        _subCategories = subs;
+        _isLoading = false;
+      });
     } catch (e) {
       debugPrint('소카테고리 로드 실패: $e');
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        widget.onEmpty?.call();
+      }
     }
   }
 
@@ -140,29 +215,11 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
             itemCount: _subCategories.length,
             itemBuilder: (context, index) {
               final sub = _subCategories[index];
-              final name = sub['name'] as String;
-              final iconName = sub['icon_name'] as String?;
-              final directPrice = sub['price'] as int?;
-              final hasDirectPrice = directPrice != null && directPrice > 0;
-              final requiresMeasurement = sub['requires_measurement'] as bool? ?? false;
-              final rawLabels = sub['input_labels'];
-              final inputLabels = rawLabels is List
-                  ? rawLabels.map((e) => e.toString()).toList()
-                  : ['치수 (cm)'];
+              final selection = _selectionFromRow(sub);
+              final hasDirectPrice = selection.hasDirectPrice;
 
               return InkWell(
-                onTap: () {
-                  widget.onSelect(SubCategorySelection(
-                    id: sub['id'] as String,
-                    name: name,
-                    directPrice: directPrice,
-                    priceRange: sub['price_range'] as String?,
-                    requiresMeasurement: requiresMeasurement,
-                    inputLabels: inputLabels,
-                    iconName: iconName,
-                    description: sub['description'] as String?,
-                  ));
-                },
+                onTap: () => widget.onSelect(selection),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   decoration: BoxDecoration(
@@ -177,7 +234,7 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       CategoryIconWidget(
-                        iconName: iconName,
+                        iconName: selection.iconName,
                         size: 60,
                         preserveColors: true,
                       ),
@@ -185,7 +242,7 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Text(
-                          name,
+                          selection.name,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
@@ -199,7 +256,8 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
                       if (hasDirectPrice) ...[
                         const SizedBox(height: 4),
                         Text(
-                          sub['price_range'] as String? ?? _formatPrice(directPrice),
+                          selection.priceRange ??
+                              _formatPrice(selection.directPrice!),
                           style: TextStyle(
                             fontSize: 10,
                             color: Colors.grey.shade400,
