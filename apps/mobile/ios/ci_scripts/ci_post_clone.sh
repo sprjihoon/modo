@@ -66,15 +66,22 @@ FLUTTER_VERSION="3.32.2"
 echo ""
 echo "=== 2. Flutter SDK 설치 ==="
 
-if [ -d "$FLUTTER_SDK_DIR" ]; then
-    echo "Flutter SDK가 이미 존재합니다"
+if [ -d "$FLUTTER_SDK_DIR/.git" ]; then
+    echo "Flutter SDK가 이미 존재합니다 — 핀 버전($FLUTTER_VERSION)으로 맞춤"
+    git -C "$FLUTTER_SDK_DIR" fetch --depth 1 origin tag "$FLUTTER_VERSION" 2>/dev/null \
+      || git -C "$FLUTTER_SDK_DIR" fetch --depth 1 origin "$FLUTTER_VERSION"
+    git -C "$FLUTTER_SDK_DIR" checkout -f "$FLUTTER_VERSION"
 else
     echo "Flutter SDK 다운로드 중... (버전: $FLUTTER_VERSION)"
-    git clone https://github.com/flutter/flutter.git -b "$FLUTTER_VERSION" "$FLUTTER_SDK_DIR"
+    rm -rf "$FLUTTER_SDK_DIR"
+    git clone https://github.com/flutter/flutter.git -b "$FLUTTER_VERSION" --depth 1 "$FLUTTER_SDK_DIR"
     echo "Flutter SDK 다운로드 완료"
 fi
 
 export PATH="$FLUTTER_SDK_DIR/bin:$PATH"
+flutter --version
+# 캐시된 다른 채널/버전이 남지 않도록 확인
+flutter config --no-analytics >/dev/null 2>&1 || true
 
 # Flutter precache 실행
 echo ""

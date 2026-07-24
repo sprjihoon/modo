@@ -815,7 +815,8 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
                 style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
               ),
               value: _usePoints,
-              activeThumbColor: const Color(0xFF00C896),
+              // Xcode Cloud Flutter 3.32.x 호환 (activeThumbColor는 이후 버전 API)
+              activeColor: const Color(0xFF00C896),
               onChanged: _pointsApplying
                   ? null
                   : (on) async {
