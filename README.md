@@ -273,13 +273,15 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Bundle / Application ID | `com.modurepair.app` |
 | 버전 | `apps/mobile/pubspec.yaml` → `1.0.0+4` |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 4, 제출 `c0cafa39-a004-49f5-8c27-26d3d93f8bb6`) |
-| Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 신원 확인 심사 중 → 앱 생성 대기 |
+| iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 4, 제출 `c0cafa39-a004-49f5-8c27-26d3d93f8bb6`) — 빌드 4 유지, CI 수정만으로 재제출 불필요 |
+| Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · **본인 확인 미완료**(앱 만들기 잠김) |
+| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.0+4`, 재빌드됨) |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 개인정보처리방침 | https://modo.io.kr/privacy-policy |
 | 이용약관 | https://modo.io.kr/terms |
 | Apple Team | `6R7TSV8PV4` |
 | iOS 수출규정 | `ITSAppUsesNonExemptEncryption = false` (표준 HTTPS만 사용) |
+| Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.32.2** (`SwitchListTile`는 `activeColor` 사용) |
 
 ### App Store 심사용 테스트 계정
 
@@ -315,7 +317,7 @@ flutter build ipa --release --build-name=1.0.0 --build-number=4 \
 1. ~~App Store Connect 앱 등록~~ (`com.modurepair.app` / App ID `6759492888`)
 2. ~~심사용 로그인 정보~~ (`apple-review@modo.io.kr`)
 3. ~~iOS 빌드 업로드·심사 제출~~ (빌드 **4** · `WAITING_FOR_REVIEW`)
-4. Play: 신원 확인 승인 후 앱 생성 → AAB 내부 테스트 업로드
+4. Play: **본인 확인 문서 재업로드** → 승인 → 전화 인증 → 앱 생성(`com.modurepair.app`) → AAB 내부 테스트
 5. Play 스토어 등록정보(스크린샷·설명·Data safety) — 문구는 `STORE_LISTING_KR.md`
 6. 실기기에서 로그인 · 주문 · **라이브 결제** 스모크 (출시 전)
 
@@ -325,6 +327,8 @@ flutter build ipa --release --build-name=1.0.0 --build-number=4 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-07-24 | Xcode Cloud Switch 호환 | CI Flutter 3.32.2에 없는 `activeThumbColor` → `activeColor`. App Store 빌드 4는 영향 없음(재제출 불필요) |
+| 2026-07-24 | Play 재시도 | AAB `1.0.0+4` 재빌드. Console은 본인 확인이 다시「시작하기」상태라 앱 만들기 잠김 — 신분증/공문서 재업로드 필요 |
 | 2026-07-23 | App Store 재제출 (빌드 4) | 치수 UI 반영 후 `1.0.0+4` IPA 업로드·기존 심사 취소·재제출. 상태 `WAITING_FOR_REVIEW` |
 | 2026-07-23 | 치수 재는 방법 UX | 웹·Flutter 모두 확인/이전 버튼을 가이드 **위**로 이동. Flutter에 `MeasureGuideAccordion`(웹 가이드 WebView) 추가. `/guide/measure?embed=1` |
 | 2026-07-23 | Play Console 계정 | 개인 계정「틸리언」생성·$25 결제. 신원 문서 심사 중(기기 확인 완료). 승인 후 앱 생성·AAB 업로드 |
