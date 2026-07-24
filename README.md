@@ -282,6 +282,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Apple Team | `6R7TSV8PV4` |
 | iOS 수출규정 | `ITSAppUsesNonExemptEncryption = false` (표준 HTTPS만 사용) |
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.32.2** (`SwitchListTile`는 `activeColor` 사용) |
+| Xcode Cloud 서명 | Runner **Automatic** + Team `6R7TSV8PV4`. Workflow 배포 `APP_STORE_ELIGIBLE`. `AppFrameworkInfo.plist`에 `MinimumOSVersion=13.0` 필수(없으면 ASC 업로드 거절) |
 
 ### App Store 심사용 테스트 계정
 
@@ -327,6 +328,7 @@ flutter build ipa --release --build-name=1.0.0 --build-number=4 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-07-25 | Xcode Cloud Archive FAILED | Naver/Metal 경고는 무관. 실제 원인: (1) `App.framework` `MinimumOSVersion` 누락으로 IPA ASC 검증 실패 (2) 등록 기기 0대로 Development/Ad Hoc export 실패. Automatic 서명·`MinimumOSVersion=13.0`·워크플로 `APP_STORE_ELIGIBLE`로 수정. 심사 빌드 4는 유지 |
 | 2026-07-24 | Xcode Cloud Switch 호환 | CI Flutter 3.32.2에 없는 `activeThumbColor` → `activeColor`. App Store 빌드 4는 영향 없음(재제출 불필요) |
 | 2026-07-24 | Play 재시도 | AAB `1.0.0+4` 재빌드. Console은 본인 확인이 다시「시작하기」상태라 앱 만들기 잠김 — 신분증/공문서 재업로드 필요 |
 | 2026-07-23 | App Store 재제출 (빌드 4) | 치수 UI 반영 후 `1.0.0+4` IPA 업로드·기존 심사 취소·재제출. 상태 `WAITING_FOR_REVIEW` |
