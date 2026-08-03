@@ -59,29 +59,53 @@ echo ".env 파일 생성 완료: $ENV_FILE"
 
 # ===========================================
 # 2. Flutter SDK 설치
+# pubspec.lock sdks.flutter (>=3.35.0)와 동일 계열로 핀
 # ===========================================
 FLUTTER_SDK_DIR="$HOME/flutter"
-FLUTTER_VERSION="3.32.2"
+FLUTTER_VERSION="3.35.7"
 
 echo ""
 echo "=== 2. Flutter SDK 설치 ==="
 
-if [ -d "$FLUTTER_SDK_DIR/.git" ]; then
-    echo "Flutter SDK가 이미 존재합니다 — 핀 버전($FLUTTER_VERSION)으로 맞춤"
-    git -C "$FLUTTER_SDK_DIR" fetch --depth 1 origin tag "$FLUTTER_VERSION" 2>/dev/null \
-      || git -C "$FLUTTER_SDK_DIR" fetch --depth 1 origin "$FLUTTER_VERSION"
-    git -C "$FLUTTER_SDK_DIR" checkout -f "$FLUTTER_VERSION"
-else
+install_flutter_sdk() {
     echo "Flutter SDK 다운로드 중... (버전: $FLUTTER_VERSION)"
     rm -rf "$FLUTTER_SDK_DIR"
-    git clone https://github.com/flutter/flutter.git -b "$FLUTTER_VERSION" --depth 1 "$FLUTTER_SDK_DIR"
+    # 태그 기준 shallow clone (전체 히스토리는 Xcode Cloud 타임아웃 유발)
+    git clone https://github.com/flutter/flutter.git \
+        -b "$FLUTTER_VERSION" --depth 1 "$FLUTTER_SDK_DIR"
     echo "Flutter SDK 다운로드 완료"
+}
+
+CURRENT_FLUTTER_VERSION=""
+if [ -x "$FLUTTER_SDK_DIR/bin/flutter" ]; then
+    CURRENT_FLUTTER_VERSION="$("$FLUTTER_SDK_DIR/bin/flutter" --version 2>/dev/null | head -n 1 | awk '{print $2}')" || true
+fi
+
+if [ "$CURRENT_FLUTTER_VERSION" = "$FLUTTER_VERSION" ]; then
+    echo "Flutter SDK 핀 버전 확인: $FLUTTER_VERSION"
+elif [ -d "$FLUTTER_SDK_DIR/.git" ]; then
+    echo "Flutter SDK가 이미 존재합니다 ($CURRENT_FLUTTER_VERSION) — 핀 버전($FLUTTER_VERSION)으로 맞춤"
+    if ! (
+        git -C "$FLUTTER_SDK_DIR" fetch --depth 1 origin tag "$FLUTTER_VERSION" \
+          || git -C "$FLUTTER_SDK_DIR" fetch --depth 1 origin "$FLUTTER_VERSION"
+    ) || ! git -C "$FLUTTER_SDK_DIR" checkout -f "$FLUTTER_VERSION"; then
+        echo "캐시된 Flutter 전환 실패 — 클린 클론으로 재시도"
+        install_flutter_sdk
+    fi
+else
+    install_flutter_sdk
 fi
 
 export PATH="$FLUTTER_SDK_DIR/bin:$PATH"
 flutter --version
 # 캐시된 다른 채널/버전이 남지 않도록 확인
 flutter config --no-analytics >/dev/null 2>&1 || true
+
+RESOLVED_VERSION="$(flutter --version 2>/dev/null | head -n 1 | awk '{print $2}')"
+if [ "$RESOLVED_VERSION" != "$FLUTTER_VERSION" ]; then
+    echo "❌ Flutter 버전 불일치: expected $FLUTTER_VERSION, got $RESOLVED_VERSION"
+    exit 1
+fi
 
 # Flutter precache 실행
 echo ""
