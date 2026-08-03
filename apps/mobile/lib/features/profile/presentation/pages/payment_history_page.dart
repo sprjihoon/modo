@@ -125,7 +125,10 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
         appBar: const ModoAppBar(
           title: Text('결제내역'),
         ),
-        body: const Center(child: CircularProgressIndicator()),
+        body: SafeArea(
+          top: false,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
       );
     }
 
@@ -135,7 +138,9 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
         appBar: const ModoAppBar(
           title: Text('결제내역'),
         ),
-        body: Center(
+        body: SafeArea(
+          top: false,
+          child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -158,6 +163,7 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
             ],
           ),
         ),
+        ),
       );
     }
 
@@ -175,7 +181,9 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
       appBar: const ModoAppBar(
         title: Text('결제내역'),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           _buildPaymentPendingBanner(),
           // 날짜 필터
@@ -323,6 +331,7 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
               ),
             ),
         ],
+      ),
       ),
     );
   }

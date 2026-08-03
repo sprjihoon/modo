@@ -271,15 +271,15 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → `1.0.0+4` |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.0+5`** — Android SafeArea(시스템 내비)·수선부위 그리드 핏 |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 4, 제출 `c0cafa39-a004-49f5-8c27-26d3d93f8bb6`) — 빌드 4 유지, CI 수정만으로 재제출 불필요 |
+| iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 **4** 유지 중) — +5 IPA는 Xcode Cloud/수동 업로드 후 교체 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **비공개 테스트(Alpha) 검토 중** — `1.0.0 (4)` · 관리형 게시 끔(승인 시 자동 게시) |
+| Play 상태 | **비공개 테스트(Alpha)** — `1.0.0 (5)` AAB로 교체 제출 (이전 4 검토본 대체) |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.0+4`) |
+| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.0+5`) · 백업 `Documents/modo-android-signing/app-release-1.0.0+5.aab` |
 | Android 업로드 서명 | `apps/mobile/android/key.properties` + `app/upload-keystore.jks` (**Git 제외**) · 백업 `Documents/modo-android-signing/` |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -288,9 +288,10 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | 이용약관 | https://modo.io.kr/terms |
 | Apple Team | `6R7TSV8PV4` |
 | iOS 수출규정 | `ITSAppUsesNonExemptEncryption = false` (표준 HTTPS만 사용) |
-| Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.32.2** (`SwitchListTile`는 `activeColor` 사용) |
+| Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner **Automatic** + Team `6R7TSV8PV4`. Workflow 배포 `APP_STORE_ELIGIBLE`. `AppFrameworkInfo.plist`에 `MinimumOSVersion=13.0` 필수 |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
+| App Store 다음 빌드 | +5 IPA 업로드 후 Connect에서 심사 빌드 4→5 교체 |
 
 ### 심사용 테스트 계정
 
@@ -317,8 +318,8 @@ flutter build appbundle --release
 flutter build apk --release
 # → build/app/outputs/flutter-apk/app-release.apk
 
-# iOS (App Store / TestFlight)
-flutter build ipa --release --build-name=1.0.0 --build-number=4 \
+# iOS (App Store / TestFlight) — 다음 제출 시 build-number=5
+flutter build ipa --release --build-name=1.0.0 --build-number=5 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 # 업로드: xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
@@ -331,9 +332,11 @@ flutter build ipa --release --build-name=1.0.0 --build-number=4 \
 2. ~~심사용 로그인 정보~~ (`apple-review@modo.io.kr`)
 3. ~~iOS 빌드 업로드·심사 제출~~ (빌드 **4** · `WAITING_FOR_REVIEW`)
 4. ~~Play 앱 생성·내부 테스트·스토어/앱 콘텐츠~~ (`com.modurepair.app` / App ID `4975768727608817713`)
-5. ~~Play 비공개 테스트(Alpha) `1.0.0 (4)` 게시 개요 제출~~ → **Google 검토 대기**
-6. 비공개 테스트 승인 후 테스터 opt-in · 실기기 로그인·주문·**라이브 결제** 스모크
-7. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
+5. ~~Play 비공개 테스트(Alpha) `1.0.0 (4)` 게시 개요 제출~~
+6. ~~`1.0.0+5` SafeArea AAB Play Alpha 교체~~ (하단 내비 inset · 수선부위 그리드 핏)
+7. **대기:** App Store 빌드 5 IPA 업로드·심사 빌드 교체
+8. 비공개 테스트 승인 후 테스터 opt-in · 실기기 로그인·주문·**라이브 결제** 스모크
+9. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
 
 ---
 
@@ -341,7 +344,9 @@ flutter build ipa --release --build-name=1.0.0 --build-number=4 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-03 | Play 비공개 테스트 제출 | 앱 `4975768727608817713` 생성. 내부 테스트 활성 후 Alpha `1.0.0 (4)`·스토어 등록정보·Data safety 등 게시 개요 제출 → **검토 중**. 업로드 키 백업 `Documents/modo-android-signing/` |
+| 2026-08-03 | Play `1.0.0+5` 교체 | Android edge-to-edge SafeArea·수선부위 그리드 화면 핏. `1.0.0+5` AAB를 Alpha에 업로드해 빌드 4 교체. App Store는 빌드 4 유지(+5 IPA 대기) |
+| 2026-08-03 | Xcode Cloud Flutter 3.35.7 | `pubspec.lock`이 `>=3.35.0`인데 CI가 3.32.2라 `pub get` 실패 → 핀 3.35.7. zip/git 설치 스크립트 정리 + `ci_scripts/*.sh` LF 고정 |
+| 2026-08-03 | Play 비공개 테스트 제출 | 앱 `4975768727608817713` 생성. 내부 테스트 활성 후 Alpha `1.0.0 (4)`·스토어 등록정보·Data safety 등 게시 개요 제출. 업로드 키 백업 `Documents/modo-android-signing/` |
 | 2026-07-25 | Xcode Cloud #41 FAILED | Archive·App Store export·`MinimumOSVersion`은 성공. 등록 기기 0대 → Dev/Ad Hoc export 실패로 액션 FAILED(TestFlight 자동 배포 차단). 빌드 41 IPA는 `altool`로 수동 업로드됨. **기기 UDID 1개 등록**하면 CI 그린 |
 | 2026-07-25 | Xcode Cloud Archive FAILED | Naver/Metal 경고는 무관. 실제 원인: (1) `App.framework` `MinimumOSVersion` 누락으로 IPA ASC 검증 실패 (2) 등록 기기 0대로 Development/Ad Hoc export 실패. Automatic 서명·`MinimumOSVersion=13.0`·워크플로 `APP_STORE_ELIGIBLE`로 수정. 심사 빌드 4는 유지 |
 | 2026-07-24 | Xcode Cloud Switch 호환 | CI Flutter 3.32.2에 없는 `activeThumbColor` → `activeColor`. App Store 빌드 4는 영향 없음(재제출 불필요) |

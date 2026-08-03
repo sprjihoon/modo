@@ -259,7 +259,9 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   Widget build(BuildContext context) {
     if (_isSocialLoginInProgress) {
       return Scaffold(
-        body: Center(
+        body: SafeArea(
+          top: false,
+          child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -273,6 +275,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
               ),
             ],
           ),
+        ),
         ),
       );
     }
@@ -289,7 +292,9 @@ class _SignupPageState extends ConsumerState<SignupPage> {
         ),
         showHome: false,
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Expanded(
             child: SafeArea(
@@ -801,6 +806,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           ),
           const CompanyFooter(),
         ],
+      ),
       ),
     );
   }

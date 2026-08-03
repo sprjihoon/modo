@@ -229,7 +229,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
     // 소셜 로그인 진행 중이면 로딩 화면 표시
     if (_isSocialLoginInProgress) {
       return Scaffold(
-        body: Container(
+        body: SafeArea(
+          top: false,
+          child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -280,11 +282,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
             ),
           ),
         ),
+        ),
       );
     }
 
     return Scaffold(
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Expanded(
             child: Container(
@@ -581,6 +586,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
           ),
           const CompanyFooter(),
         ],
+      ),
       ),
     );
   }

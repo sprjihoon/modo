@@ -5,7 +5,7 @@
 |------|-----|
 | 앱 이름 | 모두의수선 |
 | 패키지 / Bundle ID | `com.modurepair.app` |
-| 버전 | 1.0.0 (3) |
+| 버전 | 1.0.0 (5) |
 | 개인정보처리방침 | https://modo.io.kr/privacy-policy |
 | 이용약관 | https://modo.io.kr/terms |
 | 지원 / 웹사이트 | https://modo.io.kr |

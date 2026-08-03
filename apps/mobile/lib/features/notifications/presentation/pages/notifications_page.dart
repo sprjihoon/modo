@@ -238,7 +238,9 @@ class _NotificationsPageState extends State<NotificationsPage>
           ],
         ),
       ),
-      body: _isLoading
+      body: SafeArea(
+        top: false,
+        child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : TabBarView(
               controller: _tabController,
@@ -247,6 +249,7 @@ class _NotificationsPageState extends State<NotificationsPage>
                 _buildAnnouncementsList(),
               ],
             ),
+      ),
     );
   }
 

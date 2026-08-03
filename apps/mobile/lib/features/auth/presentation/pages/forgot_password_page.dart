@@ -63,7 +63,9 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         title: Text('비밀번호 찾기'),
         showHome: false,
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
@@ -264,6 +266,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           ),
           const CompanyFooter(),
         ],
+      ),
       ),
     );
   }

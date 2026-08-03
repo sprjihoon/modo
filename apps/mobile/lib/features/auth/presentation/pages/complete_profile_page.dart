@@ -166,7 +166,9 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
           ),
         ),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Expanded(
             child: SafeArea(
@@ -415,6 +417,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
           ),
           const CompanyFooter(),
         ],
+      ),
       ),
     );
   }

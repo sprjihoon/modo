@@ -44,7 +44,9 @@ class ReceiptPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
@@ -293,6 +295,7 @@ class ReceiptPage extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

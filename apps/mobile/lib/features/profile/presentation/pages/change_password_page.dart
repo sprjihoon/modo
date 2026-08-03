@@ -72,7 +72,9 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       appBar: const ModoAppBar(
         title: Text('비밀번호 변경'),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
@@ -225,6 +227,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
           ),
           const CompanyFooter(),
         ],
+      ),
       ),
     );
   }

@@ -157,7 +157,8 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            child: Column(
+            child: SafeArea(
+              child: Column(
               children: [
                 // 핸들
                 Container(
@@ -298,6 +299,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                   ),
                 ),
               ],
+            ),
             ),
           );
         },
@@ -523,7 +525,9 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
           ),
         ),
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
               child: Column(
                 children: [
                   const SizedBox(height: 20),
@@ -1039,6 +1043,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
             const SizedBox(height: 40),
           ],
         ),
+      ),
       ),
     );
   }

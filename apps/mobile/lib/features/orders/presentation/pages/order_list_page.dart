@@ -214,7 +214,9 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
           ),
         ),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           _buildPaymentPendingBanner(),
           Expanded(
@@ -232,6 +234,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage>
           ),
           const CompanyFooter(),
         ],
+      ),
       ),
     );
   }

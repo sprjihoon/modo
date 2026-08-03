@@ -179,7 +179,7 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -202,71 +202,106 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.9,
-            ),
-            itemCount: _subCategories.length,
-            itemBuilder: (context, index) {
-              final sub = _subCategories[index];
-              final selection = _selectionFromRow(sub);
-              final hasDirectPrice = selection.hasDirectPrice;
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const crossAxisCount = 2;
+              const crossAxisSpacing = 12.0;
+              const mainAxisSpacing = 12.0;
+              const paddingH = 20.0;
+              const paddingV = 8.0;
+              const minCellHeight = 110.0;
 
-              return InkWell(
-                onTap: () => widget.onSelect(selection),
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(
-                      color: Colors.grey.shade200,
-                      width: 2,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CategoryIconWidget(
-                        iconName: selection.iconName,
-                        size: 60,
-                        preserveColors: true,
-                      ),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          selection.name,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (hasDirectPrice) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          selection.priceRange ??
-                              _formatPrice(selection.directPrice!),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey.shade400,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+              final itemCount = _subCategories.length;
+              final rowCount = (itemCount / crossAxisCount).ceil().clamp(1, 99);
+              final gridWidth = constraints.maxWidth - paddingH * 2;
+              final gridHeight = constraints.maxHeight - paddingV;
+              final cellWidth =
+                  (gridWidth - crossAxisSpacing * (crossAxisCount - 1)) /
+                      crossAxisCount;
+              final rawCellHeight =
+                  (gridHeight - mainAxisSpacing * (rowCount - 1)) / rowCount;
+              final fitsWithoutScroll = rawCellHeight >= minCellHeight;
+              final cellHeight =
+                  fitsWithoutScroll ? rawCellHeight : minCellHeight;
+              final aspectRatio = (cellWidth / cellHeight).clamp(0.5, 1.35);
+              final iconSize = (cellHeight * 0.32).clamp(36.0, 60.0);
+              final titleSize = (cellHeight * 0.07).clamp(11.0, 13.0);
+
+              return GridView.builder(
+                padding: const EdgeInsets.fromLTRB(
+                  paddingH,
+                  0,
+                  paddingH,
+                  paddingV,
                 ),
+                physics: fitsWithoutScroll
+                    ? const NeverScrollableScrollPhysics()
+                    : const BouncingScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: crossAxisSpacing,
+                  mainAxisSpacing: mainAxisSpacing,
+                  childAspectRatio: aspectRatio,
+                ),
+                itemCount: itemCount,
+                itemBuilder: (context, index) {
+                  final sub = _subCategories[index];
+                  final selection = _selectionFromRow(sub);
+                  final hasDirectPrice = selection.hasDirectPrice;
+
+                  return InkWell(
+                    onTap: () => widget.onSelect(selection),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                          color: Colors.grey.shade200,
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CategoryIconWidget(
+                            iconName: selection.iconName,
+                            size: iconSize,
+                            preserveColors: true,
+                          ),
+                          SizedBox(height: (cellHeight * 0.05).clamp(6.0, 12.0)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              selection.name,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: titleSize,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (hasDirectPrice) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              selection.priceRange ??
+                                  _formatPrice(selection.directPrice!),
+                              style: TextStyle(
+                                fontSize: (titleSize - 1).clamp(9.0, 11.0),
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                },
               );
             },
           ),

@@ -131,7 +131,9 @@ class _AnnouncementDetailPageState extends State<AnnouncementDetailPage> {
       appBar: const ModoAppBar(
         title: Text('공지사항'),
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -312,6 +314,7 @@ class _AnnouncementDetailPageState extends State<AnnouncementDetailPage> {
             const SizedBox(height: 20),
           ],
         ),
+      ),
       ),
     );
   }

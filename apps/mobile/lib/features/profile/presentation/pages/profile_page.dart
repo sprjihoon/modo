@@ -18,7 +18,9 @@ class ProfilePage extends ConsumerWidget {
       appBar: const ModoAppBar(
         title: Text('마이페이지'),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
@@ -135,6 +137,7 @@ class ProfilePage extends ConsumerWidget {
           ),
           const CompanyFooter(),
         ],
+      ),
       ),
     );
   }

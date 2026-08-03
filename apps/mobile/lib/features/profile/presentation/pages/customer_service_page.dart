@@ -101,7 +101,9 @@ class _CustomerServicePageState extends ConsumerState<CustomerServicePage> {
       appBar: const ModoAppBar(
         title: Text('고객센터'),
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
@@ -270,6 +272,7 @@ class _CustomerServicePageState extends ConsumerState<CustomerServicePage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

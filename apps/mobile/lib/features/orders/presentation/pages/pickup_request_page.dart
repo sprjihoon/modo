@@ -1090,7 +1090,9 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
           ),
         ],
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           const OrderFlowProgress(currentStep: 3),
           Expanded(
@@ -2171,6 +2173,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
             ),
           ),
         ],
+      ),
       ),
       ), // Scaffold
     ); // PopScope

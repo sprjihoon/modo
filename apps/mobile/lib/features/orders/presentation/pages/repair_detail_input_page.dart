@@ -387,7 +387,9 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
           ),
         ),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
@@ -826,6 +828,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

@@ -59,11 +59,14 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
       appBar: const ModoAppBar(
         title: Text('배송추적'),
       ),
-      body: _isLoading
+      body: SafeArea(
+        top: false,
+        child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? _buildErrorView()
               : _buildTrackingView(),
+      ),
     );
   }
 

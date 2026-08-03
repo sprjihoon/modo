@@ -183,7 +183,8 @@ flutter test --coverage
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | 비공개 테스트(Alpha) `1.0.0 (4)` — 검토 중 |
+| 현재 트랙 | 비공개 테스트(Alpha) `1.0.0 (5)` — SafeArea·그리드 핏 |
+| 버전 | `pubspec.yaml` → `1.0.0+5` |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
 | 그래픽 자산 | `store_screenshots/play/` |
 
@@ -203,7 +204,14 @@ flutter build apk --release
 # 정식 테스트는 Play 내부/비공개 테스트 링크로 설치.
 ```
 
-### iOS
+### iOS (Xcode Cloud / App Store)
+
+| 항목 | 값 |
+|---|---|
+| Flutter 핀 | **3.35.7** (`ios/ci_scripts/ci_post_clone.sh`, 공식 macOS zip) |
+| 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
+| App Store 심사 | 빌드 **4** `WAITING_FOR_REVIEW` — +5 IPA 업로드 후 교체 예정 |
+
 ```bash
 # App Store용
 flutter build ipa --release

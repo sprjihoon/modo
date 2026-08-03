@@ -158,7 +158,9 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
             ),
         ],
       ),
-      body: userProfileAsync.when(
+      body: SafeArea(
+        top: false,
+        child: userProfileAsync.when(
         data: (profile) => Column(
           children: [
             Expanded(
@@ -313,6 +315,7 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -129,7 +129,9 @@ class _FaqPageState extends State<FaqPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: const ModoAppBar(title: Text('자주 묻는 질문')),
-      body: _isLoading
+      body: SafeArea(
+        top: false,
+        child: _isLoading
           ? ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: 5,
@@ -251,6 +253,7 @@ class _FaqPageState extends State<FaqPage> {
                     );
                   },
                 ),
+      ),
     );
   }
 }

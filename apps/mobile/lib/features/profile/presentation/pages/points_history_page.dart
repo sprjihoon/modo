@@ -81,8 +81,11 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
         appBar: const ModoAppBar(
           title: Text('포인트 내역'),
         ),
-        body: const Center(
+        body: SafeArea(
+          top: false,
+          child: const Center(
           child: CircularProgressIndicator(color: Color(0xFF00C896)),
+        ),
         ),
       );
     }
@@ -107,7 +110,9 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
       appBar: const ModoAppBar(
         title: Text('포인트 내역'),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           // 현재 포인트 헤더
           Container(
@@ -418,6 +423,7 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
                   ),
           ),
         ],
+      ),
       ),
     );
   }

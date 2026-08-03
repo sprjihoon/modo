@@ -449,7 +449,9 @@ class _PortonePaymentPageState extends State<PortonePaymentPage> {
         title: Text('결제하기'),
         foregroundColor: Colors.black87,
       ),
-      body: _errorMessage != null
+      body: SafeArea(
+        top: false,
+        child: _errorMessage != null
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -488,6 +490,7 @@ class _PortonePaymentPageState extends State<PortonePaymentPage> {
                   ),
               ],
             ),
+      ),
     );
   }
 }

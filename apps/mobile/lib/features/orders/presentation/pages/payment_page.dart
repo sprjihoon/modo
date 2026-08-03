@@ -535,7 +535,10 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         appBar: const ModoAppBar(
           title: Text('결제'),
         ),
-        body: const Center(child: CircularProgressIndicator()),
+        body: SafeArea(
+          top: false,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
       );
     }
 
@@ -550,7 +553,9 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
       appBar: const ModoAppBar(
         title: Text('결제'),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
@@ -585,6 +590,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           // 결제 버튼
           _buildBottomButtons(formattedAmount),
         ],
+      ),
       ),
     );
   }

@@ -91,7 +91,8 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
-      body: const Center(
+      body: const SafeArea(
+        child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -125,6 +126,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

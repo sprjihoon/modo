@@ -15,7 +15,9 @@ class InviteFriendsPage extends ConsumerWidget {
       appBar: const ModoAppBar(
         title: Text('친구초대'),
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
         child: Column(
           children: [
             // 혜택 배너
@@ -201,6 +203,7 @@ class InviteFriendsPage extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

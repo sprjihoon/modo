@@ -395,18 +395,21 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
             }
           },
         ),
-        body: Column(
-          children: [
-            OrderFlowProgress(
-              currentStep: getOrderFlowStepIndex(
-                mode: _toProgressMode(_currentMode),
-                subCategoryPhase: _subCategoryPhase == _SubCategoryPhase.pre
-                    ? OrderFlowSubCategoryPhase.pre
-                    : OrderFlowSubCategoryPhase.post,
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              OrderFlowProgress(
+                currentStep: getOrderFlowStepIndex(
+                  mode: _toProgressMode(_currentMode),
+                  subCategoryPhase: _subCategoryPhase == _SubCategoryPhase.pre
+                      ? OrderFlowSubCategoryPhase.pre
+                      : OrderFlowSubCategoryPhase.post,
+                ),
               ),
-            ),
-            Expanded(child: _buildCurrentStep()),
-          ],
+              Expanded(child: _buildCurrentStep()),
+            ],
+          ),
         ),
       ),
     );

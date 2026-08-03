@@ -58,7 +58,9 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
       appBar: ModoAppBar(
         title: Text(widget.isSelectionMode ? '배송지 변경' : '배송지 설정'),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           // 안내 메시지
           Container(
@@ -106,22 +108,26 @@ class _AddressesPageState extends ConsumerState<AddressesPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await context.push<Map<String, dynamic>>('/profile/addresses/add');
-          if (result != null && mounted) {
-            // 배송지 목록 새로고침
-            await _loadAddresses();
-            
-            // 선택 모드이면 새로 추가된 배송지를 바로 선택하여 반환
-            if (widget.isSelectionMode) {
-              context.pop(result);
+      ),
+      floatingActionButton: SafeArea(
+        top: false,
+        child: FloatingActionButton.extended(
+          onPressed: () async {
+            final result = await context.push<Map<String, dynamic>>('/profile/addresses/add');
+            if (result != null && mounted) {
+              // 배송지 목록 새로고침
+              await _loadAddresses();
+              
+              // 선택 모드이면 새로 추가된 배송지를 바로 선택하여 반환
+              if (widget.isSelectionMode) {
+                context.pop(result);
+              }
             }
-          }
-        },
-        backgroundColor: const Color(0xFF00C896),
-        icon: const Icon(Icons.add),
-        label: Text(widget.isSelectionMode ? '새 배송지 추가' : '배송지 추가'),
+          },
+          backgroundColor: const Color(0xFF00C896),
+          icon: const Icon(Icons.add),
+          label: Text(widget.isSelectionMode ? '새 배송지 추가' : '배송지 추가'),
+        ),
       ),
     );
   }

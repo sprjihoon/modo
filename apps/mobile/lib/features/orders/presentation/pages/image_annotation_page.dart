@@ -170,7 +170,10 @@ class _ImageAnnotationPageState extends State<ImageAnnotationPage> {
             ),
         ],
       ),
-      body: _imagePath == null ? _buildEmptyState() : _buildEditor(),
+      body: SafeArea(
+        top: false,
+        child: _imagePath == null ? _buildEmptyState() : _buildEditor(),
+      ),
     );
   }
 

@@ -670,16 +670,19 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                 })
             : null,
       ),
-      body: _isLoadingSubCategories
-          ? const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C896)),
-              ),
-            )
-          // 소카테고리가 있고 아직 선택 안 한 경우 → 소카테고리 그리드
-          : _subCategories.isNotEmpty && _selectedSubCategoryId == null
-              ? _buildSubCategoryGrid()
-              : _buildRepairTypesBody(),
+      body: SafeArea(
+        top: false,
+        child: _isLoadingSubCategories
+            ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C896)),
+                ),
+              )
+            // 소카테고리가 있고 아직 선택 안 한 경우 → 소카테고리 그리드
+            : _subCategories.isNotEmpty && _selectedSubCategoryId == null
+                ? _buildSubCategoryGrid()
+                : _buildRepairTypesBody(),
+      ),
     );
   }
 
@@ -708,7 +711,7 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
         ),
         Expanded(
           child: GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 12,

@@ -126,7 +126,9 @@ class _SelectRepairTypePageState extends ConsumerState<SelectRepairTypePage> {
           ),
         ),
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Expanded(
             child: ListView(
@@ -284,6 +286,7 @@ class _SelectRepairTypePageState extends ConsumerState<SelectRepairTypePage> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

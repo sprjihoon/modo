@@ -395,7 +395,9 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
         ),
         onBack: _isNavigating ? () {} : null,
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Expanded(
             child: ListView(
@@ -514,6 +516,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
             ),
           ),
         ],
+      ),
       ),
         ),
         

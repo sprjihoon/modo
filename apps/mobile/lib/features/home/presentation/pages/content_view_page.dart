@@ -47,9 +47,12 @@ class _ContentViewPageState extends State<ContentViewPage> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: _isLoading
+      body: SafeArea(
+        top: false,
+        child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _buildContent(),
+      ),
     );
   }
 

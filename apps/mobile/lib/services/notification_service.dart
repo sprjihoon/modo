@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -12,9 +13,19 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final _supabase = Supabase.instance.client;
-  final _fcm = FirebaseMessaging.instance;
+  SupabaseClient get _supabase => Supabase.instance.client;
   final _localNotifications = FlutterLocalNotificationsPlugin();
+
+  /// Firebase 미초기화(google-services.json 없음 등)면 null — 앱 기동은 계속
+  FirebaseMessaging? get _fcmOrNull {
+    try {
+      Firebase.app();
+      return FirebaseMessaging.instance;
+    } catch (e) {
+      debugPrint('⚠️ FCM 사용 불가 (Firebase 미초기화): $e');
+      return null;
+    }
+  }
 
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
@@ -30,8 +41,15 @@ class NotificationService {
     try {
       debugPrint('🔔 알림 서비스 초기화 시작');
 
+      final fcm = _fcmOrNull;
+      if (fcm == null) {
+        debugPrint('⚠️ Firebase 없음 — 로컬 알림만 초기화');
+        await _initializeLocalNotifications();
+        return;
+      }
+
       // 1. 알림 권한 요청
-      final settings = await _fcm.requestPermission(
+      final settings = await fcm.requestPermission(
         alert: true,
         badge: true,
         sound: true,
@@ -48,7 +66,7 @@ class NotificationService {
       }
 
       // 2. FCM 토큰 가져오기
-      _fcmToken = await _fcm.getToken();
+      _fcmToken = await fcm.getToken();
       debugPrint('📱 FCM 토큰: $_fcmToken');
 
       // 3. 로그인한 사용자라면 토큰 저장
@@ -61,7 +79,7 @@ class NotificationService {
       await _initializeLocalNotifications();
 
       // 5. FCM 리스너 설정
-      _setupFcmListeners();
+      _setupFcmListeners(fcm);
 
       debugPrint('✅ 알림 서비스 초기화 완료');
     } catch (e) {
@@ -103,7 +121,7 @@ class NotificationService {
   }
 
   /// FCM 리스너 설정
-  void _setupFcmListeners() {
+  void _setupFcmListeners(FirebaseMessaging fcm) {
     // 1. 포그라운드 메시지 수신
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint('🔔 포그라운드 메시지 수신: ${message.notification?.title}');
@@ -117,7 +135,7 @@ class NotificationService {
     });
 
     // 3. 종료 상태에서 알림 탭으로 앱 실행
-    FirebaseMessaging.instance.getInitialMessage().then((message) {
+    fcm.getInitialMessage().then((message) {
       if (message != null) {
         debugPrint('🔔 종료 상태 메시지 탭: ${message.notification?.title}');
         _handleNotificationTap(message.data);
@@ -125,7 +143,7 @@ class NotificationService {
     });
 
     // 4. 토큰 갱신 리스너
-    _fcm.onTokenRefresh.listen((newToken) {
+    fcm.onTokenRefresh.listen((newToken) {
       debugPrint('🔄 FCM 토큰 갱신: $newToken');
       _fcmToken = newToken;
       _saveFcmToken(newToken);
@@ -232,13 +250,14 @@ class NotificationService {
   Future<void> onLogin() async {
     if (_fcmToken != null) {
       await _saveFcmToken(_fcmToken!);
-    } else {
-      // 토큰이 없으면 새로 가져오기
-      final token = await _fcm.getToken();
-      if (token != null) {
-        _fcmToken = token;
-        await _saveFcmToken(token);
-      }
+      return;
+    }
+    final fcm = _fcmOrNull;
+    if (fcm == null) return;
+    final token = await fcm.getToken();
+    if (token != null) {
+      _fcmToken = token;
+      await _saveFcmToken(token);
     }
   }
 
@@ -275,7 +294,9 @@ class NotificationService {
   /// 특정 주문에 대한 알림 구독 (선택사항)
   Future<void> subscribeToOrder(String orderId) async {
     try {
-      await _fcm.subscribeToTopic('order_$orderId');
+      final fcm = _fcmOrNull;
+      if (fcm == null) return;
+      await fcm.subscribeToTopic('order_$orderId');
       debugPrint('✅ 주문 알림 구독: $orderId');
     } catch (e) {
       debugPrint('❌ 주문 알림 구독 실패: $e');
@@ -285,7 +306,9 @@ class NotificationService {
   /// 특정 주문 알림 구독 해제
   Future<void> unsubscribeFromOrder(String orderId) async {
     try {
-      await _fcm.unsubscribeFromTopic('order_$orderId');
+      final fcm = _fcmOrNull;
+      if (fcm == null) return;
+      await fcm.unsubscribeFromTopic('order_$orderId');
       debugPrint('✅ 주문 알림 구독 해제: $orderId');
     } catch (e) {
       debugPrint('❌ 주문 알림 구독 해제 실패: $e');

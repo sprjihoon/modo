@@ -136,7 +136,9 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
       appBar: const ModoAppBar(
         title: Text('공지사항'),
       ),
-      body: _isLoading
+      body: SafeArea(
+        top: false,
+        child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _announcements.isEmpty
               ? _buildEmptyState()
@@ -151,6 +153,7 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
                     },
                   ),
                 ),
+      ),
     );
   }
 

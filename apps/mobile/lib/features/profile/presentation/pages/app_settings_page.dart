@@ -14,7 +14,9 @@ class AppSettingsPage extends ConsumerWidget {
       appBar: const ModoAppBar(
         title: Text('앱 설정'),
       ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
         child: Column(
           children: [
             const SizedBox(height: 16),
@@ -39,6 +41,7 @@ class AppSettingsPage extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -49,24 +49,28 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
 
   /// 푸시 알림 탭 → GoRouter 네비게이션 연결
   void _setupNotificationNavigation() {
-    _notificationNavSubscription =
-        NotificationService().navigationStream.listen((event) {
-      final route = event['route'] as String?;
-      if (route == null) return;
+    try {
+      _notificationNavSubscription =
+          NotificationService().navigationStream.listen((event) {
+        final route = event['route'] as String?;
+        if (route == null) return;
 
-      debugPrint('🔀 [App] 알림 탭 네비게이션: $route');
+        debugPrint('🔀 [App] 알림 탭 네비게이션: $route');
 
-      // 잠깐 지연 후 이동 (앱이 아직 초기화 중일 수 있으므로)
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (!mounted) return;
-        try {
-          final router = ref.read(routerProvider);
-          router.push(route);
-        } catch (e) {
-          debugPrint('❌ [App] 알림 탭 네비게이션 실패: $e');
-        }
+        // 잠깐 지연 후 이동 (앱이 아직 초기화 중일 수 있으므로)
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted) return;
+          try {
+            final router = ref.read(routerProvider);
+            router.push(route);
+          } catch (e) {
+            debugPrint('❌ [App] 알림 탭 네비게이션 실패: $e');
+          }
+        });
       });
-    });
+    } catch (e) {
+      debugPrint('⚠️ [App] 알림 네비게이션 설정 건너뜀: $e');
+    }
   }
 
   /// 앱 라이프사이클 변경 감지

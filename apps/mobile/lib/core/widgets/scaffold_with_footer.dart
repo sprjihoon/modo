@@ -25,11 +25,14 @@ class ScaffoldWithFooter extends StatelessWidget {
       appBar: appBar,
       backgroundColor: backgroundColor ?? Colors.white,
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
-      body: Column(
-        children: [
-          Expanded(child: body),
-          const CompanyFooter(),
-        ],
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Expanded(child: body),
+            const CompanyFooter(),
+          ],
+        ),
       ),
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,

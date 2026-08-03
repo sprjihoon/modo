@@ -113,9 +113,12 @@ class _EasyGuidePageState extends State<EasyGuidePage> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: _isLoading
+      body: SafeArea(
+        top: false,
+        child: _isLoading
           ? const Center(child: CircularProgressIndicator(color: _brand))
           : _buildBody(),
+      ),
     );
   }
 

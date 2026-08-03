@@ -71,7 +71,9 @@ class _CartPageState extends ConsumerState<CartPage> {
             ),
         ],
       ),
-      body: cartItems.isEmpty
+      body: SafeArea(
+        top: false,
+        child: cartItems.isEmpty
           ? _buildEmptyState(context)
           : Column(
               children: [
@@ -221,6 +223,7 @@ class _CartPageState extends ConsumerState<CartPage> {
                 ),
               ],
             ),
+      ),
     );
   }
 

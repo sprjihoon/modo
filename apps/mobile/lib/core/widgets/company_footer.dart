@@ -68,19 +68,21 @@ class _CompanyFooterState extends State<CompanyFooter>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: Colors.grey.shade200,
-            width: 1,
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: Colors.grey.shade200,
+              width: 1,
+            ),
           ),
         ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           // 아코디언 헤더
           InkWell(
             onTap: () {
@@ -215,6 +217,7 @@ class _CompanyFooterState extends State<CompanyFooter>
           ),
         ],
       ),
+    ),
     );
   }
 
