@@ -60,52 +60,82 @@ echo ".env 파일 생성 완료: $ENV_FILE"
 # ===========================================
 # 2. Flutter SDK 설치
 # pubspec.lock sdks.flutter (>=3.35.0)와 동일 계열로 핀
+# git shallow clone는 Xcode Cloud에서 캐시/태그 전환이 자주 깨지므로
+# 공식 stable macOS zip을 사용한다.
 # ===========================================
 FLUTTER_SDK_DIR="$HOME/flutter"
 FLUTTER_VERSION="3.35.7"
+FLUTTER_PIN_FILE="$FLUTTER_SDK_DIR/.ci_pin_version"
+FLUTTER_RELEASE_BASE="https://storage.googleapis.com/flutter_infra_release/releases"
 
 echo ""
 echo "=== 2. Flutter SDK 설치 ==="
 
 install_flutter_sdk() {
-    echo "Flutter SDK 다운로드 중... (버전: $FLUTTER_VERSION)"
+    ARCH="$(uname -m)"
+    if [ "$ARCH" = "arm64" ]; then
+        ARCHIVE="stable/macos/flutter_macos_arm64_${FLUTTER_VERSION}-stable.zip"
+    else
+        ARCHIVE="stable/macos/flutter_macos_${FLUTTER_VERSION}-stable.zip"
+    fi
+
+    echo "Flutter SDK 다운로드 중... (버전: $FLUTTER_VERSION, arch: $ARCH)"
+    echo "URL: $FLUTTER_RELEASE_BASE/$ARCHIVE"
+
     rm -rf "$FLUTTER_SDK_DIR"
-    # 태그 기준 shallow clone (전체 히스토리는 Xcode Cloud 타임아웃 유발)
-    git clone https://github.com/flutter/flutter.git \
-        -b "$FLUTTER_VERSION" --depth 1 "$FLUTTER_SDK_DIR"
+    TMP_ZIP="$HOME/flutter_sdk_${FLUTTER_VERSION}.zip"
+    rm -f "$TMP_ZIP"
+
+    curl -fL --retry 3 --retry-delay 2 \
+        -o "$TMP_ZIP" \
+        "$FLUTTER_RELEASE_BASE/$ARCHIVE"
+
+    # zip 루트는 flutter/ 디렉터리
+    unzip -q "$TMP_ZIP" -d "$HOME"
+    rm -f "$TMP_ZIP"
+
+    if [ ! -x "$FLUTTER_SDK_DIR/bin/flutter" ]; then
+        echo "❌ Flutter SDK 압축 해제 실패: $FLUTTER_SDK_DIR/bin/flutter 없음"
+        exit 1
+    fi
+
+    echo "$FLUTTER_VERSION" > "$FLUTTER_PIN_FILE"
     echo "Flutter SDK 다운로드 완료"
 }
 
-CURRENT_FLUTTER_VERSION=""
-if [ -x "$FLUTTER_SDK_DIR/bin/flutter" ]; then
-    CURRENT_FLUTTER_VERSION="$("$FLUTTER_SDK_DIR/bin/flutter" --version 2>/dev/null | head -n 1 | awk '{print $2}')" || true
+CACHED_PIN=""
+if [ -f "$FLUTTER_PIN_FILE" ]; then
+    CACHED_PIN="$(cat "$FLUTTER_PIN_FILE" 2>/dev/null || true)"
 fi
 
-if [ "$CURRENT_FLUTTER_VERSION" = "$FLUTTER_VERSION" ]; then
-    echo "Flutter SDK 핀 버전 확인: $FLUTTER_VERSION"
-elif [ -d "$FLUTTER_SDK_DIR/.git" ]; then
-    echo "Flutter SDK가 이미 존재합니다 ($CURRENT_FLUTTER_VERSION) — 핀 버전($FLUTTER_VERSION)으로 맞춤"
-    if ! (
-        git -C "$FLUTTER_SDK_DIR" fetch --depth 1 origin tag "$FLUTTER_VERSION" \
-          || git -C "$FLUTTER_SDK_DIR" fetch --depth 1 origin "$FLUTTER_VERSION"
-    ) || ! git -C "$FLUTTER_SDK_DIR" checkout -f "$FLUTTER_VERSION"; then
-        echo "캐시된 Flutter 전환 실패 — 클린 클론으로 재시도"
-        install_flutter_sdk
-    fi
+if [ "$CACHED_PIN" = "$FLUTTER_VERSION" ] && [ -x "$FLUTTER_SDK_DIR/bin/flutter" ]; then
+    echo "캐시된 Flutter SDK 사용: $FLUTTER_VERSION"
 else
+    if [ -d "$FLUTTER_SDK_DIR" ]; then
+        echo "캐시된 Flutter($CACHED_PIN)가 핀($FLUTTER_VERSION)과 다름 — 재설치"
+    fi
     install_flutter_sdk
 fi
 
 export PATH="$FLUTTER_SDK_DIR/bin:$PATH"
-flutter --version
-# 캐시된 다른 채널/버전이 남지 않도록 확인
 flutter config --no-analytics >/dev/null 2>&1 || true
+flutter --version
 
-RESOLVED_VERSION="$(flutter --version 2>/dev/null | head -n 1 | awk '{print $2}')"
+# --machine JSON으로 버전 확인 (부트스트랩 로그에 흔들리지 않음)
+RESOLVED_VERSION="$(
+    flutter --version --machine 2>/dev/null \
+      | python3 -c 'import sys,json; print(json.load(sys.stdin).get("frameworkVersion",""))' \
+      2>/dev/null || true
+)"
+if [ -z "$RESOLVED_VERSION" ]; then
+    # python3 파싱 실패 시 pin 파일로 대체 확인
+    RESOLVED_VERSION="$(cat "$FLUTTER_PIN_FILE" 2>/dev/null || true)"
+fi
 if [ "$RESOLVED_VERSION" != "$FLUTTER_VERSION" ]; then
     echo "❌ Flutter 버전 불일치: expected $FLUTTER_VERSION, got $RESOLVED_VERSION"
     exit 1
 fi
+echo "✅ Flutter 버전 확인: $RESOLVED_VERSION"
 
 # Flutter precache 실행
 echo ""
