@@ -276,7 +276,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 **4** 유지 중) — +5 IPA는 Xcode Cloud/수동 업로드 후 교체 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **비공개 테스트(Alpha)** — `1.0.0 (5)` AAB로 교체 제출 (이전 4 검토본 대체) |
+| Play 상태 | **비공개 테스트(Alpha) 활성** — 테스터에 `1.0.0 (4)` 제공 중 · `1.0.0 (5)` AAB 교체 업로드 진행 |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
 | Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.0+5`) · 백업 `Documents/modo-android-signing/app-release-1.0.0+5.aab` |
