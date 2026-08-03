@@ -183,7 +183,7 @@ flutter test --coverage
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | 비공개 테스트(Alpha) `1.0.0 (5)` — SafeArea·그리드 핏 |
+| 현재 트랙 | 비공개 테스트(Alpha) `1.0.0 (5)` 검토 중 — SafeArea·그리드 핏 |
 | 버전 | `pubspec.yaml` → `1.0.0+5` |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
 | 그래픽 자산 | `store_screenshots/play/` |

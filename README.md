@@ -276,7 +276,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 **4** 유지 중) — +5 IPA는 Xcode Cloud/수동 업로드 후 교체 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **비공개 테스트(Alpha) 활성** — 테스터에 `1.0.0 (4)` 제공 중 · `1.0.0 (5)` AAB 교체 업로드 진행 |
+| Play 상태 | **비공개 테스트(Alpha)** — `1.0.0 (5)` 검토 중(게시 개요 제출 완료). 현재 테스터 제공본은 `1.0.0 (4)` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
 | Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.0+5`) · 백업 `Documents/modo-android-signing/app-release-1.0.0+5.aab` |
@@ -333,7 +333,7 @@ flutter build ipa --release --build-name=1.0.0 --build-number=5 \
 3. ~~iOS 빌드 업로드·심사 제출~~ (빌드 **4** · `WAITING_FOR_REVIEW`)
 4. ~~Play 앱 생성·내부 테스트·스토어/앱 콘텐츠~~ (`com.modurepair.app` / App ID `4975768727608817713`)
 5. ~~Play 비공개 테스트(Alpha) `1.0.0 (4)` 게시 개요 제출~~
-6. ~~`1.0.0+5` SafeArea AAB Play Alpha 교체~~ (하단 내비 inset · 수선부위 그리드 핏)
+6. ~~`1.0.0+5` SafeArea AAB Play Alpha 교체·검토 제출~~ (하단 내비 inset · 수선부위 그리드 핏)
 7. **대기:** App Store 빌드 5 IPA 업로드·심사 빌드 교체
 8. 비공개 테스트 승인 후 테스터 opt-in · 실기기 로그인·주문·**라이브 결제** 스모크
 9. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
