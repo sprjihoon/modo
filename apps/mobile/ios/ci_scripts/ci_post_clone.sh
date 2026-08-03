@@ -60,8 +60,12 @@ echo ".env 파일 생성 완료: $ENV_FILE"
 # ===========================================
 # 2. Flutter SDK 설치
 # pubspec.lock sdks.flutter (>=3.35.0)와 동일 계열로 핀
-# git shallow clone는 Xcode Cloud에서 캐시/태그 전환이 자주 깨지므로
-# 공식 stable macOS zip을 사용한다.
+#
+# Xcode Cloud에서 GCS zip(curl 35 SSL)과 git 캐시/태그 전환이
+# 각각 깨질 수 있어:
+#  1) 핀 일치 시 캐시 재사용
+#  2) 아니면 클린 git shallow clone (캐시에서 checkout 하지 않음)
+#  3) git 실패 시 공식 zip (HTTP/1.1 + 재시도)
 # ===========================================
 FLUTTER_SDK_DIR="$HOME/flutter"
 FLUTTER_VERSION="3.35.7"
@@ -71,7 +75,30 @@ FLUTTER_RELEASE_BASE="https://storage.googleapis.com/flutter_infra_release/relea
 echo ""
 echo "=== 2. Flutter SDK 설치 ==="
 
-install_flutter_sdk() {
+mark_flutter_pin() {
+    echo "$FLUTTER_VERSION" > "$FLUTTER_PIN_FILE"
+}
+
+install_flutter_via_git() {
+    echo "Flutter SDK git clone 중... (버전: $FLUTTER_VERSION)"
+    rm -rf "$FLUTTER_SDK_DIR"
+    # 캐시된 SDK에서 fetch/checkout 하지 않음 — 클린 shallow clone만 사용
+    # set -e 하에서도 폴백 가능하도록 || return 사용
+    git clone https://github.com/flutter/flutter.git \
+        -b "$FLUTTER_VERSION" --depth 1 "$FLUTTER_SDK_DIR" || {
+        echo "❌ Flutter git clone 실패"
+        return 1
+    }
+    if [ ! -x "$FLUTTER_SDK_DIR/bin/flutter" ]; then
+        echo "❌ Flutter git clone 실패: bin/flutter 없음"
+        return 1
+    fi
+    mark_flutter_pin
+    echo "Flutter SDK git clone 완료"
+    return 0
+}
+
+install_flutter_via_zip() {
     ARCH="$(uname -m)"
     if [ "$ARCH" = "arm64" ]; then
         ARCHIVE="stable/macos/flutter_macos_arm64_${FLUTTER_VERSION}-stable.zip"
@@ -79,28 +106,58 @@ install_flutter_sdk() {
         ARCHIVE="stable/macos/flutter_macos_${FLUTTER_VERSION}-stable.zip"
     fi
 
-    echo "Flutter SDK 다운로드 중... (버전: $FLUTTER_VERSION, arch: $ARCH)"
+    echo "Flutter SDK zip 다운로드 중... (버전: $FLUTTER_VERSION, arch: $ARCH)"
     echo "URL: $FLUTTER_RELEASE_BASE/$ARCHIVE"
 
     rm -rf "$FLUTTER_SDK_DIR"
     TMP_ZIP="$HOME/flutter_sdk_${FLUTTER_VERSION}.zip"
     rm -f "$TMP_ZIP"
 
-    curl -fL --retry 3 --retry-delay 2 \
+    # Xcode Cloud에서 HTTP/2 + GCS SSL handshake(curl 35)가 간헐 실패함
+    # --http1.1 / --retry-all-errors 로 완화. zip은 ~2GB라 시간 여유 필요.
+    CURL_STATUS=0
+    curl -fL --http1.1 \
+        --connect-timeout 60 \
+        --max-time 1200 \
+        --retry 5 \
+        --retry-delay 5 \
+        --retry-all-errors \
         -o "$TMP_ZIP" \
-        "$FLUTTER_RELEASE_BASE/$ARCHIVE"
+        "$FLUTTER_RELEASE_BASE/$ARCHIVE" || CURL_STATUS=$?
+    if [ "$CURL_STATUS" -ne 0 ]; then
+        echo "❌ Flutter zip 다운로드 실패 (curl exit $CURL_STATUS)"
+        rm -f "$TMP_ZIP"
+        return 1
+    fi
 
     # zip 루트는 flutter/ 디렉터리
-    unzip -q "$TMP_ZIP" -d "$HOME"
+    unzip -q "$TMP_ZIP" -d "$HOME" || {
+        echo "❌ Flutter zip 압축 해제 실패"
+        rm -f "$TMP_ZIP"
+        return 1
+    }
     rm -f "$TMP_ZIP"
 
     if [ ! -x "$FLUTTER_SDK_DIR/bin/flutter" ]; then
         echo "❌ Flutter SDK 압축 해제 실패: $FLUTTER_SDK_DIR/bin/flutter 없음"
-        exit 1
+        return 1
     fi
 
-    echo "$FLUTTER_VERSION" > "$FLUTTER_PIN_FILE"
-    echo "Flutter SDK 다운로드 완료"
+    mark_flutter_pin
+    echo "Flutter SDK zip 설치 완료"
+    return 0
+}
+
+install_flutter_sdk() {
+    if install_flutter_via_git; then
+        return 0
+    fi
+    echo "git clone 실패 — 공식 zip으로 폴백"
+    if install_flutter_via_zip; then
+        return 0
+    fi
+    echo "❌ Flutter SDK 설치 실패 (git + zip 모두 실패)"
+    exit 1
 }
 
 CACHED_PIN=""
@@ -112,7 +169,7 @@ if [ "$CACHED_PIN" = "$FLUTTER_VERSION" ] && [ -x "$FLUTTER_SDK_DIR/bin/flutter"
     echo "캐시된 Flutter SDK 사용: $FLUTTER_VERSION"
 else
     if [ -d "$FLUTTER_SDK_DIR" ]; then
-        echo "캐시된 Flutter($CACHED_PIN)가 핀($FLUTTER_VERSION)과 다름 — 재설치"
+        echo "캐시된 Flutter($CACHED_PIN)가 핀($FLUTTER_VERSION)과 다름 — 클린 재설치"
     fi
     install_flutter_sdk
 fi
