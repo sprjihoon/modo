@@ -175,13 +175,32 @@ flutter test --coverage
 
 ## 📱 배포
 
-### Android
-```bash
-# Play Store용 App Bundle
-flutter build appbundle --release
+루트 [`README.md`](../../README.md)의 **앱스토어 / Play 출시 준비**가 최신 상태의 기준입니다.
 
-# APK
+### Android (Play)
+
+| 항목 | 값 |
+|---|---|
+| Application ID | `com.modurepair.app` |
+| Play App ID | `4975768727608817713` |
+| 현재 트랙 | 비공개 테스트(Alpha) `1.0.0 (4)` — 검토 중 |
+| 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
+| 그래픽 자산 | `store_screenshots/play/` |
+
+**서명 (업로드 키)**  
+- `android/key.properties` + `android/app/upload-keystore.jks` — **커밋 금지**  
+- 백업: `Documents/modo-android-signing/` (분실 시 Play 업데이트 불가에 가깝게 막힘)
+
+```bash
+# Play 업로드용 (권장)
+flutter build appbundle --release
+# → build/app/outputs/bundle/release/app-release.aab
+
+# 직접 설치용
 flutter build apk --release
+# → build/app/outputs/flutter-apk/app-release.apk
+# 사이드로드 시 Play Protect 「악성앱」 경고가 날 수 있음(신규 서명 키·스토어 미경유). 본인 빌드면 무시 가능.
+# 정식 테스트는 Play 내부/비공개 테스트 링크로 설치.
 ```
 
 ### iOS
