@@ -161,10 +161,6 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
     }
   }
 
-  String _formatPrice(int price) {
-    return '${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}원';
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -249,7 +245,6 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
                 itemBuilder: (context, index) {
                   final sub = _subCategories[index];
                   final selection = _selectionFromRow(sub);
-                  final hasDirectPrice = selection.hasDirectPrice;
 
                   return InkWell(
                     onTap: () => widget.onSelect(selection),
@@ -286,17 +281,6 @@ class _SubCategoryStepState extends State<SubCategoryStep> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (hasDirectPrice) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              selection.priceRange ??
-                                  _formatPrice(selection.directPrice!),
-                              style: TextStyle(
-                                fontSize: (titleSize - 1).clamp(9.0, 11.0),
-                                color: Colors.grey.shade400,
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),

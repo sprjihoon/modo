@@ -722,20 +722,14 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
             itemBuilder: (context, index) {
               final sub = _subCategories[index];
               final iconName = sub['icon_name'] as String?;
-              final directPrice = sub['price'] as int?;
-              final hasDirectPrice = directPrice != null && directPrice > 0;
               return InkWell(
                 onTap: () => _selectSubCategory(sub),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: hasDirectPrice
-                        ? const Color(0xFF00C896).withOpacity(0.05)
-                        : Colors.grey.shade50,
+                    color: Colors.grey.shade50,
                     border: Border.all(
-                      color: hasDirectPrice
-                          ? const Color(0xFF00C896).withOpacity(0.3)
-                          : Colors.grey.shade200,
+                      color: Colors.grey.shade200,
                     ),
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -771,17 +765,6 @@ class _SelectRepairPartsPageState extends ConsumerState<SelectRepairPartsPage> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (hasDirectPrice) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          '${_formatPrice(directPrice)}원',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF00C896),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),

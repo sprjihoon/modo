@@ -183,11 +183,6 @@ export function SubCategoryStep({
                 <span className="text-xs font-semibold text-gray-700 text-center leading-tight">
                   {cat.name}
                 </span>
-                {cat.price != null && (
-                  <span className="text-xs text-gray-400">
-                    {cat.price_range || `${cat.price.toLocaleString("ko-KR")}원`}
-                  </span>
-                )}
               </button>
             );
           })}
