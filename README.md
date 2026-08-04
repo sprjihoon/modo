@@ -344,6 +344,7 @@ flutter build ipa --release --build-name=1.0.0 --build-number=5 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-03 | Xcode Cloud +5 Archive FAILED | `ci_post_clone`·**App Store export 통과**. Dev/Ad Hoc export만 `exit 70`(등록 기기 0대) → 전체 FAILED·TestFlight 자동 업로드 차단. **해결:** [Devices](https://developer.apple.com/account/resources/devices/list)에 iPhone UDID 1대 등록 후 재빌드, 또는 Artifacts의 App Store IPA를 `altool`/Transporter로 수동 업로드 (#41과 동일) |
 | 2026-08-03 | Play `1.0.0+5` 교체 | Android edge-to-edge SafeArea·수선부위 그리드 화면 핏. `1.0.0+5` AAB를 Alpha에 업로드해 빌드 4 교체. App Store는 빌드 4 유지(+5 IPA 대기) |
 | 2026-08-03 | Xcode Cloud Flutter 3.35.7 | `pubspec.lock`이 `>=3.35.0`인데 CI가 3.32.2라 `pub get` 실패 → 핀 3.35.7. zip/git 설치 스크립트 정리 + `ci_scripts/*.sh` LF 고정 |
 | 2026-08-03 | Play 비공개 테스트 제출 | 앱 `4975768727608817713` 생성. 내부 테스트 활성 후 Alpha `1.0.0 (4)`·스토어 등록정보·Data safety 등 게시 개요 제출. 업로드 키 백업 `Documents/modo-android-signing/` |
@@ -483,6 +484,25 @@ NAVER_CLIENT_SECRET=...
 |---|---|---|
 | `modo-web` | modo.io.kr | 고객 웹 |
 | `modo` | admin.modo.mom | 어드민 |
+
+### 강제 재배포 (캐시/반영 지연 시)
+
+모노레포를 `vercel deploy`로 올리면 파일 수 제한에 걸리므로, **최신 Production 배포를 rebuild**하는 방식을 씁니다.
+
+```powershell
+# 고객 웹 (modo.io.kr)
+powershell -ExecutionPolicy Bypass -File scripts/force-deploy-web.ps1
+
+# 어드민 (admin.modo.mom)
+powershell -ExecutionPolicy Bypass -File scripts/force-deploy-web.ps1 -Project admin
+```
+
+또는 CLI 직접:
+
+```powershell
+vercel redeploy <최신-production-deployment-url> --target production
+# 예: vercel ls modo-web 로 URL 확인 후
+```
 
 ---
 
