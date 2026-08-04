@@ -468,47 +468,52 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                 const SizedBox(height: 20),
                 
                 // 하단 안내
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Material(
                     color: Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: Colors.grey.shade700,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
+                    child: InkWell(
+                      onTap: () => context.push('/price-guide'),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '수선도 모바일로 간편하게',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade800,
-                              ),
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.grey.shade700,
+                              size: 20,
                             ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              '수선 가격표 확인하기',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF00C896),
-                                decoration: TextDecoration.underline,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '수선도 모바일로 간편하게',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    '수선 가격표 확인하기',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF00C896),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 100),

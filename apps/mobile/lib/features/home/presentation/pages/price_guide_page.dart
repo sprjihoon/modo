@@ -225,7 +225,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '삸고 안내',
+              '참고 안내',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

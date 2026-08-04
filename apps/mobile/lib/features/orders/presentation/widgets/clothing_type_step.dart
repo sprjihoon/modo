@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../services/repair_service.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
@@ -130,26 +131,31 @@ class _ClothingTypeStepState extends State<ClothingTypeStep> {
         ),
 
         // Price guide link
-        Container(
-          margin: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Material(
             color: Colors.grey.shade50,
             borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.grey.shade600, size: 18),
-              const SizedBox(width: 10),
-              const Text(
-                '수선 가격표 확인하기',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _brandColor,
-                  decoration: TextDecoration.underline,
+            child: InkWell(
+              onTap: () => context.push('/price-guide'),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.grey.shade600, size: 18),
+                    const SizedBox(width: 10),
+                    const Text(
+                      '수선 가격표 확인하기',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: _brandColor,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ],
