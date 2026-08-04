@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/utils/notification_format.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 통합 알림 센터
@@ -304,7 +305,7 @@ class _NotificationsPageState extends State<NotificationsPage>
     final isRead = notification['is_read'] == true;
     final type = notification['type'] as String?;
     final title = notification['title'] as String? ?? '알림';
-    final body = notification['body'] as String? ?? '';
+    final body = formatNotificationBody(notification['body'] as String?);
     final createdAt = notification['created_at'] as String?;
     final orderId = notification['order_id'] as String?;
 

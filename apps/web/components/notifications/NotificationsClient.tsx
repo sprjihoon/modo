@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Bell, Play, X } from "lucide-react";
+import { AnnouncementsClient } from "@/components/announcements/AnnouncementsClient";
 import { createClient } from "@/lib/supabase/client";
-import { formatDate } from "@/lib/utils";
+import { formatNotificationBody } from "@/lib/notification-format";
+import { cn, formatDate } from "@/lib/utils";
 
 interface NotificationMetadata {
   video_url?: string;
@@ -25,14 +28,29 @@ interface Notification {
   metadata?: NotificationMetadata;
 }
 
+type TabKey = "mine" | "announcements";
+
 export function NotificationsClient() {
+  const searchParams = useSearchParams();
+  const initialTab: TabKey =
+    searchParams.get("tab") === "announcements" ? "announcements" : "mine";
+  const [tab, setTab] = useState<TabKey>(initialTab);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [playingVideo, setPlayingVideo] = useState<{ url: string; label: string } | null>(null);
+  const [playingVideo, setPlayingVideo] = useState<{
+    url: string;
+    label: string;
+  } | null>(null);
 
   useEffect(() => {
     loadNotifications();
   }, []);
+
+  useEffect(() => {
+    const next: TabKey =
+      searchParams.get("tab") === "announcements" ? "announcements" : "mine";
+    setTab(next);
+  }, [searchParams]);
 
   async function loadNotifications() {
     try {
@@ -40,14 +58,20 @@ export function NotificationsClient() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setNotifications([]);
+        return;
+      }
 
       const { data: userRow } = await supabase
         .from("users")
         .select("id")
         .eq("auth_id", user.id)
         .maybeSingle();
-      if (!userRow) return;
+      if (!userRow) {
+        setNotifications([]);
+        return;
+      }
 
       const { data } = await supabase
         .from("notifications")
@@ -58,7 +82,6 @@ export function NotificationsClient() {
 
       setNotifications(data ?? []);
 
-      // 읽음 처리
       if (data && data.some((n) => !n.is_read)) {
         await supabase
           .from("notifications")
@@ -75,65 +98,103 @@ export function NotificationsClient() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="p-4 space-y-3">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
-        ))}
-      </div>
-    );
-  }
-
-  if (notifications.length === 0) {
-    return (
-      <div className="py-20 text-center">
-        <Bell className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-        <p className="text-sm text-gray-400">알림이 없습니다</p>
-      </div>
-    );
-  }
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   return (
     <>
-      <div className="divide-y divide-gray-50">
-        {notifications.map((n) => {
-          const isVideoNotif = n.type === "CS_VIDEO_SHARED" && n.metadata?.video_url;
-
-          return (
-            <div
-              key={n.id}
-              className={`px-5 py-4 ${!n.is_read ? "bg-[#00C896]/5" : "bg-white"}`}
-            >
-              {isVideoNotif ? (
-                <div>
-                  <NotificationItem notification={n} />
-                  <button
-                    className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00C896] text-white text-sm font-semibold active:opacity-80"
-                    onClick={() =>
-                      setPlayingVideo({
-                        url: n.metadata!.video_url!,
-                        label: n.metadata?.video_label || "CS 영상",
-                      })
-                    }
-                  >
-                    <Play className="w-4 h-4 fill-white" />
-                    영상 보기
-                  </button>
-                </div>
-              ) : n.order_id ? (
-                <Link href={`/orders/${n.order_id}`} className="block active:opacity-80">
-                  <NotificationItem notification={n} />
-                </Link>
-              ) : (
-                <NotificationItem notification={n} />
-              )}
-            </div>
-          );
-        })}
+      {/* 앱과 동일: 내 알림 / 공지사항 탭 */}
+      <div className="flex border-b border-gray-100 sticky top-0 bg-white z-10">
+        <button
+          type="button"
+          onClick={() => setTab("mine")}
+          className={cn(
+            "flex-1 py-3 text-sm font-semibold relative",
+            tab === "mine" ? "text-[#00C896]" : "text-gray-400"
+          )}
+        >
+          <span className="inline-flex items-center justify-center gap-1.5">
+            내 알림
+            {unreadCount > 0 && (
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-[18px]">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </span>
+          {tab === "mine" && (
+            <span className="absolute left-0 right-0 bottom-0 h-0.5 bg-[#00C896]" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("announcements")}
+          className={cn(
+            "flex-1 py-3 text-sm font-semibold relative",
+            tab === "announcements" ? "text-[#00C896]" : "text-gray-400"
+          )}
+        >
+          공지사항
+          {tab === "announcements" && (
+            <span className="absolute left-0 right-0 bottom-0 h-0.5 bg-[#00C896]" />
+          )}
+        </button>
       </div>
 
-      {/* 영상 플레이어 모달 */}
+      {tab === "announcements" ? (
+        <AnnouncementsClient />
+      ) : isLoading ? (
+        <div className="p-4 space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+          ))}
+        </div>
+      ) : notifications.length === 0 ? (
+        <div className="py-20 text-center">
+          <Bell className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">알림이 없습니다</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-50">
+          {notifications.map((n) => {
+            const isVideoNotif =
+              n.type === "CS_VIDEO_SHARED" && n.metadata?.video_url;
+
+            return (
+              <div
+                key={n.id}
+                className={`px-5 py-4 ${!n.is_read ? "bg-[#00C896]/5" : "bg-white"}`}
+              >
+                {isVideoNotif ? (
+                  <div>
+                    <NotificationItem notification={n} />
+                    <button
+                      className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00C896] text-white text-sm font-semibold active:opacity-80"
+                      onClick={() =>
+                        setPlayingVideo({
+                          url: n.metadata!.video_url!,
+                          label: n.metadata?.video_label || "CS 영상",
+                        })
+                      }
+                    >
+                      <Play className="w-4 h-4 fill-white" />
+                      영상 보기
+                    </button>
+                  </div>
+                ) : n.order_id ? (
+                  <Link
+                    href={`/orders/${n.order_id}`}
+                    className="block active:opacity-80"
+                  >
+                    <NotificationItem notification={n} />
+                  </Link>
+                ) : (
+                  <NotificationItem notification={n} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {playingVideo && (
         <div
           className="fixed inset-0 z-50 bg-black/80 flex flex-col"
@@ -169,30 +230,30 @@ export function NotificationsClient() {
 }
 
 function NotificationItem({ notification }: { notification: Notification }) {
+  const body = formatNotificationBody(notification.body);
+
   return (
-    <>
-      <div className="flex items-start gap-3">
-        <div
-          className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-            !notification.is_read ? "bg-[#00C896]" : "bg-gray-200"
-          }`}
-        />
-        <div className="flex-1 min-w-0">
-          {notification.title && (
-            <p className="text-sm font-bold text-gray-900 mb-0.5">
-              {notification.title}
-            </p>
-          )}
-          <p className="text-sm text-gray-600 leading-snug">
-            {notification.body}
+    <div className="flex items-start gap-3">
+      <div
+        className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+          !notification.is_read ? "bg-[#00C896]" : "bg-gray-200"
+        }`}
+      />
+      <div className="flex-1 min-w-0">
+        {notification.title && (
+          <p className="text-sm font-bold text-gray-900 mb-0.5">
+            {notification.title}
           </p>
-          {notification.created_at && (
-            <p className="text-xs text-gray-400 mt-1">
-              {formatDate(notification.created_at)}
-            </p>
-          )}
-        </div>
+        )}
+        {body && (
+          <p className="text-sm text-gray-600 leading-snug">{body}</p>
+        )}
+        {notification.created_at && (
+          <p className="text-xs text-gray-400 mt-1">
+            {formatDate(notification.created_at)}
+          </p>
+        )}
       </div>
-    </>
+    </div>
   );
 }

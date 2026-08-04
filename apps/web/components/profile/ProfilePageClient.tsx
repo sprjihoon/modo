@@ -202,7 +202,7 @@ export function ProfilePageClient() {
         <MenuItem
           icon={<Megaphone className="w-5 h-5" />}
           title="공지사항"
-          href="/announcements"
+          href="/notifications?tab=announcements"
         />
         <MenuItem
           icon={<HeadphonesIcon className="w-5 h-5" />}
