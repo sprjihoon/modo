@@ -271,12 +271,12 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.0+5`** — Android SafeArea(시스템 내비)·수선부위 그리드 핏 |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.0+5`** — SafeArea·수선부위 그리드 핏·가격표/알림 UX |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 **4** 유지 중) — +5 IPA는 Xcode Cloud/수동 업로드 후 교체 |
+| iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 **4** 유지) — +5는 App Store export 성공·Dev/Ad Hoc `exit 70`로 CI FAILED → 기기 UDID 등록 또는 IPA 수동 업로드 후 교체 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **비공개 테스트(Alpha)** — `1.0.0 (5)` 검토 중(게시 개요 제출 완료). 현재 테스터 제공본은 `1.0.0 (4)` |
+| Play 상태 | **비공개 테스트(Alpha)** — `1.0.0 (5)` 게시 개요 제출·검토 중. 테스터 제공본은 승인 전까지 `1.0.0 (4)` 가능 |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
 | Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.0+5`) · 백업 `Documents/modo-android-signing/app-release-1.0.0+5.aab` |
@@ -334,9 +334,11 @@ flutter build ipa --release --build-name=1.0.0 --build-number=5 \
 4. ~~Play 앱 생성·내부 테스트·스토어/앱 콘텐츠~~ (`com.modurepair.app` / App ID `4975768727608817713`)
 5. ~~Play 비공개 테스트(Alpha) `1.0.0 (4)` 게시 개요 제출~~
 6. ~~`1.0.0+5` SafeArea AAB Play Alpha 교체·검토 제출~~ (하단 내비 inset · 수선부위 그리드 핏)
-7. **대기:** App Store 빌드 5 IPA 업로드·심사 빌드 교체
-8. 비공개 테스트 승인 후 테스터 opt-in · 실기기 로그인·주문·**라이브 결제** 스모크
-9. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
+7. ~~웹·앱 알림 UX~~ (`/notifications` 내 알림·공지 탭, 본문 ORD 주문번호 숨김)
+8. ~~수선신청 UX~~ (소카테고리 가격 라벨 제거, 가격표 CTA 연결, `참고 안내` 문구)
+9. **대기:** App Store 빌드 5 IPA(기기 UDID 등록 후 Xcode Cloud 재빌드 또는 `altool` 수동 업로드)·심사 빌드 교체
+10. 비공개 테스트 승인 후 테스터 opt-in · 실기기 로그인·주문·**라이브 결제** 스모크
+11. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
 
 ---
 
@@ -344,6 +346,8 @@ flutter build ipa --release --build-name=1.0.0 --build-number=5 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-04 | 알림·가격표 UX | 웹 알림을 앱처럼 **내 알림 / 공지사항** 탭으로 통합. 알림 본문에서 `ORD…` 주문번호 표시 제거(웹·앱). 소카테고리 그리드 가격 라벨 제거. 가격표 배너 `삸고→참고 안내`. 의류선택「수선 가격표 확인하기」→`/price-guide` |
+| 2026-08-04 | Vercel 강제 재배포 | 모노레포 `vercel deploy` 파일수 제한 → `scripts/force-deploy-web.ps1`로 최신 Production rebuild |
 | 2026-08-03 | Xcode Cloud +5 Archive FAILED | `ci_post_clone`·**App Store export 통과**. Dev/Ad Hoc export만 `exit 70`(등록 기기 0대) → 전체 FAILED·TestFlight 자동 업로드 차단. **해결:** [Devices](https://developer.apple.com/account/resources/devices/list)에 iPhone UDID 1대 등록 후 재빌드, 또는 Artifacts의 App Store IPA를 `altool`/Transporter로 수동 업로드 (#41과 동일) |
 | 2026-08-03 | Play `1.0.0+5` 교체 | Android edge-to-edge SafeArea·수선부위 그리드 화면 핏. `1.0.0+5` AAB를 Alpha에 업로드해 빌드 4 교체. App Store는 빌드 4 유지(+5 IPA 대기) |
 | 2026-08-03 | Xcode Cloud Flutter 3.35.7 | `pubspec.lock`이 `>=3.35.0`인데 CI가 3.32.2라 `pub get` 실패 → 핀 3.35.7. zip/git 설치 스크립트 정리 + `ci_scripts/*.sh` LF 고정 |

@@ -185,6 +185,7 @@ flutter test --coverage
 | Play App ID | `4975768727608817713` |
 | 현재 트랙 | 비공개 테스트(Alpha) `1.0.0 (5)` 검토 중 — SafeArea·그리드 핏 |
 | 버전 | `pubspec.yaml` → `1.0.0+5` |
+| 최근 UX | 알림 본문 ORD 숨김 · 소카테고리 가격 라벨 제거 · 가격표 CTA · `참고 안내` |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
 | 그래픽 자산 | `store_screenshots/play/` |
 
@@ -210,7 +211,7 @@ flutter build apk --release
 |---|---|
 | Flutter 핀 | **3.35.7** (`ios/ci_scripts/ci_post_clone.sh`, 공식 macOS zip) |
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
-| App Store 심사 | 빌드 **4** `WAITING_FOR_REVIEW` — +5 IPA 업로드 후 교체 예정 |
+| App Store 심사 | 빌드 **4** `WAITING_FOR_REVIEW` — +5는 Xcode Cloud App Store export까지 성공했으나 Dev/Ad Hoc(`exit 70`)로 전체 FAILED → TestFlight 자동 업로드 차단. 기기 UDID 등록 후 재빌드 또는 IPA 수동 업로드 |
 
 ```bash
 # App Store용
