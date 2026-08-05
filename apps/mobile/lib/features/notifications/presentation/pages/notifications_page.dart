@@ -34,6 +34,9 @@ class _NotificationsPageState extends State<NotificationsPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) setState(() {});
+    });
     _loadNotifications();
   }
 
@@ -67,11 +70,12 @@ class _NotificationsPageState extends State<NotificationsPage>
 
       final userId = userResponse['id'] as String;
 
-      // 1. 개인 알림 조회 (notifications 테이블 + orders 조인하여 취소된 주문 필터링)
+      // 1. 읽지 않은 개인 알림만 조회 (읽음 처리된 항목은 목록에서 제외)
       final notificationsResponse = await _supabase
           .from('notifications')
           .select('*, orders!left(id, status), metadata')
           .eq('user_id', userId)
+          .eq('is_read', false)
           .order('created_at', ascending: false)
           .limit(50);
 
@@ -79,39 +83,43 @@ class _NotificationsPageState extends State<NotificationsPage>
       _allNotifications = (notificationsResponse as List)
           .map((item) => Map<String, dynamic>.from(item as Map))
           .where((notification) {
-            // order_id가 없는 알림은 포함
             if (notification['order_id'] == null) return true;
-            
-            // orders 조인 결과 확인
             final orders = notification['orders'];
-            if (orders == null) return true; // 주문이 삭제된 경우 제외
-            
-            // 취소된 주문의 알림 제외
+            if (orders == null) return true;
             final orderStatus = orders['status'] as String?;
             if (orderStatus == 'CANCELLED') {
               debugPrint('🚫 취소된 주문 알림 필터링: ${notification['id']}');
               return false;
             }
-            
             return true;
           })
           .toList();
 
-      // 2. 공지사항 조회 (announcements 테이블)
+      // 2. 공지사항 + 읽음 기록
       final announcementsResponse = await _supabase
           .from('announcements')
           .select('*')
           .eq('status', 'sent')
           .order('is_pinned', ascending: false)
           .order('sent_at', ascending: false)
-          .limit(20);
+          .limit(50);
 
+      final readResponse = await _supabase
+          .from('announcement_reads')
+          .select('announcement_id')
+          .eq('user_id', userId);
+
+      final readIds = (readResponse as List)
+          .map((item) => item['announcement_id'] as String)
+          .toSet();
+
+      // 읽은 공지는 목록에서 제외
       _announcements = (announcementsResponse as List)
           .map((item) => Map<String, dynamic>.from(item as Map))
+          .where((a) => !readIds.contains(a['id'] as String?))
           .toList();
 
-      // 읽지 않은 알림 개수
-      _unreadCount = _allNotifications.where((n) => n['is_read'] == false).length;
+      _unreadCount = _allNotifications.length;
 
       setState(() => _isLoading = false);
     } catch (e) {
@@ -120,7 +128,7 @@ class _NotificationsPageState extends State<NotificationsPage>
     }
   }
 
-  Future<void> _markAsRead(String notificationId) async {
+  Future<void> _dismissNotification(String notificationId) async {
     try {
       await _supabase
           .from('notifications')
@@ -128,18 +136,41 @@ class _NotificationsPageState extends State<NotificationsPage>
           .eq('id', notificationId);
 
       setState(() {
-        final index = _allNotifications.indexWhere((n) => n['id'] == notificationId);
-        if (index != -1) {
-          _allNotifications[index]['is_read'] = true;
-          _unreadCount = _allNotifications.where((n) => n['is_read'] == false).length;
-        }
+        _allNotifications.removeWhere((n) => n['id'] == notificationId);
+        _unreadCount = _allNotifications.length;
       });
     } catch (e) {
-      debugPrint('❌ 알림 읽음 처리 실패: $e');
+      debugPrint('❌ 알림 닫기 실패: $e');
     }
   }
 
-  Future<void> _markAllAsRead() async {
+  Future<void> _dismissAnnouncement(String announcementId) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      final userResponse = await _supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', user.id)
+          .maybeSingle();
+      if (userResponse == null) return;
+
+      await _supabase.from('announcement_reads').upsert({
+        'announcement_id': announcementId,
+        'user_id': userResponse['id'] as String,
+        'read_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'announcement_id,user_id');
+
+      setState(() {
+        _announcements.removeWhere((a) => a['id'] == announcementId);
+      });
+    } catch (e) {
+      debugPrint('❌ 공지 닫기 실패: $e');
+    }
+  }
+
+  Future<void> _dismissAllVisible() async {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) return;
@@ -153,30 +184,48 @@ class _NotificationsPageState extends State<NotificationsPage>
       if (userResponse == null) return;
 
       final userId = userResponse['id'] as String;
+      final onAnnouncements = _tabController.index == 1;
 
-      await _supabase
-          .from('notifications')
-          .update({'is_read': true, 'read_at': DateTime.now().toIso8601String()})
-          .eq('user_id', userId)
-          .eq('is_read', false);
+      if (onAnnouncements) {
+        if (_announcements.isEmpty) return;
+        final rows = _announcements
+            .map((a) => {
+                  'announcement_id': a['id'],
+                  'user_id': userId,
+                  'read_at': DateTime.now().toIso8601String(),
+                })
+            .toList();
+        await _supabase.from('announcement_reads').upsert(
+              rows,
+              onConflict: 'announcement_id,user_id',
+            );
+        setState(() => _announcements = []);
+      } else {
+        await _supabase
+            .from('notifications')
+            .update({
+              'is_read': true,
+              'read_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', userId)
+            .eq('is_read', false);
 
-      setState(() {
-        for (var notification in _allNotifications) {
-          notification['is_read'] = true;
-        }
-        _unreadCount = 0;
-      });
+        setState(() {
+          _allNotifications = [];
+          _unreadCount = 0;
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('모든 알림을 읽음 처리했습니다'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(onAnnouncements ? '모든 공지를 닫았습니다' : '모든 알림을 닫았습니다'),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
-      debugPrint('❌ 전체 읽음 처리 실패: $e');
+      debugPrint('❌ 전체 닫기 실패: $e');
     }
   }
 
@@ -193,10 +242,11 @@ class _NotificationsPageState extends State<NotificationsPage>
           ),
         ),
         actions: [
-          if (_unreadCount > 0)
+          if ((_tabController.index == 0 && _allNotifications.isNotEmpty) ||
+              (_tabController.index == 1 && _announcements.isNotEmpty))
             TextButton(
-              onPressed: _markAllAsRead,
-              child: const Text('모두 읽음'),
+              onPressed: _dismissAllVisible,
+              child: const Text('모두 닫기'),
             ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.black),
@@ -259,8 +309,8 @@ class _NotificationsPageState extends State<NotificationsPage>
     if (_allNotifications.isEmpty) {
       return _buildEmptyState(
         icon: Icons.notifications_none,
-        title: '알림이 없습니다',
-        subtitle: '새로운 알림이 도착하면 여기에 표시됩니다',
+        title: '새 알림이 없습니다',
+        subtitle: '읽은 알림은 목록에서 제외됩니다',
       );
     }
 
@@ -282,8 +332,8 @@ class _NotificationsPageState extends State<NotificationsPage>
     if (_announcements.isEmpty) {
       return _buildEmptyState(
         icon: Icons.campaign_outlined,
-        title: '공지사항이 없습니다',
-        subtitle: '새로운 공지사항이 등록되면 여기에 표시됩니다',
+        title: '새 공지사항이 없습니다',
+        subtitle: '읽은 공지는 목록에서 제외됩니다',
       );
     }
 
@@ -302,7 +352,6 @@ class _NotificationsPageState extends State<NotificationsPage>
 
   /// 알림 카드
   Widget _buildNotificationCard(Map<String, dynamic> notification) {
-    final isRead = notification['is_read'] == true;
     final type = notification['type'] as String?;
     final title = notification['title'] as String? ?? '알림';
     final body = formatNotificationBody(notification['body'] as String?);
@@ -350,34 +399,27 @@ class _NotificationsPageState extends State<NotificationsPage>
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: isRead ? 0 : 2,
-      color: isCsVideo
-          ? (isRead ? Colors.teal.shade50 : Colors.teal.shade50)
-          : (isRead ? Colors.white : Colors.blue.shade50),
+      elevation: 2,
+      color: isCsVideo ? Colors.teal.shade50 : Colors.blue.shade50,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isCsVideo
-              ? Colors.teal.shade200
-              : (isRead ? Colors.grey.shade200 : Colors.blue.shade200),
-          width: (isCsVideo || !isRead) ? 2 : 1,
+          color: isCsVideo ? Colors.teal.shade200 : Colors.blue.shade200,
+          width: 2,
         ),
       ),
       child: InkWell(
         onTap: () {
-          debugPrint('🔔 알림 클릭: id=${notification['id']}, order_id=$orderId, type=$type');
-          
-          if (!isRead) {
-            _markAsRead(notification['id'] as String);
-          }
+          final id = notification['id'] as String;
+          debugPrint('🔔 알림 클릭: id=$id, order_id=$orderId, type=$type');
 
-          // CS 영상 알림이면 바로 영상 재생 (아래 버튼으로도 가능)
           if (isCsVideo && videoUrl != null) {
+            _dismissNotification(id);
             _openVideoUrl(videoUrl);
             return;
           }
-          
-          // order_id가 있으면 해당 주문 상세로 이동
+
+          _dismissNotification(id);
           if (orderId != null && orderId.isNotEmpty) {
             context.push('/orders/$orderId');
           } else {
@@ -410,29 +452,13 @@ class _NotificationsPageState extends State<NotificationsPage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            if (!isRead)
-                              Container(
-                                width: 8,
-                                height: 8,
-                                margin: const EdgeInsets.only(right: 8),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            Expanded(
-                              child: Text(
-                                title,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: isRead ? FontWeight.w600 : FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -457,13 +483,14 @@ class _NotificationsPageState extends State<NotificationsPage>
                     ),
                   ),
 
-                  // 화살표 (CS 영상 제외)
-                  if (!isCsVideo && orderId != null && orderId.isNotEmpty)
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: Colors.grey.shade400,
-                    ),
+                  IconButton(
+                    icon: Icon(Icons.close, size: 20, color: Colors.grey.shade400),
+                    tooltip: '닫기',
+                    onPressed: () =>
+                        _dismissNotification(notification['id'] as String),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
                 ],
               ),
 
@@ -552,9 +579,10 @@ class _NotificationsPageState extends State<NotificationsPage>
       ),
       child: InkWell(
         onTap: () {
-          // 공지사항 상세 페이지로 이동
           final announcementId = announcement['id'] as String?;
           if (announcementId != null) {
+            // 상세 이동 시 읽음 처리(목록에서 제외)
+            _dismissAnnouncement(announcementId);
             context.push('/announcements/$announcementId');
           }
         },
@@ -563,14 +591,11 @@ class _NotificationsPageState extends State<NotificationsPage>
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // 이모지
               Text(
                 typeEmoji,
                 style: const TextStyle(fontSize: 28),
               ),
               const SizedBox(width: 12),
-
-              // 내용
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -618,11 +643,15 @@ class _NotificationsPageState extends State<NotificationsPage>
                   ],
                 ),
               ),
-
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: Colors.grey.shade400,
+              IconButton(
+                icon: Icon(Icons.close, size: 20, color: Colors.grey.shade400),
+                tooltip: '닫기',
+                onPressed: () {
+                  final id = announcement['id'] as String?;
+                  if (id != null) _dismissAnnouncement(id);
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
             ],
           ),

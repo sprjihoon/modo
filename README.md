@@ -334,7 +334,7 @@ flutter build ipa --release --build-name=1.0.0 --build-number=5 \
 4. ~~Play 앱 생성·내부 테스트·스토어/앱 콘텐츠~~ (`com.modurepair.app` / App ID `4975768727608817713`)
 5. ~~Play 비공개 테스트(Alpha) `1.0.0 (4)` 게시 개요 제출~~
 6. ~~`1.0.0+5` SafeArea AAB Play Alpha 교체·검토 제출~~ (하단 내비 inset · 수선부위 그리드 핏)
-7. ~~웹·앱 알림 UX~~ (`/notifications` 내 알림·공지 탭, 본문 ORD 주문번호 숨김)
+7. ~~웹·앱 알림 UX~~ (`/notifications` 내 알림·공지 탭, 본문 ORD 주문번호 숨김, **읽은 항목 숨김·닫기**)
 8. ~~수선신청 UX~~ (소카테고리 가격 라벨 제거, 가격표 CTA 연결, `참고 안내` 문구)
 9. **대기:** App Store 빌드 5 IPA(기기 UDID 등록 후 Xcode Cloud 재빌드 또는 `altool` 수동 업로드)·심사 빌드 교체
 10. 비공개 테스트 승인 후 테스터 opt-in · 실기기 로그인·주문·**라이브 결제** 스모크
@@ -346,6 +346,7 @@ flutter build ipa --release --build-name=1.0.0 --build-number=5 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-05 | 알림·공지 닫기 | 읽지 않은 알림·미읽 공지만 목록에 표시. X·「모두 닫기」로 읽음 처리 후 제거(알림=`is_read`, 공지=`announcement_reads`). 웹·앱 동일 |
 | 2026-08-04 | 알림·가격표 UX | 웹 알림을 앱처럼 **내 알림 / 공지사항** 탭으로 통합. 알림 본문에서 `ORD…` 주문번호 표시 제거(웹·앱). 소카테고리 그리드 가격 라벨 제거. 가격표 배너 `삸고→참고 안내`. 의류선택「수선 가격표 확인하기」→`/price-guide` |
 | 2026-08-04 | Vercel 강제 재배포 | 모노레포 `vercel deploy` 파일수 제한 → `scripts/force-deploy-web.ps1`로 최신 Production rebuild |
 | 2026-08-03 | Xcode Cloud +5 Archive FAILED | `ci_post_clone`·**App Store export 통과**. Dev/Ad Hoc export만 `exit 70`(등록 기기 0대) → 전체 FAILED·TestFlight 자동 업로드 차단. **해결:** [Devices](https://developer.apple.com/account/resources/devices/list)에 iPhone UDID 1대 등록 후 재빌드, 또는 Artifacts의 App Store IPA를 `altool`/Transporter로 수동 업로드 (#41과 동일) |

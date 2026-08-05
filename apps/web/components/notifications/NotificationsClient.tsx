@@ -73,24 +73,16 @@ export function NotificationsClient() {
         return;
       }
 
+      // 읽지 않은 알림만 표시 (읽음 처리된 항목은 목록에서 제외)
       const { data } = await supabase
         .from("notifications")
         .select("id, type, title, body, is_read, created_at, order_id, metadata")
         .eq("user_id", userRow.id)
+        .eq("is_read", false)
         .order("created_at", { ascending: false })
         .limit(50);
 
       setNotifications(data ?? []);
-
-      if (data && data.some((n) => !n.is_read)) {
-        await supabase
-          .from("notifications")
-          .update({ is_read: true, read_at: new Date().toISOString() })
-          .eq("user_id", userRow.id)
-          .eq("is_read", false);
-
-        window.dispatchEvent(new Event("modu_notifications_read"));
-      }
     } catch {
       // 에러 무시
     } finally {
@@ -98,11 +90,54 @@ export function NotificationsClient() {
     }
   }
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  async function dismissNotification(id: string) {
+    try {
+      const supabase = createClient();
+      await supabase
+        .from("notifications")
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq("id", id);
+
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      window.dispatchEvent(new Event("modu_notifications_read"));
+    } catch {
+      // 에러 무시
+    }
+  }
+
+  async function dismissAll() {
+    if (notifications.length === 0) return;
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("id")
+        .eq("auth_id", user.id)
+        .maybeSingle();
+      if (!userRow) return;
+
+      await supabase
+        .from("notifications")
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq("user_id", userRow.id)
+        .eq("is_read", false);
+
+      setNotifications([]);
+      window.dispatchEvent(new Event("modu_notifications_read"));
+    } catch {
+      // 에러 무시
+    }
+  }
+
+  const unreadCount = notifications.length;
 
   return (
     <>
-      {/* 앱과 동일: 내 알림 / 공지사항 탭 */}
       <div className="flex border-b border-gray-100 sticky top-0 bg-white z-10">
         <button
           type="button"
@@ -150,49 +185,79 @@ export function NotificationsClient() {
       ) : notifications.length === 0 ? (
         <div className="py-20 text-center">
           <Bell className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-          <p className="text-sm text-gray-400">알림이 없습니다</p>
+          <p className="text-sm text-gray-400">새 알림이 없습니다</p>
+          <p className="text-xs text-gray-300 mt-1">읽은 알림은 목록에서 제외됩니다</p>
         </div>
       ) : (
-        <div className="divide-y divide-gray-50">
-          {notifications.map((n) => {
-            const isVideoNotif =
-              n.type === "CS_VIDEO_SHARED" && n.metadata?.video_url;
+        <>
+          <div className="px-4 py-2 flex justify-end border-b border-gray-50">
+            <button
+              type="button"
+              onClick={dismissAll}
+              className="text-xs font-semibold text-gray-500 active:text-gray-700"
+            >
+              모두 닫기
+            </button>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {notifications.map((n) => {
+              const isVideoNotif =
+                n.type === "CS_VIDEO_SHARED" && n.metadata?.video_url;
 
-            return (
-              <div
-                key={n.id}
-                className={`px-5 py-4 ${!n.is_read ? "bg-[#00C896]/5" : "bg-white"}`}
-              >
-                {isVideoNotif ? (
-                  <div>
-                    <NotificationItem notification={n} />
-                    <button
-                      className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00C896] text-white text-sm font-semibold active:opacity-80"
-                      onClick={() =>
-                        setPlayingVideo({
-                          url: n.metadata!.video_url!,
-                          label: n.metadata?.video_label || "CS 영상",
-                        })
-                      }
-                    >
-                      <Play className="w-4 h-4 fill-white" />
-                      영상 보기
-                    </button>
+              return (
+                <div key={n.id} className="px-5 py-4 bg-[#00C896]/5 flex gap-2">
+                  <div className="flex-1 min-w-0">
+                    {isVideoNotif ? (
+                      <div>
+                        <NotificationItem notification={n} />
+                        <button
+                          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00C896] text-white text-sm font-semibold active:opacity-80"
+                          onClick={() =>
+                            setPlayingVideo({
+                              url: n.metadata!.video_url!,
+                              label: n.metadata?.video_label || "CS 영상",
+                            })
+                          }
+                        >
+                          <Play className="w-4 h-4 fill-white" />
+                          영상 보기
+                        </button>
+                      </div>
+                    ) : n.order_id ? (
+                      <Link
+                        href={`/orders/${n.order_id}`}
+                        className="block active:opacity-80"
+                        onClick={() => void dismissNotification(n.id)}
+                      >
+                        <NotificationItem notification={n} />
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        className="w-full text-left active:opacity-80"
+                        onClick={() => void dismissNotification(n.id)}
+                      >
+                        <NotificationItem notification={n} />
+                      </button>
+                    )}
                   </div>
-                ) : n.order_id ? (
-                  <Link
-                    href={`/orders/${n.order_id}`}
-                    className="block active:opacity-80"
+                  <button
+                    type="button"
+                    aria-label="알림 닫기"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void dismissNotification(n.id);
+                    }}
+                    className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-white/80 active:bg-white"
                   >
-                    <NotificationItem notification={n} />
-                  </Link>
-                ) : (
-                  <NotificationItem notification={n} />
-                )}
-              </div>
-            );
-          })}
-        </div>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {playingVideo && (
@@ -234,11 +299,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
 
   return (
     <div className="flex items-start gap-3">
-      <div
-        className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-          !notification.is_read ? "bg-[#00C896]" : "bg-gray-200"
-        }`}
-      />
+      <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-[#00C896]" />
       <div className="flex-1 min-w-0">
         {notification.title && (
           <p className="text-sm font-bold text-gray-900 mb-0.5">
