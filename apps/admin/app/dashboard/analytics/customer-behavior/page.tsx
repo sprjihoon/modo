@@ -111,6 +111,7 @@ export default function CustomerBehaviorPage() {
   const [cohortData, setCohortData] = useState<CohortData | null>(null);
   const [retentionData, setRetentionData] = useState<RetentionData | null>(null);
   const [journeyData, setJourneyData] = useState<JourneyData | null>(null);
+  const [segmentData, setSegmentData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("funnel");
 
@@ -187,9 +188,29 @@ export default function CustomerBehaviorPage() {
         case "journey":
           if (!journeyData) await loadJourneyData();
           break;
+        case "segment":
+          if (segmentData.length === 0) await loadSegmentData();
+          break;
       }
     } catch (error) {
       console.error(`${tab} 데이터 로드 실패:`, error);
+    }
+  };
+
+  const loadSegmentData = async () => {
+    try {
+      const params = new URLSearchParams({
+        type: "segment",
+        startDate,
+        endDate,
+      });
+      const response = await fetch(`/api/analytics/customer-behavior?${params}`);
+      const result = await response.json();
+      if (result.success) {
+        setSegmentData(Array.isArray(result.data) ? result.data : []);
+      }
+    } catch (error) {
+      console.error("세그먼트 데이터 로드 실패:", error);
     }
   };
 
@@ -559,12 +580,13 @@ export default function CustomerBehaviorPage() {
 
       {/* 탭 컨텐츠 */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 gap-1">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 gap-1 h-auto flex-wrap">
           <TabsTrigger value="funnel">퍼널</TabsTrigger>
           <TabsTrigger value="dropoff">이탈</TabsTrigger>
           <TabsTrigger value="sessions">세션</TabsTrigger>
           <TabsTrigger value="time">시간</TabsTrigger>
           <TabsTrigger value="devices">디바이스</TabsTrigger>
+          <TabsTrigger value="segment">세그먼트</TabsTrigger>
           <TabsTrigger value="cohort">코호트</TabsTrigger>
           <TabsTrigger value="retention">리텐션</TabsTrigger>
           <TabsTrigger value="journey">여정</TabsTrigger>
@@ -833,6 +855,47 @@ export default function CustomerBehaviorPage() {
                   <Smartphone className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>디바이스 데이터가 없습니다</p>
                   <p className="text-sm mt-2">고객 이벤트가 수집되면 디바이스별 분석이 표시됩니다</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 세그먼트 분석 */}
+        <TabsContent value="segment" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>고객 세그먼트</CardTitle>
+              <CardDescription>
+                행동·구매 패턴으로 묶은 고객 그룹을 확인합니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {segmentData.length > 0 ? (
+                <div className="space-y-3">
+                  {segmentData.map((seg, index) => (
+                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <p className="font-medium">
+                          {seg.segment_name || seg.segment || seg.customer_segment || `세그먼트 ${index + 1}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {(seg.user_count ?? seg.users ?? seg.total_users ?? 0).toLocaleString()}명
+                          {seg.avg_orders != null && ` · 평균 주문 ${seg.avg_orders}`}
+                          {seg.conversion_rate != null && ` · 전환 ${(Number(seg.conversion_rate) * (Number(seg.conversion_rate) <= 1 ? 100 : 1)).toFixed(1)}%`}
+                        </p>
+                      </div>
+                      <Badge variant="outline">
+                        {(seg.total_events ?? seg.event_count ?? 0).toLocaleString()} 이벤트
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>세그먼트 데이터가 없습니다</p>
+                  <p className="text-sm mt-2">customer_segment_analysis 뷰에 데이터가 쌓이면 표시됩니다</p>
                 </div>
               )}
             </CardContent>

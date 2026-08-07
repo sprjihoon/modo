@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Analytics } from "@/lib/analytics";
 
 interface Banner {
   id: string;
@@ -86,6 +87,7 @@ export function BannerSlider({ hasOrders, onOrderStart }: BannerSliderProps) {
   }
 
   function handleBannerTap(banner: Banner) {
+    void Analytics.bannerClick(banner.id, banner.title.replace(/\n/g, " "));
     if (banner.action_type === "navigate" && banner.action_value) {
       router.push(banner.action_value);
     } else if (banner.action_type === "url" && banner.action_value) {

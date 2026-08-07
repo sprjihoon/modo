@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/utils/notification_format.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
+import '../../../../services/customer_event_service.dart';
 
 /// 통합 알림 센터
 /// 
@@ -412,6 +413,11 @@ class _NotificationsPageState extends State<NotificationsPage>
         onTap: () {
           final id = notification['id'] as String;
           debugPrint('🔔 알림 클릭: id=$id, order_id=$orderId, type=$type');
+          CustomerEventService.trackNotificationClick(
+            notificationId: id,
+            notificationType: type,
+            orderId: orderId,
+          );
 
           if (isCsVideo && videoUrl != null) {
             _dismissNotification(id);

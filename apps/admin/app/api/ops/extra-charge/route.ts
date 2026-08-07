@@ -1,6 +1,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { logActionServer } from "@/lib/api/action-logs-server";
+import { ActionType } from "@/lib/types/action-log";
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
     // 2. Get user info to confirm role
     const { data: user } = await supabase
       .from("users")
-      .select("id, role")
+      .select("id, name, role")
       .eq("auth_id", session.user.id)
       .single();
 
@@ -59,16 +61,16 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Log action
-    await supabase.from("action_logs").insert({
-      actor_id: user.id,
-      action_type: "REQ_EXTRA_CHARGE",
-      details: {
-        orderId,
+    await logActionServer(supabase, {
+      actor: user,
+      actionType: ActionType.REQ_EXTRA_CHARGE,
+      targetId: orderId,
+      metadata: {
         reason,
         amount,
         userRole: user.role,
-        result: data
-      }
+        result: data,
+      },
     });
 
     // 5. 작업자가 요청한 경우 → 관리자/매니저에게 알림 삽입

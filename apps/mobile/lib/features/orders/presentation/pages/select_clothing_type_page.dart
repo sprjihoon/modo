@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../services/repair_service.dart';
 import '../../../../services/image_service.dart';
+import '../../../../services/customer_event_service.dart';
 import '../../../../core/utils/snackbar_util.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
@@ -454,6 +455,10 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                       });
                       
                       debugPrint('✅ 카테고리 선택: ${type['name']} (${type['id']})');
+                      CustomerEventService.trackRepairMenuView(
+                        menuName: type['name'] as String? ?? '의류',
+                        menuId: type['id'] as String? ?? '',
+                      );
                       
                       // 선택 후 사진 선택 바텀시트 표시
                       Future.delayed(const Duration(milliseconds: 300), () {

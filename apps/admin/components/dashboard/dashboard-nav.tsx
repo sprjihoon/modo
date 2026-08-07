@@ -105,7 +105,8 @@ const navGroups: NavGroup[] = [
     items: [
       { title: "통계 및 분석", href: "/dashboard/analytics", icon: BarChart3 },
       { title: "고객 행동 분석", href: "/dashboard/analytics/customer-behavior", icon: Activity },
-      { title: "직원 행동 분석", href: "/dashboard/action-logs", icon: Activity },
+      { title: "직원 성과 KPI", href: "/dashboard/analytics/performance", icon: Activity },
+      { title: "직원 행동 로그", href: "/dashboard/action-logs", icon: Activity },
     ],
   },
   {

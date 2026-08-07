@@ -8,6 +8,7 @@ import { AnnouncementsClient } from "@/components/announcements/AnnouncementsCli
 import { createClient } from "@/lib/supabase/client";
 import { formatNotificationBody } from "@/lib/notification-format";
 import { cn, formatDate } from "@/lib/utils";
+import { Analytics } from "@/lib/analytics";
 
 interface NotificationMetadata {
   video_url?: string;
@@ -212,12 +213,13 @@ export function NotificationsClient() {
                         <NotificationItem notification={n} />
                         <button
                           className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00C896] text-white text-sm font-semibold active:opacity-80"
-                          onClick={() =>
+                          onClick={() => {
+                            void Analytics.notificationClick(n.id, n.type, n.order_id);
                             setPlayingVideo({
                               url: n.metadata!.video_url!,
                               label: n.metadata?.video_label || "CS 영상",
-                            })
-                          }
+                            });
+                          }}
                         >
                           <Play className="w-4 h-4 fill-white" />
                           영상 보기
@@ -227,7 +229,10 @@ export function NotificationsClient() {
                       <Link
                         href={`/orders/${n.order_id}`}
                         className="block active:opacity-80"
-                        onClick={() => void dismissNotification(n.id)}
+                        onClick={() => {
+                          void Analytics.notificationClick(n.id, n.type, n.order_id);
+                          void dismissNotification(n.id);
+                        }}
                       >
                         <NotificationItem notification={n} />
                       </Link>
@@ -235,7 +240,10 @@ export function NotificationsClient() {
                       <button
                         type="button"
                         className="w-full text-left active:opacity-80"
-                        onClick={() => void dismissNotification(n.id)}
+                        onClick={() => {
+                          void Analytics.notificationClick(n.id, n.type, n.order_id);
+                          void dismissNotification(n.id);
+                        }}
                       >
                         <NotificationItem notification={n} />
                       </button>

@@ -190,9 +190,9 @@ async function getOverviewStats(startDate?: string | null, endDate?: string | nu
       'ORDER_COMPLETE'
     ]);
 
-  // 통계 집계
-  const cartAddCount = orderStats?.filter(e => e.event_type === 'CART_ADD').length || 0;
-  const cartRemoveCount = orderStats?.filter(e => e.event_type === 'CART_REMOVE').length || 0;
+  // 통계 집계 (장바구니는 cartStats, 주문은 orderStats)
+  const cartAddCount = cartStats?.filter((e: { event_type: string }) => e.event_type === 'CART_ADD').length || 0;
+  const cartRemoveCount = cartStats?.filter((e: { event_type: string }) => e.event_type === 'CART_REMOVE').length || 0;
   const orderStartCount = orderStats?.filter(e => e.event_type === 'ORDER_START').length || 0;
   const paymentStartCount = orderStats?.filter(e => e.event_type === 'ORDER_PAYMENT_START').length || 0;
   const paymentSuccessCount = orderStats?.filter(e => e.event_type === 'ORDER_PAYMENT_SUCCESS').length || 0;

@@ -25,8 +25,16 @@ const PAGE_TITLES: Record<string, string> = {
   "/announcements": "공지사항",
   "/guide/easy": "이용 가이드",
   "/guide/price": "가격 안내",
+  "/guide/measure": "치수 재는 방법",
+  "/guide/measure/embed": "치수 가이드(임베드)",
+  "/shop": "스토어",
+  "/shop/checkout": "스토어 결제",
+  "/shop/complete": "스토어 완료",
+  "/privacy-policy": "개인정보처리방침",
+  "/terms": "이용약관",
   "/login": "로그인",
   "/signup": "회원가입",
+  "/forgot-password": "비밀번호 찾기",
 };
 
 function getPageTitle(pathname: string): string {
@@ -34,6 +42,9 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith("/orders/") && pathname.endsWith("/tracking")) return "배송 추적";
   if (pathname.startsWith("/orders/") && pathname.endsWith("/extra-charge")) return "추가금 안내";
   if (pathname.startsWith("/orders/")) return "주문 상세";
+  if (pathname.startsWith("/announcements/")) return "공지 상세";
+  if (pathname.startsWith("/shop/")) return "스토어";
+  if (pathname.startsWith("/guide/")) return "가이드";
   return pathname;
 }
 

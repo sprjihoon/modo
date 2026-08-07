@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/widgets/modo_app_bar.dart';
+import '../../../../services/customer_event_service.dart';
 import '../../domain/models/image_pin.dart';
 import '../widgets/image_pin_editor.dart';
 
@@ -42,6 +43,7 @@ class _ImageAnnotationPageState extends State<ImageAnnotationPage> {
   /// 갤러리에서 이미지 선택
   Future<void> _pickImageFromGallery() async {
     try {
+      CustomerEventService.trackImageUploadStart(orderId: 'draft');
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1920,
@@ -54,6 +56,10 @@ class _ImageAnnotationPageState extends State<ImageAnnotationPage> {
           _imagePath = image.path;
           _pins = []; // 새 이미지 선택 시 핀 초기화
         });
+        CustomerEventService.trackImageUploadComplete(
+          orderId: 'draft',
+          imageCount: 1,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -67,6 +73,7 @@ class _ImageAnnotationPageState extends State<ImageAnnotationPage> {
   /// 카메라로 사진 촬영
   Future<void> _pickImageFromCamera() async {
     try {
+      CustomerEventService.trackImageUploadStart(orderId: 'draft');
       final XFile? image = await _picker.pickImage(
         source: ImageSource.camera,
         maxWidth: 1920,
@@ -79,6 +86,10 @@ class _ImageAnnotationPageState extends State<ImageAnnotationPage> {
           _imagePath = image.path;
           _pins = []; // 새 이미지 선택 시 핀 초기화
         });
+        CustomerEventService.trackImageUploadComplete(
+          orderId: 'draft',
+          imageCount: 1,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -139,6 +150,13 @@ class _ImageAnnotationPageState extends State<ImageAnnotationPage> {
 
     // 완료 콜백 호출
     widget.onComplete?.call(_imagePath!, _pins);
+
+    for (final pin in _pins) {
+      CustomerEventService.trackPinAdd(
+        orderId: 'draft',
+        imageId: pin.id,
+      );
+    }
 
     // 핀을 JSON으로 변환하여 반환
     final pinsJson = _pins.map((pin) => pin.toJson()).toList();

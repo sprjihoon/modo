@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { InlineSvg } from "@/components/ui/inline-svg";
+import { Analytics } from "@/lib/analytics";
 
 interface Category {
   id: string;
@@ -55,6 +56,7 @@ export function ClothingTypeStep({ onNext }: ClothingTypeStepProps) {
 
   function handleSelect(cat: Category) {
     setLoadingId(cat.id);
+    void Analytics.repairMenuView(cat.id, cat.name);
     onNext(cat.name, cat.id, cat.icon_name);
   }
 

@@ -326,6 +326,12 @@ class _HomePageState extends ConsumerState<HomePage>
       BuildContext context, Map<String, dynamic> banner) async {
     final actionType = banner['action_type'] as String? ?? 'order';
     final actionValue = banner['action_value'] as String?;
+    final bannerId = (banner['id'] ?? banner['banner_id'] ?? 'unknown').toString();
+    final bannerTitle = (banner['title'] ?? '배너').toString();
+    CustomerEventService.trackBannerClick(
+      bannerId: bannerId,
+      bannerTitle: bannerTitle,
+    );
 
     switch (actionType) {
       case 'navigate':

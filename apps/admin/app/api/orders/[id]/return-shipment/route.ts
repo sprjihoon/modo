@@ -6,6 +6,8 @@ import {
   isReturnWorkflowStatus,
   wasInboundOrder,
 } from "@/lib/order-return-flow";
+import { logActionServer } from "@/lib/api/action-logs-server";
+import { ActionType } from "@/lib/types/action-log";
 
 export const dynamic = 'force-dynamic';
 
@@ -176,18 +178,19 @@ export async function POST(
     if (session) {
       const { data: user } = await supabase
         .from("users")
-        .select("id")
+        .select("id, name, role")
         .eq("auth_id", session.user.id)
         .single();
 
       if (user) {
-        await supabase.from("action_logs").insert({
-          actor_id: user.id,
-          action_type: "CREATE_RETURN_SHIPMENT",
-          details: {
-            orderId: orderId,
-            trackingNo: trackingNo,
-            returnFee: returnFee,
+        await logActionServer(supabase, {
+          actor: user,
+          actionType: ActionType.RETURN_PROCESS,
+          targetId: orderId,
+          metadata: {
+            kind: "create_return_shipment",
+            trackingNo,
+            returnFee,
           },
         });
       }

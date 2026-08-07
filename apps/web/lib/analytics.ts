@@ -63,4 +63,33 @@ export const Analytics = {
 
   cartView: (itemCount: number) =>
     trackEvent({ eventType: "PAGE_VIEW", pageTitle: "장바구니", pageUrl: "/cart", metadata: { cart_item_count: itemCount } }),
+
+  productView: (productId: string, productName: string) =>
+    trackEvent({ eventType: "PRODUCT_VIEW", eventName: productName, targetId: productId, targetType: "product" }),
+
+  repairMenuView: (menuId: string, menuName: string) =>
+    trackEvent({ eventType: "REPAIR_MENU_VIEW", eventName: menuName, targetId: menuId, targetType: "repair_menu" }),
+
+  bannerClick: (bannerId: string, bannerTitle: string) =>
+    trackEvent({ eventType: "BANNER_CLICK", eventName: bannerTitle, targetId: bannerId, targetType: "banner" }),
+
+  imageUploadStart: (orderId?: string) =>
+    trackEvent({ eventType: "IMAGE_UPLOAD_START", targetId: orderId, targetType: "order" }),
+
+  imageUploadComplete: (orderId?: string, imageCount?: number) =>
+    trackEvent({ eventType: "IMAGE_UPLOAD_COMPLETE", targetId: orderId, targetType: "order", metadata: { image_count: imageCount } }),
+
+  pinAdd: (orderId: string | undefined, imageId: string) =>
+    trackEvent({ eventType: "PIN_ADD", targetId: orderId, targetType: "order", metadata: { image_id: imageId } }),
+
+  notificationClick: (notificationId: string, notificationType?: string, orderId?: string) =>
+    trackEvent({
+      eventType: "NOTIFICATION_CLICK",
+      targetId: notificationId,
+      targetType: "notification",
+      metadata: { notification_type: notificationType, order_id: orderId },
+    }),
+
+  search: (query: string, resultCount?: number) =>
+    trackEvent({ eventType: "SEARCH", metadata: { query, result_count: resultCount } }),
 };

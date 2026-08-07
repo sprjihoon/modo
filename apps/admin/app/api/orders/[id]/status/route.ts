@@ -6,6 +6,8 @@ import {
   wasInboundOrder,
 } from "@/lib/order-return-flow";
 import { NextRequest, NextResponse } from "next/server";
+import { logActionServer } from "@/lib/api/action-logs-server";
+import { ActionType } from "@/lib/types/action-log";
 
 export const dynamic = "force-dynamic";
 
@@ -209,21 +211,33 @@ export async function PATCH(
       }
     }
 
-    // 3. 상태 변경 로그 기록 (action_logs 테이블이 있는 경우)
+    // 3. 상태 변경 로그 기록
     try {
-      await supabase.from("action_logs").insert({
-        action_type: "ORDER_STATUS_CHANGED",
-        entity_type: "order",
-        entity_id: orderId,
-        details: {
+      const actionType =
+        targetStatus === "INBOUND"
+          ? ActionType.SCAN_INBOUND
+          : targetStatus === "PROCESSING"
+            ? ActionType.WORK_START
+            : targetStatus === "READY_TO_SHIP" || targetStatus === "DELIVERED"
+              ? ActionType.WORK_COMPLETE
+              : targetStatus === "OUT_FOR_DELIVERY"
+                ? ActionType.SCAN_OUTBOUND
+                : targetStatus?.startsWith("RETURN")
+                  ? ActionType.RETURN_PROCESS
+                  : ActionType.WORK_COMPLETE;
+
+      await logActionServer(supabase, {
+        actor: auth.user,
+        actionType,
+        targetId: orderId,
+        metadata: {
+          kind: "status_change",
           previousStatus: currentStatus,
           newStatus: targetStatus,
           trackingNo,
         },
-        created_at: new Date().toISOString(),
-      } as any);
+      });
     } catch (logError) {
-      // 로그 실패는 무시
       console.log("상태 변경 로그 기록 실패:", logError);
     }
 

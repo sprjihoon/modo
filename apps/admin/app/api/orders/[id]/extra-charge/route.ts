@@ -1,6 +1,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { logActionServer } from "@/lib/api/action-logs-server";
+import { ActionType } from "@/lib/types/action-log";
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +21,7 @@ export async function PUT(
 
     const { data: user } = await supabase
       .from("users")
-      .select("id, role")
+      .select("id, name, role")
       .eq("auth_id", session.user.id)
       .single();
 
@@ -70,15 +72,11 @@ export async function PUT(
       }
 
       // 4. Log action
-      await supabase.from("action_logs").insert({
-        actor_id: user.id,
-        action_type: "APPROVE_EXTRA_CHARGE",
-        details: {
-          orderId: orderId,
-          amount,
-          adminNote,
-          result: data
-        }
+      await logActionServer(supabase, {
+        actor: user,
+        actionType: ActionType.APPROVE_EXTRA,
+        targetId: orderId,
+        metadata: { amount, adminNote, result: data },
       });
 
       return NextResponse.json({ success: true, data });
@@ -100,13 +98,11 @@ export async function PUT(
       }
 
       // Log action
-      await supabase.from("action_logs").insert({
-        actor_id: user.id,
-        action_type: "REJECT_EXTRA_CHARGE",
-        details: {
-          orderId: orderId,
-          adminNote
-        }
+      await logActionServer(supabase, {
+        actor: user,
+        actionType: ActionType.REJECT_EXTRA,
+        targetId: orderId,
+        metadata: { adminNote },
       });
 
       return NextResponse.json({ success: true });

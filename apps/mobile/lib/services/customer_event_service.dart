@@ -469,5 +469,22 @@ class CustomerEventService {
       },
     );
   }
+
+  /// 알림 클릭 이벤트
+  static Future<void> trackNotificationClick({
+    required String notificationId,
+    String? notificationType,
+    String? orderId,
+  }) async {
+    await trackEvent(
+      eventType: CustomerEventType.NOTIFICATION_CLICK,
+      targetId: notificationId,
+      targetType: 'notification',
+      metadata: {
+        'notification_type': notificationType,
+        'order_id': orderId,
+      },
+    );
+  }
 }
 

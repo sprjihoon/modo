@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../services/cart_service.dart';
+import '../../../../services/customer_event_service.dart';
 
 /// 장바구니 항목 모델 (개별 수선 항목)
 ///
@@ -373,6 +374,17 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
       }
 
       newItems.add(item);
+      // 분석: 장바구니 추가 (관리자 퍼널 CART_ADD)
+      final name = (item.repairItem['name'] ??
+              item.repairItem['repairPart'] ??
+              item.clothingType)
+          .toString();
+      CustomerEventService.trackCartAdd(
+        itemName: name.isEmpty ? '수선 항목' : name,
+        targetId: item.serverId ?? item.id,
+        quantity: 1,
+        price: item.price,
+      );
     }
 
     state = [...state, ...newItems];
@@ -405,6 +417,19 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
       await _svc.addOrderDraft(orderDraft);
     }
 
+    for (final item in newItems) {
+      final name = (item.repairItem['name'] ??
+              item.repairItem['repairPart'] ??
+              item.clothingType)
+          .toString();
+      CustomerEventService.trackCartAdd(
+        itemName: name.isEmpty ? '수선 항목' : name,
+        targetId: item.serverId ?? item.id,
+        quantity: 1,
+        price: item.price,
+      );
+    }
+
     state = [...state, ...newItems];
     await _saveLocalCache();
   }
@@ -421,14 +446,32 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
       await _svc.removeItem(target.serverId!);
     }
 
+    if (target.id.isNotEmpty) {
+      final name = (target.repairItem['name'] ??
+              target.repairItem['repairPart'] ??
+              target.clothingType)
+          .toString();
+      CustomerEventService.trackCartRemove(
+        itemName: name.isEmpty ? '수선 항목' : name,
+        targetId: target.serverId ?? target.id,
+      );
+    }
+
     state = state.where((i) => i.id != itemId).toList();
     await _saveLocalCache();
   }
 
   /// 장바구니를 전체 비운다.
   Future<void> clearCart() async {
+    final count = state.length;
     if (_svc.isLoggedIn) {
       await _svc.clearAll();
+    }
+    if (count > 0) {
+      CustomerEventService.trackEvent(
+        eventType: CustomerEventType.CART_CLEAR,
+        metadata: {'item_count': count},
+      );
     }
     state = [];
     await _saveLocalCache();
