@@ -160,10 +160,12 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
         final router = ref.read(routerProvider);
         final currentPath = router.routerDelegate.currentConfiguration.uri.path;
 
-        // 현재 위치가 login이거나 splash면 적절한 페이지로 이동
-        // (네이버 로그인은 LoginPage에서 직접 이동하므로 여기서는 백업 역할)
-        if (currentPath == '/login' || currentPath == '/') {
-          debugPrint('🔀 [App] 이동: $targetRoute');
+        // 로그인·회원가입·홈 루트에서 OAuth 복귀 시 프로필 완료 여부에 따라 이동
+        if (currentPath == '/login' ||
+            currentPath == '/signup' ||
+            currentPath == '/' ||
+            currentPath == '/splash') {
+          debugPrint('🔀 [App] 이동: $targetRoute (from $currentPath)');
           router.go(targetRoute);
         }
       }

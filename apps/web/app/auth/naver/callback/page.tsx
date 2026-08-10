@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { getNaverCallbackUrl } from "@/lib/utils";
+import { getNaverCallbackUrl, safeRedirectPath } from "@/lib/utils";
 import { applyStashedInviteCode } from "@/lib/invite";
-import { Suspense } from "react";
+
+const NAVER_OAUTH_STATE_KEY = "naver_oauth_state";
 
 function NaverCallbackContent() {
   const router = useRouter();
@@ -16,7 +17,12 @@ function NaverCallbackContent() {
   useEffect(() => {
     const code = searchParams.get("code");
     const error = searchParams.get("error");
-    const redirectTo = sessionStorage.getItem("naver_redirect_to") || "/";
+    const state = searchParams.get("state");
+    const expectedState = sessionStorage.getItem(NAVER_OAUTH_STATE_KEY);
+    const redirectTo = safeRedirectPath(
+      sessionStorage.getItem("naver_redirect_to"),
+      "/"
+    );
 
     if (error || !code) {
       setStatus("네이버 로그인이 취소되었습니다.");
@@ -25,8 +31,17 @@ function NaverCallbackContent() {
       return;
     }
 
+    if (!expectedState || !state || state !== expectedState) {
+      sessionStorage.removeItem(NAVER_OAUTH_STATE_KEY);
+      setStatus("보안 검증에 실패했습니다. 다시 로그인해 주세요.");
+      setIsError(true);
+      setTimeout(() => router.push("/login"), 2500);
+      return;
+    }
+
+    sessionStorage.removeItem(NAVER_OAUTH_STATE_KEY);
     handleCallback(code, redirectTo);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleCallback(code: string, redirectTo: string) {
@@ -44,7 +59,6 @@ function NaverCallbackContent() {
         throw new Error(data.error || "로그인 처리에 실패했습니다.");
       }
 
-      // Supabase 세션 설정
       const supabase = createClient();
       if (data.access_token && data.refresh_token) {
         await supabase.auth.setSession({
@@ -52,8 +66,9 @@ function NaverCallbackContent() {
           refresh_token: data.refresh_token,
         });
 
-        // public.users에 네이버 유저 upsert (login_provider 포함)
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (user) {
           await supabase.from("users").upsert(
             {
@@ -67,6 +82,22 @@ function NaverCallbackContent() {
             { onConflict: "auth_id", ignoreDuplicates: true }
           );
           await applyStashedInviteCode();
+
+          const { data: check } = await supabase.rpc("check_profile_completed", {
+            p_auth_id: user.id,
+          });
+          const row = Array.isArray(check) ? check[0] : check;
+          sessionStorage.removeItem("naver_redirect_to");
+          setStatus("로그인 성공! 이동 중...");
+          if (row && row.is_completed === false) {
+            router.push(
+              `/complete-profile?redirectTo=${encodeURIComponent(redirectTo)}`
+            );
+          } else {
+            router.push(redirectTo);
+          }
+          router.refresh();
+          return;
         }
       }
 
@@ -107,7 +138,13 @@ function NaverCallbackContent() {
 
 export default function NaverCallbackPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-[#03C75A] border-t-transparent animate-spin" /></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full border-2 border-[#03C75A] border-t-transparent animate-spin" />
+        </div>
+      }
+    >
       <NaverCallbackContent />
     </Suspense>
   );

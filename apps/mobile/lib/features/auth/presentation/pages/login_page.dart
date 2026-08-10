@@ -27,6 +27,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   StreamSubscription<AuthState>? _authSubscription;
 
   static const _prefKeyEmail = 'saved_email';
+  /// @deprecated 평문 비밀번호 — 로드 시 삭제만 수행
   static const _prefKeyPassword = 'saved_password';
   static const _prefKeyRemember = 'remember_me';
 
@@ -86,18 +87,34 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   Future<void> _loadSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
+    // 평문 비밀번호 저장 제거 (이메일만 복원)
+    await prefs.remove(_prefKeyPassword);
     final remember = prefs.getBool(_prefKeyRemember) ?? false;
     if (remember) {
       final email = prefs.getString(_prefKeyEmail) ?? '';
-      final password = prefs.getString(_prefKeyPassword) ?? '';
       if (mounted) {
         setState(() {
           _emailController.text = email;
-          _passwordController.text = password;
           _rememberMe = true;
         });
       }
     }
+  }
+
+  Future<String> _routeAfterAuth() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return '/home';
+      final response = await Supabase.instance.client.rpc(
+        'check_profile_completed',
+        params: {'p_auth_id': user.id},
+      );
+      if (response is List && response.isNotEmpty) {
+        final isCompleted = response.first['is_completed'] as bool? ?? false;
+        if (!isCompleted) return '/complete-profile';
+      }
+    } catch (_) {}
+    return '/home';
   }
 
   Future<void> _handleLogin() async {
@@ -118,16 +135,16 @@ class _LoginPageState extends ConsumerState<LoginPage>
       final prefs = await SharedPreferences.getInstance();
       if (_rememberMe) {
         await prefs.setString(_prefKeyEmail, email);
-        await prefs.setString(_prefKeyPassword, password);
         await prefs.setBool(_prefKeyRemember, true);
       } else {
         await prefs.remove(_prefKeyEmail);
-        await prefs.remove(_prefKeyPassword);
         await prefs.remove(_prefKeyRemember);
       }
+      await prefs.remove(_prefKeyPassword);
 
       if (mounted) {
-        context.go('/home');
+        final route = await _routeAfterAuth();
+        if (mounted) context.go(route);
       }
     } catch (e) {
       print('❌ 로그인 페이지 에러: $e');
@@ -199,11 +216,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
       }
 
       // OAuth는 외부 브라우저로 이동 (로딩 유지)
-      // 네이버는 인앱에서 처리되므로 성공 시 홈으로 이동
+      // 네이버는 인앱 처리 — 프로필 완료 여부에 따라 이동
       if (provider == 'naver' && success && mounted) {
-        // 네이버 로그인 성공 시 프로필 체크 후 이동
-        // (app.dart의 auth 리스너가 처리하지만, 안전하게 직접 이동도 수행)
-        context.go('/home');
+        final route = await _routeAfterAuth();
+        if (mounted) context.go(route);
       }
 
       // 🔧 OAuth 브라우저 실패 시 (false 반환) 로딩 해제
@@ -430,7 +446,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                                 });
                                               },
                                         child: Text(
-                                          '아이디/비밀번호 저장',
+                                          '아이디 저장',
                                           style: TextStyle(
                                             fontSize: 13,
                                             color: Colors.grey.shade600,

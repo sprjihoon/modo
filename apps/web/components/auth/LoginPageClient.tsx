@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   getNaverCallbackUrl,
   getOAuthCallbackUrl,
+  safeRedirectPath,
 } from "@/lib/utils";
 import {
   applyStashedInviteCode,
@@ -16,12 +17,15 @@ import {
 } from "@/lib/invite";
 
 const NAVER_CLIENT_ID = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
-const SAVED_CREDENTIALS_KEY = "modo_web_saved_credentials";
+const SAVED_EMAIL_KEY = "modo_web_saved_email";
+/** @deprecated plaintext password — cleared on load */
+const LEGACY_CREDENTIALS_KEY = "modo_web_saved_credentials";
+const NAVER_OAUTH_STATE_KEY = "naver_oauth_state";
 
 export function LoginPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || "/";
+  const redirectTo = safeRedirectPath(searchParams.get("redirectTo"), "/");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +33,7 @@ export function LoginPageClient() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -47,15 +52,26 @@ export function LoginPageClient() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(SAVED_CREDENTIALS_KEY);
-      if (saved) {
-        const { email: savedEmail, password: savedPassword } = JSON.parse(saved);
-        setEmail(savedEmail || "");
-        setPassword(savedPassword || "");
-        setRememberMe(true);
+      // 레거시 평문 비밀번호 저장 제거 (이메일만 복원)
+      const legacy = localStorage.getItem(LEGACY_CREDENTIALS_KEY);
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        if (parsed?.email) {
+          localStorage.setItem(SAVED_EMAIL_KEY, parsed.email);
+          setEmail(parsed.email);
+          setRememberMe(true);
+        }
+        localStorage.removeItem(LEGACY_CREDENTIALS_KEY);
+      } else {
+        const savedEmail = localStorage.getItem(SAVED_EMAIL_KEY);
+        if (savedEmail) {
+          setEmail(savedEmail);
+          setRememberMe(true);
+        }
       }
     } catch {
-      localStorage.removeItem(SAVED_CREDENTIALS_KEY);
+      localStorage.removeItem(LEGACY_CREDENTIALS_KEY);
+      localStorage.removeItem(SAVED_EMAIL_KEY);
     }
   }, []);
 
@@ -70,7 +86,7 @@ export function LoginPageClient() {
 
     try {
       const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -85,14 +101,30 @@ export function LoginPageClient() {
       }
 
       if (rememberMe) {
-        localStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+        localStorage.setItem(SAVED_EMAIL_KEY, email);
       } else {
-        localStorage.removeItem(SAVED_CREDENTIALS_KEY);
+        localStorage.removeItem(SAVED_EMAIL_KEY);
       }
+      localStorage.removeItem(LEGACY_CREDENTIALS_KEY);
 
       const code = normalizeInviteCode(inviteCode);
       if (code) stashInviteCode(code);
       await applyStashedInviteCode();
+
+      // 프로필 미완료면 추가정보 입력
+      if (data.user) {
+        const { data: check } = await supabase.rpc("check_profile_completed", {
+          p_auth_id: data.user.id,
+        });
+        const row = Array.isArray(check) ? check[0] : check;
+        if (row && row.is_completed === false) {
+          router.push(
+            `/complete-profile?redirectTo=${encodeURIComponent(redirectTo)}`
+          );
+          router.refresh();
+          return;
+        }
+      }
 
       router.push(redirectTo);
       router.refresh();
@@ -103,26 +135,37 @@ export function LoginPageClient() {
     }
   }
 
-  async function handleKakaoLogin() {
+  async function startOAuth(
+    provider: "kakao" | "google" | "apple",
+    label: string
+  ) {
     persistInviteBeforeOAuth();
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "kakao",
-      options: {
-        redirectTo: getOAuthCallbackUrl(redirectTo),
-      },
-    });
+    setOauthLoading(label);
+    setError("");
+    try {
+      const supabase = createClient();
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: getOAuthCallbackUrl(redirectTo),
+        },
+      });
+      if (oauthError) {
+        setError(`${label} 로그인을 시작할 수 없습니다. 다시 시도해주세요.`);
+        setOauthLoading(null);
+      }
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
+      setOauthLoading(null);
+    }
+  }
+
+  async function handleKakaoLogin() {
+    await startOAuth("kakao", "카카오");
   }
 
   async function handleGoogleLogin() {
-    persistInviteBeforeOAuth();
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: getOAuthCallbackUrl(redirectTo),
-      },
-    });
+    await startOAuth("google", "Google");
   }
 
   async function handleNaverLogin() {
@@ -131,27 +174,30 @@ export function LoginPageClient() {
       setError("네이버 로그인 설정이 누락되었습니다. 관리자에게 문의해주세요.");
       return;
     }
+    setOauthLoading("네이버");
+    setError("");
     const callbackUrl = getNaverCallbackUrl();
-    const state = Math.random().toString(36).substring(2);
+    const state =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(36).substring(2) + Date.now().toString(36);
+    sessionStorage.setItem(NAVER_OAUTH_STATE_KEY, state);
     sessionStorage.setItem("naver_redirect_to", redirectTo);
     const naverOAuthUrl =
       `https://nid.naver.com/oauth2.0/authorize?` +
       `response_type=code&client_id=${NAVER_CLIENT_ID}` +
       `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
-      `&state=${state}`;
+      `&state=${encodeURIComponent(state)}`;
     window.location.href = naverOAuthUrl;
   }
 
   async function handleAppleLogin() {
-    persistInviteBeforeOAuth();
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "apple",
-      options: {
-        redirectTo: getOAuthCallbackUrl(redirectTo),
-      },
-    });
+    await startOAuth("apple", "Apple");
   }
+
+  const signupHref = inviteCode
+    ? `/signup?invite=${encodeURIComponent(inviteCode)}`
+    : "/signup";
 
   return (
     <div className="px-5 py-8">
@@ -214,7 +260,7 @@ export function LoginPageClient() {
             htmlFor="rememberMe"
             className="text-sm text-gray-500 cursor-pointer select-none"
           >
-            아이디/비밀번호 저장
+            아이디 저장
           </label>
         </div>
 
@@ -326,12 +372,17 @@ export function LoginPageClient() {
       <p className="text-center text-xs text-gray-400 mt-6">
         아직 회원이 아니신가요?{" "}
         <Link
-          href="/signup"
+          href={signupHref}
           className="text-[#00C896] font-semibold underline"
         >
           회원가입
         </Link>
       </p>
+      {oauthLoading && (
+        <p className="text-center text-xs text-gray-400 mt-3">
+          {oauthLoading} 로그인 화면으로 이동 중...
+        </p>
+      )}
     </div>
   );
 }

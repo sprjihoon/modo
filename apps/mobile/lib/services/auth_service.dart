@@ -108,6 +108,7 @@ class AuthService {
 
       // 2. 프로필 생성 (users 테이블에 저장)
       // 🔒 보안: 기본 role은 'CUSTOMER' (고객용 앱)
+      final nowIso = DateTime.now().toUtc().toIso8601String();
       try {
         final userData = {
           'auth_id': response.user!.id,
@@ -115,39 +116,26 @@ class AuthService {
           'name': name,
           'phone': phone,
           'role': role ?? 'CUSTOMER', // 🔒 기본값: CUSTOMER
+          'login_provider': 'email',
+          'terms_agreed_at': nowIso,
+          'privacy_agreed_at': nowIso,
+          'profile_completed': true,
         };
 
-        await _supabase.from('users').insert(userData);
+        await _supabase.from('users').upsert(userData, onConflict: 'auth_id');
         print('✅ 프로필 생성 성공 (role: ${userData['role']})');
       } catch (e) {
-        // users 테이블 INSERT 실패 시
-        // 트리거(auto_create_user_profile)가 자동으로 생성하므로 무시 가능
-        print('⚠️ 프로필 수동 생성 실패 (트리거가 자동 생성할 것임): $e');
-
-        // 잠시 대기 후 프로필 생성 확인
-        await Future.delayed(const Duration(milliseconds: 500));
-
+        print('⚠️ 프로필 upsert 실패, update로 보정: $e');
         try {
-          final profile = await _supabase
-              .from('users')
-              .select('id, role')
-              .eq('auth_id', response.user!.id)
-              .maybeSingle();
-
-          if (profile != null) {
-            print('✅ 트리거로 프로필 자동 생성 확인됨 (role: ${profile['role']})');
-          } else {
-            print('⚠️ 프로필이 생성되지 않았습니다. 수동으로 재시도합니다.');
-            // 재시도
-            await _supabase.from('users').insert({
-              'auth_id': response.user!.id,
-              'email': email,
-              'name': name,
-              'phone': phone,
-              'role': role ?? 'CUSTOMER',
-            });
-            print('✅ 프로필 재시도 성공');
-          }
+          await _supabase.from('users').update({
+            'name': name,
+            'phone': phone,
+            'terms_agreed_at': nowIso,
+            'privacy_agreed_at': nowIso,
+            'profile_completed': true,
+            'login_provider': 'email',
+          }).eq('auth_id', response.user!.id);
+          print('✅ 프로필 보정 성공');
         } catch (retryError) {
           print('❌ 프로필 확인 실패: $retryError');
         }

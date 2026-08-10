@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
@@ -24,6 +25,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   
   bool _isLoading = false;
   bool _isSocialLoginInProgress = false;
+  String _socialProviderLabel = '';
   bool _obscurePassword = true;
   bool _obscurePasswordConfirm = true;
   bool _agreeToTerms = false;
@@ -226,8 +228,33 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     }
   }
 
+  Future<String> _routeAfterAuth() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return '/home';
+      final response = await Supabase.instance.client.rpc(
+        'check_profile_completed',
+        params: {'p_auth_id': user.id},
+      );
+      if (response is List && response.isNotEmpty) {
+        final isCompleted = response.first['is_completed'] as bool? ?? false;
+        if (!isCompleted) return '/complete-profile';
+      }
+    } catch (_) {}
+    return '/home';
+  }
+
   Future<void> _handleSocialSignup(String provider) async {
-    setState(() => _isSocialLoginInProgress = true);
+    final labels = {
+      'google': 'Google',
+      'naver': '네이버',
+      'kakao': '카카오',
+      'apple': 'Apple',
+    };
+    setState(() {
+      _isSocialLoginInProgress = true;
+      _socialProviderLabel = labels[provider] ?? provider;
+    });
 
     try {
       final authService = ref.read(authServiceProvider);
@@ -249,9 +276,10 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       }
 
       // OAuth는 외부 브라우저로 이동 (로딩 유지)
-      // 네이버는 인앱에서 처리되므로 성공 시 홈으로 이동
+      // 네이버는 인앱 처리 — 프로필 완료 여부에 따라 이동
       if (provider == 'naver' && success && mounted) {
-        context.go('/home');
+        final route = await _routeAfterAuth();
+        if (mounted) context.go(route);
       }
 
       if (!success && mounted) {
@@ -329,7 +357,9 @@ class _SignupPageState extends ConsumerState<SignupPage> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Apple로 이동 중...',
+                _socialProviderLabel.isEmpty
+                    ? '소셜 계정으로 이동 중...'
+                    : '$_socialProviderLabel로 이동 중...',
                 style: TextStyle(color: Colors.grey.shade700),
               ),
             ],
@@ -554,8 +584,8 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                     if (value == null || value.isEmpty) {
                       return '비밀번호를 입력해주세요';
                     }
-                    if (value.length < 6) {
-                      return '비밀번호는 6자 이상이어야 합니다';
+                    if (value.length < 8) {
+                      return '비밀번호는 8자 이상이어야 합니다';
                     }
                     return null;
                   },

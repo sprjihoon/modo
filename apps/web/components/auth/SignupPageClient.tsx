@@ -70,9 +70,18 @@ export function SignupPageClient() {
 
     try {
       const supabase = createClient();
+      const phone = form.phone.trim().replace(/[-\s]/g, "") || null;
+      const nowIso = new Date().toISOString();
+
       const { data, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
+        options: {
+          data: {
+            name: form.name.trim(),
+            phone,
+          },
+        },
       });
 
       if (authError) {
@@ -85,15 +94,42 @@ export function SignupPageClient() {
       }
 
       if (data.user) {
-        await supabase.from("users").insert({
-          auth_id: data.user.id,
-          name: form.name,
-          email: form.email,
-          phone: form.phone || null,
-          agreed_to_terms: true,
-          agreed_to_privacy: true,
-          role: "CUSTOMER",
-        });
+        const { error: profileError } = await supabase.from("users").upsert(
+          {
+            auth_id: data.user.id,
+            name: form.name.trim(),
+            email: form.email,
+            phone,
+            role: "CUSTOMER",
+            login_provider: "email",
+            terms_agreed_at: nowIso,
+            privacy_agreed_at: nowIso,
+            profile_completed: true,
+          },
+          { onConflict: "auth_id" }
+        );
+
+        if (profileError) {
+          // 트리거가 기본 행만 만든 경우 업데이트로 보정
+          const { error: updateError } = await supabase
+            .from("users")
+            .update({
+              name: form.name.trim(),
+              phone,
+              terms_agreed_at: nowIso,
+              privacy_agreed_at: nowIso,
+              profile_completed: true,
+              login_provider: "email",
+            })
+            .eq("auth_id", data.user.id);
+
+          if (updateError) {
+            setError("회원 정보 저장에 실패했습니다. 로그인 후 회원정보에서 다시 입력해주세요.");
+            router.push("/profile/account");
+            router.refresh();
+            return;
+          }
+        }
 
         // 회원가입 축하 포인트 (DB 트리거 + 안전망)
         try {
@@ -109,7 +145,6 @@ export function SignupPageClient() {
             body: JSON.stringify({ code: inviteCode }),
           });
           if (!applyRes.ok) {
-            // 세션이 아직 없으면 스태시해 두고 다음 로그인 때 적용
             await applyStashedInviteCode();
           }
         }

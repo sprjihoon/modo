@@ -29,10 +29,25 @@ export function getAuthOrigin(): string {
   return getSiteUrl();
 }
 
+/**
+ * 로그인/OAuth 후 이동 경로 검증 (open redirect 방지).
+ * 허용: `/`로 시작하는 상대 경로만. `//evil.com` 등은 `/`로 폴백.
+ */
+export function safeRedirectPath(redirectTo: string | null | undefined, fallback = "/"): string {
+  if (!redirectTo) return fallback;
+  const trimmed = redirectTo.trim();
+  if (!trimmed.startsWith("/")) return fallback;
+  if (trimmed.startsWith("//")) return fallback;
+  if (trimmed.includes("://")) return fallback;
+  if (trimmed.includes("\\")) return fallback;
+  return trimmed;
+}
+
 /** Supabase OAuth (카카오·구글·애플) 콜백 URL */
 export function getOAuthCallbackUrl(redirectTo = "/"): string {
   const base = `${getAuthOrigin()}/auth/callback`;
-  return `${base}?redirectTo=${encodeURIComponent(redirectTo)}`;
+  const safe = safeRedirectPath(redirectTo);
+  return `${base}?redirectTo=${encodeURIComponent(safe)}`;
 }
 
 /** 네이버 로그인 콜백 URL — 네이버 개발자 콘솔에 등록된 고정 URL이어야 함.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { safeRedirectPath } from "@/lib/utils";
 
 function readInviteCookie(request: Request): string {
   const raw = request.headers.get("cookie") || "";
@@ -16,16 +17,37 @@ function readInviteCookie(request: Request): string {
   }
 }
 
+async function isProfileIncomplete(
+  admin: { from: (table: string) => any },
+  authId: string
+): Promise<boolean> {
+  const { data } = await admin
+    .from("users")
+    .select("name, phone, terms_agreed_at, privacy_agreed_at")
+    .eq("auth_id", authId)
+    .maybeSingle();
+
+  if (!data) return true;
+  const name = String(data.name || "").trim();
+  const phone = String(data.phone || "").trim();
+  if (!name || name === "고객" || name === "사용자") return true;
+  if (!phone) return true;
+  if (!data.terms_agreed_at || !data.privacy_agreed_at) return true;
+  return false;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const redirectTo = searchParams.get("redirectTo") || "/";
+  const redirectTo = safeRedirectPath(searchParams.get("redirectTo"), "/");
 
   if (code) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error && data.user) {
       const srk = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      let needsCompleteProfile = false;
+
       if (srk) {
         const admin = createSupabaseClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -60,7 +82,6 @@ export async function GET(request: Request) {
           .maybeSingle();
 
         if (userRow?.id) {
-          // 회원가입 축하 포인트 (신규 INSERT 시 트리거 + 멱등 안전망)
           await admin.rpc("grant_signup_reward", {
             p_user_id: userRow.id,
           });
@@ -73,10 +94,15 @@ export async function GET(request: Request) {
             });
           }
         }
+
+        needsCompleteProfile = await isProfileIncomplete(admin, data.user.id);
       }
 
-      const res = NextResponse.redirect(`${origin}${redirectTo}`);
-      // 적용 시도 후 쿠키 정리
+      const destination = needsCompleteProfile
+        ? `/complete-profile?redirectTo=${encodeURIComponent(redirectTo)}`
+        : redirectTo;
+
+      const res = NextResponse.redirect(`${origin}${destination}`);
       res.cookies.set("modo_invite_code", "", { path: "/", maxAge: 0 });
       return res;
     }
