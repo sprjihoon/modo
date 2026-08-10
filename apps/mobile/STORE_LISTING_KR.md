@@ -43,6 +43,6 @@
 
 ## 빌드 파일
 - 버전: `1.0.0+8` (`pubspec.yaml`) — 라이트 테마 · 네이버 · 가격표 배너 제거 · 홈 팝업
-- Android AAB: `apps/mobile/build/app/outputs/bundle/release/app-release.aab`
-- iOS IPA: `apps/mobile/build/ios/ipa/모두의수선.ipa`
+- Android AAB: `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (Play Alpha 게시 대기)
+- iOS IPA: `apps/mobile/build/ios/ipa/모두의수선.ipa` (**ASC 업로드 완료**, 심사 빌드 4→8 교체 대기)
 - 네이버/OAuth: `NAVER_LOGIN_SETUP.md` · `docs/DOMAIN_OAUTH_SETUP.md`

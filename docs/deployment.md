@@ -70,23 +70,23 @@ storeFile=<path-to-keystore>
 #### iOS
 
 ```bash
-# Pod 설치
-cd ios && pod install && cd ..
+cd apps/mobile
 
-# 빌드
-flutter build ios --release
+# IPA (App Store) — Manual 서명: ModoRepair AppStore
+flutter build ipa --release --build-name=1.0.0 --build-number=<N> \
+  --export-options-plist=ios/ExportOptions.plist
+# → build/ios/ipa/모두의수선.ipa
 
-# IPA 생성 (App Store용)
-flutter build ipa --release
-
-# 결과물
-# build/ios/ipa/modu_repair.ipa
+# App Store Connect 업로드 (API Key는 secrets/asc-api.json, Git 제외)
+xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
+  --apiKey 5NS9QNDJUH --apiIssuer <issuerId>
 ```
 
 **Apple Developer 설정:**
-- Provisioning Profile
-- App Store Connect 앱 등록
-- Xcode에서 서명 설정
+- Team `6R7TSV8PV4` · Bundle `com.modurepair.app`
+- Distribution 인증서 + 프로파일 `ModoRepair AppStore`
+- Xcode Accounts 미로그인 시 Automatic 대신 Manual (`ExportOptions.plist`)
+- 최신: `1.0.0 (8)` ASC 업로드 완료 — 심사 빌드 교체는 Connect에서 수동
 
 ### Firebase App Distribution (테스트 배포)
 
