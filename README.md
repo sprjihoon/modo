@@ -273,7 +273,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Bundle / Application ID | `com.modurepair.app` |
 | 버전 | `apps/mobile/pubspec.yaml` → **`1.0.0+8`** — 라이트 테마 · 네이버 · 가격표 배너 제거 · 홈 팝업 앱 연동 |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 **4** 유지) — +8 IPA 업로드 후 Connect에서 심사 빌드 교체 |
+| iOS 심사 상태 | **WAITING_FOR_REVIEW** (심사 빌드 **4**) · TestFlight에 **1.0.0 (8)** IPA 업로드 완료 — Connect에서 심사 빌드 4→8 교체 가능 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
 | Play 상태 | **비공개 테스트(Alpha)** — 활성 `1.0.0 (5)` · `1.0.0+8` AAB로 교체 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
@@ -337,7 +337,7 @@ flutter build ipa --release --build-name=1.0.0 --build-number=8 \
 7. ~~웹·앱 알림 UX~~ (`/notifications` 내 알림·공지 탭, 본문 ORD 주문번호 숨김, **읽은 항목 숨김·닫기**)
 8. ~~수선신청 UX~~ (소카테고리 가격 라벨 제거, 가격표 CTA 연결, 참고 안내 배너 제거)
 9. ~~`1.0.0+8`~~ (라이트 테마 · 네이버 · 가격표 배너 제거 · 홈 팝업 앱 연동)
-10. **대기:** App Store 빌드 8 IPA 업로드·심사 빌드 교체 · Play Alpha `1.0.0 (8)` 게시
+10. ~~App Store `1.0.0 (8)` IPA 업로드~~ · **대기:** Connect 심사 빌드 4→8 교체 · Play Alpha `1.0.0 (8)` AAB 게시
 11. 비공개 테스트 테스터 opt-in · 실기기 **네이버 로그인**·주문·**라이브 결제** 스모크
 12. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
 
@@ -347,6 +347,7 @@ flutter build ipa --release --build-name=1.0.0 --build-number=8 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-10 | iOS `1.0.0+8` 업로드 | App Store Connect IPA 업로드 성공 (수동 서명 `ModoRepair AppStore`). Xcode Accounts 미로그인 시 Automatic 대신 Manual 사용 |
 | 2026-08-10 | 스토어 `1.0.0+8` | 라이트 테마 고정 · 네이버 로그인(콘솔+iOS SDK) · 가격표「참고 안내」배너 제거 · 홈 팝업 앱 연동(`popups`, 어드민 콘텐츠→팝업 관리). Play Alpha·App Store에 +8 배포 필요(테스터는 업데이트) |
 | 2026-08-05 | 알림·공지 닫기 | 읽지 않은 알림·미읽 공지만 목록에 표시. X·「모두 닫기」로 읽음 처리 후 제거(알림=`is_read`, 공지=`announcement_reads`). 웹·앱 동일 |
 | 2026-08-04 | 알림·가격표 UX | 웹 알림을 앱처럼 **내 알림 / 공지사항** 탭으로 통합. 알림 본문에서 `ORD…` 주문번호 표시 제거(웹·앱). 소카테고리 그리드 가격 라벨 제거. 의류선택「수선 가격표 확인하기」→`/price-guide` |
