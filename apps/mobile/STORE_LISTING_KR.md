@@ -42,7 +42,7 @@
 6. 주문 현황 / 마이페이지
 
 ## 빌드 파일
-- 버전: `1.0.0+8` (`pubspec.yaml`) — 라이트 테마 · 네이버 · 가격표 배너 제거 · 홈 팝업
+- 버전: `1.0.0+9` (`pubspec.yaml`) — iOS MinOS 15 · 라이트 테마 · 네이버 · 홈 팝업
 - Android AAB: `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (Play Alpha 게시 대기)
-- iOS IPA: `apps/mobile/build/ios/ipa/모두의수선.ipa` (**ASC 업로드 완료**, 심사 빌드 4→8 교체 대기)
+- iOS IPA: `build/ios/ipa/모두의수선.ipa` (MinOS 15 · 빌드 9 ASC 업로드)
 - 네이버/OAuth: `NAVER_LOGIN_SETUP.md` · `docs/DOMAIN_OAUTH_SETUP.md`

@@ -183,10 +183,10 @@ flutter test --coverage
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | 비공개 테스트(Alpha) — 활성 `1.0.0 (5)`, 교체 대상 `1.0.0+8` AAB 빌드 완료 |
-| 버전 | `pubspec.yaml` → `1.0.0+8` |
+| 현재 트랙 | 비공개 테스트(Alpha) — 활성 `1.0.0 (5)`, 교체 대상 `1.0.0+9` |
+| 버전 | `pubspec.yaml` → `1.0.0+9` |
 | 최근 UX | 라이트 테마 고정 · 네이버 로그인 · 가격표 참고안내 배너 제거 · 홈 팝업(`popups`) |
-| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.0+8.aab` |
+| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.0+9.aab` |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
 | 그래픽 자산 | `store_screenshots/play/` |
 
@@ -214,13 +214,14 @@ flutter build apk --release
 | Flutter 핀 | **3.35.7** (`ios/ci_scripts/ci_post_clone.sh`, 공식 macOS zip) |
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
-| 최신 업로드 | **`1.0.0 (8)`** App Store Connect 업로드 완료 (2026-08-10) |
-| App Store 심사 | 심사 빌드 **4** `WAITING_FOR_REVIEW` — Connect에서 **4→8** 교체 가능 |
+| iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
+| 최신 업로드 | **`1.0.0 (9)`** (빌드 8은 MinOS 13 경고로 교체) |
+| App Store 심사 | 심사 빌드 **4** `WAITING_FOR_REVIEW` — Connect에서 **4→9** 교체 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 
 ```bash
 # App Store용 (수동 서명 — Xcode Accounts 없어도 Distribution 인증서+프로파일만 있으면 가능)
-flutter build ipa --release --build-name=1.0.0 --build-number=8 \
+flutter build ipa --release --build-name=1.0.0 --build-number=9 \
   --export-options-plist=ios/ExportOptions.plist
 
 # 업로드 (API Key: secrets/asc-api.json, 커밋 금지)
