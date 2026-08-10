@@ -183,9 +183,9 @@ flutter test --coverage
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | 비공개 테스트(Alpha) `1.0.0 (5)` 검토 중 — SafeArea·그리드 핏 |
-| 버전 | `pubspec.yaml` → `1.0.0+5` |
-| 최근 UX | 알림 본문 ORD 숨김 · 소카테고리 가격 라벨 제거 · 가격표 CTA · 참고 안내 배너 제거 |
+| 현재 트랙 | 비공개 테스트(Alpha) — 활성 `1.0.0 (5)`, 교체 대상 `1.0.0+8` |
+| 버전 | `pubspec.yaml` → `1.0.0+8` |
+| 최근 UX | 라이트 테마 고정 · 네이버 로그인 · 가격표 참고안내 배너 제거 · 홈 팝업(`popups`) |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
 | 그래픽 자산 | `store_screenshots/play/` |
 

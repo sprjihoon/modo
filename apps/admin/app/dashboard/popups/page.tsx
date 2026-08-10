@@ -202,7 +202,7 @@ export default function PopupsPage() {
         <div>
           <h1 className="text-2xl font-bold">팝업 관리</h1>
           <p className="text-gray-600 mt-1">
-            홈 화면에 표시되는 안내 팝업을 관리합니다
+            고객 웹·앱 홈에 표시되는 안내 팝업을 관리합니다 (활성·우선순위 기준 1건)
           </p>
         </div>
         <Button

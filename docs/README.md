@@ -38,6 +38,16 @@
 - CI/CD 파이프라인
 - 모니터링
 
+### 5. [도메인 · OAuth 설정](DOMAIN_OAUTH_SETUP.md)
+- `modo.io.kr` 콜백 / Supabase Redirect
+- 네이버 로그인 PC웹·Android·iOS 환경 (`com.modurepair.app`, `modorepairnaver`)
+- 카카오·구글·애플 콘솔 체크리스트
+
+### 관련 (앱)
+- 네이버 SDK 상세: [`apps/mobile/NAVER_LOGIN_SETUP.md`](../apps/mobile/NAVER_LOGIN_SETUP.md)
+- 홈 팝업: 어드민 **콘텐츠 → 팝업 관리** (`popups` 테이블) · 웹·앱 홈 공통
+- 스토어 버전/출시 상태: 루트 [`README.md`](../README.md) 「앱스토어 / Play 출시 준비」 (`1.0.0+8`)
+
 ## 🎯 빠른 시작
 
 ### 신규 개발자 온보딩
