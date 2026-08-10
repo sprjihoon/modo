@@ -276,7 +276,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 **4** 유지) — +5/+6 IPA는 기기 UDID 등록 또는 수동 업로드 후 교체 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **비공개 테스트(Alpha)** — `1.0.0 (6)` AAB 교체 대상 · 테스터 opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | **비공개 테스트(Alpha)** — 활성 `1.0.0 (5)` · `1.0.0+6` AAB 빌드 완료·출시 초안 준비(번들 업로드 후 게시) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
 | Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.0+6`) · 백업 `Documents/modo-android-signing/app-release-1.0.0+6.aab` |
