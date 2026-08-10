@@ -271,16 +271,16 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+13`** — 포인트내역·회원탈퇴 위치 · 결제내역 취소 표시 · 네이버·가격표 · iOS MinOS **15.0** |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+13`** — versionName 1.0.1 · 포인트내역 · 회원탈퇴 위치 · 앱설정 버전 표시 |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | 빌드 **1.0.1 (13)** 업로드·심사 빌드 교체 진행 (이전 심사 빌드 12) |
+| iOS 심사 상태 | **WAITING_FOR_REVIEW** · 심사 빌드 **1.0.1 (13)** |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **비공개 테스트(Alpha)** — 활성 `1.0.0 (5)` · `1.0.1+13` AAB로 교체 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | Alpha 활성 `1.0.0 (5)` · 업로드 키 재설정 대기 → **2026-08-12 23:26 KST** 이후 `1.0.1+13` AAB 재업로드 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
 | Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+13`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+13.aab` |
-| Android 업로드 서명 | `apps/mobile/android/key.properties` + `app/upload-keystore.jks` (**Git 제외**) · 백업 `Documents/modo-android-signing/` |
+| Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` · Play 등록 업로드 키는 `AE:84:3D…` (**불일치 — 원본 JKS 분실**) · 재설정용 PEM `Documents/modo-android-signing/upload_certificate_1090.pem` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
 | 개인정보처리방침 | https://modo.io.kr/privacy-policy |
@@ -291,7 +291,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 다음 빌드 | `1.0.1+13` IPA 업로드 후 심사 빌드 **12→13** 교체·재제출 |
+| App Store 다음 빌드 | 빌드 **13** 업로드·심사 교체·재제출 완료 |
 
 ### 심사용 테스트 계정
 
@@ -347,6 +347,8 @@ flutter build ipa --release --build-name=1.0.1 --build-number=13 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-10 | Play 업로드 키 재설정 | 로컬 `10:90:55…`로 재설정 요청됨. 새 키 유효 시각 **2026-08-12 23:26 KST** (UTC 14:26) 이후 `1.0.1+13` AAB 재업로드 |
+| 2026-08-10 | iOS 심사 빌드 13 | IPA `1.0.1 (13)` ASC 업로드 · 기존 심사 취소 · 빌드 **12→13** 연결 · `WAITING_FOR_REVIEW` 재제출 |
 | 2026-08-10 | Vercel `web` 좀비 삭제 | 고객 웹 프로덕션은 **`modo-web`만** (`apps/web` · modo.io.kr). CLI 오링크로 생긴 `web` 프로젝트 삭제·로컬을 `modo-web`에 재링크. `web` 재생성 금지 |
 | 2026-08-10 | 스토어 `1.0.1+13` | Play Alpha가 옛 `1.0.0 (5)`에 고정 → **versionName 1.0.1**으로 올려 테스터 구분. 포인트내역 메뉴·회원탈퇴→회원정보 · 「 님」공백 · 결제내역 취소 배지. iOS 13·Play AAB 재업로드 |
 | 2026-08-10 | 앱 회원가입 SNS | 회원가입 화면 Google·네이버·카카오를 로그인과 동일 `AuthService`로 연결 (기존 Apple만 동작). 스토어 `1.0.0+10` · iOS 빌드 10 심사 재제출 · Play AAB 준비 |
