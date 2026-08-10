@@ -216,7 +216,7 @@ flutter build apk --release
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
 | 최신 업로드 | **`1.0.0 (10)`** (회원가입 SNS 연결 · MinOS 15.0) |
-| App Store 심사 | 빌드 **10** 업로드 후 심사 빌드 교체·재제출 |
+| App Store 심사 | **WAITING_FOR_REVIEW** · 심사 빌드 **10** |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 
 ```bash

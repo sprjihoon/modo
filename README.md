@@ -273,7 +273,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Bundle / Application ID | `com.modurepair.app` |
 | 버전 | `apps/mobile/pubspec.yaml` → **`1.0.0+10`** — 회원가입 SNS(Google/네이버/카카오/Apple) · iOS MinOS **15.0** · 라이트 테마 · 홈 팝업 |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | 빌드 **1.0.0 (10)** 업로드·심사 빌드 교체 진행 (이전 9는 MinOS 15 재제출본) |
+| iOS 심사 상태 | **WAITING_FOR_REVIEW** · 심사 빌드 **1.0.0 (10)** (MinOS 15 · 회원가입 SNS) — 2026-08-10 재제출 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
 | Play 상태 | **비공개 테스트(Alpha)** — 활성 `1.0.0 (5)` · `1.0.0+10` AAB로 교체 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
@@ -291,7 +291,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 다음 빌드 | `1.0.0+10` IPA 업로드 후 심사 빌드 **9→10** 교체·재제출 |
+| App Store 다음 빌드 | ~~+10 IPA 업로드·심사 빌드 9→10 교체·재제출 완료~~ · Apple 심사 대기 |
 
 ### 심사용 테스트 계정
 
@@ -347,7 +347,7 @@ flutter build ipa --release --build-name=1.0.0 --build-number=10 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-10 | 앱 회원가입 SNS | 회원가입 화면 Google·네이버·카카오를 로그인과 동일 `AuthService`로 연결 (기존 Apple만 동작). 스토어 `1.0.0+10` |
+| 2026-08-10 | 앱 회원가입 SNS | 회원가입 화면 Google·네이버·카카오를 로그인과 동일 `AuthService`로 연결 (기존 Apple만 동작). 스토어 `1.0.0+10` · iOS 빌드 10 심사 재제출 · Play AAB 준비 |
 | 2026-08-10 | iOS 심사 빌드 9 | REJECTTED 제출 취소 후 버전 빌드를 **4→9** 연결, 심사 재제출 → `WAITING_FOR_REVIEW` (MinOS 15.0) |
 | 2026-08-10 | ITMS-90068 | 빌드 8 업로드 성공했으나 `MinimumOSVersion 13.0` 경고(2027 봄부터 15.0 필수). Podfile·pbxproj·`AppFrameworkInfo.plist`를 **15.0**으로 상향 → 빌드 **9** 재업로드 |
 | 2026-08-10 | iOS `1.0.0+8` 업로드 | App Store Connect IPA 업로드 성공 (수동 서명 `ModoRepair AppStore`). Xcode Accounts 미로그인 시 Automatic 대신 Manual 사용 |
