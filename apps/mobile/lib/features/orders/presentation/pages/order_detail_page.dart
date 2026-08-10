@@ -178,9 +178,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       }
 
       final newStatus = order['status'] as String? ?? 'BOOKED';
-      final statusChanged = _currentStatus != newStatus;
+      // 최초 진입 시 기본값(BOOKED)→실제상태 비교로 스낵바가 뜨지 않도록
+      final isInitialLoad = _orderData == null;
+      final statusChanged = !isInitialLoad && _currentStatus != newStatus;
       
-      debugPrint('📊 주문 상태: $newStatus (이전: $_currentStatus)');
+      debugPrint('📊 주문 상태: $newStatus (이전: $_currentStatus, initial=$isInitialLoad)');
 
       setState(() {
         _orderData = order;
@@ -207,7 +209,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       
       debugPrint('🔘 취소 가능 여부: $_isPickupCancellable (treatStusCd: $_pickupTreatStusCd)');
 
-      // 상태 변경 알림 (배송완료 등)
+      // 상태 변경 알림 (배송완료 등) — 실시간/폴링으로 바뀐 경우만
       if (statusChanged && mounted) {
         if (newStatus == 'DELIVERED') {
           ScaffoldMessenger.of(context).showSnackBar(

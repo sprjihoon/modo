@@ -66,10 +66,15 @@ class _LoginPageState extends ConsumerState<LoginPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // 앱이 포그라운드로 돌아왔을 때 로그인 안 된 상태면 로딩 해제
-    if (state == AppLifecycleState.resumed && mounted) {
+    // 네이버 앱 복귀 직후엔 SDK/Edge Function이 아직 진행 중일 수 있음.
+    // 소셜 로그인 진행 중에는 로딩을 유지하고, 완료/실패 핸들러에서만 해제한다.
+    if (state == AppLifecycleState.resumed &&
+        mounted &&
+        !_isSocialLoginInProgress) {
       Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted && Supabase.instance.client.auth.currentSession == null) {
+        if (mounted &&
+            !_isSocialLoginInProgress &&
+            Supabase.instance.client.auth.currentSession == null) {
           setState(() => _isSocialLoginInProgress = false);
         }
       });
@@ -225,6 +230,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
       // 🔧 OAuth 브라우저 실패 시 (false 반환) 로딩 해제
       if (!success && mounted) {
         setState(() => _isSocialLoginInProgress = false);
+        if (provider == 'naver') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('네이버 로그인이 완료되지 않았습니다. 다시 시도해주세요.'),
+              backgroundColor: Colors.red.shade400,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

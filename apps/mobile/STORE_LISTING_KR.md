@@ -5,7 +5,7 @@
 |------|-----|
 | 앱 이름 | 모두의수선 |
 | 패키지 / Bundle ID | `com.modurepair.app` |
-| 버전 | 1.0.0 (10) |
+| 버전 | 1.0.0 (12) |
 | 개인정보처리방침 | https://modo.io.kr/privacy-policy |
 | 이용약관 | https://modo.io.kr/terms |
 | 지원 / 웹사이트 | https://modo.io.kr |
@@ -42,7 +42,7 @@
 6. 주문 현황 / 마이페이지
 
 ## 빌드 파일
-- 버전: `1.0.0+10` (`pubspec.yaml`) — 회원가입 SNS · iOS MinOS 15 · 라이트 테마 · 홈 팝업
-- Android AAB: `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (Play Alpha 게시 대기)
-- iOS IPA: `build/ios/ipa/모두의수선.ipa` (MinOS 15 · 빌드 9 ASC 업로드)
+- 버전: `1.0.0+12` (`pubspec.yaml`) — 결제내역 취소 표시 · 네이버 로그인 · 가격표 CTA · iOS MinOS 15
+- Android AAB: `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (Play Alpha 교체)
+- iOS IPA: `build/ios/ipa/모두의수선.ipa` (MinOS 15 · 빌드 12 ASC 업로드)
 - 네이버/OAuth: `NAVER_LOGIN_SETUP.md` · `docs/DOMAIN_OAUTH_SETUP.md`

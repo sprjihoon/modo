@@ -197,11 +197,13 @@ Deno.serve(async (req) => {
     }
 
     // orders 테이블도 업데이트
+    // payment_status는 결제 취소 API에서 갱신. 여기서는 주문 취소 표시만 맞춤.
     await supabase
       .from('orders')
       .update({
         status: 'CANCELLED',
         tracking_no: null,
+        canceled_at: new Date().toISOString(),
       })
       .eq('id', order_id);
 

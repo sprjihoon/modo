@@ -237,53 +237,86 @@ class AuthService {
     try {
       print('🔐 네이버 로그인 시작');
 
-      // 0. 네이버 SDK 초기화 확인 (환경 변수 체크)
       final naverClientId = dotenv.env['NAVER_CLIENT_ID'];
       if (naverClientId == null || naverClientId.isEmpty) {
         print('❌ 네이버 로그인 설정이 없습니다 (NAVER_CLIENT_ID 미설정)');
         throw Exception('네이버 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
       }
 
-      // 0.5. 기존 토큰 삭제 (Refresh token is not valid 에러 방지)
+      // 기존 유효 토큰이 있으면 앱 전환 없이 재사용
+      // (매 로그인마다 logOutAndDeleteToken 하면 네이버앱 SSO 후 빈 결과로 복귀하는 경우가 있음)
+      String accessToken = '';
+      String email = '';
+      String name = '';
+      String profileImage = '';
+      String userId = '';
+
       try {
-        await FlutterNaverLogin.logOutAndDeleteToken();
-        print('🧹 기존 네이버 토큰 삭제 완료');
+        if (await FlutterNaverLogin.isLoggedIn()) {
+          final existing = await FlutterNaverLogin.getCurrentAccessToken();
+          if (existing.accessToken.isNotEmpty) {
+            final account = await FlutterNaverLogin.getCurrentAccount();
+            accessToken = existing.accessToken;
+            email = account.email ?? '';
+            name = account.name ?? '';
+            profileImage = account.profileImage ?? '';
+            userId = account.id ?? '';
+            print('♻️ 기존 네이버 토큰 재사용');
+          }
+        }
       } catch (e) {
-        print('ℹ️ 기존 토큰 삭제 실패 (무시): $e');
+        print('ℹ️ 기존 네이버 세션 확인 실패(무시): $e');
       }
 
-      // 1. 네이버 SDK로 로그인 (2.x API)
-      final result = await FlutterNaverLogin.logIn();
+      if (accessToken.isEmpty) {
+        var result = await FlutterNaverLogin.logIn();
+        final err = (result.errorMessage ?? '').toLowerCase();
+        final needsReset = result.status == NaverLoginStatus.error &&
+            (err.contains('refresh') || err.contains('token'));
 
-      if (result.status == NaverLoginStatus.error) {
-        print('⚠️ 네이버 로그인 취소 또는 실패: ${result.errorMessage}');
-        return false;
+        if (needsReset) {
+          print('🧹 만료 토큰 정리 후 재시도');
+          try {
+            await FlutterNaverLogin.logOutAndDeleteToken();
+          } catch (_) {}
+          result = await FlutterNaverLogin.logIn();
+        }
+
+        if (result.status != NaverLoginStatus.loggedIn) {
+          print(
+            '⚠️ 네이버 로그인 취소 또는 실패: status=${result.status}, msg=${result.errorMessage}',
+          );
+          return false;
+        }
+
+        accessToken = result.accessToken?.accessToken ?? '';
+        if (accessToken.isEmpty) {
+          final tokenResult = await FlutterNaverLogin.getCurrentAccessToken();
+          accessToken = tokenResult.accessToken;
+        }
+
+        var account = result.account;
+        if (account == null ||
+            ((account.email == null || account.email!.isEmpty) &&
+                (account.id == null || account.id!.isEmpty))) {
+          try {
+            account = await FlutterNaverLogin.getCurrentAccount();
+          } catch (_) {}
+        }
+
+        email = account?.email ?? '';
+        name = account?.name ?? '';
+        profileImage = account?.profileImage ?? '';
+        userId = account?.id ?? '';
       }
-
-      final account = result.account;
-      if (account == null) {
-        print('⚠️ 네이버 계정 정보를 가져올 수 없습니다');
-        return false;
-      }
-
-      final email = account.email ?? '';
-      final name = account.name ?? '';
-      final profileImage = account.profileImage ?? '';
-      final userId = account.id ?? '';
-
-      print('✅ 네이버 로그인 성공: $email');
-
-      // 2. 네이버 액세스 토큰 가져오기 (2.x API)
-      final tokenResult = await FlutterNaverLogin.getCurrentAccessToken();
-      final accessToken = tokenResult.accessToken;
 
       if (accessToken.isEmpty) {
         throw Exception('네이버 액세스 토큰을 가져올 수 없습니다');
       }
 
+      print('✅ 네이버 로그인 성공: ${email.isEmpty ? '(email from API)' : email}');
       print('🔑 네이버 토큰 획득 완료');
 
-      // 3. Edge Function 호출하여 Supabase 세션 생성
       final response = await _supabase.functions.invoke(
         'naver-auth',
         body: {
@@ -303,21 +336,17 @@ class AuthService {
         throw Exception(errorMessage);
       }
 
-      // 4. Edge Function에서 반환한 세션으로 로그인
       final sessionData = response.data;
-      final sessionAccessToken = sessionData?['access_token'] as String?;
       final sessionRefreshToken = sessionData?['refresh_token'] as String?;
 
-      if (sessionAccessToken != null && sessionRefreshToken != null) {
-        // setSession은 refresh_token을 인자로 받음
-        await _supabase.auth.setSession(sessionRefreshToken);
-        print('✅ Supabase 세션 설정 완료');
-      } else {
+      if (sessionRefreshToken == null || sessionRefreshToken.isEmpty) {
         print('⚠️ 세션 토큰이 없습니다. 응답: $sessionData');
         throw Exception('로그인 세션을 생성할 수 없습니다. 다시 시도해주세요.');
       }
 
-      // 📊 로그인 액션 로그 기록
+      await _supabase.auth.setSession(sessionRefreshToken);
+      print('✅ Supabase 세션 설정 완료');
+
       await _logService.log(
         actionType: ActionType.LOGIN,
         metadata: {
@@ -331,12 +360,6 @@ class AuthService {
       return true;
     } on Exception catch (e) {
       print('❌ 네이버 로그인 실패: $e');
-
-      // 네이버 로그아웃 (실패 시 정리)
-      try {
-        await FlutterNaverLogin.logOut();
-      } catch (_) {}
-
       throw Exception('네이버 로그인 실패: $e');
     }
   }

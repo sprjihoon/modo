@@ -145,11 +145,39 @@ export function PaymentHistoryClient() {
     );
   }
 
-  function getStatusBadge(p: Payment) {
-    const ps = p.payment_status?.toUpperCase();
-    if (ps === "CANCELED") return { label: "환불완료", cls: "text-red-600 bg-red-50" };
-    if (ps === "PARTIAL_CANCELED") return { label: "부분환불", cls: "text-orange-600 bg-orange-50" };
-    return { label: "결제완료", cls: "text-green-600 bg-green-50" };
+  /** 결제상태·주문상태·취소시각을 모두 반영 (status=CANCELLED인데 payment_status=PAID인 건 포함) */
+  function getPaymentDisplay(p: Payment) {
+    const ps = (p.payment_status ?? "").toUpperCase();
+    const orderStatus = (p.status ?? "").toUpperCase();
+    const orderCancelled =
+      orderStatus === "CANCELLED" || orderStatus === "CANCELED" || !!p.canceled_at;
+
+    if (ps === "PARTIAL_CANCELED") {
+      return {
+        label: "부분환불",
+        cls: "text-orange-600 bg-orange-50",
+        cancelled: true as const,
+      };
+    }
+    if (ps === "CANCELED" || ps === "REFUNDED") {
+      return {
+        label: "환불완료",
+        cls: "text-red-600 bg-red-50",
+        cancelled: true as const,
+      };
+    }
+    if (orderCancelled) {
+      return {
+        label: "주문취소",
+        cls: "text-red-600 bg-red-50",
+        cancelled: true as const,
+      };
+    }
+    return {
+      label: "결제완료",
+      cls: "text-green-600 bg-green-50",
+      cancelled: false as const,
+    };
   }
 
   return (
@@ -157,8 +185,8 @@ export function PaymentHistoryClient() {
       <PendingBanner />
       <div className="px-4 py-3 space-y-3">
       {payments.map((p) => {
-        const badge = getStatusBadge(p);
-        const isCancelled = p.payment_status === "CANCELED" || p.payment_status === "PARTIAL_CANCELED";
+        const badge = getPaymentDisplay(p);
+        const isCancelled = badge.cancelled;
         return (
           <Link key={p.id} href={`/orders/${p.id}`}>
           <div

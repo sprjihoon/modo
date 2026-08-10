@@ -374,12 +374,19 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
   /// 결제 카드 (포인트 내역 스타일)
   Widget _buildPaymentCard(BuildContext context, Map<String, dynamic> payment) {
     final paymentStatus = (payment['payment_status'] as String? ?? '').toUpperCase();
-    final isCanceled = paymentStatus == 'CANCELED';
+    final orderStatus = (payment['status'] as String? ?? '').toUpperCase();
+    final canceledAt = payment['canceled_at'] as String?;
+    final orderCancelled = orderStatus == 'CANCELLED' ||
+        orderStatus == 'CANCELED' ||
+        canceledAt != null;
+
+    final isRefunded =
+        paymentStatus == 'CANCELED' || paymentStatus == 'REFUNDED';
     final isPartialCanceled = paymentStatus == 'PARTIAL_CANCELED';
-    final isCanceledAny = isCanceled || isPartialCanceled;
+    // payment_status가 PAID로 남아 있어도 주문 취소면 목록에 반영
+    final isCanceledAny = isRefunded || isPartialCanceled || orderCancelled;
 
     final createdAt = payment['created_at'] as String? ?? payment['approved_at'] as String? ?? '';
-    final canceledAt = payment['canceled_at'] as String?;
 
     String dateStr = '';
     final dateSource = (isCanceledAny && canceledAt != null) ? canceledAt : createdAt;
@@ -400,12 +407,15 @@ class _PaymentHistoryPageState extends ConsumerState<PaymentHistoryPage> {
     // 상태 배지
     Color badgeColor;
     String badgeLabel;
-    if (isCanceled) {
-      badgeColor = Colors.red;
-      badgeLabel = '환불완료';
-    } else if (isPartialCanceled) {
+    if (isPartialCanceled) {
       badgeColor = Colors.orange;
       badgeLabel = '부분환불';
+    } else if (isRefunded) {
+      badgeColor = Colors.red;
+      badgeLabel = '환불완료';
+    } else if (orderCancelled) {
+      badgeColor = Colors.red;
+      badgeLabel = '주문취소';
     } else {
       badgeColor = const Color(0xFF00C896);
       badgeLabel = '결제완료';

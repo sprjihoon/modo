@@ -130,14 +130,20 @@ class _ClothingTypeStepState extends State<ClothingTypeStep> {
           ),
         ),
 
-        // Price guide link
+        // Price guide CTA (밑줄 없음 · 전체 영역 탭)
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
           child: Material(
             color: Colors.grey.shade50,
             borderRadius: BorderRadius.circular(12),
             child: InkWell(
-              onTap: () => context.push('/price-guide'),
+              onTap: () {
+                try {
+                  context.push('/price-guide');
+                } catch (e) {
+                  debugPrint('가격표 이동 실패: $e');
+                }
+              },
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.all(14),
@@ -145,13 +151,17 @@ class _ClothingTypeStepState extends State<ClothingTypeStep> {
                   children: [
                     Icon(Icons.info_outline, color: Colors.grey.shade600, size: 18),
                     const SizedBox(width: 10),
-                    const Text(
-                      '수선 가격표 확인하기',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: _brandColor,
+                    const Expanded(
+                      child: Text(
+                        '수선 가격표 확인하기',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: _brandColor,
+                          decoration: TextDecoration.none,
+                        ),
                       ),
                     ),
+                    Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 18),
                   ],
                 ),
               ),

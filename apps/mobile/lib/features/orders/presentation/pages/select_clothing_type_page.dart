@@ -510,6 +510,7 @@ class _SelectClothingTypePageState extends ConsumerState<SelectClothingTypePage>
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: Color(0xFF00C896),
+                                      decoration: TextDecoration.none,
                                     ),
                                   ),
                                 ],
