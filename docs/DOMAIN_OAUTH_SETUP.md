@@ -35,20 +35,36 @@ http://localhost:3001/**
 
 ---
 
-## 2. 네이버 로그인 (웹)
+## 2. 네이버 로그인 (웹 · 앱)
 
-[네이버 개발자 센터](https://developers.naver.com) → 애플리케이션 → **API 설정**
+[네이버 개발자 센터](https://developers.naver.com) → 애플리케이션 → **API 설정**  
+Client ID: `b7QJILomSlfsFL7RuAQs` · 앱 상세: `NAVER_LOGIN_SETUP.md`
 
-**PC 웹** 서비스 환경:
+서비스 환경은 **PC 웹 + Android + iOS** 모두 등록해야 합니다. (PC 웹만 있으면면 앱 SDK 로그인이 실패합니다.)
+
+### 2-1. PC 웹
 
 | 항목 | 값 |
 |------|-----|
 | 서비스 URL | `https://modo.io.kr` |
-| Callback URL | `https://modo.io.kr/auth/naver/callback` |
+| Callback URL | `https://modo.io.kr/auth/naver/callback` (+ 레거시 `modo.mom` / `modorepair.com` 콜백 유지 가능) |
 
-레거시 도메인으로 접속 시 Vercel에서 `modo.io.kr`로 리다이렉트되므로, Callback은 **modo.io.kr**만 등록하면 됩니다.
+### 2-2. Android
 
-모바일 앱은 SDK + `modorepairnaver` URL Scheme (웹 Callback과 별도).
+| 항목 | 값 |
+|------|-----|
+| 다운로드 URL | `https://play.google.com/store/apps/details?id=com.modurepair.app` |
+| 패키지 이름 | `com.modurepair.app` |
+
+### 2-3. iOS
+
+| 항목 | 값 |
+|------|-----|
+| 다운로드 URL | `https://modo.io.kr` (App Store URL 확정 시 교체) |
+| URL Scheme | `modorepairnaver` |
+
+앱 코드: `Info.plist`의 `NidUrlScheme` / `NidClientID` / `NidClientSecret` / `NidAppName`, `AppDelegate`의 `NidOAuth.shared.handleURL`.  
+자세한 체크리스트: `apps/mobile/NAVER_LOGIN_SETUP.md`
 
 Vercel **modo-web** 환경변수:
 

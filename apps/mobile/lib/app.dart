@@ -230,10 +230,10 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
       title: '모두의수선',
       debugShowCheckedModeBanner: false,
 
-      // Theme
+      // Theme — UI가 라이트 전용(하드코딩 색)이라 시스템 다크모드 시 글자/배경 대비가 깨짐
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      darkTheme: AppTheme.lightTheme,
+      themeMode: ThemeMode.light,
 
       // Routing
       routerConfig: router,

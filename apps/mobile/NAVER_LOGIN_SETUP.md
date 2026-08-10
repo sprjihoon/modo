@@ -43,14 +43,14 @@
 |------|-----|
 | 다운로드 URL | App Store URL (앱 등록 후) |
 | URL Scheme | `modorepairnaver` |
-| Bundle ID | `com.example.modoRepair` (실제 Bundle ID로 변경) |
+| Bundle ID | `com.modurepair.app` |
 
 #### Android 설정
 
 | 항목 | 값 |
 |------|-----|
 | 다운로드 URL | Google Play URL (앱 등록 후) |
-| 패키지 이름 | `com.example.modu_repair` (실제 패키지명으로 변경) |
+| 패키지 이름 | `com.modurepair.app` |
 
 #### PC 웹 (고객 웹 로그인)
 
@@ -122,21 +122,24 @@ void main() async {
 
 ### 2-3. iOS 추가 설정
 
-`ios/Runner/Info.plist`에 이미 추가됨:
+`ios/Runner/Info.plist`에 URL Scheme + `flutter_naver_login` 2.x 키가 필요합니다:
 
 ```xml
-<!-- Naver Login OAuth Callback -->
-<dict>
-    <key>CFBundleTypeRole</key>
-    <string>Editor</string>
-    <key>CFBundleURLName</key>
-    <string>naver-login-callback</string>
-    <key>CFBundleURLSchemes</key>
-    <array>
-        <string>modorepairnaver</string>
-    </array>
-</dict>
+<!-- URL Types에 포함 -->
+<string>modorepairnaver</string>
+
+<!-- flutter_naver_login 2.x 필수 -->
+<key>NidUrlScheme</key>
+<string>modorepairnaver</string>
+<key>NidClientID</key>
+<string>YOUR_CLIENT_ID</string>
+<key>NidClientSecret</key>
+<string>YOUR_CLIENT_SECRET</string>
+<key>NidAppName</key>
+<string>모두의수선</string>
 ```
+
+`AppDelegate.swift`에서 네이버 콜백 URL도 처리해야 합니다 (`NidOAuth.shared.handleURL`).
 
 ### 2-4. Android 추가 설정
 

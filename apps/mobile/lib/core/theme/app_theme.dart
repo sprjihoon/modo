@@ -51,6 +51,9 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surfaceColor,
+        labelStyle: const TextStyle(color: textSecondaryColor),
+        floatingLabelStyle: const TextStyle(color: primaryColor),
+        hintStyle: TextStyle(color: Colors.grey.shade500),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
@@ -63,6 +66,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
+      ),
+      textTheme: ThemeData.light().textTheme.apply(
+        bodyColor: textPrimaryColor,
+        displayColor: textPrimaryColor,
       ),
       cardTheme: CardThemeData(
         elevation: 0,

@@ -271,15 +271,15 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.0+5`** — SafeArea·수선부위 그리드 핏·가격표/알림 UX |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.0+6`** — 앱 라이트 테마 고정 · 네이버 로그인 설정 |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 **4** 유지) — +5는 App Store export 성공·Dev/Ad Hoc `exit 70`로 CI FAILED → 기기 UDID 등록 또는 IPA 수동 업로드 후 교체 |
+| iOS 심사 상태 | **WAITING_FOR_REVIEW** (빌드 **4** 유지) — +5/+6 IPA는 기기 UDID 등록 또는 수동 업로드 후 교체 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **비공개 테스트(Alpha)** — `1.0.0 (5)` 게시 개요 제출·검토 중. 테스터 제공본은 승인 전까지 `1.0.0 (4)` 가능 |
+| Play 상태 | **비공개 테스트(Alpha)** — `1.0.0 (6)` AAB 교체 대상 · 테스터 opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.0+5`) · 백업 `Documents/modo-android-signing/app-release-1.0.0+5.aab` |
+| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.0+6`) · 백업 `Documents/modo-android-signing/app-release-1.0.0+6.aab` |
 | Android 업로드 서명 | `apps/mobile/android/key.properties` + `app/upload-keystore.jks` (**Git 제외**) · 백업 `Documents/modo-android-signing/` |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -291,7 +291,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner **Automatic** + Team `6R7TSV8PV4`. Workflow 배포 `APP_STORE_ELIGIBLE`. `AppFrameworkInfo.plist`에 `MinimumOSVersion=13.0` 필수 |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 다음 빌드 | +5 IPA 업로드 후 Connect에서 심사 빌드 4→5 교체 |
+| App Store 다음 빌드 | +6 IPA 업로드 후 Connect에서 심사 빌드 4→6 교체 |
 
 ### 심사용 테스트 계정
 
@@ -318,8 +318,8 @@ flutter build appbundle --release
 flutter build apk --release
 # → build/app/outputs/flutter-apk/app-release.apk
 
-# iOS (App Store / TestFlight) — 다음 제출 시 build-number=5
-flutter build ipa --release --build-name=1.0.0 --build-number=5 \
+# iOS (App Store / TestFlight) — 다음 제출 시 build-number=6
+flutter build ipa --release --build-name=1.0.0 --build-number=6 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 # 업로드: xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
@@ -336,9 +336,10 @@ flutter build ipa --release --build-name=1.0.0 --build-number=5 \
 6. ~~`1.0.0+5` SafeArea AAB Play Alpha 교체·검토 제출~~ (하단 내비 inset · 수선부위 그리드 핏)
 7. ~~웹·앱 알림 UX~~ (`/notifications` 내 알림·공지 탭, 본문 ORD 주문번호 숨김, **읽은 항목 숨김·닫기**)
 8. ~~수선신청 UX~~ (소카테고리 가격 라벨 제거, 가격표 CTA 연결, `참고 안내` 문구)
-9. **대기:** App Store 빌드 5 IPA(기기 UDID 등록 후 Xcode Cloud 재빌드 또는 `altool` 수동 업로드)·심사 빌드 교체
-10. 비공개 테스트 승인 후 테스터 opt-in · 실기기 로그인·주문·**라이브 결제** 스모크
-11. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
+9. ~~`1.0.0+6` AAB~~ (앱 라이트 테마 고정 · 네이버 Android/iOS 콘솔·iOS Info.plist/`AppDelegate`)
+10. **대기:** App Store 빌드 6 IPA(기기 UDID 등록 후 Xcode Cloud 재빌드 또는 `altool` 수동 업로드)·심사 빌드 교체
+11. 비공개 테스트 테스터 opt-in · 실기기 **네이버 로그인**·주문·**라이브 결제** 스모크
+12. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
 
 ---
 
@@ -346,6 +347,8 @@ flutter build ipa --release --build-name=1.0.0 --build-number=5 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-10 | 다크모드 대비 깨짐 | UI가 라이트 전용인데 `ThemeMode.system`이라 수거신청·가입 등에서 어두운 배경+어두운 글자. **앱 전역 `ThemeMode.light` 고정**, Android `values-night`도 Light, iOS `UIUserInterfaceStyle=Light` |
+| 2026-08-10 | 네이버 로그인 | 개발자 콘솔에 Android(`com.modurepair.app`)·iOS(`modorepairnaver`) 환경 추가, PC 웹 서비스 URL `modo.io.kr`. iOS `Nid*` Info.plist + `AppDelegate` URL 핸들러. Play `1.0.0+6` AAB |
 | 2026-08-05 | 알림·공지 닫기 | 읽지 않은 알림·미읽 공지만 목록에 표시. X·「모두 닫기」로 읽음 처리 후 제거(알림=`is_read`, 공지=`announcement_reads`). 웹·앱 동일 |
 | 2026-08-04 | 알림·가격표 UX | 웹 알림을 앱처럼 **내 알림 / 공지사항** 탭으로 통합. 알림 본문에서 `ORD…` 주문번호 표시 제거(웹·앱). 소카테고리 그리드 가격 라벨 제거. 가격표 배너 `삸고→참고 안내`. 의류선택「수선 가격표 확인하기」→`/price-guide` |
 | 2026-08-04 | Vercel 강제 재배포 | 모노레포 `vercel deploy` 파일수 제한 → `scripts/force-deploy-web.ps1`로 최신 Production rebuild |

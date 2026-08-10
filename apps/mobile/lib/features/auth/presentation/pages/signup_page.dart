@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../data/providers/auth_provider.dart';
@@ -255,10 +256,52 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     }
   }
 
+  /// 흰 가입 화면이 시스템 다크모드 텍스트(흰색)를 물려받지 않도록 고정
+  InputDecoration _inputDecoration({
+    required BuildContext context,
+    required String labelText,
+    required String hintText,
+    required IconData prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      labelStyle: TextStyle(color: Colors.grey.shade700),
+      floatingLabelStyle: TextStyle(
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      hintStyle: TextStyle(color: Colors.grey.shade500),
+      prefixIcon: Icon(
+        prefixIcon,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      suffixIcon: suffixIcon,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      filled: true,
+      fillColor: Colors.grey.shade50,
+    );
+  }
+
+  static const _fieldTextStyle = TextStyle(color: Colors.black87);
+
   @override
   Widget build(BuildContext context) {
+    // 배경을 흰색으로 쓰는 화면이라 다크모드 테마 글자색이 안 보이게 됨 → 라이트 테마 고정
+    return Theme(
+      data: AppTheme.lightTheme,
+      child: Builder(
+        builder: (context) => _buildBody(context),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     if (_isSocialLoginInProgress) {
       return Scaffold(
+        backgroundColor: Colors.white,
         body: SafeArea(
           top: false,
           child: Center(
@@ -328,18 +371,12 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                 // 이름
                 TextFormField(
                   controller: _nameController,
-                  decoration: InputDecoration(
+                  style: _fieldTextStyle,
+                  decoration: _inputDecoration(
+                    context: context,
                     labelText: '이름',
                     hintText: '홍길동',
-                    prefixIcon: Icon(
-                      Icons.person_outline,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
+                    prefixIcon: Icons.person_outline,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -356,6 +393,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                     Expanded(
                       child: TextFormField(
                         controller: _emailController,
+                        style: _fieldTextStyle,
                         keyboardType: TextInputType.emailAddress,
                         onChanged: (value) {
                           // 이메일 변경 시 중복 체크 초기화
@@ -363,21 +401,14 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                             setState(() => _isEmailChecked = false);
                           }
                         },
-                        decoration: InputDecoration(
+                        decoration: _inputDecoration(
+                          context: context,
                           labelText: '이메일',
                           hintText: 'example@email.com',
-                          prefixIcon: Icon(
-                            Icons.email_outlined,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                          prefixIcon: Icons.email_outlined,
                           suffixIcon: _isEmailChecked
                               ? const Icon(Icons.check_circle, color: Color(0xFF00C896))
                               : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -397,6 +428,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                         backgroundColor: _isEmailChecked
                             ? Colors.grey.shade400
                             : const Color(0xFF00C896),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 16,
@@ -410,6 +442,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -423,6 +456,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                     Expanded(
                       child: TextFormField(
                         controller: _phoneController,
+                        style: _fieldTextStyle,
                         keyboardType: TextInputType.phone,
                         onChanged: (value) {
                           // 전화번호 변경 시 중복 체크 초기화
@@ -430,21 +464,14 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                             setState(() => _isPhoneChecked = false);
                           }
                         },
-                        decoration: InputDecoration(
+                        decoration: _inputDecoration(
+                          context: context,
                           labelText: '전화번호',
                           hintText: '010-1234-5678',
-                          prefixIcon: Icon(
-                            Icons.phone_outlined,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                          prefixIcon: Icons.phone_outlined,
                           suffixIcon: _isPhoneChecked
                               ? const Icon(Icons.check_circle, color: Color(0xFF00C896))
                               : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -461,6 +488,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                         backgroundColor: _isPhoneChecked
                             ? Colors.grey.shade400
                             : const Color(0xFF00C896),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 16,
@@ -474,6 +502,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -484,14 +513,13 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                 // 비밀번호
                 TextFormField(
                   controller: _passwordController,
+                  style: _fieldTextStyle,
                   obscureText: _obscurePassword,
-                  decoration: InputDecoration(
+                  decoration: _inputDecoration(
+                    context: context,
                     labelText: '비밀번호',
                     hintText: '6자 이상 입력',
-                    prefixIcon: Icon(
-                      Icons.lock_outlined,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                    prefixIcon: Icons.lock_outlined,
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
@@ -505,11 +533,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                         });
                       },
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -526,14 +549,13 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                 // 비밀번호 확인
                 TextFormField(
                   controller: _passwordConfirmController,
+                  style: _fieldTextStyle,
                   obscureText: _obscurePasswordConfirm,
-                  decoration: InputDecoration(
+                  decoration: _inputDecoration(
+                    context: context,
                     labelText: '비밀번호 확인',
                     hintText: '비밀번호 재입력',
-                    prefixIcon: Icon(
-                      Icons.lock_outlined,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                    prefixIcon: Icons.lock_outlined,
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePasswordConfirm
@@ -547,11 +569,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                         });
                       },
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -595,7 +612,10 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                           const Expanded(
                             child: Text(
                               '이용약관 동의 (필수)',
-                              style: TextStyle(fontSize: 14),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
                             ),
                           ),
                           TextButton(
@@ -638,7 +658,10 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                           const Expanded(
                             child: Text(
                               '개인정보처리방침 동의 (필수)',
-                              style: TextStyle(fontSize: 14),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
                             ),
                           ),
                           TextButton(
@@ -669,6 +692,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                   onPressed: _isLoading ? null : _handleSignup,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF00C896),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -689,6 +713,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
                 ),
