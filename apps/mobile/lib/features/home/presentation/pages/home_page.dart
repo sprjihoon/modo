@@ -14,6 +14,7 @@ import '../../../../services/repair_service.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
 import '../../../../app.dart';
 import '../widgets/extra_charge_alert_banner.dart';
+import '../widgets/launch_announcement_popup.dart';
 import '../../../orders/presentation/widgets/order_limit_dialog.dart';
 
 /// 배너 인덱스 관리를 위한 ValueNotifier
@@ -65,6 +66,12 @@ class _HomePageState extends ConsumerState<HomePage>
     CustomerEventService.trackPageView(pageTitle: '홈', pageUrl: '/home');
     _ordersFuture = _getCachedOrders();
     _warmIconCache();
+    // 웹 LaunchAnnouncementPopup과 동일 (popups 테이블)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        LaunchAnnouncementPopup.maybeShow(context);
+      }
+    });
   }
 
   /// 수선 카테고리/타입/서브파트 SVG 아이콘을 백그라운드로 프리로드

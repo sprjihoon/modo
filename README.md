@@ -350,6 +350,7 @@ flutter build ipa --release --build-name=1.0.0 --build-number=7 \
 | 2026-08-10 | 다크모드 대비 깨짐 | UI가 라이트 전용인데 `ThemeMode.system`이라 수거신청·가입 등에서 어두운 배경+어두운 글자. **앱 전역 `ThemeMode.light` 고정**, Android `values-night`도 Light, iOS `UIUserInterfaceStyle=Light` |
 | 2026-08-10 | 네이버 로그인 | 개발자 콘솔에 Android(`com.modurepair.app`)·iOS(`modorepairnaver`) 환경 추가, PC 웹 서비스 URL `modo.io.kr`. iOS `Nid*` Info.plist + `AppDelegate` URL 핸들러. Play `1.0.0+6` AAB |
 | 2026-08-05 | 알림·공지 닫기 | 읽지 않은 알림·미읽 공지만 목록에 표시. X·「모두 닫기」로 읽음 처리 후 제거(알림=`is_read`, 공지=`announcement_reads`). 웹·앱 동일 |
+| 2026-08-10 | 홈 팝업 앱 미표시 | 웹만 `LaunchAnnouncementPopup`(`popups` 테이블) 사용 → Flutter 홈에도 동일 연동 |
 | 2026-08-10 | 가격표 배너 제거 | 웹·앱 가격 안내의「참고 안내」배너 삭제. 스토어 빌드 `1.0.0+7` |
 | 2026-08-04 | 알림·가격표 UX | 웹 알림을 앱처럼 **내 알림 / 공지사항** 탭으로 통합. 알림 본문에서 `ORD…` 주문번호 표시 제거(웹·앱). 소카테고리 그리드 가격 라벨 제거. 의류선택「수선 가격표 확인하기」→`/price-guide` |
 | 2026-08-04 | Vercel 강제 재배포 | 모노레포 `vercel deploy` 파일수 제한 → `scripts/force-deploy-web.ps1`로 최신 Production rebuild |
