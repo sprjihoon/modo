@@ -220,14 +220,6 @@ export default function PriceGuidePage() {
 
   return (
     <PageLayout title="가격 안내" showBack showAppBanner={false}>
-      {/* 안내 배너 */}
-      <div className="mx-4 mt-4 p-4 bg-[#00C896]/5 border border-[#00C896]/20 rounded-2xl">
-        <p className="text-xs text-[#00C896] font-semibold">참고 안내</p>
-        <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-          실제 수선 가격은 상태에 따라 달라질 수 있습니다.
-        </p>
-      </div>
-
       {/* 카테고리 탭 */}
       {!isLoading && hasContent && tabs.length > 1 && (
         <div className="mt-4 px-4">

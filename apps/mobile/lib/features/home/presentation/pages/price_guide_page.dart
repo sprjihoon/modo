@@ -8,7 +8,6 @@ const String _kOtherTabId = '__other__';
 
 /// 가격 안내 페이지
 /// 웹 `/guide/price`와 동일한 데이터 구조 / UI 구성:
-/// - 안내 배너
 /// - 대카테고리 탭 (계층 구조 시) / 카테고리 탭 (flat) + 미분류는 "기타" 탭
 /// - 선택 카테고리명 아래 그룹 카드 안에 항목 행
 /// - CTA 버튼 (수선 신청 바로가기)
@@ -173,8 +172,6 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              const SizedBox(height: 16),
-              _buildNoticeBanner(),
               if (!_isLoading && _hasContent && tabs.length > 1) ...[
                 const SizedBox(height: 16),
                 _buildCategoryTabs(tabs),
@@ -208,42 +205,6 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
         ),
         _buildCTAButton(),
       ],
-    );
-  }
-
-  Widget _buildNoticeBanner() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: _kBrand.withValues(alpha: 0.05),
-          border: Border.all(color: _kBrand.withValues(alpha: 0.2)),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '참고 안내',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: _kBrand,
-              ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              '실제 수선 가격은 상태에 따라 달라질 수 있습니다.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF666666),
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
