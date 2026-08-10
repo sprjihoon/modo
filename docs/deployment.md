@@ -87,7 +87,7 @@ xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 - Distribution 인증서 + 프로파일 `ModoRepair AppStore`
 - Xcode Accounts 미로그인 시 Automatic 대신 Manual (`ExportOptions.plist`)
 - iOS 배포 타깃 **15.0** (ITMS-90068 / 2027 봄부터 ASC 업로드 필수)
-- 최신: `1.0.0 (9)` ASC 업로드 — 심사 빌드 교체는 Connect에서 수동
+- 최신: `1.0.0 (10)` — 회원가입 SNS(Google/네이버/카카오/Apple). 심사 빌드 교체는 ASC API 또는 Connect
 
 ### Firebase App Distribution (테스트 배포)
 

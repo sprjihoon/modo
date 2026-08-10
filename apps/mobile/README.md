@@ -7,8 +7,8 @@
 ### 인증
 - [x] 스플래시 화면
 - [x] 로그인/회원가입 UI
-- [ ] Supabase Auth 연동
-- [ ] 소셜 로그인 (Google, Apple)
+- [x] Supabase Auth 연동
+- [x] 소셜 로그인/가입 (Google, 네이버, 카카오, Apple)
 
 ### 주문
 - [x] 홈 화면
@@ -183,10 +183,10 @@ flutter test --coverage
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | 비공개 테스트(Alpha) — 활성 `1.0.0 (5)`, 교체 대상 `1.0.0+9` |
-| 버전 | `pubspec.yaml` → `1.0.0+9` |
-| 최근 UX | 라이트 테마 고정 · 네이버 로그인 · 가격표 참고안내 배너 제거 · 홈 팝업(`popups`) |
-| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.0+9.aab` |
+| 현재 트랙 | 비공개 테스트(Alpha) — 활성 `1.0.0 (5)`, 교체 대상 `1.0.0+10` |
+| 버전 | `pubspec.yaml` → `1.0.0+10` |
+| 최근 UX | 회원가입 SNS(Google/네이버/카카오/Apple) · 라이트 테마 · 홈 팝업(`popups`) |
+| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.0+10.aab` |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
 | 그래픽 자산 | `store_screenshots/play/` |
 
@@ -215,13 +215,13 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.0 (9)`** (빌드 8은 MinOS 13 경고로 교체) |
-| App Store 심사 | 심사 빌드 **4** `WAITING_FOR_REVIEW` — Connect에서 **4→9** 교체 |
+| 최신 업로드 | **`1.0.0 (10)`** (회원가입 SNS 연결 · MinOS 15.0) |
+| App Store 심사 | 빌드 **10** 업로드 후 심사 빌드 교체·재제출 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 
 ```bash
 # App Store용 (수동 서명 — Xcode Accounts 없어도 Distribution 인증서+프로파일만 있으면 가능)
-flutter build ipa --release --build-name=1.0.0 --build-number=9 \
+flutter build ipa --release --build-name=1.0.0 --build-number=10 \
   --export-options-plist=ios/ExportOptions.plist
 
 # 업로드 (API Key: secrets/asc-api.json, 커밋 금지)

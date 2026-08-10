@@ -228,16 +228,32 @@ class _SignupPageState extends ConsumerState<SignupPage> {
 
   Future<void> _handleSocialSignup(String provider) async {
     setState(() => _isSocialLoginInProgress = true);
+
     try {
       final authService = ref.read(authServiceProvider);
       bool success = false;
+
       switch (provider) {
+        case 'google':
+          success = await authService.signInWithGoogle();
+          break;
+        case 'naver':
+          success = await authService.signInWithNaver();
+          break;
+        case 'kakao':
+          success = await authService.signInWithKakao();
+          break;
         case 'apple':
           success = await authService.signInWithApple();
           break;
-        default:
-          success = false;
       }
+
+      // OAuth는 외부 브라우저로 이동 (로딩 유지)
+      // 네이버는 인앱에서 처리되므로 성공 시 홈으로 이동
+      if (provider == 'naver' && success && mounted) {
+        context.go('/home');
+      }
+
       if (!success && mounted) {
         setState(() => _isSocialLoginInProgress = false);
       }
@@ -753,45 +769,21 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                       'Google',
                       Colors.white,
                       Colors.black87,
-                      () {
-                        // TODO: 구글 회원가입
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('구글 회원가입 (준비 중)'),
-                            backgroundColor: Color(0xFF00C896),
-                          ),
-                        );
-                      },
+                      () => _handleSocialSignup('google'),
                     ),
                     const SizedBox(width: 12),
                     _buildSocialButton(
                       'Naver',
                       const Color(0xFF03C75A),
                       Colors.white,
-                      () {
-                        // TODO: 네이버 회원가입
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('네이버 회원가입 (준비 중)'),
-                            backgroundColor: Color(0xFF00C896),
-                          ),
-                        );
-                      },
+                      () => _handleSocialSignup('naver'),
                     ),
                     const SizedBox(width: 12),
                     _buildSocialButton(
                       'Kakao',
                       const Color(0xFFFFE812),
                       Colors.black87,
-                      () {
-                        // TODO: 카카오 회원가입
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('카카오 회원가입 (준비 중)'),
-                            backgroundColor: Color(0xFF00C896),
-                          ),
-                        );
-                      },
+                      () => _handleSocialSignup('kakao'),
                     ),
                   ],
                 ),
