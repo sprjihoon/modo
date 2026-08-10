@@ -347,6 +347,7 @@ flutter build ipa --release --build-name=1.0.1 --build-number=13 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-10 | Vercel `web` 좀비 삭제 | 고객 웹 프로덕션은 **`modo-web`만** (`apps/web` · modo.io.kr). CLI 오링크로 생긴 `web` 프로젝트 삭제·로컬을 `modo-web`에 재링크. `web` 재생성 금지 |
 | 2026-08-10 | 스토어 `1.0.1+13` | Play Alpha가 옛 `1.0.0 (5)`에 고정 → **versionName 1.0.1**으로 올려 테스터 구분. 포인트내역 메뉴·회원탈퇴→회원정보 · 「 님」공백 · 결제내역 취소 배지. iOS 13·Play AAB 재업로드 |
 | 2026-08-10 | 앱 회원가입 SNS | 회원가입 화면 Google·네이버·카카오를 로그인과 동일 `AuthService`로 연결 (기존 Apple만 동작). 스토어 `1.0.0+10` · iOS 빌드 10 심사 재제출 · Play AAB 준비 |
 | 2026-08-10 | iOS 심사 빌드 9 | REJECTTED 제출 취소 후 버전 빌드를 **4→9** 연결, 심사 재제출 → `WAITING_FOR_REVIEW` (MinOS 15.0) |
@@ -490,32 +491,49 @@ NAVER_CLIENT_SECRET=...
 
 ## 배포
 
-`main` 브랜치에 push하면 Vercel에서 자동 배포됩니다.
+`main` 브랜치에 push하면 Vercel(GitHub 연동)에서 자동 배포됩니다.
 
-| Vercel 프로젝트 | 도메인 | 앱 |
-|---|---|---|
-| `modo-web` | modo.io.kr | 고객 웹 |
-| `modo` | admin.modo.mom | 어드민 |
+| Vercel 프로젝트 | Root Directory | 도메인 | 앱 |
+|---|---|---|---|
+| **`modo-web`** | `apps/web` | modo.io.kr · modo.mom · modorepair.com | 고객 웹 (유일한 프로덕션) |
+| **`modo`** | `apps/admin` | admin.modo.mom | 어드민 |
+
+### 주의: `web` 프로젝트 만들지 말 것
+
+팀 계정에 **`web`이라는 이름의 Vercel 프로젝트가 생기면 잘못된 배포**다. (2026-08-10 정리)
+
+- 실제 고객 웹은 **`modo-web`만** 사용한다. `modo.io.kr` / `modo.mom` 도메인도 `modo-web`에만 붙어 있다.
+- `apps/web`에서 `vercel --prod`를 칠 때 로컬 `.vercel`이 `web`에 링크되어 있으면, 예전에 지운 `web`이 **다시 생성**되고 env·Root Directory가 비어 빌드가 실패한다.
+- `web`이 보이면 **삭제**하고, 로컬은 아래로 `modo-web`에만 링크한다.
+
+```bash
+cd apps/web
+rm -rf .vercel
+vercel link --yes --project modo-web --scope springs-projects-072b5dfd
+# .vercel 은 gitignore — 커밋하지 않음
+vercel --prod   # 이후 CLI 배포도 modo-web 으로 감
+```
+
+강제 재배포·캐시 이슈 시에도 **`modo-web` / `modo`만** 대상으로 한다. 모노레포 루트를 새 프로젝트로 import하지 않는다.
 
 ### 강제 재배포 (캐시/반영 지연 시)
 
 모노레포를 `vercel deploy`로 올리면 파일 수 제한에 걸리므로, **최신 Production 배포를 rebuild**하는 방식을 씁니다.
 
 ```powershell
-# 고객 웹 (modo.io.kr)
+# 고객 웹 (modo.io.kr) → 프로젝트 modo-web
 powershell -ExecutionPolicy Bypass -File scripts/force-deploy-web.ps1
 
-# 어드민 (admin.modo.mom)
+# 어드민 (admin.modo.mom) → 프로젝트 modo
 powershell -ExecutionPolicy Bypass -File scripts/force-deploy-web.ps1 -Project admin
 ```
 
 또는 CLI 직접:
 
-```powershell
+```bash
+vercel ls modo-web --prod
 vercel redeploy <최신-production-deployment-url> --target production
-# 예: vercel ls modo-web 로 URL 확인 후
 ```
-
 ---
 
 ## DB 마이그레이션

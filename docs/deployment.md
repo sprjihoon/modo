@@ -176,35 +176,30 @@ npm run start
 
 ### Vercel 배포
 
+| 프로젝트 | Root | 도메인 | 용도 |
+|---|---|---|---|
+| **`modo-web`** | `apps/web` | modo.io.kr · modo.mom | 고객 웹 (유일한 프로덕션) |
+| **`modo`** | `apps/admin` | admin.modo.mom | 어드민 |
+
+**금지:** 이름이 `web`인 프로젝트를 만들거나 유지하지 말 것. `apps/web`에서 잘못된 `.vercel` 링크로 `vercel --prod` 하면 삭제했던 `web`이 다시 생기며 env 없이 빌드 실패한다. 로컬은 반드시 `vercel link --project modo-web` 후 배포.
+
 #### 자동 배포 (권장)
 
-1. **GitHub 연동**
-   - Vercel Dashboard에서 프로젝트 Import
-   - GitHub 리포지토리 선택
-   - `apps/admin` 경로 지정
-
-2. **환경변수 설정**
-   - Settings → Environment Variables
-   - Production, Preview, Development 환경 설정
-
-3. **자동 배포**
-   - `main` 브랜치 푸시 → Production 배포
-   - PR 생성 → Preview 배포
+1. **GitHub 연동** — 위 두 프로젝트만 `sprjihoon/modo`에 연결 (`main` → Production)
+2. **환경변수** — 각 프로젝트 Settings → Environment Variables
+3. **푸시** — `main` → Production · PR → Preview
 
 #### 수동 배포
 
 ```bash
-# Vercel CLI 설치
-npm install -g vercel
+# 고객 웹
+cd apps/web
+vercel link --yes --project modo-web   # .vercel 이 web 이면 삭제 후 재링크
+vercel --prod
 
-# 로그인
-vercel login
-
-# 배포
+# 어드민
 cd apps/admin
-vercel
-
-# 프로덕션 배포
+vercel link --yes --project modo
 vercel --prod
 ```
 
