@@ -144,7 +144,7 @@ export function ProfilePageClient() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-lg font-bold text-gray-900">
-                {profile?.name || "고객"}님
+                {profile?.name || "고객"} 님
               </p>
               <p className="text-sm text-gray-400 mt-0.5">{profile?.email}</p>
             </div>

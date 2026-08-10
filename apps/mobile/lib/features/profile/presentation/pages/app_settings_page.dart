@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 
 /// 앱 설정 페이지
@@ -17,31 +18,93 @@ class AppSettingsPage extends ConsumerWidget {
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-            
-            // 앱 정보
-            _buildSection(
-              '앱 정보',
-              [
-                _buildTile(
-                  context,
-                  '서비스 이용약관',
-                  Icons.description_outlined,
-                  () => context.push('/terms'),
-                ),
-                _buildTile(
-                  context,
-                  '개인정보 처리방침',
-                  Icons.privacy_tip_outlined,
-                  () => context.push('/privacy-policy'),
-                ),
-              ],
-            ),
-          ],
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+
+              // 앱 버전 (테스터가 설치본 확인용)
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snap) {
+                  final info = snap.data;
+                  final versionLabel = info == null
+                      ? '확인 중…'
+                      : '${info.version} (${info.buildNumber})';
+                  return Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00C896).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.info_outline,
+                            color: Color(0xFF00C896),
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '앱 버전',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                versionLabel,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              // 앱 정보
+              _buildSection(
+                '앱 정보',
+                [
+                  _buildTile(
+                    context,
+                    '서비스 이용약관',
+                    Icons.description_outlined,
+                    () => context.push('/terms'),
+                  ),
+                  _buildTile(
+                    context,
+                    '개인정보 처리방침',
+                    Icons.privacy_tip_outlined,
+                    () => context.push('/privacy-policy'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

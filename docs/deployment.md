@@ -73,7 +73,7 @@ storeFile=<path-to-keystore>
 cd apps/mobile
 
 # IPA (App Store) — Manual 서명: ModoRepair AppStore
-flutter build ipa --release --build-name=1.0.0 --build-number=<N> \
+flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 
@@ -87,7 +87,7 @@ xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 - Distribution 인증서 + 프로파일 `ModoRepair AppStore`
 - Xcode Accounts 미로그인 시 Automatic 대신 Manual (`ExportOptions.plist`)
 - iOS 배포 타깃 **15.0** (ITMS-90068 / 2027 봄부터 ASC 업로드 필수)
-- 최신: `1.0.0 (12)` — 가입/로그인 프로필·약관 수정. 심사 빌드 교체는 ASC API 또는 Connect
+- 최신: `1.0.1 (13)` — 가입/로그인 프로필·약관 수정. 심사 빌드 교체는 ASC API 또는 Connect
 
 ### Firebase App Distribution (테스트 배포)
 

@@ -633,7 +633,7 @@ class _HomePageState extends ConsumerState<HomePage>
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const TextSpan(text: '님 반가워요!\n'),
+                const TextSpan(text: ' 님 반가워요!\n'),
                 const TextSpan(
                   text: '비대면 의류 수선 서비스입니다.',
                   style: TextStyle(fontSize: 16),
@@ -657,7 +657,7 @@ class _HomePageState extends ConsumerState<HomePage>
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const TextSpan(text: '님 반가워요!\n'),
+              const TextSpan(text: ' 님 반가워요!\n'),
               const TextSpan(
                 text: '비대면 의류 수선 서비스입니다.',
                 style: TextStyle(fontSize: 16),
@@ -680,7 +680,7 @@ class _HomePageState extends ConsumerState<HomePage>
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const TextSpan(text: '님 반가워요!\n'),
+              const TextSpan(text: ' 님 반가워요!\n'),
               const TextSpan(
                 text: '비대면 의류 수선 서비스입니다.',
                 style: TextStyle(fontSize: 16),

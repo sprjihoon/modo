@@ -59,6 +59,11 @@ class ProfilePage extends ConsumerWidget {
                   title: '결제내역',
                   onTap: () => context.push('/profile/payment-history'),
                 ),
+                _MenuItem(
+                  icon: Icons.monetization_on_outlined,
+                  title: '포인트 내역',
+                  onTap: () => context.push('/profile/points-history'),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -111,7 +116,7 @@ class ProfilePage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             
-            // 로그아웃/탈퇴
+            // 로그아웃 (회원탈퇴는 회원정보 안에)
             _buildSection(
               context,
               '',
@@ -121,12 +126,6 @@ class ProfilePage extends ConsumerWidget {
                   title: '로그아웃',
                   titleColor: Colors.red,
                   onTap: () => _showLogoutDialog(context, ref),
-                ),
-                _MenuItem(
-                  icon: Icons.person_remove_outlined,
-                  title: '회원 탈퇴',
-                  titleColor: Colors.grey.shade600,
-                  onTap: () => _showWithdrawDialog(context, ref),
                 ),
               ],
             ),
@@ -400,105 +399,6 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  /// 회원 탈퇴 다이얼로그
-  void _showWithdrawDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Text(
-          '회원 탈퇴',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          '탈퇴하시면 개인정보가 삭제됩니다.\n주문 및 작업 기록은 비즈니스 기록 보관을 위해 보관됩니다.\n정말 탈퇴하시겠습니까?',
-          style: TextStyle(height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(
-              '취소',
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              
-              // 로딩 표시
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (loadingContext) => const Center(
-                  child: CircularProgressIndicator(),
-                ),
-              );
-
-              try {
-                final authService = ref.read(authServiceProvider);
-                final success = await authService.deleteAccount();
-                
-                if (context.mounted) {
-                  Navigator.of(context, rootNavigator: true).pop(); // 로딩 닫기
-                  
-                  if (success) {
-                    // 탈퇴 성공 다이얼로그 표시 후 로그인 페이지로 이동
-                    await showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('회원 탈퇴 완료'),
-                        content: const Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle_outline, 
-                                 color: Colors.green, size: 64),
-                            SizedBox(height: 16),
-                            Text('회원 탈퇴가 완료되었습니다.'),
-                            SizedBox(height: 8),
-                            Text('그동안 이용해주셔서 감사합니다.\n다음에 또 만나요! 👋',
-                                 textAlign: TextAlign.center,
-                                 style: TextStyle(color: Colors.grey)),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(ctx).pop();
-                              context.go('/login');
-                            },
-                            child: const Text('확인'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  Navigator.of(context, rootNavigator: true).pop(); // 로딩 닫기
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('회원 탈퇴 실패: ${e.toString().replaceAll('Exception: ', '')}'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('탈퇴하기'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// 메뉴 아이템 모델

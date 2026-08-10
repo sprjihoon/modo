@@ -39,19 +39,34 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
       // 내역 조회 (최근 100건)
       final history = await _pointService.getPointHistory(limit: 100);
       
-      // 데이터 매핑
+      // 데이터 매핑 (amount/balance_after는 num일 수 있음)
       final mappedHistory = history.map((item) {
-        final amount = item['amount'] as int;
-        final createdAt = DateTime.parse(item['created_at'] as String).toLocal();
-        final type = amount > 0 ? '적립' : '사용';
-        
+        final amount = (item['amount'] as num?)?.toInt() ?? 0;
+        final balanceAfter = (item['balance_after'] as num?)?.toInt() ?? 0;
+        final createdAt =
+            DateTime.parse(item['created_at'] as String).toLocal();
+        final txType = (item['type'] as String? ?? '').toUpperCase();
+        final isEarn = amount > 0 ||
+            txType == 'EARNED' ||
+            txType == 'ADMIN_ADD' ||
+            txType == 'USE_RESTORE';
+        final label = switch (txType) {
+          'EXPIRED' => '소멸',
+          'EARN_CANCEL' => '적립취소',
+          'ADMIN_ADD' => '관리자지급',
+          'ADMIN_SUB' => '관리자차감',
+          _ => isEarn ? '적립' : '사용',
+        };
+        final reason = (item['description'] as String?)?.trim();
+
         return {
           'date': DateFormat('yyyy.MM.dd HH:mm').format(createdAt),
-          'rawDate': createdAt, // 필터링용 원본 날짜
-          'type': type,
-          'reason': item['description'] ?? '내용 없음',
+          'rawDate': createdAt,
+          'type': label,
+          'isEarn': isEarn,
+          'reason': (reason == null || reason.isEmpty) ? '내용 없음' : reason,
           'points': amount,
-          'balance': item['balance_after'] ?? 0,
+          'balance': balanceAfter,
         };
       }).toList();
 
@@ -474,9 +489,10 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
     int total = 0;
     for (var item in history) {
       final points = item['points'] as int;
-      if (isEarned && points > 0) {
-        total += points;
-      } else if (!isEarned && points < 0) {
+      final earn = item['isEarn'] as bool? ?? points > 0;
+      if (isEarned && earn) {
+        total += points.abs();
+      } else if (!isEarned && !earn) {
         total += points.abs();
       }
     }
@@ -514,9 +530,10 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
 
   /// 포인트 내역 카드
   Widget _buildHistoryCard(BuildContext context, Map<String, dynamic> history) {
-    final type = history['type'] as String;
+    final typeLabel = history['type'] as String;
     final points = history['points'] as int;
-    final isEarned = type == '적립';
+    final isEarned = history['isEarn'] as bool? ?? points > 0;
+    final color = isEarned ? const Color(0xFF00C896) : Colors.orange;
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -532,14 +549,12 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: isEarned 
-                  ? const Color(0xFF00C896).withOpacity(0.1)
-                  : Colors.orange.withOpacity(0.1),
+              color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               isEarned ? Icons.add_circle : Icons.remove_circle,
-              color: isEarned ? const Color(0xFF00C896) : Colors.orange,
+              color: color,
               size: 24,
             ),
           ),
@@ -558,7 +573,16 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
+                Text(
+                  typeLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Text(
                   history['date'] as String,
                   style: TextStyle(
@@ -575,14 +599,14 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                  '${isEarned ? '+' : ''}${points.toString().replaceAllMapped(
+                  '${isEarned && points > 0 ? '+' : ''}${points.toString().replaceAllMapped(
                   RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
                   (Match m) => '${m[1]},',
                 )}P',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: isEarned ? const Color(0xFF00C896) : Colors.orange,
+                  color: color,
                 ),
               ),
               const SizedBox(height: 4),

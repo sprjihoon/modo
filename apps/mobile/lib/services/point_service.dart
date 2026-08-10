@@ -38,7 +38,7 @@ class PointService {
         return 0;
       }
 
-      return response['point_balance'] as int? ?? 0;
+      return (response['point_balance'] as num?)?.toInt() ?? 0;
     } catch (e) {
       debugPrint('포인트 잔액 조회 실패: $e');
       throw Exception('포인트 정보를 불러오는데 실패했습니다');

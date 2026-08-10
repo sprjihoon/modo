@@ -119,7 +119,7 @@ export function HomePageClient() {
                 <span className="text-[#00C896]">
                   {isLoggedIn ? profile?.name || "고객" : "고객"}
                 </span>
-                님 반가워요! 👋
+                {" "}님 반가워요! 👋
               </p>
               <p className="text-sm text-gray-500 mt-1">
                 비대면 의류 수선 서비스입니다.

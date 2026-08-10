@@ -51,9 +51,9 @@ class UserModel {
       defaultAddressDetail: json['default_address_detail'] as String?,
       defaultZipcode: json['default_zipcode'] as String?,
       fcmToken: json['fcm_token'] as String?,
-      pointBalance: json['point_balance'] as int? ?? 0,
-      totalEarnedPoints: json['total_earned_points'] as int? ?? 0,
-      totalUsedPoints: json['total_used_points'] as int? ?? 0,
+      pointBalance: (json['point_balance'] as num?)?.toInt() ?? 0,
+      totalEarnedPoints: (json['total_earned_points'] as num?)?.toInt() ?? 0,
+      totalUsedPoints: (json['total_used_points'] as num?)?.toInt() ?? 0,
       createdAt: json['created_at'] is String
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),

@@ -17,8 +17,11 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
+  late final TextEditingController _withdrawConfirmController;
   
   bool _isEditing = false;
+  bool _showWithdraw = false;
+  bool _isWithdrawing = false;
 
   @override
   void initState() {
@@ -26,6 +29,7 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
     _nameController = TextEditingController();
     _phoneController = TextEditingController();
     _emailController = TextEditingController();
+    _withdrawConfirmController = TextEditingController();
   }
 
   @override
@@ -33,6 +37,7 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    _withdrawConfirmController.dispose();
     super.dispose();
   }
 
@@ -288,6 +293,10 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
                       },
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // 회원탈퇴 (웹 회원정보와 동일 위치)
+                  _buildWithdrawSection(),
                   ],
                 ),
               ),
@@ -318,6 +327,208 @@ class _AccountInfoPageState extends ConsumerState<AccountInfoPage> {
       ),
       ),
     );
+  }
+
+  Widget _buildWithdrawSection() {
+    final canWithdraw = _withdrawConfirmController.text.trim() == '탈퇴';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                size: 22,
+                color: Colors.red,
+              ),
+            ),
+            title: const Text(
+              '회원탈퇴',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            ),
+            trailing: Text(
+              _showWithdraw ? '닫기' : '탈퇴하기',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
+            onTap: () {
+              setState(() {
+                _showWithdraw = !_showWithdraw;
+                if (!_showWithdraw) {
+                  _withdrawConfirmController.clear();
+                }
+              });
+            },
+          ),
+          if (_showWithdraw) ...[
+            Divider(height: 1, color: Colors.grey.shade200),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '탈퇴 전 꼭 확인해주세요\n'
+                      '• 계정 및 모든 개인정보가 삭제됩니다.\n'
+                      '• 진행 중인 수선 주문이 있는 경우 취소될 수 있습니다.\n'
+                      '• 보유 포인트는 환급되지 않습니다.\n'
+                      '• 탈퇴 후 복구가 불가능합니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.5,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text.rich(
+                    TextSpan(
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600,
+                      ),
+                      children: const [
+                        TextSpan(text: '확인을 위해 '),
+                        TextSpan(
+                          text: '탈퇴',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextSpan(text: '를 입력해주세요'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _withdrawConfirmController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText: '탈퇴',
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            BorderSide(color: Colors.red.shade300, width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: (!canWithdraw || _isWithdrawing)
+                          ? null
+                          : _handleWithdraw,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.red.withOpacity(0.35),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        _isWithdrawing ? '탈퇴 처리 중...' : '회원탈퇴',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleWithdraw() async {
+    if (_withdrawConfirmController.text.trim() != '탈퇴') return;
+
+    setState(() => _isWithdrawing = true);
+    try {
+      final authService = ref.read(authServiceProvider);
+      final success = await authService.deleteAccount();
+      if (!mounted) return;
+
+      if (success) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text('회원 탈퇴 완료'),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle_outline, color: Colors.green, size: 56),
+                SizedBox(height: 12),
+                Text('회원 탈퇴가 완료되었습니다.'),
+                SizedBox(height: 8),
+                Text(
+                  '그동안 이용해주셔서 감사합니다.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  context.go('/login');
+                },
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '회원 탈퇴 실패: ${e.toString().replaceAll('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isWithdrawing = false);
+    }
   }
 
   Widget _buildTextField({
