@@ -40,7 +40,7 @@
 
 ### 5. [도메인 · OAuth 설정](DOMAIN_OAUTH_SETUP.md)
 - `modo.io.kr` 콜백 / Supabase Redirect
-- 네이버 로그인 PC웹·Android·iOS 환경 (`com.modurepair.app`, `modorepairnaver`)
+- 네이버 로그인 PC웹·Android·iOS 환경 (`com.modurepair.app`, `modorepairnaver`) · Android 릴리즈는 ProGuard/R8 keep 필수 (`NAVER_LOGIN_SETUP.md`)
 - 카카오·구글·애플 콘솔 체크리스트
 
 ### 관련 (앱)

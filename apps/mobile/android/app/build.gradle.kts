@@ -77,4 +77,6 @@ flutter {
 dependencies {
     // Java 8+ API desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    // Naver OAuth stays at flutter_naver_login's 5.10.0 (5.11+ breaks plugin API).
+    // R8 full-mode fix is in proguard-rules.pro (Retrofit + com.navercorp.nid keep rules).
 }

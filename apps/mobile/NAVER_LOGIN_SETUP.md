@@ -266,6 +266,17 @@ supabase functions logs naver-auth --project-ref YOUR_PROJECT_REF
 - 해당 이메일로 다른 방식(이메일/구글/카카오)으로 가입한 계정이 있음
 - 사용자에게 기존 방식으로 로그인하도록 안내
 
+### Android 릴리즈만 실패 (`no_catagorized_error` / ParameterizedType)
+
+Play·`minifyEnabled` 릴리즈에서만 실패하고 디버그는 정상인 경우 **R8 full mode**가 원인입니다.
+
+- 증상 로그: `ClassCastException: java.lang.Class cannot be cast to java.lang.reflect.ParameterizedType` (`NidOAuthLogin`)
+- Flutter: `status=NaverLoginStatus.error, msg=errorCode:no_catagorized_error`
+- 원인: `flutter_naver_login`이 쓰는 `com.navercorp.nid:oauth:5.10.0` + Retrofit 제네릭이 R8에 제거됨 ([네이버 SDK #88](https://github.com/naver/naveridlogin-sdk-android/issues/88))
+- 조치: `android/app/proguard-rules.pro`에 Retrofit keep + `-keep public class com.navercorp.nid.**` (샘플: [네이버 Samples/proguard-rules.pro](https://github.com/naver/naveridlogin-sdk-android/blob/master/Samples/proguard-rules.pro))
+- 참고: SDK `5.11.2+`는 consumer ProGuard를 내장하지만, `flutter_naver_login` 2.1.1 API와 맞지 않아 **강제 업은 하지 않음**
+- 패키지명: `com.modurepair.app` · URL Scheme: `modorepairnaver://oauth` · Client ID는 네이버 콘솔과 `strings.xml`/`.env` 일치
+
 ### iOS에서 로그인 창이 안 열림
 
 - URL Scheme이 `modorepairnaver`로 정확히 설정되었는지 확인

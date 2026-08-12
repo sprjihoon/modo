@@ -271,16 +271,16 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+13`** — versionName 1.0.1 · 포인트내역 · 회원탈퇴 위치 · 앱설정 버전 표시 |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+14`** — Android 네이버 로그인 R8/ProGuard 수정 · versionName 1.0.1 |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | **WAITING_FOR_REVIEW** · 심사 빌드 **1.0.1 (13)** |
+| iOS 심사 상태 | **WAITING_FOR_REVIEW** · 심사 빌드 **1.0.1 (13)** (이번 배포는 Android 전용) |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | Alpha 활성 `1.0.0 (5)` · 업로드 키 재설정 대기 → **2026-08-12 23:26 KST** 이후 `1.0.1+13` AAB 재업로드 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | Alpha에 **`1.0.1+14`** 교체 배포 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+13`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+13.aab` |
-| Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` · Play 등록 업로드 키는 `AE:84:3D…` (**불일치 — 원본 JKS 분실**) · 재설정용 PEM `Documents/modo-android-signing/upload_certificate_1090.pem` · `key.properties`+`upload-keystore.jks` Git 제외 |
+| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+14`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+14.aab` |
+| Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
 | 개인정보처리방침 | https://modo.io.kr/privacy-policy |
@@ -319,7 +319,7 @@ flutter build apk --release
 # → build/app/outputs/flutter-apk/app-release.apk
 
 # iOS (App Store / TestFlight)
-flutter build ipa --release --build-name=1.0.1 --build-number=13 \
+flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 # 업로드: xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
@@ -338,8 +338,9 @@ flutter build ipa --release --build-name=1.0.1 --build-number=13 \
 8. ~~수선신청 UX~~ (소카테고리 가격 라벨 제거, 가격표 CTA 연결, 참고 안내 배너 제거)
 9. ~~`1.0.0+8`~~ (라이트 테마 · 네이버 · 가격표 배너 제거 · 홈 팝업 앱 연동)
 10. ~~ITMS-90068 / 빌드 9~~ · **`1.0.0+10`** 회원가입 SNS(Google/네이버/카카오) 연결 · Play Alpha AAB·App Store 빌드 교체
-11. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**·주문·**라이브 결제** 스모크
-12. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
+11. ~~`1.0.1+14` Android 네이버 로그인 R8 수정~~ (Play Alpha AAB 교체)
+12. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크
+13. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
 
 ---
 
@@ -347,6 +348,7 @@ flutter build ipa --release --build-name=1.0.1 --build-number=13 \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-13 | Android 네이버 로그인 R8 | Play 릴리즈에서 `no_catagorized_error` / `ClassCastException: ParameterizedType`. 원인: AGP R8 full mode가 네이버 SDK(Retrofit) 제네릭을 제거. `proguard-rules.pro`에 Retrofit·`com.navercorp.nid` keep 추가 → **`1.0.1+14`** Play Alpha 배포. 실기기 logcat으로 재현·수정 확인 |
 | 2026-08-10 | Play 업로드 키 재설정 | 로컬 `10:90:55…`로 재설정 요청됨. 새 키 유효 시각 **2026-08-12 23:26 KST** (UTC 14:26) 이후 `1.0.1+13` AAB 재업로드 |
 | 2026-08-10 | iOS 심사 빌드 13 | IPA `1.0.1 (13)` ASC 업로드 · 기존 심사 취소 · 빌드 **12→13** 연결 · `WAITING_FOR_REVIEW` 재제출 |
 | 2026-08-10 | Vercel `web` 좀비 삭제 | 고객 웹 프로덕션은 **`modo-web`만** (`apps/web` · modo.io.kr). CLI 오링크로 생긴 `web` 프로젝트 삭제·로컬을 `modo-web`에 재링크. `web` 재생성 금지 |

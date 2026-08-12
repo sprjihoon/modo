@@ -59,6 +59,9 @@ flutter build appbundle --release
 # build/app/outputs/bundle/release/app-release.aab
 ```
 
+**릴리즈 minify / 네이버 로그인:**  
+`android/app/build.gradle.kts`에서 `isMinifyEnabled = true`이다. 네이버 SDK는 Retrofit을 쓰므로 `android/app/proguard-rules.pro`에 Retrofit·`com.navercorp.nid` keep가 없으면 Play 설치본에서만 `no_catagorized_error`가 난다 (`1.0.1+14`에서 수정).
+
 **서명 설정 (`android/key.properties`):**
 ```properties
 storePassword=<password>

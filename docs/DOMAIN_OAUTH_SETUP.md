@@ -154,5 +154,6 @@ Supabase Redirect URLs에 `modorepair://**` 포함 필요.
 
 1. https://modo.io.kr/login 에서 카카오·네이버·구글·애플 각각 로그인
 2. 네이버 실패 시: Callback URL 불일치 → 네이버 콘솔 `https://modo.io.kr/auth/naver/callback` 확인
+3. **Android 앱만** `no_catagorized_error` → R8/ProGuard (`apps/mobile/android/app/proguard-rules.pro` Retrofit·`com.navercorp.nid` keep). 상세: [`apps/mobile/NAVER_LOGIN_SETUP.md`](../apps/mobile/NAVER_LOGIN_SETUP.md)
 3. 카카오/구글/애플 실패 시: Supabase Redirect URLs 및 각 콘솔의 `...supabase.co/auth/v1/callback` 확인
 4. 레거시 URL https://modo.mom/login → `modo.io.kr` 리다이렉트 후 로그인 재시도
