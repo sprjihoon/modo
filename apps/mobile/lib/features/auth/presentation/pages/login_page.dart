@@ -24,6 +24,8 @@ class _LoginPageState extends ConsumerState<LoginPage>
   bool _obscurePassword = true;
   bool _rememberMe = false;
   bool _isSocialLoginInProgress = false;
+  /// Browser OAuth (google/kakao/apple) vs in-app (naver). Used to clear stuck loading on cancel.
+  String? _pendingSocialProvider;
   StreamSubscription<AuthState>? _authSubscription;
 
   static const _prefKeyEmail = 'saved_email';
@@ -56,9 +58,15 @@ class _LoginPageState extends ConsumerState<LoginPage>
       if (!mounted) return;
 
       if (data.event == AuthChangeEvent.signedIn) {
-        setState(() => _isSocialLoginInProgress = true);
+        setState(() {
+          _isSocialLoginInProgress = true;
+          _pendingSocialProvider = null;
+        });
       } else if (data.event == AuthChangeEvent.signedOut) {
-        setState(() => _isSocialLoginInProgress = false);
+        setState(() {
+          _isSocialLoginInProgress = false;
+          _pendingSocialProvider = null;
+        });
       }
     });
   }
@@ -66,16 +74,23 @@ class _LoginPageState extends ConsumerState<LoginPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // 네이버 앱 복귀 직후엔 SDK/Edge Function이 아직 진행 중일 수 있음.
-    // 소셜 로그인 진행 중에는 로딩을 유지하고, 완료/실패 핸들러에서만 해제한다.
-    if (state == AppLifecycleState.resumed &&
-        mounted &&
-        !_isSocialLoginInProgress) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted &&
-            !_isSocialLoginInProgress &&
+    if (state != AppLifecycleState.resumed || !mounted) return;
+
+    // Google/Kakao/Apple: Custom Tab에서 취소 후 복귀하면 signInWithOAuth는 이미
+    // true를 반환한 상태라 로딩이 무한히 남을 수 있음 → 세션 없으면 해제.
+    // Naver: 인앱 SDK/Edge Function이 resume 직후에도 진행 중일 수 있어 유지.
+    final provider = _pendingSocialProvider;
+    if (_isSocialLoginInProgress &&
+        provider != null &&
+        provider != 'naver') {
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (!mounted) return;
+        if (_isSocialLoginInProgress &&
             Supabase.instance.client.auth.currentSession == null) {
-          setState(() => _isSocialLoginInProgress = false);
+          setState(() {
+            _isSocialLoginInProgress = false;
+            _pendingSocialProvider = null;
+          });
         }
       });
     }
@@ -199,7 +214,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
 
   Future<void> _handleSocialLogin(String provider) async {
     // 소셜 로그인 시작 시 로딩 표시
-    setState(() => _isSocialLoginInProgress = true);
+    setState(() {
+      _isSocialLoginInProgress = true;
+      _pendingSocialProvider = provider;
+    });
 
     try {
       final authService = ref.read(authServiceProvider);
@@ -220,16 +238,23 @@ class _LoginPageState extends ConsumerState<LoginPage>
           break;
       }
 
-      // OAuth는 외부 브라우저로 이동 (로딩 유지)
+      // OAuth는 외부 브라우저로 이동 (로딩 유지 → resume/세션으로 해제)
       // 네이버는 인앱 처리 — 프로필 완료 여부에 따라 이동
       if (provider == 'naver' && success && mounted) {
+        setState(() {
+          _isSocialLoginInProgress = false;
+          _pendingSocialProvider = null;
+        });
         final route = await _routeAfterAuth();
         if (mounted) context.go(route);
       }
 
       // 🔧 OAuth 브라우저 실패 시 (false 반환) 로딩 해제
       if (!success && mounted) {
-        setState(() => _isSocialLoginInProgress = false);
+        setState(() {
+          _isSocialLoginInProgress = false;
+          _pendingSocialProvider = null;
+        });
         if (provider == 'naver') {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -241,7 +266,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSocialLoginInProgress = false);
+        setState(() {
+          _isSocialLoginInProgress = false;
+          _pendingSocialProvider = null;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -307,6 +335,22 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                if (_pendingSocialProvider != null &&
+                    _pendingSocialProvider != 'naver') ...[
+                  const SizedBox(height: 20),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isSocialLoginInProgress = false;
+                        _pendingSocialProvider = null;
+                      });
+                    },
+                    child: Text(
+                      '취소',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

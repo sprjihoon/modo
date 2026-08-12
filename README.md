@@ -271,15 +271,15 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+14`** — Android 네이버 로그인 R8/ProGuard 수정 · versionName 1.0.1 |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+15`** — OAuth 취소 시 로딩 해제 · 네이버 R8 수정 포함 · versionName 1.0.1 |
 | App Store Connect App ID | `6759492888` |
 | iOS 심사 상태 | **WAITING_FOR_REVIEW** · 심사 빌드 **1.0.1 (13)** (이번 배포는 Android 전용) |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | Alpha에 **`1.0.1+14`** 교체 배포 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | Alpha에 **`1.0.1+15`** 교체 배포 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+14`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+14.aab` |
+| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+15`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+15.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -339,8 +339,9 @@ flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
 9. ~~`1.0.0+8`~~ (라이트 테마 · 네이버 · 가격표 배너 제거 · 홈 팝업 앱 연동)
 10. ~~ITMS-90068 / 빌드 9~~ · **`1.0.0+10`** 회원가입 SNS(Google/네이버/카카오) 연결 · Play Alpha AAB·App Store 빌드 교체
 11. ~~`1.0.1+14` Android 네이버 로그인 R8 수정~~ (Play Alpha AAB 교체)
-12. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크
-13. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
+12. ~~`1.0.1+15` OAuth 취소 시 「로그인 중」 무한 로딩 수정~~ (Play Alpha)
+13. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크
+14. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
 
 ---
 
@@ -348,6 +349,7 @@ flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-13 | OAuth 취소 로딩 | Android에서 Apple/Google/카카오 로그인 창 취소 후 「로그인 중…」 무한 표시. resume 시 세션 없으면 로딩 해제 + 취소 버튼 → **`1.0.1+15`** |
 | 2026-08-13 | Android 네이버 로그인 R8 | Play 릴리즈에서 `no_catagorized_error` / `ClassCastException: ParameterizedType`. 원인: AGP R8 full mode가 네이버 SDK(Retrofit) 제네릭을 제거. `proguard-rules.pro`에 Retrofit·`com.navercorp.nid` keep 추가 → **`1.0.1+14`** Play Alpha 배포. 실기기 logcat으로 재현·수정 확인 |
 | 2026-08-10 | Play 업로드 키 재설정 | 로컬 `10:90:55…`로 재설정 요청됨. 새 키 유효 시각 **2026-08-12 23:26 KST** (UTC 14:26) 이후 `1.0.1+13` AAB 재업로드 |
 | 2026-08-10 | iOS 심사 빌드 13 | IPA `1.0.1 (13)` ASC 업로드 · 기존 심사 취소 · 빌드 **12→13** 연결 · `WAITING_FOR_REVIEW` 재제출 |

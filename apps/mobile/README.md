@@ -183,10 +183,10 @@ flutter test --coverage
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | 비공개 테스트(Alpha) — **`1.0.1+14`** (네이버 로그인 R8 수정) |
-| 버전 | `pubspec.yaml` → `1.0.1+14` |
-| 최근 UX | 결제내역 취소 표시 · 네이버 로그인(R8 keep) · 가격표 CTA · 가입/로그인 · 홈 팝업 |
-| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.1+14.aab` |
+| 현재 트랙 | 비공개 테스트(Alpha) — **`1.0.1+15`** (OAuth 취소 로딩 · 네이버 R8) |
+| 버전 | `pubspec.yaml` → `1.0.1+15` |
+| 최근 UX | OAuth 취소 로딩 해제 · 네이버 로그인(R8 keep) · 결제내역 취소 · 가입/로그인 |
+| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.1+15.aab` |
 | ProGuard | `android/app/proguard-rules.pro` — Retrofit + `com.navercorp.nid` (릴리즈 minify 필수) |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
 | 그래픽 자산 | `store_screenshots/play/` |

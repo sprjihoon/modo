@@ -15,7 +15,8 @@ class SignupPage extends ConsumerStatefulWidget {
   ConsumerState<SignupPage> createState() => _SignupPageState();
 }
 
-class _SignupPageState extends ConsumerState<SignupPage> {
+class _SignupPageState extends ConsumerState<SignupPage>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -26,6 +27,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   bool _isLoading = false;
   bool _isSocialLoginInProgress = false;
   String _socialProviderLabel = '';
+  String? _pendingSocialProvider;
   bool _obscurePassword = true;
   bool _obscurePasswordConfirm = true;
   bool _agreeToTerms = false;
@@ -34,7 +36,37 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   bool _isPhoneChecked = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.resumed || !mounted) return;
+
+    final provider = _pendingSocialProvider;
+    if (_isSocialLoginInProgress &&
+        provider != null &&
+        provider != 'naver') {
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (!mounted) return;
+        if (_isSocialLoginInProgress &&
+            Supabase.instance.client.auth.currentSession == null) {
+          setState(() {
+            _isSocialLoginInProgress = false;
+            _pendingSocialProvider = null;
+            _socialProviderLabel = '';
+          });
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -254,6 +286,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     setState(() {
       _isSocialLoginInProgress = true;
       _socialProviderLabel = labels[provider] ?? provider;
+      _pendingSocialProvider = provider;
     });
 
     try {
@@ -275,19 +308,32 @@ class _SignupPageState extends ConsumerState<SignupPage> {
           break;
       }
 
-      // OAuth는 외부 브라우저로 이동 (로딩 유지)
+      // OAuth는 외부 브라우저로 이동 (로딩 유지 → resume/세션으로 해제)
       // 네이버는 인앱 처리 — 프로필 완료 여부에 따라 이동
       if (provider == 'naver' && success && mounted) {
+        setState(() {
+          _isSocialLoginInProgress = false;
+          _pendingSocialProvider = null;
+          _socialProviderLabel = '';
+        });
         final route = await _routeAfterAuth();
         if (mounted) context.go(route);
       }
 
       if (!success && mounted) {
-        setState(() => _isSocialLoginInProgress = false);
+        setState(() {
+          _isSocialLoginInProgress = false;
+          _pendingSocialProvider = null;
+          _socialProviderLabel = '';
+        });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSocialLoginInProgress = false);
+        setState(() {
+          _isSocialLoginInProgress = false;
+          _pendingSocialProvider = null;
+          _socialProviderLabel = '';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -362,6 +408,23 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                     : '$_socialProviderLabel로 이동 중...',
                 style: TextStyle(color: Colors.grey.shade700),
               ),
+              if (_pendingSocialProvider != null &&
+                  _pendingSocialProvider != 'naver') ...[
+                const SizedBox(height: 20),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _isSocialLoginInProgress = false;
+                      _pendingSocialProvider = null;
+                      _socialProviderLabel = '';
+                    });
+                  },
+                  child: Text(
+                    '취소',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
