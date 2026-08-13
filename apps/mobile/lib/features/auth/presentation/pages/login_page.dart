@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -76,13 +79,14 @@ class _LoginPageState extends ConsumerState<LoginPage>
     super.didChangeAppLifecycleState(state);
     if (state != AppLifecycleState.resumed || !mounted) return;
 
-    // Google/Kakao/Apple: Custom Tab에서 취소 후 복귀하면 signInWithOAuth는 이미
-    // true를 반환한 상태라 로딩이 무한히 남을 수 있음 → 세션 없으면 해제.
-    // Naver: 인앱 SDK/Edge Function이 resume 직후에도 진행 중일 수 있어 유지.
+    // Google/Kakao/(Android)Apple: 브라우저 취소 복귀 시 세션 없으면 로딩 해제.
+    // Naver·iOS Apple: 네이티브 플로우라 resume 클리어 대상 아님.
     final provider = _pendingSocialProvider;
+    final isNative = provider == 'naver' ||
+        (provider == 'apple' && !kIsWeb && Platform.isIOS);
     if (_isSocialLoginInProgress &&
         provider != null &&
-        provider != 'naver') {
+        !isNative) {
       Future.delayed(const Duration(milliseconds: 800), () {
         if (!mounted) return;
         if (_isSocialLoginInProgress &&
@@ -238,9 +242,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
           break;
       }
 
-      // OAuth는 외부 브라우저로 이동 (로딩 유지 → resume/세션으로 해제)
-      // 네이버는 인앱 처리 — 프로필 완료 여부에 따라 이동
-      if (provider == 'naver' && success && mounted) {
+      // OAuth(구글/카카오/Android 애플)는 브라우저로 이동 → resume/세션으로 해제
+      // 네이버·iOS 애플은 인앱/네이티브 완료 후 즉시 이동
+      final nativeComplete =
+          provider == 'naver' || (provider == 'apple' && !kIsWeb && Platform.isIOS);
+      if (nativeComplete && success && mounted) {
         setState(() {
           _isSocialLoginInProgress = false;
           _pendingSocialProvider = null;
@@ -249,7 +255,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         if (mounted) context.go(route);
       }
 
-      // 🔧 OAuth 브라우저 실패 시 (false 반환) 로딩 해제
+      // 🔧 실패·취소 시 로딩 해제
       if (!success && mounted) {
         setState(() {
           _isSocialLoginInProgress = false;
@@ -336,7 +342,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   ),
                 ),
                 if (_pendingSocialProvider != null &&
-                    _pendingSocialProvider != 'naver') ...[
+                    _pendingSocialProvider != 'naver' &&
+                    !(_pendingSocialProvider == 'apple' &&
+                        !kIsWeb &&
+                        Platform.isIOS)) ...[
                   const SizedBox(height: 20),
                   TextButton(
                     onPressed: () {

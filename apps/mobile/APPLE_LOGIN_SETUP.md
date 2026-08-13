@@ -1,12 +1,14 @@
 # Apple Sign In 설정 가이드
 
 ## 현재 상태
-- ✅ 코드 구현 완료 (`signInWithApple` / OAuth)
+- ✅ iOS/macOS: **네이티브** `sign_in_with_apple` → Supabase `signInWithIdToken` (`1.0.1+16`)
+- ✅ Android: Supabase OAuth (`signInWithOAuth` + in-app browser)
 - ✅ App ID `com.modurepair.app` — Sign In with Apple 활성화
 - ✅ Services ID `com.modurepair.web` — 도메인/콜백 설정
 - ✅ Key `BRN5U2Y4XV` (`ModoRepair Apple Sign In`) 발급
-- ✅ Supabase Auth Apple Provider 활성화
+- ✅ Supabase Auth Apple Provider 활성화 (`Client IDs`에 bundle + Services ID)
 - ✅ App Store 프로파일에 `applesignin` entitlement 포함
+- ⚠️ 인앱 브라우저 OAuth는 iPad에서 `appleid.apple.com` 빈 화면 → App Store 2.1 거절 원인 (네이티브로 교체)
 
 ## Apple Developer 값
 

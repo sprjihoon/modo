@@ -183,10 +183,10 @@ flutter test --coverage
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | 비공개 테스트(Alpha) — **`1.0.1+15`** (OAuth 취소 로딩 · 네이버 R8) |
-| 버전 | `pubspec.yaml` → `1.0.1+15` |
+| 현재 트랙 | 비공개 테스트(Alpha) — **`1.0.1+16`** (권한 CTA · Apple 네이티브 · 팝업 표기) |
+| 버전 | `pubspec.yaml` → `1.0.1+16` |
 | 최근 UX | OAuth 취소 로딩 해제 · 네이버 로그인(R8 keep) · 결제내역 취소 · 가입/로그인 |
-| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.1+15.aab` |
+| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.1+16.aab` |
 | ProGuard | `android/app/proguard-rules.pro` — Retrofit + `com.navercorp.nid` (릴리즈 minify 필수) |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
 | 그래픽 자산 | `store_screenshots/play/` |
@@ -216,13 +216,14 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.1 (13)`** (결제내역·네이버·가격표 CTA · MinOS 15.0) |
-| App Store 심사 | **WAITING_FOR_REVIEW** · 심사 빌드 **13** |
+| 최신 업로드 | **`1.0.1 (16)`** (거절 대응) |
+| App Store 심사 | 빌드 13 **REJECTED** → **16** 재제출 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
+| 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |
 
 ```bash
 # App Store용 (수동 서명 — Xcode Accounts 없어도 Distribution 인증서+프로파일만 있으면 가능)
-flutter build ipa --release --build-name=1.0.1 --build-number=13 \
+flutter build ipa --release --build-name=1.0.1 --build-number=16 \
   --export-options-plist=ios/ExportOptions.plist
 
 # 업로드 (API Key: secrets/asc-api.json, 커밋 금지)

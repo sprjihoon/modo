@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -47,9 +50,11 @@ class _SignupPageState extends ConsumerState<SignupPage>
     if (state != AppLifecycleState.resumed || !mounted) return;
 
     final provider = _pendingSocialProvider;
+    final isNative = provider == 'naver' ||
+        (provider == 'apple' && !kIsWeb && Platform.isIOS);
     if (_isSocialLoginInProgress &&
         provider != null &&
-        provider != 'naver') {
+        !isNative) {
       Future.delayed(const Duration(milliseconds: 800), () {
         if (!mounted) return;
         if (_isSocialLoginInProgress &&
@@ -308,9 +313,10 @@ class _SignupPageState extends ConsumerState<SignupPage>
           break;
       }
 
-      // OAuth는 외부 브라우저로 이동 (로딩 유지 → resume/세션으로 해제)
-      // 네이버는 인앱 처리 — 프로필 완료 여부에 따라 이동
-      if (provider == 'naver' && success && mounted) {
+      // OAuth는 브라우저 이동 유지. 네이버·iOS 애플은 네이티브 완료 후 즉시 이동
+      final nativeComplete =
+          provider == 'naver' || (provider == 'apple' && !kIsWeb && Platform.isIOS);
+      if (nativeComplete && success && mounted) {
         setState(() {
           _isSocialLoginInProgress = false;
           _pendingSocialProvider = null;
@@ -409,7 +415,10 @@ class _SignupPageState extends ConsumerState<SignupPage>
                 style: TextStyle(color: Colors.grey.shade700),
               ),
               if (_pendingSocialProvider != null &&
-                  _pendingSocialProvider != 'naver') ...[
+                  _pendingSocialProvider != 'naver' &&
+                  !(_pendingSocialProvider == 'apple' &&
+                      !kIsWeb &&
+                      Platform.isIOS)) ...[
                 const SizedBox(height: 20),
                 TextButton(
                   onPressed: () {

@@ -88,9 +88,15 @@ class _PopupDialogState extends State<_PopupDialog> {
   List<Map<String, dynamic>> get _items {
     final raw = widget.data['items'];
     if (raw is! List) return const [];
+    // App Store 2.3.10: iOS 바이너리/UI에 Android 등 타 플랫폼 언급 금지
     return raw
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
+        .where((e) {
+          final text =
+              '${e['title'] ?? ''} ${e['description'] ?? ''}'.toLowerCase();
+          return !text.contains('android');
+        })
         .toList();
   }
 

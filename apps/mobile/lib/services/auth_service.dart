@@ -1,8 +1,13 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_naver_login/flutter_naver_login.dart';
 import 'package:flutter_naver_login/interface/types/naver_login_status.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../features/auth/domain/models/user_model.dart';
 import '../core/enums/user_role.dart';
 import '../core/enums/action_type.dart';
@@ -412,43 +417,97 @@ class AuthService {
   }
 
   /// 소셜 로그인 (Apple)
-  /// Supabase OAuth를 통한 애플 로그인
-  /// ⚠️ Apple Developer 계정 설정 필요:
-  /// 1. App ID에서 "Sign In with Apple" 활성화
-  /// 2. Service ID 생성 (웹 로그인용)
-  /// 3. Supabase Dashboard > Auth > Providers > Apple 설정
+  /// iOS/macOS: 네이티브 Sign in with Apple → Supabase id_token
+  ///   (인앱 브라우저 OAuth는 iPad에서 appleid.apple.com 빈 화면 → 2.1 거절 원인)
+  /// Android: Supabase OAuth (브라우저)
   Future<bool> signInWithApple() async {
     try {
       print('🔐 애플 로그인 시작');
 
-      // Supabase OAuth를 통한 애플 로그인
-      final response = await _supabase.auth.signInWithOAuth(
+      if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+        return await _signInWithAppleNative();
+      }
+
+      final launched = await _supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
         redirectTo: 'modorepair://login-callback',
         authScreenLaunchMode: LaunchMode.inAppBrowserView,
       );
 
-      if (!response) {
+      if (!launched) {
         print('⚠️ 애플 로그인 시작 실패');
         return false;
       }
 
       print('✅ 애플 OAuth 시작됨 - 브라우저로 이동');
-
-      // 📊 로그인 액션 로그 기록
-      await _logService.log(
-        actionType: ActionType.LOGIN,
-        metadata: {
-          'provider': 'apple',
-          'loginTime': DateTime.now().toIso8601String(),
-        },
-      );
-
       return true;
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        print('ℹ️ 애플 로그인 취소');
+        return false;
+      }
+      print('❌ 애플 로그인 실패: $e');
+      throw Exception('애플 로그인 실패: ${e.message}');
     } catch (e) {
       print('❌ 애플 로그인 실패: $e');
       throw Exception('애플 로그인 실패: $e');
     }
+  }
+
+  Future<bool> _signInWithAppleNative() async {
+    final rawNonce = _supabase.auth.generateRawNonce();
+    final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      nonce: hashedNonce,
+    );
+
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw Exception('Apple identity token이 없습니다');
+    }
+
+    final response = await _supabase.auth.signInWithIdToken(
+      provider: OAuthProvider.apple,
+      idToken: idToken,
+      nonce: rawNonce,
+    );
+
+    if (response.session == null) {
+      print('⚠️ 애플 네이티브 로그인 세션 없음');
+      return false;
+    }
+
+    // 최초 로그인 시 이름 메타데이터 보강
+    final given = credential.givenName;
+    final family = credential.familyName;
+    if ((given != null && given.isNotEmpty) ||
+        (family != null && family.isNotEmpty)) {
+      final fullName = [family, given].whereType<String>().join(' ').trim();
+      if (fullName.isNotEmpty) {
+        try {
+          await _supabase.auth.updateUser(
+            UserAttributes(data: {'full_name': fullName, 'name': fullName}),
+          );
+        } catch (_) {}
+      }
+    }
+
+    await _logService.log(
+      actionType: ActionType.LOGIN,
+      metadata: {
+        'provider': 'apple',
+        'method': 'native',
+        'loginTime': DateTime.now().toIso8601String(),
+      },
+    );
+
+    print('✅ 애플 네이티브 로그인 성공: ${response.user?.email}');
+    return true;
   }
 
   /// 로그아웃

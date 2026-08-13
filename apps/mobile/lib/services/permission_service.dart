@@ -12,19 +12,15 @@ class PermissionService {
     }
     
     if (status.isDenied) {
-      // 권한 요청 전 안내 다이얼로그 표시
-      final shouldRequest = await _showPermissionDialog(
+      // 사전 안내 후 항상 시스템 권한 요청 (5.1.1(iv) — 지연/거부 CTA 금지)
+      await _showPermissionDialog(
         context,
         title: '카메라 권한 필요',
         message: '수선 요청 사진을 촬영하려면 카메라 접근 권한이 필요합니다.',
         icon: Icons.camera_alt_outlined,
       );
-      
-      if (shouldRequest) {
-        final result = await Permission.camera.request();
-        return result.isGranted;
-      }
-      return false;
+      final result = await Permission.camera.request();
+      return result.isGranted;
     }
     
     if (status.isPermanentlyDenied) {
@@ -49,18 +45,14 @@ class PermissionService {
     }
     
     if (status.isDenied) {
-      final shouldRequest = await _showPermissionDialog(
+      await _showPermissionDialog(
         context,
         title: '사진 접근 권한 필요',
         message: '수선할 의류 사진을 선택하려면 갤러리 접근 권한이 필요합니다.',
         icon: Icons.photo_library_outlined,
       );
-      
-      if (shouldRequest) {
-        final result = await Permission.photos.request();
-        return result.isGranted;
-      }
-      return false;
+      final result = await Permission.photos.request();
+      return result.isGranted;
     }
     
     if (status.isPermanentlyDenied) {
@@ -84,18 +76,14 @@ class PermissionService {
     }
     
     if (status.isDenied) {
-      final shouldRequest = await _showPermissionDialog(
+      await _showPermissionDialog(
         context,
         title: '알림 권한 필요',
         message: '주문 상태 변경, 수선 완료 알림 등\n중요한 정보를 받으시려면 알림을 허용해주세요.',
         icon: Icons.notifications_outlined,
       );
-      
-      if (shouldRequest) {
-        final result = await Permission.notification.request();
-        return result.isGranted;
-      }
-      return false;
+      final result = await Permission.notification.request();
+      return result.isGranted;
     }
     
     if (status.isPermanentlyDenied) {
@@ -120,17 +108,14 @@ class PermissionService {
       return true;
     }
     
-    // 권한 요청 안내 다이얼로그
-    final shouldRequest = await _showPermissionDialog(
+    // 사전 안내 후 항상 시스템 권한 요청
+    await _showPermissionDialog(
       context,
       title: '사진 및 카메라 권한 필요',
       message: '수선 요청을 위해 사진 촬영 및 갤러리 접근 권한이 필요합니다.',
       icon: Icons.add_a_photo_outlined,
     );
-    
-    if (!shouldRequest) return false;
-    
-    // 권한 요청
+
     final results = await [
       Permission.camera,
       Permission.photos,
@@ -167,14 +152,15 @@ class PermissionService {
     }
   }
   
-  /// 권한 요청 전 안내 다이얼로그
-  static Future<bool> _showPermissionDialog(
+  /// 권한 요청 전 안내 다이얼로그 (Continue만 — 지연 CTA 없음)
+  static Future<void> _showPermissionDialog(
     BuildContext context, {
     required String title,
     required String message,
     required IconData icon,
   }) async {
-    final result = await showDialog<bool>(
+    if (!context.mounted) return;
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
@@ -216,27 +202,18 @@ class PermissionService {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              '나중에',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('허용하기'),
+            child: const Text('계속'),
           ),
         ],
       ),
     );
-    
-    return result ?? false;
   }
   
   /// 설정 페이지로 이동 안내 다이얼로그

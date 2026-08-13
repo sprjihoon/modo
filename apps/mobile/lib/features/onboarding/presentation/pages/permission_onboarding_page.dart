@@ -126,10 +126,6 @@ class _PermissionOnboardingPageState extends State<PermissionOnboardingPage> {
     }
   }
 
-  void _skipPermission() {
-    _nextPage();
-  }
-
   Future<void> _completeOnboarding() async {
     // 온보딩 완료 표시 저장
     final prefs = await SharedPreferences.getInstance();
@@ -161,22 +157,10 @@ class _PermissionOnboardingPageState extends State<PermissionOnboardingPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // 상단 스킵 버튼
-            Align(
-              alignment: Alignment.topRight,
-              child: TextButton(
-                onPressed: _completeOnboarding,
-                child: Text(
-                  '건너뛰기',
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-            
+            const SizedBox(height: 16),
             // 페이지 인디케이터
+            // App Store 5.1.1(iv): 사전 안내 후 권한 요청을 미루는
+            // 「건너뛰기」「나중에 하기」「허용하기」 문구 사용 금지 → Continue/Next만.
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
@@ -201,6 +185,7 @@ class _PermissionOnboardingPageState extends State<PermissionOnboardingPage> {
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (index) {
                   setState(() => _currentPage = index);
                 },
@@ -212,54 +197,36 @@ class _PermissionOnboardingPageState extends State<PermissionOnboardingPage> {
               ),
             ),
             
-            // 하단 버튼
+            // 하단 버튼 — 계속/다음만 (시스템 권한 요청으로 항상 진행)
             Padding(
               padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  // 권한 허용 버튼
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _isCurrentPermissionGranted()
-                          ? _nextPage
-                          : _requestPermission,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _permissions[_currentPage].color,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        _isCurrentPermissionGranted()
-                            ? (_currentPage < _permissions.length - 1 ? '다음' : '시작하기')
-                            : '허용하기',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _isCurrentPermissionGranted()
+                      ? _nextPage
+                      : _requestPermission,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _permissions[_currentPage].color,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    _isCurrentPermissionGranted()
+                        ? (_currentPage < _permissions.length - 1
+                            ? '다음'
+                            : '시작하기')
+                        : '계속',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // 나중에 하기 버튼
-                  if (!_isCurrentPermissionGranted())
-                    TextButton(
-                      onPressed: _skipPermission,
-                      child: Text(
-                        '나중에 하기',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
           ],

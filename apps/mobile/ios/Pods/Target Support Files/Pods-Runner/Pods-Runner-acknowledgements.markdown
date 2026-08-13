@@ -2273,7 +2273,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 image_picker
 
-Copyright 2013 The Flutter Authors
+Copyright 2013 The Flutter Authors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
@@ -2504,6 +2504,11 @@ aFileChooser
    limitations under the License.
 
 
+## integration_test
+
+Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
+
+
 ## media_kit_libs_ios_video
 
 MIT License
@@ -2611,7 +2616,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## path_provider_foundation
 
-Copyright 2013 The Flutter Authors
+Copyright 2013 The Flutter Authors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
@@ -2665,7 +2670,7 @@ SOFTWARE.
 
 ## shared_preferences_foundation
 
-Copyright 2013 The Flutter Authors
+Copyright 2013 The Flutter Authors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
@@ -2733,7 +2738,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## url_launcher_ios
 
-Copyright 2013 The Flutter Authors
+Copyright 2013 The Flutter Authors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
@@ -2762,7 +2767,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## video_player_avfoundation
 
-Copyright 2013 The Flutter Authors
+Copyright 2013 The Flutter Authors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
@@ -2848,7 +2853,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## webview_flutter_wkwebview
 
-Copyright 2013 The Flutter Authors
+Copyright 2013 The Flutter Authors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:

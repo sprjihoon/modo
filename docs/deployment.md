@@ -90,7 +90,8 @@ xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 - Distribution 인증서 + 프로파일 `ModoRepair AppStore`
 - Xcode Accounts 미로그인 시 Automatic 대신 Manual (`ExportOptions.plist`)
 - iOS 배포 타깃 **15.0** (ITMS-90068 / 2027 봄부터 ASC 업로드 필수)
-- 최신: `1.0.1 (13)` — 가입/로그인 프로필·약관 수정. 심사 빌드 교체는 ASC API 또는 Connect
+- 최신: `1.0.1 (16)` — App Store 거절 대응(권한 Continue CTA · 네이티브 Sign in with Apple · 홈 팝업 Android 표기 제거). 시뮬 Apple 로그인 `error 1000`은 정상 범위 → 실기기 확인
+- Play Alpha: `1.0.1+16` AAB 동시 배포
 
 ### Firebase App Distribution (테스트 배포)
 
