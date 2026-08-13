@@ -17,7 +17,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.modurepair.app"
-    compileSdk = flutter.compileSdkVersion
+    // Google Play: 2026-08-31부터 target API 36(Android 16)+ 필수
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -46,7 +47,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion  // flutter_local_notifications 요구사항
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         

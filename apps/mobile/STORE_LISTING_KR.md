@@ -42,7 +42,7 @@
 6. 주문 현황 / 마이페이지
 
 ## 빌드 파일
-- 버전: `1.0.1+16` (`pubspec.yaml`) — App Store 거절 대응(권한 CTA · 네이티브 Apple · 팝업 Android 표기 제거)
+- 버전: `1.0.1+18` (`pubspec.yaml`) — Android targetSdk 36 (Play API 정책)
 - Android AAB: `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (Play Alpha 교체)
 - iOS IPA: `build/ios/ipa/모두의수선.ipa` (MinOS 15 · 빌드 16 ASC 업로드)
 - 네이버/OAuth: `NAVER_LOGIN_SETUP.md` · `docs/DOMAIN_OAUTH_SETUP.md`
