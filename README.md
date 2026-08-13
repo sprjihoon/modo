@@ -276,7 +276,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | iOS 심사 상태 | 빌드 **13 REJECTED** → **`1.0.1 (16)`** 재업로드·심사 재제출 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | Alpha **`1.0.1+18`** (targetSdk **36**) 출시 준비 · 게시 개요에서 검토 전송 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | Alpha **활성 `18 (1.0.1)`** (targetSdk **36**, 2026-08-13) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
 | Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+18`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+18.aab` |
@@ -341,7 +341,7 @@ flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
 11. ~~`1.0.1+14` Android 네이버 로그인 R8 수정~~ (Play Alpha AAB 교체)
 12. ~~`1.0.1+15` OAuth 취소 시 「로그인 중」 무한 로딩 수정~~ (Play Alpha)
 13. ~~`1.0.1+16` App Store 거절 대응~~ (5.1.1 / 2.1 Apple / 2.3.10) · Play Alpha·ASC 재제출
-14. ~~`1.0.1+18` Play targetSdk 36~~ (`compileSdk`/`targetSdk` 고정 · Alpha AAB · 게시 개요 검토 전송)
+14. ~~`1.0.1+18` Play targetSdk 36~~ (`compileSdk`/`targetSdk` 고정 · Alpha **활성**)
 15. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 16. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
 
