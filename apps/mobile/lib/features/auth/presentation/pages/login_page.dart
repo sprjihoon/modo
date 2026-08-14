@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/auth/guest_access.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../data/providers/auth_provider.dart';
 
@@ -79,11 +78,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
     super.didChangeAppLifecycleState(state);
     if (state != AppLifecycleState.resumed || !mounted) return;
 
-    // Google/Kakao/(Android)Apple: 브라우저 취소 복귀 시 세션 없으면 로딩 해제.
-    // Naver·iOS Apple: 네이티브 플로우라 resume 클리어 대상 아님.
+    // 브라우저 OAuth 취소 복귀 시 세션 없으면 로딩 해제.
+    // 네이버는 네이티브. Apple은 네이티브 성공 시 이미 이동하고, Safari 폴백은 여기서 해제.
     final provider = _pendingSocialProvider;
-    final isNative = provider == 'naver' ||
-        (provider == 'apple' && !kIsWeb && Platform.isIOS);
+    final isNative = provider == 'naver';
     if (_isSocialLoginInProgress &&
         provider != null &&
         !isNative) {
@@ -125,20 +123,31 @@ class _LoginPageState extends ConsumerState<LoginPage>
     }
   }
 
+  String? _returnPath() {
+    return safeReturnPath(
+      GoRouterState.of(context).uri.queryParameters['from'],
+    );
+  }
+
   Future<String> _routeAfterAuth() async {
+    var profileCompleted = true;
     try {
       final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) return '/home';
-      final response = await Supabase.instance.client.rpc(
-        'check_profile_completed',
-        params: {'p_auth_id': user.id},
-      );
-      if (response is List && response.isNotEmpty) {
-        final isCompleted = response.first['is_completed'] as bool? ?? false;
-        if (!isCompleted) return '/complete-profile';
+      if (user != null) {
+        final response = await Supabase.instance.client.rpc(
+          'check_profile_completed',
+          params: {'p_auth_id': user.id},
+        );
+        if (response is List && response.isNotEmpty) {
+          profileCompleted =
+              response.first['is_completed'] as bool? ?? false;
+        }
       }
     } catch (_) {}
-    return '/home';
+    return resolvePostAuthRoute(
+      profileCompleted: profileCompleted,
+      from: _returnPath(),
+    );
   }
 
   Future<void> _handleLogin() async {
@@ -242,11 +251,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
           break;
       }
 
-      // OAuth(구글/카카오/Android 애플)는 브라우저로 이동 → resume/세션으로 해제
-      // 네이버·iOS 애플은 인앱/네이티브 완료 후 즉시 이동
-      final nativeComplete =
-          provider == 'naver' || (provider == 'apple' && !kIsWeb && Platform.isIOS);
-      if (nativeComplete && success && mounted) {
+      // 세션이 있으면 네이티브 완료. 없으면 브라우저 OAuth 대기.
+      if (success &&
+          Supabase.instance.client.auth.currentSession != null &&
+          mounted) {
         setState(() {
           _isSocialLoginInProgress = false;
           _pendingSocialProvider = null;
@@ -255,20 +263,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
         if (mounted) context.go(route);
       }
 
-      // 🔧 실패·취소 시 로딩 해제
       if (!success && mounted) {
         setState(() {
           _isSocialLoginInProgress = false;
           _pendingSocialProvider = null;
         });
-        if (provider == 'naver') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('네이버 로그인이 완료되지 않았습니다. 다시 시도해주세요.'),
-              backgroundColor: Colors.red.shade400,
-            ),
-          );
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -278,12 +277,26 @@ class _LoginPageState extends ConsumerState<LoginPage>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                '$provider 로그인 실패: ${e.toString().replaceAll('Exception: ', '')}'),
+            content: Text(_friendlySocialError(provider)),
             backgroundColor: Colors.red.shade400,
           ),
         );
       }
+    }
+  }
+
+  String _friendlySocialError(String provider) {
+    switch (provider) {
+      case 'apple':
+        return 'Apple 로그인을 완료하지 못했습니다. 다시 시도해주세요.';
+      case 'google':
+        return 'Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.';
+      case 'naver':
+        return '네이버 로그인을 완료하지 못했습니다. 다시 시도해주세요.';
+      case 'kakao':
+        return '카카오 로그인을 완료하지 못했습니다. 다시 시도해주세요.';
+      default:
+        return '로그인을 완료하지 못했습니다. 다시 시도해주세요.';
     }
   }
 
@@ -342,10 +355,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                   ),
                 ),
                 if (_pendingSocialProvider != null &&
-                    _pendingSocialProvider != 'naver' &&
-                    !(_pendingSocialProvider == 'apple' &&
-                        !kIsWeb &&
-                        Platform.isIOS)) ...[
+                    _pendingSocialProvider != 'naver') ...[
                   const SizedBox(height: 20),
                   TextButton(
                     onPressed: () {
@@ -632,6 +642,19 @@ class _LoginPageState extends ConsumerState<LoginPage>
                             ],
                           ),
                           const SizedBox(height: 24),
+
+                          TextButton(
+                            onPressed: () => context.go('/home'),
+                            child: Text(
+                              '로그인 없이 둘러보기',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
 
                           // 회원가입 링크
                           Row(

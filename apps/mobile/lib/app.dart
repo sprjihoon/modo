@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/auth/guest_access.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'services/network_monitor_service.dart';
@@ -158,32 +159,35 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
         if (!mounted) return;
 
         final router = ref.read(routerProvider);
-        final currentPath = router.routerDelegate.currentConfiguration.uri.path;
+        final currentUri = router.routerDelegate.currentConfiguration.uri;
+        final currentPath = currentUri.path;
 
         // 로그인·회원가입·홈 루트에서 OAuth 복귀 시 프로필 완료 여부에 따라 이동
         if (currentPath == '/login' ||
             currentPath == '/signup' ||
             currentPath == '/' ||
             currentPath == '/splash') {
-          debugPrint('🔀 [App] 이동: $targetRoute (from $currentPath)');
-          router.go(targetRoute);
+          final dest = resolvePostAuthRoute(
+            profileCompleted: targetRoute != '/complete-profile',
+            from: currentUri.queryParameters['from'],
+          );
+          debugPrint('🔀 [App] 이동: $dest (from $currentPath)');
+          router.go(dest);
         }
       }
 
-      // 로그아웃 시 로그인 페이지로
+      // 로그아웃: 계정 화면에 있으면 홈으로. 비회원 둘러보기는 유지 (5.1.1(v))
       if (event == AuthChangeEvent.signedOut) {
         debugPrint('🚪 [App] 로그아웃 감지');
-        // profile_page에서 이미 로그인 페이지로 이동했을 수 있으므로
-        // 현재 경로가 login이 아닐 때만 이동 (세션 만료 등의 케이스)
         final router = ref.read(routerProvider);
         final currentPath = router.routerDelegate.currentConfiguration.uri.path;
 
-        if (currentPath != '/login' && mounted) {
-          debugPrint('🚪 [App] 로그인 페이지로 이동');
+        if (!isPublicPath(currentPath) && mounted) {
+          debugPrint('🚪 [App] 홈으로 이동');
           Future.delayed(const Duration(milliseconds: 100), () {
             if (mounted) {
               try {
-                router.go('/login');
+                router.go('/home');
               } catch (e) {
                 debugPrint('❌ [App] 로그아웃 네비게이션 실패: $e');
               }

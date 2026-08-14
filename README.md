@@ -271,9 +271,9 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+18`** — Android targetSdk **36** (Play API 정책, 기한 2026-08-31) |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+19`** (iOS 재제출) · Play는 **`1.0.1+18`** targetSdk **36** |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | 빌드 **13 REJECTED** → **`1.0.1 (16)`** 재업로드·심사 재제출 |
+| iOS 심사 상태 | 빌드 **16 REJECTED** (2.1 Apple 로그인 iPad error 1000 · 5.1.1 비회원 둘러보기) → **`1.0.1 (19)`** 재제출 준비 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
 | Play 상태 | Alpha **활성 `18 (1.0.1)`** (targetSdk **36**, 2026-08-13) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |

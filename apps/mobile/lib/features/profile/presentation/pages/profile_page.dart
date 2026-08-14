@@ -11,6 +11,7 @@ class ProfilePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isLoggedIn = ref.watch(isLoggedInProvider);
     final userProfileAsync = ref.watch(userProfileProvider);
     
     return Scaffold(
@@ -26,77 +27,81 @@ class ProfilePage extends ConsumerWidget {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-            // 사용자 정보 헤더
-            userProfileAsync.when(
-              data: (profile) {
-                final userName = profile?.name ?? '고객';
-                final userEmail = profile?.email ?? '';
-                final userPoints = profile?.pointBalance ?? 0;
-                return _buildUserHeader(context, userName, userEmail, userPoints);
-              },
-              loading: () => _buildUserHeader(context, '고객', '', 0),
-              error: (_, __) => _buildUserHeader(context, '고객', '', 0),
-            ),
+            if (!isLoggedIn)
+              _buildGuestHeader(context)
+            else
+              userProfileAsync.when(
+                data: (profile) {
+                  final userName = profile?.name ?? '고객';
+                  final userEmail = profile?.email ?? '';
+                  final userPoints = profile?.pointBalance ?? 0;
+                  return _buildUserHeader(context, userName, userEmail, userPoints);
+                },
+                loading: () => _buildUserHeader(context, '고객', '', 0),
+                error: (_, __) => _buildUserHeader(context, '고객', '', 0),
+              ),
             const SizedBox(height: 16),
             
-            // 회원 관리 섹션
-            _buildSection(
-              context,
-              '회원 관리',
-              [
-                _MenuItem(
-                  icon: Icons.person_outline,
-                  title: '회원정보',
-                  onTap: () => context.push('/profile/account'),
-                ),
-                _MenuItem(
-                  icon: Icons.location_on_outlined,
-                  title: '배송지 설정',
-                  onTap: () => context.push('/profile/addresses'),
-                ),
-                _MenuItem(
-                  icon: Icons.receipt_long_outlined,
-                  title: '결제내역',
-                  onTap: () => context.push('/profile/payment-history'),
-                ),
-                _MenuItem(
-                  icon: Icons.monetization_on_outlined,
-                  title: '포인트 내역',
-                  onTap: () => context.push('/profile/points-history'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+            if (isLoggedIn) ...[
+              _buildSection(
+                context,
+                '회원 관리',
+                [
+                  _MenuItem(
+                    icon: Icons.person_outline,
+                    title: '회원정보',
+                    onTap: () => context.push('/profile/account'),
+                  ),
+                  _MenuItem(
+                    icon: Icons.location_on_outlined,
+                    title: '배송지 설정',
+                    onTap: () => context.push('/profile/addresses'),
+                  ),
+                  _MenuItem(
+                    icon: Icons.receipt_long_outlined,
+                    title: '결제내역',
+                    onTap: () => context.push('/profile/payment-history'),
+                  ),
+                  _MenuItem(
+                    icon: Icons.monetization_on_outlined,
+                    title: '포인트 내역',
+                    onTap: () => context.push('/profile/points-history'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
             
             // 서비스 섹션
             _buildSection(
               context,
               '서비스',
               [
-                _MenuItem(
-                  icon: Icons.card_giftcard_outlined,
-                  title: '친구초대',
-                  subtitle: '친구와 함께 혜택 받기',
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'HOT',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                if (isLoggedIn)
+                  _MenuItem(
+                    icon: Icons.card_giftcard_outlined,
+                    title: '친구초대',
+                    subtitle: '친구와 함께 혜택 받기',
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'HOT',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
+                    onTap: () => context.push('/profile/invite-friends'),
                   ),
-                  onTap: () => context.push('/profile/invite-friends'),
-                ),
                 _MenuItem(
                   icon: Icons.campaign_outlined,
                   title: '공지사항',
@@ -114,21 +119,21 @@ class ProfilePage extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            
-            // 로그아웃 (회원탈퇴는 회원정보 안에)
-            _buildSection(
-              context,
-              '',
-              [
-                _MenuItem(
-                  icon: Icons.logout,
-                  title: '로그아웃',
-                  titleColor: Colors.red,
-                  onTap: () => _showLogoutDialog(context, ref),
-                ),
-              ],
-            ),
+            if (isLoggedIn) ...[
+              const SizedBox(height: 16),
+              _buildSection(
+                context,
+                '',
+                [
+                  _MenuItem(
+                    icon: Icons.logout,
+                    title: '로그아웃',
+                    titleColor: Colors.red,
+                    onTap: () => _showLogoutDialog(context, ref),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 100),
                 ],
               ),
@@ -137,6 +142,55 @@ class ProfilePage extends ConsumerWidget {
           const CompanyFooter(),
         ],
       ),
+      ),
+    );
+  }
+
+  Widget _buildGuestHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '로그인이 필요합니다',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '주문·결제 등 회원 기능은 로그인 후 이용할 수 있어요.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => context.push('/login?from=/profile'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C896),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: const Text(
+                '로그인',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -373,10 +427,8 @@ class ProfilePage extends ConsumerWidget {
                 
                 final authService = ref.read(authServiceProvider);
                 
-                // 🚀 먼저 로그인 페이지로 이동 후 로그아웃 처리
-                // (로그아웃 후 context가 유효하지 않을 수 있으므로)
                 if (context.mounted) {
-                  context.go('/login');
+                  context.go('/home');
                 }
                 
                 // 페이지 이동 후 로그아웃 실행

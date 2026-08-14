@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../auth/guest_access.dart';
+
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/onboarding/presentation/pages/permission_onboarding_page.dart';
@@ -52,6 +54,12 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: true,
+    redirect: (context, state) {
+      return guestAuthRedirect(
+        state.uri.path,
+        fullLocation: state.uri.toString(),
+      );
+    },
     routes: [
       // Splash
       GoRoute(

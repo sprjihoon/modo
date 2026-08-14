@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -50,8 +47,7 @@ class _SignupPageState extends ConsumerState<SignupPage>
     if (state != AppLifecycleState.resumed || !mounted) return;
 
     final provider = _pendingSocialProvider;
-    final isNative = provider == 'naver' ||
-        (provider == 'apple' && !kIsWeb && Platform.isIOS);
+    final isNative = provider == 'naver';
     if (_isSocialLoginInProgress &&
         provider != null &&
         !isNative) {
@@ -313,10 +309,9 @@ class _SignupPageState extends ConsumerState<SignupPage>
           break;
       }
 
-      // OAuth는 브라우저 이동 유지. 네이버·iOS 애플은 네이티브 완료 후 즉시 이동
-      final nativeComplete =
-          provider == 'naver' || (provider == 'apple' && !kIsWeb && Platform.isIOS);
-      if (nativeComplete && success && mounted) {
+      if (success &&
+          Supabase.instance.client.auth.currentSession != null &&
+          mounted) {
         setState(() {
           _isSocialLoginInProgress = false;
           _pendingSocialProvider = null;
@@ -343,7 +338,9 @@ class _SignupPageState extends ConsumerState<SignupPage>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '$provider 가입 실패: ${e.toString().replaceAll('Exception: ', '')}',
+              provider == 'apple'
+                  ? 'Apple 로그인을 완료하지 못했습니다. 다시 시도해주세요.'
+                  : '소셜 가입을 완료하지 못했습니다. 다시 시도해주세요.',
             ),
             backgroundColor: Colors.red.shade400,
           ),
@@ -415,10 +412,7 @@ class _SignupPageState extends ConsumerState<SignupPage>
                 style: TextStyle(color: Colors.grey.shade700),
               ),
               if (_pendingSocialProvider != null &&
-                  _pendingSocialProvider != 'naver' &&
-                  !(_pendingSocialProvider == 'apple' &&
-                      !kIsWeb &&
-                      Platform.isIOS)) ...[
+                  _pendingSocialProvider != 'naver') ...[
                 const SizedBox(height: 20),
                 TextButton(
                   onPressed: () {

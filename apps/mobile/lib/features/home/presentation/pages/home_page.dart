@@ -181,6 +181,17 @@ class _HomePageState extends ConsumerState<HomePage>
           ),
         ),
         actions: [
+          if (!ref.watch(isLoggedInProvider))
+            TextButton(
+              onPressed: () => context.push('/login'),
+              child: const Text(
+                '로그인',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           // 🆕 알림 아이콘
           FutureBuilder<int>(
             future: _getUnreadNotificationsCount(),
@@ -368,6 +379,11 @@ class _HomePageState extends ConsumerState<HomePage>
 
   /// 수선물 준비 안내 다이얼로그 (주문 제한 체크 포함)
   Future<void> _showPreparationDialog(BuildContext context) async {
+    if (Supabase.instance.client.auth.currentUser == null) {
+      context.push('/login?from=/order-flow');
+      return;
+    }
+
     // 주문 제한 체크 중이면 중복 호출 방지
     if (_isCheckingOrderLimit) return;
 
@@ -609,6 +625,35 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Widget _buildGreeting(BuildContext context) {
+    if (!ref.watch(isLoggedInProvider)) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: RichText(
+          text: TextSpan(
+            style: const TextStyle(
+              fontSize: 20,
+              color: Colors.black,
+              height: 1.4,
+            ),
+            children: [
+              TextSpan(
+                text: '안녕하세요!',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const TextSpan(text: '\n'),
+              const TextSpan(
+                text: '비대면 의류 수선 서비스입니다.',
+                style: TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final userProfileAsync = ref.watch(userProfileProvider);
 
     return Padding(

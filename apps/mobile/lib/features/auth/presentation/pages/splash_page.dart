@@ -51,8 +51,8 @@ class _SplashPageState extends ConsumerState<SplashPage> {
           context.go(targetRoute);
         }
       } else {
-        // 로그인되지 않은 경우 로그인 페이지로 이동
-        context.go('/login');
+        // 비회원도 홈·가격표를 볼 수 있음 (5.1.1(v))
+        context.go('/home');
       }
     }
   }
@@ -61,7 +61,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   Future<String> _checkProfileCompletion() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) return '/login';
+      if (user == null) return '/home';
 
       final response = await Supabase.instance.client.rpc(
         'check_profile_completed',

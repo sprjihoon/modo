@@ -132,8 +132,8 @@ class _PermissionOnboardingPageState extends State<PermissionOnboardingPage> {
     await prefs.setBool('permission_onboarding_completed', true);
     
     if (mounted) {
-      // 로그인 페이지로 이동
-      context.go('/login');
+      // 비회원도 홈·가격표를 볼 수 있음 (5.1.1(v))
+      context.go('/home');
     }
   }
 

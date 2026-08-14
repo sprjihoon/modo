@@ -1,8 +1,10 @@
 # Apple Sign In 설정 가이드
 
 ## 현재 상태
-- ✅ iOS/macOS: **네이티브** `sign_in_with_apple` → Supabase `signInWithIdToken` (`1.0.1+16`)
-- ✅ Android: Supabase OAuth (`signInWithOAuth` + in-app browser)
+- ✅ iOS/macOS: **네이티브** `sign_in_with_apple` → Supabase `signInWithIdToken` (`1.0.1+19`)
+- ✅ iPad: 네이티브 SIWA를 건너뜀 (심사 기기에서 `AuthorizationError 1000`) → Safari `LaunchMode.externalApplication`
+- ✅ iPhone: 네이티브 실패 시에만 Safari 폴백 — 인앱 브라우저 사용 안 함
+- ✅ Android: Supabase OAuth (`signInWithOAuth` + Safari/external)
 - ✅ App ID `com.modurepair.app` — Sign In with Apple 활성화
 - ✅ Services ID `com.modurepair.web` — 도메인/콜백 설정
 - ✅ Key `BRN5U2Y4XV` (`ModoRepair Apple Sign In`) 발급

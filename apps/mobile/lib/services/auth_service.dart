@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -416,41 +417,60 @@ class AuthService {
     }
   }
 
+  /// iPad(shortestSide >= 600). 네이티브 SIWA가 iPad에서
+  /// AuthorizationError 1000(unknown)으로 실패함 — 심사 기기 iPad Air M3.
+  bool _isIosTablet() {
+    if (kIsWeb || !Platform.isIOS) return false;
+    final views = ui.PlatformDispatcher.instance.views;
+    if (views.isEmpty) return false;
+    final view = views.first;
+    final dpr = view.devicePixelRatio == 0 ? 1.0 : view.devicePixelRatio;
+    return view.physicalSize.shortestSide / dpr >= 600;
+  }
+
   /// 소셜 로그인 (Apple)
-  /// iOS/macOS: 네이티브 Sign in with Apple → Supabase id_token
-  ///   (인앱 브라우저 OAuth는 iPad에서 appleid.apple.com 빈 화면 → 2.1 거절 원인)
-  /// Android: Supabase OAuth (브라우저)
+  /// iPhone: 네이티브 Sign in with Apple → Supabase id_token
+  /// iPad: Safari OAuth (네이티브가 error 1000으로 실패)
+  /// 네이티브 실패 시 Safari 폴백. 인앱 브라우저는 쓰지 않음.
   Future<bool> signInWithApple() async {
-    try {
-      print('🔐 애플 로그인 시작');
+    print('🔐 애플 로그인 시작');
 
-      if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
+    if (!kIsWeb && Platform.isIOS && !_isIosTablet()) {
+      try {
         return await _signInWithAppleNative();
+      } on SignInWithAppleAuthorizationException catch (e) {
+        if (e.code == AuthorizationErrorCode.canceled) {
+          print('ℹ️ 애플 로그인 취소');
+          return false;
+        }
+        print('⚠️ 애플 네이티브 실패 (${e.code}), Safari로 재시도');
+      } catch (e) {
+        print('⚠️ 애플 네이티브 실패, Safari로 재시도: $e');
       }
+      return await _signInWithAppleSafari();
+    }
 
+    return await _signInWithAppleSafari();
+  }
+
+  Future<bool> _signInWithAppleSafari() async {
+    try {
       final launched = await _supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
         redirectTo: 'modorepair://login-callback',
-        authScreenLaunchMode: LaunchMode.inAppBrowserView,
+        authScreenLaunchMode: LaunchMode.externalApplication,
       );
 
       if (!launched) {
-        print('⚠️ 애플 로그인 시작 실패');
-        return false;
+        print('⚠️ 애플 Safari OAuth 시작 실패');
+        throw Exception('Apple 로그인을 시작하지 못했습니다');
       }
 
-      print('✅ 애플 OAuth 시작됨 - 브라우저로 이동');
+      print('✅ 애플 OAuth 시작됨 - Safari로 이동');
       return true;
-    } on SignInWithAppleAuthorizationException catch (e) {
-      if (e.code == AuthorizationErrorCode.canceled) {
-        print('ℹ️ 애플 로그인 취소');
-        return false;
-      }
-      print('❌ 애플 로그인 실패: $e');
-      throw Exception('애플 로그인 실패: ${e.message}');
     } catch (e) {
-      print('❌ 애플 로그인 실패: $e');
-      throw Exception('애플 로그인 실패: $e');
+      print('❌ 애플 Safari OAuth 실패: $e');
+      throw Exception('Apple 로그인을 완료하지 못했습니다');
     }
   }
 

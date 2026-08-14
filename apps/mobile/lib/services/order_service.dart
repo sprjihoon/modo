@@ -353,7 +353,7 @@ class OrderService {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) {
-        throw Exception('로그인이 필요합니다');
+        return [];
       }
 
       debugPrint('📋 Auth User ID: ${user.id}');

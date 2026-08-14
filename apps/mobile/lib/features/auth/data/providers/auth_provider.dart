@@ -16,13 +16,13 @@ final currentUserProvider = StreamProvider<User?>((ref) {
 });
 
 /// 로그인 상태 Provider - currentUserProvider 기반으로 실시간 반영
+/// 스트림 로딩 중에는 동기 currentUser를 써서 홈/마이페이지가 비회원 UI로 깜빡이지 않게 함
 final isLoggedInProvider = Provider<bool>((ref) {
   final currentUserAsync = ref.watch(currentUserProvider);
-  return currentUserAsync.when(
-    data: (user) => user != null,
-    loading: () => false,
-    error: (_, __) => false,
-  );
+  if (currentUserAsync.hasValue) {
+    return currentUserAsync.value != null;
+  }
+  return Supabase.instance.client.auth.currentUser != null;
 });
 
 /// 사용자 프로필 Provider (users 테이블에서 UserModel로 가져옴)
