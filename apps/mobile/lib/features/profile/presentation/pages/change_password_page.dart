@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
+import '../../../auth/data/providers/auth_provider.dart';
 
 /// 비밀번호 변경 페이지
 class ChangePasswordPage extends ConsumerStatefulWidget {
@@ -37,9 +38,11 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Supabase 비밀번호 변경 구현
-      await Future.delayed(const Duration(seconds: 1)); // Mock delay
-      
+      await ref.read(authServiceProvider).changePassword(
+            currentPassword: _currentPasswordController.text,
+            newPassword: _newPasswordController.text,
+          );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -53,7 +56,9 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('비밀번호 변경 실패: $e'),
+            content: Text(
+              e.toString().replaceFirst('Exception: ', ''),
+            ),
             backgroundColor: Colors.red.shade400,
           ),
         );

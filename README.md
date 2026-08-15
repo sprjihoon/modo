@@ -271,15 +271,15 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+19`** (iOS 재제출) · Play는 **`1.0.1+18`** targetSdk **36** |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+20`** (iOS·Play 동일) |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | 빌드 **16 REJECTED** (2.1 Apple 로그인 iPad error 1000 · 5.1.1 비회원 둘러보기) → **`1.0.1 (19)`** 재제출 준비 |
+| iOS 심사 상태 | **`1.0.1 (20)` `WAITING_FOR_REVIEW`** (2026-08-15) · 승인 후 자동 출시 (`AFTER_APPROVAL`) |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | Alpha **활성 `18 (1.0.1)`** (targetSdk **36**, 2026-08-13) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | Alpha **`20 (1.0.1)` 검토 전송** (2026-08-15) · 직전 활성은 `19 (1.0.1)` · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+18`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+18.aab` |
+| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+20`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+20.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -291,7 +291,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 다음 빌드 | 빌드 **16** — 5.1.1 권한 CTA · 네이티브 Apple 로그인 · 팝업 Android 표기 제거 |
+| App Store 현재 빌드 | 빌드 **20** — 비회원 가격 열람 · iPad Apple 로그인은 ASWebAuthenticationSession · 권한은 기능 사용 시 · 비밀번호 변경은 실제 인증 |
 
 ### 심사용 테스트 계정
 
@@ -342,8 +342,10 @@ flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
 12. ~~`1.0.1+15` OAuth 취소 시 「로그인 중」 무한 로딩 수정~~ (Play Alpha)
 13. ~~`1.0.1+16` App Store 거절 대응~~ (5.1.1 / 2.1 Apple / 2.3.10) · Play Alpha·ASC 재제출
 14. ~~`1.0.1+18` Play targetSdk 36~~ (`compileSdk`/`targetSdk` 고정 · Alpha **활성**)
-15. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
-16. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상** 후 프로덕션 액세스 신청
+15. ~~`1.0.1+19` 게스트 둘러보기·iPad Safari Apple 로그인~~ (5.1.1 / 2.1)
+16. ~~`1.0.1+20` 재심사 리스크 3건~~ (웹 세션 Apple 로그인 · 첫 실행 권한 제거 · 실제 비밀번호 변경) · **ASC `WAITING_FOR_REVIEW` · Play Alpha 검토 전송**
+17. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
+18. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상**(약 **2026-08-28**) 후 프로덕션 액세스 신청
 
 ---
 
@@ -351,6 +353,7 @@ flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-15 | 스토어 `1.0.1+20` | App Store 16 거절(2.1 iPad Apple 1000 · 5.1.1 로그인 벽) 대응. 비회원 홈·가격표 · iPad `ASWebAuthenticationSession` · 권한은 기능 사용 시 · 이메일 계정만 실제 비밀번호 변경. iOS **20 `WAITING_FOR_REVIEW`** · Play Alpha **20 검토 전송**. 웹(`modo.io.kr`)은 원래 비회원 가격 열람이라 변경 없음 |
 | 2026-08-13 | Play target API 36 | Play 정책(기한 2026-08-31): `compileSdk`/`targetSdk` **36** 고정 · versionCode **18** AAB · minSdk 24(이전 15는 21)·ABI 3개로 지원 기기 일부 감소 경고는 Alpha·설치 0명 기준 진행 가능 → **`1.0.1+18`** |
 | 2026-08-13 | App Store 거절 대응 | 5.1.1(iv) 권한 「허용하기/나중에」→「계속」+항상 시스템 요청 · 2.1 Apple 인앱 OAuth 빈 화면→네이티브 Sign in with Apple · 2.3.10 팝업 Android 문구 제거 → **`1.0.1+16`** |
 | 2026-08-13 | OAuth 취소 로딩 | Android에서 Apple/Google/카카오 로그인 창 취소 후 「로그인 중…」 무한 표시. resume 시 세션 없으면 로딩 해제 + 취소 버튼 → **`1.0.1+15`** |

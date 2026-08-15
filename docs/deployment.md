@@ -63,7 +63,7 @@ flutter build appbundle --release
 `android/app/build.gradle.kts`에서 `isMinifyEnabled = true`이다. 네이버 SDK는 Retrofit을 쓰므로 `android/app/proguard-rules.pro`에 Retrofit·`com.navercorp.nid` keep가 없으면 Play 설치본에서만 `no_catagorized_error`가 난다 (`1.0.1+14`에서 수정).
 
 **Play target API (2026-08-31~):**  
-`compileSdk` / `targetSdk`를 **36**으로 고정한다 (`1.0.1+18`). versionCode는 Play에 한 번 올리면 재사용 불가. Alpha 출시 후 **게시 개요 → 검토 전송**까지 해야 테스터에게 제공된다. (2026-08-13: Alpha **활성 `18 (1.0.1)`**)
+`compileSdk` / `targetSdk`를 **36**으로 고정한다 (`1.0.1+18`~). versionCode는 Play에 한 번 올리면 재사용 불가. Alpha 출시 후 **게시 개요 → 검토 전송**까지 해야 테스터에게 제공된다. (2026-08-15: Alpha **`20 (1.0.1)` 검토 전송**)
 
 **서명 설정 (`android/key.properties`):**
 ```properties
@@ -93,8 +93,8 @@ xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 - Distribution 인증서 + 프로파일 `ModoRepair AppStore`
 - Xcode Accounts 미로그인 시 Automatic 대신 Manual (`ExportOptions.plist`)
 - iOS 배포 타깃 **15.0** (ITMS-90068 / 2027 봄부터 ASC 업로드 필수)
-- 최신: `1.0.1 (16)` — App Store 거절 대응(권한 Continue CTA · 네이티브 Sign in with Apple · 홈 팝업 Android 표기 제거). 시뮬 Apple 로그인 `error 1000`은 정상 범위 → 실기기 확인
-- Play Alpha: **활성 `18 (1.0.1)`** (2026-08-13) — `compileSdk`/`targetSdk` **36** (Play 2026-08-31 정책). versionCode 17은 Bundle Explorer로 소진되어 **18**로 게시
+- 최신: `1.0.1 (20)` — 비회원 가격 열람 · iPad Apple은 `ASWebAuthenticationSession` · 권한은 기능 사용 시 · 실제 비밀번호 변경. 시뮬 Apple 로그인 `error 1000`은 정상 범위 → 실기기 확인
+- Play Alpha: **`20 (1.0.1)` 검토 전송** (2026-08-15) — `compileSdk`/`targetSdk` **36** (Play 2026-08-31 정책)
 
 ### Firebase App Distribution (테스트 배포)
 

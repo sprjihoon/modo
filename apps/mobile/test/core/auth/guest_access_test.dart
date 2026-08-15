@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:modu_repair/core/auth/guest_access.dart';
+import 'package:modu_repair/core/auth/password_account.dart';
 
 void main() {
   group('isPublicPath', () {
@@ -77,6 +78,19 @@ void main() {
         resolvePostAuthRoute(profileCompleted: true, from: null),
         '/home',
       );
+    });
+  });
+
+  group('canChangePasswordFromProviders', () {
+    test('이메일 계정이면 변경 가능', () {
+      expect(canChangePasswordFromProviders(['email']), isTrue);
+      expect(canChangePasswordFromProviders(['email', 'apple']), isTrue);
+    });
+
+    test('소셜만 있으면 변경 불가', () {
+      expect(canChangePasswordFromProviders(['apple']), isFalse);
+      expect(canChangePasswordFromProviders(['google', 'kakao']), isFalse);
+      expect(canChangePasswordFromProviders(const []), isFalse);
     });
   });
 }

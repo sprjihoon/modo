@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   connectivity_plus
+  desktop_webview_window
   file_selector_windows
   firebase_core
   media_kit_libs_windows_video
@@ -12,6 +13,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   permission_handler_windows
   url_launcher_windows
   volume_controller
+  window_to_front
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

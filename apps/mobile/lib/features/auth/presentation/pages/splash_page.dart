@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/providers/auth_provider.dart';
 
@@ -26,18 +25,8 @@ class _SplashPageState extends ConsumerState<SplashPage> {
 
     if (!mounted) return;
 
-    // 첫 실행 여부 확인 (권한 온보딩)
-    final prefs = await SharedPreferences.getInstance();
-    final permissionOnboardingCompleted =
-        prefs.getBool('permission_onboarding_completed') ?? false;
-
-    if (!permissionOnboardingCompleted) {
-      // 첫 실행: 권한 온보딩으로 이동
-      if (mounted) {
-        context.go('/permission-onboarding');
-      }
-      return;
-    }
+    // 5.1.1(iv): 카메라·사진·알림은 해당 기능을 쓸 때 요청.
+    // 첫 실행 권한 온보딩은 건너뛰고 홈·가격표를 바로 보여 준다.
 
     // Supabase 인증 상태 확인
     final authService = ref.read(authServiceProvider);

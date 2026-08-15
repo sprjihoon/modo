@@ -4,11 +4,14 @@ import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_naver_login/flutter_naver_login.dart';
 import 'package:flutter_naver_login/interface/types/naver_login_status.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/auth/password_account.dart';
 import '../features/auth/domain/models/user_model.dart';
 import '../core/enums/user_role.dart';
 import '../core/enums/action_type.dart';
@@ -28,6 +31,53 @@ class AuthService {
 
   /// 로그인 상태
   bool get isLoggedIn => currentUser != null;
+
+  /// 이메일/비밀번호 계정이면 비밀번호 변경 가능.
+  bool get canChangePassword {
+    final user = currentUser;
+    if (user == null) return false;
+    final fromIdentities = user.identities?.map((i) => i.provider) ?? const [];
+    final providers = <String>{...fromIdentities};
+    final meta = user.appMetadata['providers'];
+    if (meta is List) {
+      providers.addAll(meta.map((e) => e.toString()));
+    }
+    final single = user.appMetadata['provider'];
+    if (single is String) providers.add(single);
+    return canChangePasswordFromProviders(providers);
+  }
+
+  /// 현재 비밀번호 확인 후 새 비밀번호로 변경.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = currentUser;
+    final email = user?.email;
+    if (user == null || email == null || email.isEmpty) {
+      throw Exception('로그인이 필요합니다');
+    }
+    if (!canChangePassword) {
+      throw Exception('소셜 로그인 계정은 비밀번호를 변경할 수 없습니다');
+    }
+
+    try {
+      await _supabase.auth.signInWithPassword(
+        email: email,
+        password: currentPassword,
+      );
+    } on AuthException {
+      throw Exception('현재 비밀번호가 올바르지 않습니다');
+    }
+
+    try {
+      await _supabase.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+    } on AuthException {
+      throw Exception('비밀번호 변경에 실패했습니다');
+    }
+  }
 
   /// 이메일/비밀번호 로그인
   Future<AuthResponse> signInWithEmail({
@@ -430,8 +480,9 @@ class AuthService {
 
   /// 소셜 로그인 (Apple)
   /// iPhone: 네이티브 Sign in with Apple → Supabase id_token
-  /// iPad: Safari OAuth (네이티브가 error 1000으로 실패)
-  /// 네이티브 실패 시 Safari 폴백. 인앱 브라우저는 쓰지 않음.
+  /// iPad: ASWebAuthenticationSession (네이티브가 error 1000으로 실패,
+  ///   외부 Safari는 앱 복귀가 불안정)
+  /// 네이티브 실패 시에도 같은 시트로 폴백. 완료/취소 후 항상 앱으로 돌아옴.
   Future<bool> signInWithApple() async {
     print('🔐 애플 로그인 시작');
 
@@ -443,33 +494,59 @@ class AuthService {
           print('ℹ️ 애플 로그인 취소');
           return false;
         }
-        print('⚠️ 애플 네이티브 실패 (${e.code}), Safari로 재시도');
+        print('⚠️ 애플 네이티브 실패 (${e.code}), 인증 시트로 재시도');
       } catch (e) {
-        print('⚠️ 애플 네이티브 실패, Safari로 재시도: $e');
+        print('⚠️ 애플 네이티브 실패, 인증 시트로 재시도: $e');
       }
-      return await _signInWithAppleSafari();
+      return await _signInWithAppleWebSession();
     }
 
-    return await _signInWithAppleSafari();
+    return await _signInWithAppleWebSession();
   }
 
-  Future<bool> _signInWithAppleSafari() async {
+  /// iOS ASWebAuthenticationSession / Android Chrome Custom Tab.
+  /// 콜백 스킴으로 세션을 받고 앱으로 복귀한다.
+  Future<bool> _signInWithAppleWebSession() async {
     try {
-      final launched = await _supabase.auth.signInWithOAuth(
-        OAuthProvider.apple,
-        redirectTo: 'modorepair://login-callback',
-        authScreenLaunchMode: LaunchMode.externalApplication,
+      const redirect = 'modorepair://login-callback';
+      final oauth = await _supabase.auth.getOAuthSignInUrl(
+        provider: OAuthProvider.apple,
+        redirectTo: redirect,
       );
 
-      if (!launched) {
-        print('⚠️ 애플 Safari OAuth 시작 실패');
-        throw Exception('Apple 로그인을 시작하지 못했습니다');
+      final result = await FlutterWebAuth2.authenticate(
+        url: oauth.url,
+        callbackUrlScheme: 'modorepair',
+      );
+
+      await _supabase.auth.getSessionFromUrl(Uri.parse(result));
+
+      if (currentSession == null) {
+        print('⚠️ 애플 웹 세션 없음');
+        return false;
       }
 
-      print('✅ 애플 OAuth 시작됨 - Safari로 이동');
+      await _logService.log(
+        actionType: ActionType.LOGIN,
+        metadata: {
+          'provider': 'apple',
+          'method': 'web_session',
+          'loginTime': DateTime.now().toIso8601String(),
+        },
+      );
+
+      print('✅ 애플 웹 세션 로그인 성공: ${currentUser?.email}');
       return true;
+    } on PlatformException catch (e) {
+      final code = e.code.toLowerCase();
+      if (code.contains('cancel')) {
+        print('ℹ️ 애플 로그인 취소');
+        return false;
+      }
+      print('❌ 애플 웹 세션 실패: $e');
+      throw Exception('Apple 로그인을 완료하지 못했습니다');
     } catch (e) {
-      print('❌ 애플 Safari OAuth 실패: $e');
+      print('❌ 애플 웹 세션 실패: $e');
       throw Exception('Apple 로그인을 완료하지 못했습니다');
     }
   }

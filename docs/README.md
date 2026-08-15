@@ -46,7 +46,7 @@
 ### 관련 (앱)
 - 네이버 SDK 상세: [`apps/mobile/NAVER_LOGIN_SETUP.md`](../apps/mobile/NAVER_LOGIN_SETUP.md)
 - 홈 팝업: 어드민 **콘텐츠 → 팝업 관리** (`popups` 테이블) · 웹·앱 홈 공통
-- 스토어 버전/출시 상태: 루트 [`README.md`](../README.md) 「앱스토어 / Play 출시 준비」 (`1.0.1+13`, iOS MinOS 15)
+- 스토어 버전/출시 상태: 루트 [`README.md`](../README.md) 「앱스토어 / Play 출시 준비」 (`1.0.1+20`, iOS MinOS 15)
 - 배포 절차 상세: [`deployment.md`](deployment.md)
 
 ## 🎯 빠른 시작
@@ -274,6 +274,6 @@ GitHub Issues에 버그/기능 요청 등록
 
 ---
 
-**Last Updated**: 2024-01-15
-**Version**: 1.0.0
+**Last Updated**: 2026-08-15
+**Version**: 1.0.1+20
 
