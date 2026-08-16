@@ -25,6 +25,7 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
   bool _isLoading = true;
   String? _error;
   String? _selectedId;
+  final Map<String, GlobalKey> _tabKeys = {};
 
   @override
   void initState() {
@@ -208,6 +209,23 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
     );
   }
 
+  void _selectTab(String id) {
+    setState(() => _selectedId = id);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _centerSelectedTab(id));
+  }
+
+  void _centerSelectedTab(String id) {
+    final tabContext = _tabKeys[id]?.currentContext;
+    if (tabContext == null || !tabContext.mounted) return;
+    Scrollable.ensureVisible(
+      tabContext,
+      alignment: 0.5,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   Widget _buildCategoryTabs(List<_TabSpec> tabs) {
     return SizedBox(
       height: 36,
@@ -219,8 +237,10 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
         itemBuilder: (context, index) {
           final tab = tabs[index];
           final isSelected = _selectedId == tab.id;
+          final key = _tabKeys.putIfAbsent(tab.id, GlobalKey.new);
           return GestureDetector(
-            onTap: () => setState(() => _selectedId = tab.id),
+            key: key,
+            onTap: () => _selectTab(tab.id),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

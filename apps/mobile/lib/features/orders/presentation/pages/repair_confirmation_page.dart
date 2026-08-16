@@ -814,7 +814,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
-                                      item['repairPart'] as String,
+                                      item['repairPart'] as String? ?? '수선 항목',
                                       style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -825,7 +825,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${item['scope']} · ${item['measurement']}',
+                                      '${item['scope'] ?? '전체'} · ${item['measurement'] ?? ''}',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey.shade600,
@@ -835,7 +835,10 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
                                     ),
                                     const SizedBox(height: 4),
                                   Text(
-                                    item['priceRange'] as String,
+                                    item['priceRange'] as String? ??
+                                        (item['price'] != null
+                                            ? '${item['price']}원'
+                                            : ''),
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,

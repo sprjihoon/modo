@@ -227,7 +227,14 @@ export default function PriceGuidePage() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setSelectedId(tab.id)}
+                onClick={(e) => {
+                  setSelectedId(tab.id);
+                  e.currentTarget.scrollIntoView({
+                    behavior: "smooth",
+                    inline: "center",
+                    block: "nearest",
+                  });
+                }}
                 className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
                   selectedId === tab.id
                     ? "bg-[#00C896] text-white shadow-sm"

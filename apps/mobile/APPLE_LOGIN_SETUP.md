@@ -1,7 +1,7 @@
 # Apple Sign In 설정 가이드
 
 ## 현재 상태
-- ✅ iOS/macOS: **네이티브** `sign_in_with_apple` → Supabase `signInWithIdToken` (`1.0.1+20`)
+- ✅ iOS/macOS: **네이티브** `sign_in_with_apple` → Supabase `signInWithIdToken` (`1.0.1+21`)
 - ✅ iPad: 네이티브 SIWA를 건너뜀 (심사 기기에서 `AuthorizationError 1000`) → `flutter_web_auth_2` **ASWebAuthenticationSession**
 - ✅ iPhone: 네이티브 실패 시에만 같은 웹 세션 폴백 — 인앱 브라우저 사용 안 함
 - ✅ Android: Supabase OAuth (`signInWithOAuth` + 외부 브라우저)
