@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { X, Smartphone } from "lucide-react";
-import { openInApp } from "@/lib/utils";
+import { APP_DOWNLOAD_PATH, getAppDownloadHref } from "@/lib/app-stores";
 
 const BANNER_HIDDEN_KEY = "app_banner_hidden_until";
 
 export function AppBanner() {
+  const router = useRouter();
   const [visible, setVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -30,14 +32,16 @@ export function AppBanner() {
   }
 
   function handleOpenApp() {
-    if (isMobile) {
-      openInApp();
-    } else {
-      // PC에서는 앱 소개 or QR 섹션으로 스크롤
-      document.getElementById("app-download-section")?.scrollIntoView({
-        behavior: "smooth",
-      });
+    const href = getAppDownloadHref(navigator.userAgent);
+    if (href.startsWith("http")) {
+      window.location.href = href;
+      return;
     }
+    if (href === APP_DOWNLOAD_PATH) {
+      router.push(href);
+      return;
+    }
+    window.location.href = href;
   }
 
   if (!visible) return null;
@@ -54,7 +58,7 @@ export function AppBanner() {
         onClick={handleOpenApp}
         className="text-xs font-bold bg-white text-[#00C896] px-3 py-1 rounded-full shrink-0 active:opacity-80"
       >
-        {isMobile ? "앱에서 보기" : "앱 받기"}
+        앱 받기
       </button>
       <button
         onClick={handleClose}

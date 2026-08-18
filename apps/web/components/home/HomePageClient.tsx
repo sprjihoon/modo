@@ -9,6 +9,7 @@ import { BannerSlider } from "./BannerSlider";
 import { RecentOrderCard } from "./RecentOrderCard";
 import { OrderStartDialog } from "./OrderStartDialog";
 import { LaunchAnnouncementPopup } from "./LaunchAnnouncementPopup";
+import { AppDownloadLinks } from "./AppDownloadLinks";
 
 interface UserProfile {
   name?: string;
@@ -211,31 +212,8 @@ export function HomePageClient() {
           <p className="text-xs text-gray-500 mb-4">
             알림, 실시간 수선 현황을 앱에서 확인하세요
           </p>
-          <div className="flex gap-2 justify-center">
-            {process.env.NEXT_PUBLIC_IOS_APP_URL && (
-              <a
-                href={process.env.NEXT_PUBLIC_IOS_APP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs bg-gray-900 text-white px-4 py-2 rounded-lg font-medium"
-              >
-                🍎 App Store
-              </a>
-            )}
-            {process.env.NEXT_PUBLIC_ANDROID_APP_URL && (
-              <a
-                href={process.env.NEXT_PUBLIC_ANDROID_APP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs bg-gray-900 text-white px-4 py-2 rounded-lg font-medium"
-              >
-                🤖 Play Store
-              </a>
-            )}
-            {!process.env.NEXT_PUBLIC_IOS_APP_URL &&
-              !process.env.NEXT_PUBLIC_ANDROID_APP_URL && (
-                <p className="text-xs text-gray-400">앱 출시 예정</p>
-              )}
+          <div className="max-w-xs mx-auto">
+            <AppDownloadLinks compact />
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/guide/easy",
     "/guide/measure",
     "/shop",
+    "/download",
     "/announcements",
     "/terms",
     "/privacy-policy",
