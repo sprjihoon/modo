@@ -93,8 +93,8 @@ xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 - Distribution 인증서 + 프로파일 `ModoRepair AppStore`
 - Xcode Accounts 미로그인 시 Automatic 대신 Manual (`ExportOptions.plist`)
 - iOS 배포 타깃 **15.0** (ITMS-90068 / 2027 봄부터 ASC 업로드 필수)
-- 최신: `1.0.1 (20)` — 비회원 가격 열람 · iPad Apple은 `ASWebAuthenticationSession` · 권한은 기능 사용 시 · 실제 비밀번호 변경. 시뮬 Apple 로그인 `error 1000`은 정상 범위 → 실기기 확인
-- Play Alpha: **`20 (1.0.1)` 검토 전송** (2026-08-15) — `compileSdk`/`targetSdk` **36** (Play 2026-08-31 정책)
+- 최신: iOS **`1.0` 빌드 21 앱스토어 출시** (2026-08-17) — https://apps.apple.com/kr/app/모두의수선/id6759492888
+- Play Alpha: **`21 (1.0.1)` 테스터 제공 중** · 프로덕션은 약 2026-08-28 이후 — `compileSdk`/`targetSdk` **36** (Play 2026-08-31 정책)
 
 ### Firebase App Distribution (테스트 배포)
 

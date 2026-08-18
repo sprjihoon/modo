@@ -5,10 +5,12 @@
 |------|-----|
 | 앱 이름 | 모두의수선 |
 | 패키지 / Bundle ID | `com.modurepair.app` |
-| 버전 | 1.0.1 (13) |
+| 버전 | 1.0.1 (21) |
 | 개인정보처리방침 | https://modo.io.kr/privacy-policy |
 | 이용약관 | https://modo.io.kr/terms |
 | 지원 / 웹사이트 | https://modo.io.kr |
+| App Store | https://apps.apple.com/kr/app/모두의수선/id6759492888 (출시, 2026-08-17) |
+| Play | Alpha `21 (1.0.1)` · 프로덕션은 약 2026-08-28 이후 |
 | 문의 이메일 | vovok@naver.com |
 | 심사용 로그인 | `apple-review@modo.io.kr` / `ModoReview2026!` |
 
@@ -44,5 +46,5 @@
 ## 빌드 파일
 - 버전: `1.0.1+21` (`pubspec.yaml`) — Android targetSdk 36 (Play API 정책)
 - Android AAB: `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (Play Alpha 교체)
-- iOS IPA: `build/ios/ipa/모두의수선.ipa` (MinOS 15 · 빌드 21 ASC 업로드)
+- iOS IPA: `build/ios/ipa/모두의수선.ipa` (MinOS 15 · 빌드 21 앱스토어 출시)
 - 네이버/OAuth: `NAVER_LOGIN_SETUP.md` · `docs/DOMAIN_OAUTH_SETUP.md`

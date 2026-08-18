@@ -41,7 +41,7 @@
 
 | 항목 | 값 |
 |------|-----|
-| 다운로드 URL | App Store URL (앱 등록 후) |
+| 다운로드 URL | https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | URL Scheme | `modorepairnaver` |
 | Bundle ID | `com.modurepair.app` |
 

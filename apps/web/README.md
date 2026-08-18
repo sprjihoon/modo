@@ -7,7 +7,7 @@
 
 ## 현재 구현 상태
 
-> **최종 업데이트:** 2026-06-22 — 메인 도메인 `modo.io.kr`, `payment_intents` 결제, PG 심사용 약관·푸터
+> **최종 업데이트:** 2026-08-18 — 네이버 서치어드바이저 등록 · iOS 앱스토어 출시 · 메인 도메인 `modo.io.kr`
 
 ### ✅ 완료된 기능
 
@@ -152,6 +152,13 @@ vercel deploy --prod --yes --archive=tgz
 - `modo.mom`, `modorepair.com` → 레거시·리다이렉트용 (선택, `modo.io.kr`로 301)
 - `admin.modo.mom`, `admin.modorepair.com` → `apps/admin` (관리자 페이지)
 - 소셜 로그인·OAuth 콘솔 설정: [`docs/DOMAIN_OAUTH_SETUP.md`](../../docs/DOMAIN_OAUTH_SETUP.md)
+
+**검색 (네이버):**
+- 서치어드바이저 소유확인: `layout.tsx` 메타 `naver-site-verification`
+- 사이트맵: https://modo.io.kr/sitemap.xml (`app/sitemap.ts`)
+- robots: https://modo.io.kr/robots.txt (`app/robots.ts`, Yeti 허용)
+- 홈 수집 요청: `/` (2026-08-18). 노출은 보통 1~2주, 보장 없음
+- iOS 앱: https://apps.apple.com/kr/app/모두의수선/id6759492888 (`NEXT_PUBLIC_IOS_APP_URL`)
 
 ---
 

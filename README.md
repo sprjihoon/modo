@@ -99,9 +99,9 @@ PG는 웹과 동일하게 **NHN KCP 단건결제 채널**을 사용합니다.
 
 > NHN KCP PG사 심사 통과를 위한 샘플 상점 페이지 (2026-07-01 추가)
 
-### 심사 기간 중 라우팅
+### 라우팅
 
-- `modo.io.kr/` → `/shop` 자동 리다이렉트 (심사 완료 후 원복 필요)
+- 홈(`/`)은 고객 랜딩. `/shop`은 PG 심사용 샘플 상점(로그인 불필요)
 
 ### 샘플 페이지 구성
 
@@ -273,10 +273,10 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Bundle / Application ID | `com.modurepair.app` |
 | 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+21`** (iOS·Play 동일) |
 | App Store Connect App ID | `6759492888` |
-| iOS 심사 상태 | **`1.0.1 (21)` 재제출** (2026-08-16) · 승인 후 자동 출시 (`AFTER_APPROVAL`) |
+| iOS 스토어 | **출시** (2026-08-17) · `READY_FOR_SALE` · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | Alpha **`21 (1.0.1)` 업로드/검토** (2026-08-16) · 직전은 `20 (1.0.1)` · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | Alpha **`21 (1.0.1)` 테스터 제공 중** · 프로덕션은 개인 계정 14일(약 **2026-08-28**) 이후 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
 | Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+21`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+21.aab` |
@@ -291,7 +291,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 빌드 **21** — 가격 안내 탭 가운데 정렬 · 수선 확인 널 가드 · 2.1 심사용 긴 화면 녹화(시뮬 iPhone 17 Pro) |
+| App Store 현재 빌드 | 빌드 **21** (`1.0`) 판매 중. 검색 반영은 최대 24시간 |
 
 ### 심사용 테스트 계정
 
@@ -344,9 +344,20 @@ flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
 14. ~~`1.0.1+18` Play targetSdk 36~~ (`compileSdk`/`targetSdk` 고정 · Alpha **활성**)
 15. ~~`1.0.1+19` 게스트 둘러보기·iPad Safari Apple 로그인~~ (5.1.1 / 2.1)
 16. ~~`1.0.1+20` 재심사 리스크 3건~~ (웹 세션 Apple 로그인 · 첫 실행 권한 제거 · 실제 비밀번호 변경)
-17. ~~`1.0.1+21` 가격 탭 가운데 정렬 · 수선 확인 널 가드 · 2.1 긴 화면 녹화~~ · **ASC 빌드 21 재제출 · Play Alpha 21**
+17. ~~`1.0.1+21` 가격 탭 가운데 정렬 · 수선 확인 널 가드 · 2.1 긴 화면 녹화~~ · **App Store 승인·출시 · Play Alpha 21**
 18. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 19. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상**(약 **2026-08-28**) 후 프로덕션 액세스 신청
+20. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
+
+### 네이버 검색 (`modo.io.kr`)
+
+| 항목 | 값 |
+|---|---|
+| 서치어드바이저 | 소유확인 완료 (HTML 메타 `naver-site-verification`) |
+| 사이트맵 | https://modo.io.kr/sitemap.xml (`apps/web/app/sitemap.ts`) |
+| robots | https://modo.io.kr/robots.txt — Yeti 허용 · `/cart` `/payment` `/profile` `/orders` `/api` 등 차단 |
+| 수집 요청 | 홈 `/` (2026-08-18) |
+| 노출 | 보장 없음. 보통 1~2주 |
 
 ---
 
@@ -354,6 +365,8 @@ flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-18 | 네이버 검색 | 서치어드바이저 소유확인(HTML 메타) · 사이트맵 `https://modo.io.kr/sitemap.xml` 제출 · 홈(`/`) 수집 요청. 노출은 보통 1~2주, 보장 없음 |
+| 2026-08-17 | App Store 출시 | 빌드 **21** (`1.0`) `READY_FOR_SALE`. https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | 2026-08-16 | 스토어 `1.0.1+21` | 가격 안내 탭 가운데 정렬(앱·웹) · 수선 확인 `priceRange` 널 가드. App Store **빌드 21 + 긴 시뮬 녹화** 재제출(2.1). Play Alpha **21 AAB**. |
 | 2026-08-15 | 스토어 `1.0.1+20` | App Store 16 거절(2.1 iPad Apple 1000 · 5.1.1 로그인 벽) 대응. 비회원 홈·가격표 · iPad `ASWebAuthenticationSession` · 권한은 기능 사용 시 · 이메일 계정만 실제 비밀번호 변경. iOS **20 `WAITING_FOR_REVIEW`** · Play Alpha **20 검토 전송**. 웹(`modo.io.kr`)은 원래 비회원 가격 열람이라 변경 없음 |
 | 2026-08-13 | Play target API 36 | Play 정책(기한 2026-08-31): `compileSdk`/`targetSdk` **36** 고정 · versionCode **18** AAB · minSdk 24(이전 15는 21)·ABI 3개로 지원 기기 일부 감소 경고는 Alpha·설치 0명 기준 진행 가능 → **`1.0.1+18`** |

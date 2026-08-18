@@ -60,7 +60,7 @@ Client ID: `b7QJILomSlfsFL7RuAQs` · 앱 상세: `NAVER_LOGIN_SETUP.md`
 
 | 항목 | 값 |
 |------|-----|
-| 다운로드 URL | `https://modo.io.kr` (App Store URL 확정 시 교체) |
+| 다운로드 URL | https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | URL Scheme | `modorepairnaver` |
 
 앱 코드: `Info.plist`의 `NidUrlScheme` / `NidClientID` / `NidClientSecret` / `NidAppName`, `AppDelegate`의 `NidOAuth.shared.handleURL`.  
