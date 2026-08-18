@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   verification: {
+    google: "tYNJ1wZSBYzwmeFQ4vptyYS46Im89qQRt1TQ8dAClY4",
     other: {
       "naver-site-verification": "bd8054a4e44cf3918ae9606e38cfc0c54856efd1",
     },

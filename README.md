@@ -348,12 +348,14 @@ flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
 18. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 19. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상**(약 **2026-08-28**) 후 프로덕션 액세스 신청
 20. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
+21. ~~Google Search Console~~ (소유확인 · 사이트맵 제출, 2026-08-18)
 
-### 네이버 검색 (`modo.io.kr`)
+### 검색 (`modo.io.kr`)
 
 | 항목 | 값 |
 |---|---|
-| 서치어드바이저 | 소유확인 완료 (HTML 메타 `naver-site-verification`) |
+| Google Search Console | 소유확인 (`google-site-verification`, 계정 `vovok112@gmail.com`) |
+| 네이버 서치어드바이저 | 소유확인 완료 (HTML 메타 `naver-site-verification`) |
 | 사이트맵 | https://modo.io.kr/sitemap.xml (`apps/web/app/sitemap.ts`) |
 | robots | https://modo.io.kr/robots.txt — Yeti 허용 · `/cart` `/payment` `/profile` `/orders` `/api` 등 차단 |
 | 수집 요청 | 홈 `/` (2026-08-18) |
