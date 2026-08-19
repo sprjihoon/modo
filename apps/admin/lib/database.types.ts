@@ -1042,6 +1042,71 @@ export type Database = {
           },
         ]
       }
+      order_cs_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          amount: number | null
+          clothes_location: string | null
+          created_at: string
+          cycle: number
+          id: string
+          metadata: Json
+          order_id: string
+          pickup_date: string | null
+          payout_method: string | null
+          payout_status: string | null
+          reason: string
+          refund_repair_fee: boolean
+          residual_value: number | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          amount?: number | null
+          clothes_location?: string | null
+          created_at?: string
+          cycle?: number
+          id?: string
+          metadata?: Json
+          order_id: string
+          pickup_date?: string | null
+          payout_method?: string | null
+          payout_status?: string | null
+          reason: string
+          refund_repair_fee?: boolean
+          residual_value?: number | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          amount?: number | null
+          clothes_location?: string | null
+          created_at?: string
+          cycle?: number
+          id?: string
+          metadata?: Json
+          order_id?: string
+          pickup_date?: string | null
+          payout_method?: string | null
+          payout_status?: string | null
+          reason?: string
+          refund_repair_fee?: boolean
+          residual_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_cs_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           additional_price: number | null
@@ -1050,6 +1115,8 @@ export type Database = {
           cancellation_reason: string | null
           clothing_type: string
           created_at: string
+          cs_cycle: number
+          cs_status: string | null
           customer_email: string | null
           customer_name: string | null
           customer_phone: string | null
@@ -1100,6 +1167,8 @@ export type Database = {
           cancellation_reason?: string | null
           clothing_type: string
           created_at?: string
+          cs_cycle?: number
+          cs_status?: string | null
           customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string | null
@@ -1150,6 +1219,8 @@ export type Database = {
           cancellation_reason?: string | null
           clothing_type?: string
           created_at?: string
+          cs_cycle?: number
+          cs_status?: string | null
           customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string | null
