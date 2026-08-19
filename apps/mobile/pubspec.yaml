@@ -1,7 +1,7 @@
 name: modu_repair
 description: 모두의수선 - 비대면 의류 수선 플랫폼
 publish_to: 'none'
-version: 1.0.1+21
+version: 1.0.1+22
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -70,6 +70,7 @@ dependencies:
   # Apple Sign In
   sign_in_with_apple: ^6.1.0
   crypto: ^3.0.3
+  flutter_web_auth_2: ^4.1.0
   flutter_web_auth_2: ^4.1.0
   
   # Local Storage

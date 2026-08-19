@@ -271,7 +271,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+21`** (iOS·Play 동일) |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.1+22`** (iOS·Play 동일) |
 | App Store Connect App ID | `6759492888` |
 | iOS 스토어 | **출시** (2026-08-17) · `READY_FOR_SALE` · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
@@ -279,13 +279,15 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Play 상태 | Alpha **`21 (1.0.1)` 테스터 제공 중** · 프로덕션은 개인 계정 14일(약 **2026-08-28**) 이후 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+21`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+21.aab` |
+| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.1+22`) · 백업 `Documents/modo-android-signing/app-release-1.0.1+22.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
 | 개인정보처리방침 | https://modo.io.kr/privacy-policy |
 | 계정 삭제(Data safety) | https://modo.io.kr/profile/account |
-| 이용약관 | https://modo.io.kr/terms |
+| 이용약관 | https://modo.io.kr/terms (`app_contents.terms_of_service`) |
+| 결제·취소·환불 정책 | https://modo.io.kr/refund-policy (`app_contents.refund_policy`) |
+| 앱 다운로드 안내 | https://modo.io.kr/download (iOS 앱스토어 · Play는 준비 중) |
 | Apple Team | `6R7TSV8PV4` |
 | iOS 수출규정 | `ITSAppUsesNonExemptEncryption = false` (표준 HTTPS만 사용) |
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
@@ -345,10 +347,12 @@ flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
 15. ~~`1.0.1+19` 게스트 둘러보기·iPad Safari Apple 로그인~~ (5.1.1 / 2.1)
 16. ~~`1.0.1+20` 재심사 리스크 3건~~ (웹 세션 Apple 로그인 · 첫 실행 권한 제거 · 실제 비밀번호 변경)
 17. ~~`1.0.1+21` 가격 탭 가운데 정렬 · 수선 확인 널 가드 · 2.1 긴 화면 녹화~~ · **App Store 승인·출시 · Play Alpha 21**
-18. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
+18. **`1.0.1+22` 어드민 CS 처리** (재작업·수선비 환불·전손 보상 · 고객 회차 표시)
+19. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 19. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상**(약 **2026-08-28**) 후 프로덕션 액세스 신청
 20. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
 21. ~~Google Search Console~~ (소유확인 · 사이트맵 제출, 2026-08-18)
+22. ~~의류 전손·분실 보상 기준~~ (`app_contents` 제15조·환불정책 제6·7조, 2026-08-19)
 
 ### 검색 (`modo.io.kr`)
 
@@ -361,14 +365,34 @@ flutter build ipa --release --build-name=1.0.1 --build-number=<N> \
 | 수집 요청 | 홈 `/` (2026-08-18) |
 | 노출 | 보장 없음. 보통 1~2주 |
 
+### 약관 / 콘텐츠 (`app_contents`)
+
+웹·앱 약관은 DB `app_contents`에서 읽는다. 어드민 **콘텐츠**에서 수정. 페이지: `/terms` `/privacy-policy` `/refund-policy`.
+
+| 키 | URL | 비고 |
+|---|---|---|
+| `terms_of_service` | `/terms` | 제15조 손해배상 (2026-08-19 개정) |
+| `privacy_policy` | `/privacy-policy` | |
+| `refund_policy` | `/refund-policy` | 제6·7조 전손·분실 보상 |
+
+**전손·분실 보상 (회사 귀책만):** `min(잔존가치, 해당 주문 수선비×5, 20만 원)`. 20만 원은 1건당 한도(정액 지급 아님). 수선 실패(재작업 가능)는 재작업 또는 수선비 환불. 리셀 시세·희소성 제외. 신청 시 가치 신고 절차 없음.
+
+SQL: `apps/sql/migrations/20260819_update_damage_compensation.sql` (라이브 반영됨)
+
 ---
 
 ## 알려진 이슈 / 수정 이력
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-20 | 어드민 CS 처리 | 주문 상세에서 재작업·수선비 환불·전손·분실 보상. `order_cs_events` 이력. 고객 웹·앱에 회차/배너·푸시. 앱 `1.0.1+22` |
+| 2026-08-19 | 전손·분실 보상 | 이용약관 제15조·환불정책 제6·7조: `min(잔존가치, 수선비×5, 20만 원)`. 수선 실패는 재작업/수선비 환불. 가치 신고 없음. SQL `20260819_update_damage_compensation.sql` |
+| 2026-08-19 | 수선명 오타 | `repair_types.name` 「기잘 줄임」→「기장 줄임」(바지/청바지/치마). 앱 재빌드 불필요 |
+| 2026-08-18 | `/download` | 앱 받기 안내. iOS→앱스토어(`NEXT_PUBLIC_IOS_APP_URL`). Android는 Play 프로덕션 전이라 준비 중 |
+| 2026-08-18 | Google 검색 | Search Console 소유확인(HTML 메타 `google-site-verification`) · 사이트맵 제출. 계정 `vovok112@gmail.com` |
 | 2026-08-18 | 네이버 검색 | 서치어드바이저 소유확인(HTML 메타) · 사이트맵 `https://modo.io.kr/sitemap.xml` 제출 · 홈(`/`) 수집 요청. 노출은 보통 1~2주, 보장 없음 |
 | 2026-08-17 | App Store 출시 | 빌드 **21** (`1.0`) `READY_FOR_SALE`. https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| 2026-08-16 | 스토어 `1.0.1+21` | 가격 안내 탭 가운데 정렬(앱·웹) · 수선 확인 `priceRange` 널 가드. App Store **빌드 21 + 긴 시뮬 녹화** 재제출(2.1). Play Alpha **21 AAB**. |
 | 2026-08-16 | 스토어 `1.0.1+21` | 가격 안내 탭 가운데 정렬(앱·웹) · 수선 확인 `priceRange` 널 가드. App Store **빌드 21 + 긴 시뮬 녹화** 재제출(2.1). Play Alpha **21 AAB**. |
 | 2026-08-15 | 스토어 `1.0.1+20` | App Store 16 거절(2.1 iPad Apple 1000 · 5.1.1 로그인 벽) 대응. 비회원 홈·가격표 · iPad `ASWebAuthenticationSession` · 권한은 기능 사용 시 · 이메일 계정만 실제 비밀번호 변경. iOS **20 `WAITING_FOR_REVIEW`** · Play Alpha **20 검토 전송**. 웹(`modo.io.kr`)은 원래 비회원 가격 열람이라 변경 없음 |
 | 2026-08-13 | Play target API 36 | Play 정책(기한 2026-08-31): `compileSdk`/`targetSdk` **36** 고정 · versionCode **18** AAB · minSdk 24(이전 15는 21)·ABI 3개로 지원 기기 일부 감소 경고는 Alpha·설치 0명 기준 진행 가능 → **`1.0.1+18`** |

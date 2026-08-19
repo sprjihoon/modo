@@ -40,6 +40,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   bool _isCancelling = false; // 취소 중 상태 추가
   Map<String, dynamic>? _orderData;
   Map<String, dynamic>? _shipmentData;
+  List<Map<String, dynamic>> _csEvents = [];
 
   // 실제 사진 데이터 (State로 관리)
   List<Map<String, dynamic>> _images = [];
@@ -184,9 +185,25 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       
       debugPrint('📊 주문 상태: $newStatus (이전: $_currentStatus, initial=$isInitialLoad)');
 
+      List<Map<String, dynamic>> csEvents = [];
+      try {
+        final csRows = await Supabase.instance.client
+            .from('order_cs_events')
+            .select(
+                'id, cycle, action, reason, amount, clothes_location, metadata, created_at')
+            .eq('order_id', widget.orderId)
+            .order('created_at', ascending: false);
+        csEvents = (csRows as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      } catch (e) {
+        debugPrint('CS 이력 조회 생략: $e');
+      }
+
       setState(() {
         _orderData = order;
         _shipmentData = shipment;
+        _csEvents = csEvents;
         _currentStatus = newStatus;
         _images = images;
         _isLoading = false;
@@ -391,6 +408,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
           children: [
             // 상태 배너
             _buildStatusBanner(context),
+            _buildCsBanner(context),
 
             // 🆕 추가 결제 요청 카드 (PENDING_CUSTOMER 상태일 때만 표시)
             _buildExtraChargeCard(context),
@@ -1013,6 +1031,105 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         ),
       );
     }
+  }
+
+  Widget _buildCsBanner(BuildContext context) {
+    final cycle = (_orderData?['cs_cycle'] as num?)?.toInt() ?? 1;
+    final csStatus = _orderData?['cs_status'] as String?;
+    if (cycle <= 1 &&
+        csStatus == null &&
+        _csEvents.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    String? title;
+    String? body;
+    Color bg = const Color(0xFFEEF8F4);
+    Color fg = const Color(0xFF0F766E);
+
+    if (csStatus == 'REPAIR_REFUNDED') {
+      final amount = _csEvents
+          .where((e) => e['action'] == 'REPAIR_REFUND')
+          .map((e) => e['amount'] as num?)
+          .whereType<num>()
+          .firstOrNull;
+      title = '수선비 환불 완료';
+      body = amount != null
+          ? '수선비 ${amount.toInt().toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원이 환불 처리됩니다.'
+          : '수선비가 환불 처리됩니다. 카드사 기준 3~7 영업일입니다.';
+    } else if (csStatus == 'COMPENSATED') {
+      final amount = _csEvents
+          .where((e) => e['action'] == 'COMPENSATION')
+          .map((e) => e['amount'] as num?)
+          .whereType<num>()
+          .firstOrNull;
+      title = '보상 처리됨';
+      body = amount != null
+          ? '전손·분실 보상 ${amount.toInt()}원으로 처리되었습니다.'
+          : '전손·분실 보상으로 처리되었습니다.';
+      bg = const Color(0xFFFFF7ED);
+      fg = const Color(0xFF9A3412);
+    } else if (cycle > 1 || csStatus == 'REWORK') {
+      title = '재작업 ${cycle}회차 진행 중';
+      body = '같은 주문으로 수선을 다시 진행합니다. 아래는 현재 회차입니다.';
+    }
+
+    final previous = _csEvents.where((e) => e['action'] == 'REWORK').toList();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: fg.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null)
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: fg,
+                fontSize: 14,
+              ),
+            ),
+          if (body != null) ...[
+            const SizedBox(height: 4),
+            Text(body, style: TextStyle(fontSize: 13, color: fg, height: 1.4)),
+          ],
+          if (previous.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              '이전 진행',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            ...previous.map((e) {
+              final meta = e['metadata'];
+              final snap = meta is Map ? meta['shipmentSnapshot'] : null;
+              final snapMap = snap is Map ? Map<String, dynamic>.from(snap) : null;
+              final pickup = snapMap?['pickup_tracking_no'];
+              final delivery = snapMap?['delivery_tracking_no'];
+              return Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '${e['cycle']}회차 시작'
+                  '${pickup != null ? ' · 수거 $pickup' : ''}'
+                  '${delivery != null ? ' · 배송 $delivery' : ''}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _buildStatusBanner(BuildContext context) {

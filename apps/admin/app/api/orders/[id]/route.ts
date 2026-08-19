@@ -48,6 +48,8 @@ export async function GET(
       .from('shipments')
       .select('*')
       .eq('order_id', orderId)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     // Get videos for this order

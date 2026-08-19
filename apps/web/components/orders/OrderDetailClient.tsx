@@ -46,6 +46,8 @@ interface OrderData {
   memo?: string;
   pickup_date?: string;
   tracking_no?: string;
+  cs_cycle?: number;
+  cs_status?: string | null;
   repair_items?: RepairItem[];
   repair_parts?: RepairItem[];
   canceled_repair_parts?: number[];
@@ -143,6 +145,17 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   // 수선 전/후 사진
   const [repairPhotoItems, setRepairPhotoItems] = useState<
     Array<{ sequence: number; label: string; before?: string; after?: string }>
+  >([]);
+  const [csEvents, setCsEvents] = useState<
+    Array<{
+      id: string;
+      cycle: number;
+      action: string;
+      reason: string;
+      amount?: number | null;
+      metadata?: { shipmentSnapshot?: { pickup_tracking_no?: string; delivery_tracking_no?: string }; previousCycle?: number };
+      created_at: string;
+    }>
   >([]);
 
   // 배송지/메모 수정 상태
@@ -308,8 +321,16 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           .from("shipments")
           .select("tracking_no, pickup_tracking_no, delivery_tracking_no, carrier, status")
           .eq("order_id", orderId)
+          .order("created_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
         setShipment(s);
+        const { data: ev, error: evErr } = await supabase
+          .from("order_cs_events")
+          .select("id, cycle, action, reason, amount, metadata, created_at")
+          .eq("order_id", orderId)
+          .order("created_at", { ascending: false });
+        setCsEvents(evErr || !ev ? [] : (ev as typeof csEvents));
         await loadVideoUrls(s, data);
       }
     } catch { /* ignore */ } finally {
@@ -834,6 +855,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
               statusInfo.color, statusInfo.bgColor
             )}
           >
+            {(order.cs_cycle ?? 1) > 1 ? `재작업 ${order.cs_cycle}회차 · ` : ""}
             {statusInfo.label}
           </span>
         </div>
@@ -843,6 +865,54 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           </p>
         )}
       </div>
+
+      {(() => {
+        const cycle = order.cs_cycle ?? 1;
+        const csStatus = order.cs_status;
+        const refund = csEvents.find((e) => e.action === "REPAIR_REFUND");
+        const comp = csEvents.find((e) => e.action === "COMPENSATION");
+        const reworks = csEvents.filter((e) => e.action === "REWORK");
+        if (cycle <= 1 && !csStatus && csEvents.length === 0) return null;
+        return (
+          <div className="mx-4 mt-3 p-4 bg-[#EEF8F4] border border-teal-100 rounded-2xl">
+            {csStatus === "REPAIR_REFUNDED" && (
+              <p className="text-sm font-bold text-teal-800">
+                수선비 환불 완료
+                {refund?.amount != null ? ` · ${formatPrice(refund.amount)}` : ""}
+              </p>
+            )}
+            {csStatus === "COMPENSATED" && (
+              <p className="text-sm font-bold text-amber-800">
+                보상 처리됨
+                {comp?.amount != null ? ` · ${formatPrice(comp.amount)}` : ""}
+              </p>
+            )}
+            {(cycle > 1 || csStatus === "REWORK") && csStatus !== "REPAIR_REFUNDED" && csStatus !== "COMPENSATED" && (
+              <p className="text-sm font-bold text-teal-800">
+                재작업 {cycle}회차 진행 중
+              </p>
+            )}
+            <p className="text-xs text-teal-700 mt-1">
+              아래 진행 현황은 현재 회차입니다.
+            </p>
+            {reworks.length > 0 && (
+              <div className="mt-3 space-y-1">
+                <p className="text-xs font-semibold text-gray-600">이전 진행</p>
+                {reworks.map((e) => {
+                  const snap = e.metadata?.shipmentSnapshot;
+                  return (
+                    <p key={e.id} className="text-xs text-gray-500">
+                      {e.cycle}회차 시작
+                      {snap?.pickup_tracking_no ? ` · 수거 ${snap.pickup_tracking_no}` : ""}
+                      {snap?.delivery_tracking_no ? ` · 배송 ${snap.delivery_tracking_no}` : ""}
+                    </p>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── 진행 현황 타임라인 (6단계) ── */}
       {!isCancelled && (

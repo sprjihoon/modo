@@ -13,6 +13,7 @@ import { WorkOrderPrintDialog } from "@/components/orders/work-order-print-dialo
 import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
 import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review-dialog";
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
+import { OrderCsCard } from "@/components/orders/order-cs-card";
 import { canShowReturnShipmentUi, getEffectiveOrderStatus } from "@/lib/order-return-flow";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
 import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image, RotateCcw, PlusCircle } from "lucide-react";
@@ -667,6 +668,10 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
           deliveryTrackingNo={displayOrder.deliveryTrackingNo}
           onReturnShipmentCreated={() => loadOrder()}
         />
+      )}
+
+      {order && (
+        <OrderCsCard order={order} onChanged={() => loadOrder()} />
       )}
 
       <div className="grid gap-6 md:grid-cols-2">
