@@ -23,13 +23,18 @@ export function compensationAmount(residualValue: number, repairFee: number): nu
   return Math.min(residual, fiveX, CS_COMPENSATION_CAP);
 }
 
+function jsonText(value: unknown): string | null {
+  if (value == null) return null;
+  return String(value);
+}
+
 export function snapshotShipment(shipment: Record<string, unknown> | null | undefined) {
   if (!shipment) return null;
   return {
-    pickup_tracking_no: shipment.pickup_tracking_no ?? shipment.tracking_no ?? null,
-    delivery_tracking_no: shipment.delivery_tracking_no ?? null,
-    pickup_scheduled_date: shipment.pickup_scheduled_date ?? null,
-    status: shipment.status ?? null,
+    pickup_tracking_no: jsonText(shipment.pickup_tracking_no ?? shipment.tracking_no),
+    delivery_tracking_no: jsonText(shipment.delivery_tracking_no),
+    pickup_scheduled_date: jsonText(shipment.pickup_scheduled_date),
+    status: jsonText(shipment.status),
   };
 }
 
