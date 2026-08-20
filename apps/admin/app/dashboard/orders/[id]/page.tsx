@@ -849,6 +849,9 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              카드 취소·부분 환불은 여기서 합니다. 누가·왜 했는지는 위 CS 처리 이력에서 따로 봅니다.
+            </p>
             <div>
               <p className="text-sm text-muted-foreground">결제 금액</p>
               <p className="text-2xl font-bold">₩{displayOrder.amount.toLocaleString()}</p>

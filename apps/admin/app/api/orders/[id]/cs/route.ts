@@ -18,26 +18,6 @@ async function actorName(admin: ReturnType<typeof getSupabaseAdmin>, actorId: st
   return data?.name ?? "관리자";
 }
 
-async function portonePartialCancel(paymentId: string, amount: number, reason: string) {
-  const key = process.env.PORTONE_API_SECRET;
-  if (!key) throw new Error("PORTONE_API_SECRET이 없습니다.");
-  const res = await fetch(
-    `https://api.portone.io/payments/${encodeURIComponent(paymentId)}/cancel`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `PortOne ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ reason, amount }),
-    }
-  );
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || "결제 환불에 실패했습니다.");
-  }
-  return data;
-}
 
 export async function GET(
   _request: NextRequest,
@@ -72,7 +52,7 @@ export async function POST(
   const action = body.action as CsAction;
   const reason = String(body.reason ?? "").trim();
 
-  if (!["REWORK", "REPAIR_REFUND", "COMPENSATION"].includes(action)) {
+  if (!["REWORK", "REPAIR_REFUND", "COMPENSATION", "PAYMENT_REFUND"].includes(action)) {
     return NextResponse.json({ success: false, error: "유효하지 않은 처리입니다." }, { status: 400 });
   }
   if (!reason) {
@@ -92,7 +72,7 @@ export async function POST(
   }
 
   const csStatus = (order.cs_status as string | null) ?? null;
-  if (CLOSED_CS_STATUSES.has(csStatus ?? "")) {
+  if (CLOSED_CS_STATUSES.has(csStatus ?? "") && action !== "REPAIR_REFUND" && action !== "PAYMENT_REFUND") {
     return NextResponse.json(
       { success: false, error: "환불·보상 처리된 주문은 다시 CS 처리할 수 없습니다." },
       { status: 400 }
@@ -228,49 +208,55 @@ export async function POST(
     });
   }
 
-  if (action === "REPAIR_REFUND") {
-    if (repairFee <= 0) {
-      return NextResponse.json({ success: false, error: "환불할 수선비가 없습니다." }, { status: 400 });
+  if (action === "PAYMENT_REFUND" || action === "REPAIR_REFUND") {
+    const amount = Number(body.amount);
+    const recordedAmount = Number.isFinite(amount) && amount > 0 ? Math.round(amount) : 0;
+    if (recordedAmount <= 0) {
+      return NextResponse.json({ success: false, error: "환불 금액이 없습니다." }, { status: 400 });
     }
-    if (order.payment_id) {
-      await portonePartialCancel(order.payment_id, repairFee, `CS 수선비 환불: ${reason}`);
-      await admin
+
+    if (action === "REPAIR_REFUND" && csStatus !== "COMPENSATED") {
+      const { error: updErr } = await admin
         .from("orders")
-        .update({
-          payment_status: "PARTIAL_CANCELED",
-          cs_status: "REPAIR_REFUNDED",
-        })
+        .update({ cs_status: "REPAIR_REFUNDED" })
         .eq("id", orderId);
-    } else {
-      await admin.from("orders").update({ cs_status: "REPAIR_REFUNDED" }).eq("id", orderId);
+      if (updErr) {
+        return NextResponse.json({ success: false, error: updErr.message }, { status: 500 });
+      }
     }
 
     const { error: evErr } = await admin.from("order_cs_events").insert({
       order_id: orderId,
       cycle: currentCycle,
-      action: "REPAIR_REFUND",
+      action,
       reason,
-      amount: repairFee,
+      amount: recordedAmount,
+      payout_status: "PAID",
       actor_id: auth.user.id,
       actor_name: name,
     });
     if (evErr) {
       throw new Error(
-        `환불은 요청됐지만 이력 저장에 실패했습니다. 중복 환불하지 마세요. (${evErr.message})`
+        `이력 저장에 실패했습니다. 결제는 이미 취소됐을 수 있으니 결제 정보를 확인해 주세요. (${evErr.message})`
       );
     }
 
-    await notifyCustomer(admin, {
-      userId: order.user_id,
-      orderId,
-      type: "order_cs_repair_refund",
-      title: "수선비 환불",
-      body: `주문(${orderNumber}) 수선비 ${repairFee.toLocaleString()}원이 환불 처리됩니다. 카드사 기준 3~7 영업일입니다.`,
-    });
+    if (action === "REPAIR_REFUND" && !body.skipNotify) {
+      await notifyCustomer(admin, {
+        userId: order.user_id,
+        orderId,
+        type: "order_cs_repair_refund",
+        title: "수선비 환불",
+        body: `주문(${orderNumber}) 수선비 ${recordedAmount.toLocaleString()}원이 환불 처리됩니다. 카드사 기준 3~7 영업일입니다.`,
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      message: `수선비 ${repairFee.toLocaleString()}원 환불을 처리했습니다.`,
+      message:
+        action === "REPAIR_REFUND"
+          ? `수선비 ${recordedAmount.toLocaleString()}원 환불을 기록했습니다.`
+          : `결제 취소/환불 ${recordedAmount.toLocaleString()}원을 이 주문 이력에 남겼습니다.`,
     });
   }
 
@@ -283,17 +269,12 @@ export async function POST(
   const refundRepairFee = Boolean(body.refundRepairFee);
   const payoutMethod = String(body.payoutMethod ?? "BANK");
 
-  if (refundRepairFee && repairFee > 0 && order.payment_id) {
-    await portonePartialCancel(order.payment_id, repairFee, `CS 전손 처리 수선비 환불: ${reason}`);
-    await admin
-      .from("orders")
-      .update({
-        payment_status: "PARTIAL_CANCELED",
-        cs_status: "COMPENSATED",
-      })
-      .eq("id", orderId);
-  } else {
-    await admin.from("orders").update({ cs_status: "COMPENSATED" }).eq("id", orderId);
+  const { error: updErr } = await admin
+    .from("orders")
+    .update({ cs_status: "COMPENSATED" })
+    .eq("id", orderId);
+  if (updErr) {
+    return NextResponse.json({ success: false, error: updErr.message }, { status: 500 });
   }
 
   const { error: evErr } = await admin.from("order_cs_events").insert({

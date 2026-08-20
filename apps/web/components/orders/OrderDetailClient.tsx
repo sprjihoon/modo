@@ -872,7 +872,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         const refund = csEvents.find((e) => e.action === "REPAIR_REFUND");
         const comp = csEvents.find((e) => e.action === "COMPENSATION");
         const reworks = csEvents.filter((e) => e.action === "REWORK");
-        if (cycle <= 1 && !csStatus && csEvents.length === 0) return null;
+        if (cycle <= 1 && !csStatus) return null;
         return (
           <div className="mx-4 mt-3 p-4 bg-[#EEF8F4] border border-teal-100 rounded-2xl">
             {csStatus === "REPAIR_REFUNDED" && (

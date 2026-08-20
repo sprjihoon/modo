@@ -44,12 +44,29 @@ const methodLabel: Record<string, string> = {
   EasyPay: "간편결제",
 };
 
+export type PaymentRefundResult = {
+  amount: number;
+  reason: string;
+  type: "full" | "partial";
+};
+
+export type PaymentRefundPreset = {
+  type?: "full" | "partial";
+  amount?: number;
+  reason?: string;
+  lockAmount?: boolean;
+};
+
 interface PaymentRefundDialogProps {
   orderId: string;
   paymentId: string;
   originalAmount: number;
   paymentMethod: string;
-  onRefunded?: () => void;
+  onRefunded?: (result: PaymentRefundResult) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+  preset?: PaymentRefundPreset;
 }
 
 export function PaymentRefundDialog({
@@ -58,11 +75,23 @@ export function PaymentRefundDialog({
   originalAmount,
   paymentMethod,
   onRefunded,
+  open: openProp,
+  onOpenChange,
+  hideTrigger,
+  preset,
 }: PaymentRefundDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [refundType, setRefundType] = useState<"full" | "partial">("full");
-  const [refundAmount, setRefundAmount] = useState<string>("");
-  const [reason, setReason] = useState<string>("");
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
+  const [refundType, setRefundType] = useState<"full" | "partial">(preset?.type ?? "full");
+  const [refundAmount, setRefundAmount] = useState<string>(
+    preset?.amount != null ? String(preset.amount) : ""
+  );
+  const [reason, setReason] = useState<string>(preset?.reason ?? "");
   const [loading, setLoading] = useState(false);
 
   const [portonePayment, setPortonePayment] = useState<PortonePaymentInfo | null>(null);
@@ -71,6 +100,16 @@ export function PaymentRefundDialog({
   useEffect(() => {
     if (open && paymentId) {
       loadPaymentInfo();
+    }
+    if (open && preset) {
+      setRefundType(preset.type ?? "full");
+      setRefundAmount(preset.amount != null ? String(preset.amount) : "");
+      setReason(preset.reason ?? "");
+    }
+    if (!open) {
+      setRefundType(preset?.type ?? "full");
+      setRefundAmount(preset?.amount != null ? String(preset.amount) : "");
+      setReason(preset?.reason ?? "");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, paymentId]);
@@ -140,13 +179,39 @@ export function PaymentRefundDialog({
       const result = await response.json();
 
       if (response.ok && result.success) {
+        if (orderId) {
+          try {
+            const csRes = await fetch(`/api/orders/${orderId}/cs`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: preset?.lockAmount ? "REPAIR_REFUND" : "PAYMENT_REFUND",
+                reason: reason.trim(),
+                amount: requestedAmount,
+                skipNotify: true,
+              }),
+            });
+            const csData = await csRes.json();
+            if (!csRes.ok || !csData.success) {
+              throw new Error(csData.error || "CS 이력 저장 실패");
+            }
+          } catch (csError: unknown) {
+            alert(
+              `카드 취소는 완료됐지만 CS 이력 저장에 실패했습니다.\n${(csError as Error).message || ""}`
+            );
+          }
+        }
         const message =
           refundType === "full"
             ? "전체 취소가 완료되었습니다."
             : `부분 취소가 완료되었습니다.\n취소금액: ₩${parseInt(refundAmount).toLocaleString()}`;
         alert(message);
         setOpen(false);
-        onRefunded?.();
+        onRefunded?.({
+          amount: requestedAmount,
+          reason: reason.trim(),
+          type: refundType,
+        });
       } else {
         alert(`결제 취소 실패\n\n${result.message || result.error || "결제 취소에 실패했습니다."}`);
       }
@@ -170,14 +235,18 @@ export function PaymentRefundDialog({
     portonePayment?.status === "CANCELLED" ||
     (portonePayment?.status === "PARTIAL_CANCELLED" && maxRefundableAmount <= 0);
 
+  const amountLocked = Boolean(preset?.lockAmount && refundType === "partial");
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="destructive" size="sm">
-          <X className="mr-2 h-4 w-4" />
-          결제 취소/환불
-        </Button>
-      </DialogTrigger>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          <Button variant="destructive" size="sm">
+            <X className="mr-2 h-4 w-4" />
+            결제 취소/환불
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>결제 취소 및 환불</DialogTitle>
@@ -277,11 +346,20 @@ export function PaymentRefundDialog({
 
               {!isAlreadyCancelled && maxRefundableAmount > 0 && (
                 <>
+                  {amountLocked && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        CS 수선비 환불입니다. 수선비만큼 부분 취소하고, 완료되면 CS 이력에 남습니다.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <div className="space-y-3">
                     <Label>취소 유형</Label>
                     <RadioGroup
                       value={refundType}
                       onValueChange={(v) => setRefundType(v as "full" | "partial")}
+                      disabled={amountLocked}
                     >
                       <div className="flex items-center space-x-2 p-3 border rounded-lg">
                         <RadioGroupItem value="full" id="full" />
@@ -322,6 +400,7 @@ export function PaymentRefundDialog({
                         onChange={(e) => setRefundAmount(e.target.value)}
                         max={maxRefundableAmount}
                         min={1}
+                        disabled={amountLocked}
                       />
                       {partialRefundAmount > 0 && (
                         <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">

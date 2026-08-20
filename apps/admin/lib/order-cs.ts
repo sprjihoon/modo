@@ -1,6 +1,6 @@
 export const CS_COMPENSATION_CAP = 200_000;
 
-export type CsAction = "REWORK" | "REPAIR_REFUND" | "COMPENSATION";
+export type CsAction = "REWORK" | "REPAIR_REFUND" | "COMPENSATION" | "PAYMENT_REFUND";
 export type CsStatus = "REWORK" | "REPAIR_REFUNDED" | "COMPENSATED" | null;
 
 export function repairFeeOf(order: {

@@ -43,6 +43,7 @@ import {
   PanelLeft,
   LucideIcon,
   RotateCcw,
+  Wallet,
 } from "lucide-react";
 
 interface NavItem {
@@ -95,6 +96,7 @@ const navGroups: NavGroup[] = [
     icon: DollarSign,
     items: [
       { title: "결제 내역", href: "/dashboard/payments", icon: CreditCard },
+      { title: "환불·보상 관리", href: "/dashboard/cs-ledger", icon: Wallet },
       { title: "정산 관리", href: "/dashboard/settlements", icon: DollarSign },
     ],
   },

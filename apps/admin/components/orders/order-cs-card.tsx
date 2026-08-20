@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CS_COMPENSATION_CAP, compensationAmount, repairFeeOf } from "@/lib/order-cs";
+import { PaymentRefundDialog } from "@/components/orders/payment-refund-dialog";
 
 type CsEvent = {
   id: string;
@@ -33,6 +34,7 @@ type CsEvent = {
 const ACTION_LABEL: Record<string, string> = {
   REWORK: "재작업",
   REPAIR_REFUND: "수선비 환불",
+  PAYMENT_REFUND: "결제 취소/환불",
   COMPENSATION: "전손·분실 보상",
 };
 
@@ -52,6 +54,14 @@ export function OrderCsCard({
   const [payoutMethod, setPayoutMethod] = useState("BANK");
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payPreset, setPayPreset] = useState<{
+    type: "partial";
+    amount: number;
+    reason: string;
+    lockAmount: boolean;
+  } | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const repairFee = repairFeeOf(order ?? {});
   const residual = Number(residualValue) || 0;
@@ -74,32 +84,66 @@ export function OrderCsCard({
   };
 
   useEffect(() => {
+    setEvents([]);
+    setLoadError(null);
+    setExpanded(false);
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.id]);
+
+  useEffect(() => {
+    if (!order?.id) return;
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.cs_status, order?.payment_status, order?.updated_at]);
+
+  const hasHistory = cycle > 1 || Boolean(order?.cs_status) || events.length > 0;
+  const showPanel = expanded || hasHistory;
+
+  const recordCs = async (payload: Record<string, unknown>) => {
+    const res = await fetch(`/api/orders/${order.id}/cs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || "처리 실패");
+    return data;
+  };
 
   const submit = async () => {
     if (!order?.id || !reason.trim()) {
       alert("사유를 입력해 주세요.");
       return;
     }
+
+    if (open === "REPAIR_REFUND") {
+      if (order.payment_id && repairFee > 0) {
+        setPayPreset({
+          type: "partial",
+          amount: repairFee,
+          reason: reason.trim(),
+          lockAmount: true,
+        });
+        setOpen(null);
+        setPayOpen(true);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
-      const res = await fetch(`/api/orders/${order.id}/cs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: open,
-          reason: reason.trim(),
-          pickupDate: pickupDate || undefined,
-          residualValue: residualValue ? Number(residualValue) : undefined,
-          refundRepairFee,
-          payoutMethod,
-        }),
+      const data = await recordCs({
+        action: open,
+        reason: reason.trim(),
+        pickupDate: pickupDate || undefined,
+        residualValue: residualValue ? Number(residualValue) : undefined,
+        refundRepairFee,
+        payoutMethod,
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "처리 실패");
       alert(data.message || "처리되었습니다.");
+      const shouldRefundRepairFee = open === "COMPENSATION" && refundRepairFee;
+      const savedReason = reason.trim();
       setOpen(null);
       setReason("");
       setPickupDate("");
@@ -107,12 +151,31 @@ export function OrderCsCard({
       setRefundRepairFee(false);
       await load();
       onChanged();
+      if (shouldRefundRepairFee && order.payment_id && repairFee > 0) {
+        setPayPreset({
+          type: "partial",
+          amount: repairFee,
+          reason: `CS 전손 처리 수선비 환불: ${savedReason}`,
+          lockAmount: true,
+        });
+        setPayOpen(true);
+      }
     } catch (e: any) {
       alert(e?.message || "처리에 실패했습니다.");
     } finally {
       setLoading(false);
     }
   };
+
+  if (!showPanel) {
+    return (
+      <div className="flex justify-end">
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setExpanded(true)}>
+          CS 처리
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Card>
@@ -124,10 +187,15 @@ export function OrderCsCard({
             {order?.cs_status && (
               <Badge>{ACTION_LABEL[order.cs_status === "REWORK" ? "REWORK" : order.cs_status === "REPAIR_REFUNDED" ? "REPAIR_REFUND" : "COMPENSATION"]}</Badge>
             )}
+            {!hasHistory && (
+              <Button variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+                닫기
+              </Button>
+            )}
           </div>
         </CardTitle>
         <CardDescription>
-          재작업은 같은 주문으로 물류를 한 바퀴 더 돕니다. 환불·보상은 이 주문을 닫습니다.
+          재작업·환불·보상 기록은 여기서만 봅니다. 카드 환불은 결제 정보의 취소/환불을 타며, 이력은 이 목록에 남습니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -142,10 +210,6 @@ export function OrderCsCard({
             전손·분실 보상
           </Button>
         </div>
-
-        <p className="text-sm text-muted-foreground">
-          수선비(배송비 제외): ₩{repairFee.toLocaleString()}
-        </p>
 
         <div className="space-y-2">
           <p className="text-sm font-medium">처리 이력</p>
@@ -196,9 +260,9 @@ export function OrderCsCard({
                   ? "옷이 고객 집에 있습니다. 수거일을 지정하면 기존 수거 로직을 다시 탑니다. 1회차 송장은 이력에 남습니다."
                   : "옷이 공방에 있으면 수거 없이 작업부터 다시 진행합니다.")}
               {open === "REPAIR_REFUND" &&
-                `수선비 ₩${repairFee.toLocaleString()}을 부분 환불합니다. 주문은 취소 상태가 되지 않습니다.`}
+                `확인하면 결제 정보의 취소/환불이 열리고, 수선비 ₩${repairFee.toLocaleString()}를 부분 취소합니다. 성공한 뒤에만 이 이력이 남습니다.`}
               {open === "COMPENSATION" &&
-                "지급액 = min(잔존가치, 수선비×5, 20만 원). 20만 원은 한도입니다. 실제 송금은 이 기록 후 별도로 합니다."}
+                "지급액 = min(잔존가치, 수선비×5, 20만 원). 20만 원은 한도입니다. 여기서는 기록만 하고, 실제 송금은 별도로 합니다."}
             </DialogDescription>
           </DialogHeader>
 
@@ -231,7 +295,7 @@ export function OrderCsCard({
                   checked={refundRepairFee}
                   onChange={(e) => setRefundRepairFee(e.target.checked)}
                 />
-                수선비도 함께 환불 (기본 끔)
+                수선비도 결제 취소/환불로 이어서 처리 (기본 끔)
               </label>
               <div className="space-y-2">
                 <Label>지급 방법</Label>
@@ -258,11 +322,32 @@ export function OrderCsCard({
               닫기
             </Button>
             <Button onClick={submit} disabled={loading}>
-              {loading ? "처리 중…" : "확인"}
+              {loading ? "처리 중…" : open === "REPAIR_REFUND" ? "결제 취소로 이동" : "확인"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {order?.payment_id && (
+        <PaymentRefundDialog
+          orderId={order.id}
+          paymentId={order.payment_id}
+          originalAmount={order.total_price ?? repairFee}
+          paymentMethod={order.payment_method || "신용카드"}
+          hideTrigger
+          open={payOpen}
+          onOpenChange={(next) => {
+            setPayOpen(next);
+            if (!next) setPayPreset(null);
+          }}
+          preset={payPreset ?? undefined}
+          onRefunded={async () => {
+            setReason("");
+            await load();
+            onChanged();
+          }}
+        />
+      )}
     </Card>
   );
 }

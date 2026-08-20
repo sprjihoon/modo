@@ -1036,9 +1036,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   Widget _buildCsBanner(BuildContext context) {
     final cycle = (_orderData?['cs_cycle'] as num?)?.toInt() ?? 1;
     final csStatus = _orderData?['cs_status'] as String?;
-    if (cycle <= 1 &&
-        csStatus == null &&
-        _csEvents.isEmpty) {
+    if (cycle <= 1 && csStatus == null) {
       return const SizedBox.shrink();
     }
 
