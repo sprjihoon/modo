@@ -16,6 +16,8 @@ import '../../../../app.dart';
 import '../widgets/extra_charge_alert_banner.dart';
 import '../widgets/launch_announcement_popup.dart';
 import '../../../orders/presentation/widgets/order_limit_dialog.dart';
+import '../../../app_update/app_update_dialog.dart';
+import '../../../notifications/presentation/widgets/notification_permission_prompt.dart';
 
 /// 배너 인덱스 관리를 위한 ValueNotifier
 final bannerIndexProvider =
@@ -67,9 +69,14 @@ class _HomePageState extends ConsumerState<HomePage>
     _ordersFuture = _getCachedOrders();
     _warmIconCache();
     // 웹 LaunchAnnouncementPopup과 동일 (popups 테이블)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        LaunchAnnouncementPopup.maybeShow(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await AppUpdatePrompt.maybeShow(context);
+      if (!mounted) return;
+      await LaunchAnnouncementPopup.maybeShow(context);
+      if (!mounted) return;
+      if (ref.read(isLoggedInProvider)) {
+        await NotificationPermissionPrompt.maybeShow(context);
       }
     });
   }

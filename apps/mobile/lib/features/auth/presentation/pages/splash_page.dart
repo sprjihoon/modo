@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/providers/auth_provider.dart';
+import '../../../../core/app_update/app_version_compare.dart';
+import '../../../app_update/app_update_dialog.dart';
 
 /// 스플래시 화면
 class SplashPage extends ConsumerStatefulWidget {
@@ -22,6 +24,16 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   Future<void> _checkAuthAndNavigate() async {
     // 2초 대기 (스플래시 화면 표시)
     await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+
+    final updateKind = await AppUpdatePrompt.maybeShow(
+      context,
+      allowSoft: false,
+    );
+    if (updateKind == AppUpdateKind.force) {
+      return;
+    }
 
     if (!mounted) return;
 

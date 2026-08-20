@@ -46,7 +46,8 @@
 ### 관련 (앱)
 - 네이버 SDK 상세: [`apps/mobile/NAVER_LOGIN_SETUP.md`](../apps/mobile/NAVER_LOGIN_SETUP.md)
 - 홈 팝업: 어드민 **콘텐츠 → 팝업 관리** (`popups` 테이블) · 웹·앱 홈 공통
-- 스토어 버전/출시 상태: 루트 [`README.md`](../README.md) 「앱스토어 / Play 출시 준비」 (`1.0.1+22`, iOS 앱스토어 출시 · Play Alpha, MinOS 15)
+- 스토어 버전/출시 상태: 루트 [`README.md`](../README.md) 「앱스토어 / Play 출시 준비」 (`1.0.2+25`, iOS `1.0` 판매 중 · IPA 25 업로드 · Play Alpha 25 업로드, MinOS 15)
+- 앱 업데이트 안내: `app_versions` · 어드민 설정 → 앱 버전
 - 어드민 CS: 주문 상세에서 재작업·수선비 환불·전손 보상 (`order_cs_events`)
 - 배포 절차 상세: [`deployment.md`](deployment.md)
 
@@ -275,6 +276,6 @@ GitHub Issues에 버그/기능 요청 등록
 
 ---
 
-**Last Updated**: 2026-08-16
-**Version**: 1.0.1+22
+**Last Updated**: 2026-08-20
+**Version**: 1.0.2+25
 

@@ -44,6 +44,7 @@ import {
   LucideIcon,
   RotateCcw,
   Wallet,
+  Smartphone,
 } from "lucide-react";
 
 interface NavItem {
@@ -139,6 +140,7 @@ const navGroups: NavGroup[] = [
     icon: Settings,
     items: [
       { title: "작업 내역", href: "/dashboard/work-history", icon: ClipboardList },
+      { title: "앱 버전", href: "/dashboard/settings/app-versions", icon: Smartphone },
       { title: "설정", href: "/dashboard/settings", icon: Settings },
     ],
   },

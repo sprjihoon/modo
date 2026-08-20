@@ -19,6 +19,7 @@ import {
   Package,
   Clock,
   Send,
+  Smartphone,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -469,6 +470,32 @@ export default function SettingsPage() {
                 }
               </Button>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-emerald-200 dark:border-emerald-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5 text-emerald-600" />
+            앱 버전 · 업데이트 안내
+          </CardTitle>
+          <CardDescription>스토어에 올린 최신 버전을 넣으면 앱에서 업데이트를 안내합니다</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">아이폰 · 안드로이드 최신/최소 버전</p>
+              <p className="text-sm text-muted-foreground">
+                강제 업데이트와 스토어 URL도 여기서 바꿉니다
+              </p>
+            </div>
+            <Link href="/dashboard/settings/app-versions">
+              <Button>
+                설정 관리
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

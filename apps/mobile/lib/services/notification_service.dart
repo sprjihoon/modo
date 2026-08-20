@@ -29,6 +29,7 @@ class NotificationService {
 
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
+  bool _listenersReady = false;
 
   /// 알림 탭 시 네비게이션 이벤트 스트림
   /// 앱 레이어에서 구독해 GoRouter로 라우팅합니다.
@@ -36,8 +37,8 @@ class NotificationService {
   final _navigationController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get navigationStream => _navigationController.stream;
 
-  /// 알림 초기화
-  Future<void> initialize() async {
+  /// 알림 초기화. [requestIfNeeded]가 false면 시스템 팝업을 띄우지 않는다.
+  Future<void> initialize({bool requestIfNeeded = false}) async {
     try {
       debugPrint('🔔 알림 서비스 초기화 시작');
 
@@ -48,20 +49,24 @@ class NotificationService {
         return;
       }
 
-      // 1. 알림 권한 요청
-      final settings = await fcm.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
+      var settings = await fcm.getNotificationSettings();
+      if (settings.authorizationStatus == AuthorizationStatus.notDetermined &&
+          requestIfNeeded) {
+        settings = await fcm.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+          provisional: false,
+        );
+      }
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         debugPrint('✅ 알림 권한 승인됨');
       } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
         debugPrint('⚠️ 임시 알림 권한 승인됨');
       } else {
-        debugPrint('❌ 알림 권한 거부됨');
+        debugPrint('❌ 알림 권한 없음 — FCM 등록 생략');
+        await _initializeLocalNotifications();
         return;
       }
 
@@ -78,8 +83,10 @@ class NotificationService {
       // 4. 로컬 알림 초기화 (Android)
       await _initializeLocalNotifications();
 
-      // 5. FCM 리스너 설정
-      _setupFcmListeners(fcm);
+      if (!_listenersReady) {
+        _setupFcmListeners(fcm);
+        _listenersReady = true;
+      }
 
       debugPrint('✅ 알림 서비스 초기화 완료');
     } catch (e) {

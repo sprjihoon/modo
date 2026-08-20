@@ -185,10 +185,10 @@ flutter test --coverage
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | 비공개 테스트(Alpha) — **`21 (1.0.1)` 테스터 제공 중** · 프로덕션은 약 2026-08-28 이후 |
-| 버전 | `pubspec.yaml` → `1.0.1+21` |
-| 최근 UX | 비회원 홈·가격표 · 권한은 기능 사용 시 · 실제 비밀번호 변경 · Apple 웹 세션 |
-| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.1+21.aab` |
+| 현재 트랙 | 비공개 테스트(Alpha) — **`25 (1.0.2)` 업로드** (2026-08-20) · 직전 테스터 제공은 `21 (1.0.1)` · 프로덕션은 약 2026-08-28 이후 |
+| 버전 | `pubspec.yaml` → `1.0.2+25` |
+| 최근 UX | 업데이트 안내 · 알림 설정 이동 · 비회원 홈·가격표 · 권한은 기능 사용 시 |
+| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.2+25.aab` |
 | targetSdk | **36** (Android 16) — `android/app/build.gradle.kts` 고정 · Play 2026-08-31 정책 |
 | ProGuard | `android/app/proguard-rules.pro` — Retrofit + `com.navercorp.nid` (릴리즈 minify 필수) |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
@@ -219,14 +219,14 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.1 (21)`** (가격 탭 가운데 정렬 · 수선 확인 널 가드) |
-| App Store | **출시** (2026-08-17) · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| 최신 업로드 | **`1.0.2 (25)`** (업데이트 안내 · 알림 설정 이동) |
+| App Store | **판매 중 `1.0` 빌드 21** · `1.0.2` 업로드 · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 | 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |
 
 ```bash
 # App Store용 (수동 서명 — Xcode Accounts 없어도 Distribution 인증서+프로파일만 있으면 가능)
-flutter build ipa --release --build-name=1.0.1 --build-number=21 \
+flutter build ipa --release --build-name=1.0.2 --build-number=25 \
   --export-options-plist=ios/ExportOptions.plist
 
 # 업로드 (API Key: secrets/asc-api.json, 커밋 금지)

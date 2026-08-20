@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/notifications/notification_settings.dart';
 import '../../../../core/utils/notification_format.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/customer_event_service.dart';
@@ -22,11 +23,12 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _supabase = Supabase.instance.client;
   late TabController _tabController;
 
   bool _isLoading = true;
+  bool _notificationsEnabled = true;
   List<Map<String, dynamic>> _allNotifications = [];
   List<Map<String, dynamic>> _announcements = [];
   int _unreadCount = 0;
@@ -38,13 +40,28 @@ class _NotificationsPageState extends State<NotificationsPage>
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) setState(() {});
     });
+    WidgetsBinding.instance.addObserver(this);
     _loadNotifications();
+    _refreshPermission();
+  }
+
+  Future<void> _refreshPermission() async {
+    final granted = await isNotificationGranted();
+    if (mounted) setState(() => _notificationsEnabled = granted);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshPermission();
+    }
   }
 
   Future<void> _loadNotifications() async {
@@ -292,15 +309,49 @@ class _NotificationsPageState extends State<NotificationsPage>
       ),
       body: SafeArea(
         top: false,
-        child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildNotificationsList(),
-                _buildAnnouncementsList(),
-              ],
+        child: Column(
+          children: [
+            if (!_notificationsEnabled)
+              Material(
+                color: const Color(0xFFFFF3E0),
+                child: InkWell(
+                  onTap: openNotificationSettings,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.notifications_off_outlined,
+                            color: Color(0xFFFF9800)),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            '알림이 꺼져 있습니다. 눌러서 설정에서 켜 주세요.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF7A4E00),
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.chevron_right, color: Colors.orange.shade700),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildNotificationsList(),
+                        _buildAnnouncementsList(),
+                      ],
+                    ),
             ),
+          ],
+        ),
       ),
     );
   }

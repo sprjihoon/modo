@@ -146,11 +146,17 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
 
         if (!mounted) return;
 
-        // 회원가입 축하 포인트 (신규 유저 트리거 누락 시 멱등 안전망)
         try {
           await PointService().grantSignupReward();
         } catch (e) {
           debugPrint('⚠️ [App] 가입 포인트 안전망 실패(무시): $e');
+        }
+
+        try {
+          await NotificationService().initialize(requestIfNeeded: false);
+          await NotificationService().onLogin();
+        } catch (e) {
+          debugPrint('⚠️ [App] 알림 초기화 실패(무시): $e');
         }
 
         // 프로필 완료 여부 확인
@@ -179,6 +185,11 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
       // 로그아웃: 계정 화면에 있으면 홈으로. 비회원 둘러보기는 유지 (5.1.1(v))
       if (event == AuthChangeEvent.signedOut) {
         debugPrint('🚪 [App] 로그아웃 감지');
+        try {
+          await NotificationService().onLogout();
+        } catch (e) {
+          debugPrint('⚠️ [App] 알림 토큰 제거 실패(무시): $e');
+        }
         final router = ref.read(routerProvider);
         final currentPath = router.routerDelegate.currentConfiguration.uri.path;
 

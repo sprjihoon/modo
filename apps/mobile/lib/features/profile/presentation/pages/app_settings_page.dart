@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../../../../core/app_update/app_version_compare.dart';
+import '../../../../core/notifications/notification_settings.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
+import '../../../app_update/app_update_dialog.dart';
 
 /// 앱 설정 페이지
 class AppSettingsPage extends ConsumerWidget {
@@ -84,10 +87,29 @@ class AppSettingsPage extends ConsumerWidget {
                 },
               ),
 
+              _buildSection(
+                '알림',
+                [
+                  _buildTile(
+                    context,
+                    '알림 설정',
+                    Icons.notifications_outlined,
+                    () => openNotificationSettings(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
               // 앱 정보
               _buildSection(
                 '앱 정보',
                 [
+                  _buildTile(
+                    context,
+                    '업데이트 확인',
+                    Icons.system_update_alt_outlined,
+                    () => _checkForUpdate(context),
+                  ),
                   _buildTile(
                     context,
                     '서비스 이용약관',
@@ -106,6 +128,17 @@ class AppSettingsPage extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _checkForUpdate(BuildContext context) async {
+    final kind = await AppUpdatePrompt.maybeShow(
+      context,
+      ignoreDismissed: true,
+    );
+    if (!context.mounted || kind != AppUpdateKind.none) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('최신 버전입니다')),
     );
   }
 

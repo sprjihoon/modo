@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../core/notifications/notification_settings.dart';
 
 /// 앱 권한 관리 서비스
 class PermissionService {
@@ -273,7 +274,7 @@ class PermissionService {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              openAppSettings(); // 앱 설정 페이지로 이동
+              openNotificationSettings();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
