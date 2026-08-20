@@ -1065,7 +1065,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
           .firstOrNull;
       title = '보상 처리됨';
       body = amount != null
-          ? '전손·분실 보상 ${amount.toInt()}원으로 처리되었습니다.'
+          ? '전손·분실 보상 ${amount.toInt().toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원으로 처리되었습니다.'
           : '전손·분실 보상으로 처리되었습니다.';
       bg = const Color(0xFFFFF7ED);
       fg = const Color(0xFF9A3412);

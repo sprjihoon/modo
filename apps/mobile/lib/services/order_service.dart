@@ -454,7 +454,8 @@ class OrderService {
           final shipmentsResponse = await _supabase
               .from('shipments')
               .select('*')
-              .eq('order_id', orderId);
+              .eq('order_id', orderId)
+              .order('created_at', ascending: false);
 
           shipments = (shipmentsResponse as List)
               .map((s) => Map<String, dynamic>.from(s as Map))

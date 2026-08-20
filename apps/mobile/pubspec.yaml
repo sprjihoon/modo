@@ -71,7 +71,6 @@ dependencies:
   sign_in_with_apple: ^6.1.0
   crypto: ^3.0.3
   flutter_web_auth_2: ^4.1.0
-  flutter_web_auth_2: ^4.1.0
   
   # Local Storage
   shared_preferences: ^2.2.2
