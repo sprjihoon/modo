@@ -1,9 +1,14 @@
-import { isMissingPickupWaybill } from "./missing-pickup";
+import { formatOrderDate, isMissingPickupWaybill, isPastOrderDate } from "./missing-pickup";
 import { parseShipmentsBookResult } from "./book-pickup";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
 }
+
+assert(formatOrderDate("2026-08-24") === "2026년 8월 24일", "수거일 표시");
+assert(formatOrderDate(null) === null, "빈 수거일");
+assert(isPastOrderDate("2026-08-24") === true, "지난 수거일");
+assert(isPastOrderDate("2099-01-01") === false, "미래 수거일");
 
 assert(
   isMissingPickupWaybill({ status: "PAID", payment_status: "PAID", tracking_no: null }),
@@ -12,6 +17,14 @@ assert(
 assert(
   !isMissingPickupWaybill({ status: "PAID", payment_status: "PAID", tracking_no: "7890" }),
   "송장 있으면 false"
+);
+assert(
+  !isMissingPickupWaybill({
+    status: "PAID",
+    payment_status: "PAID",
+    tracking_no: "LOCK:2026-08-25T01:00:00.000Z",
+  }),
+  "예약 진행 중 잠금은 재접수로 보지 않음"
 );
 assert(
   !isMissingPickupWaybill({
@@ -38,6 +51,12 @@ assert(
 
 const already = parseShipmentsBookResult(400, { success: false, code: "ALREADY_BOOKED" });
 assert(already.ok === true && already.code === "ALREADY_BOOKED", "이미 예약된 건은 성공으로 본다");
+
+const alreadyOk = parseShipmentsBookResult(200, {
+  success: true,
+  data: { tracking_no: "7890", already_booked: true },
+});
+assert(alreadyOk.ok && alreadyOk.trackingNo === "7890", "이미 예약된 성공 응답은 송장을 유지한다");
 
 const booked = parseShipmentsBookResult(200, { success: true, data: { tracking_no: "7890" } });
 assert(booked.ok && booked.trackingNo === "7890", "성공 응답에서 송장번호");

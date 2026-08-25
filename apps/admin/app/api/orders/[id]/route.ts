@@ -110,6 +110,16 @@ export async function GET(
     // user_id 연결 상태 확인 (자동 생성 없이 로그만)
     // 주의: 자동 사용자 생성은 데이터 무결성 문제를 일으킬 수 있어 비활성화됨
     let finalOrder = order;
+    if (finalOrder && (finalOrder.pickup_date === undefined || finalOrder.pickup_address === undefined)) {
+      const { data: pickupRow } = await supabaseAdmin
+        .from('orders')
+        .select('pickup_date, pickup_phone, pickup_zipcode, pickup_address, pickup_address_detail, notes, customer_phone')
+        .eq('id', orderId)
+        .maybeSingle();
+      if (pickupRow) {
+        finalOrder = { ...finalOrder, ...pickupRow };
+      }
+    }
     if (!order.user_id && order.customer_email) {
       console.log('⚠️ [API] user_id 없는 주문:', orderId, '- email:', order.customer_email);
       

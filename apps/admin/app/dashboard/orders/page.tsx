@@ -27,6 +27,7 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import { getOrderSourceBadge } from "@/lib/order-source";
+import { formatOrderDate, isPickupBookingLock, isRealTrackingNo } from "@/lib/missing-pickup";
 
 const statusMap = {
   ALL: { label: "전체", color: "bg-gray-100 text-gray-800" },
@@ -105,6 +106,7 @@ interface Order {
   status: string;
   payment_status: string;
   tracking_no: string | null;
+  pickup_date?: string | null;
   created_at: string;
   promotion_codes: {
     code: string;
@@ -757,7 +759,7 @@ export default function OrdersPage() {
                   return (
                     <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
                       <div className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                        order.status === "PAID" && !order.tracking_no ? "border-amber-300 bg-amber-50/50" : ""
+                        order.status === "PAID" && !isRealTrackingNo(order.tracking_no) && !isPickupBookingLock(order.tracking_no) ? "border-amber-300 bg-amber-50/50" : ""
                       }`}>
                         <div className="flex items-center space-x-4 flex-1">
                           <div className="flex-1">
@@ -789,9 +791,12 @@ export default function OrdersPage() {
                               {order.order_number} • {order.customer_name || order.customer_email || '고객'}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {order.tracking_no ? `송장: ${order.tracking_no}` : (
-                                order.status === "PAID" ? "수거송장 미발행 — 자동 재시도 대상" : "송장 미발급"
+                              {isRealTrackingNo(order.tracking_no) ? `송장: ${order.tracking_no}` : (
+                                isPickupBookingLock(order.tracking_no)
+                                  ? "수거예약 진행 중"
+                                  : order.status === "PAID" ? "수거송장 미발행 — 자동 재시도 대상" : "송장 미발급"
                               )}
+                              {order.pickup_date ? ` · 희망수거 ${formatOrderDate(order.pickup_date)}` : ""}
                               {cancelView !== "OFF" && order.cancellation_reason ? (
                                 <span className="ml-2 text-rose-600">사유: {order.cancellation_reason}</span>
                               ) : null}

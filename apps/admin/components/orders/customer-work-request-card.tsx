@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Camera, MapPin, StickyNote, X } from "lucide-react";
+import { Camera, CalendarDays, MapPin, Phone, StickyNote, X } from "lucide-react";
 import { WorkOrderPrintDialog } from "@/components/orders/work-order-print-dialog";
 import { parseWorkOrderImages, customerRequestSummary } from "@/lib/work-order-images";
+import { formatOrderDate } from "@/lib/missing-pickup";
 
 interface CustomerWorkRequestCardProps {
   order: any;
@@ -37,13 +38,45 @@ export function CustomerWorkRequestCard({ order }: CustomerWorkRequestCardProps)
               고객 접수 내용
             </CardTitle>
             <CardDescription>
-              고객이 주문 시 올린 사진, 핀 위치, 요청 메모입니다
+              고객이 주문 시 선택한 수거일, 주소, 사진, 요청 메모입니다
             </CardDescription>
           </div>
           <WorkOrderPrintDialog order={order} buttonClassName="w-auto" />
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <CalendarDays className="h-3.5 w-3.5" />
+              희망 수거일
+            </p>
+            <p className="mt-1 font-medium">
+              {formatOrderDate(order?.pickup_date) || "날짜 미지정"}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <Phone className="h-3.5 w-3.5" />
+              수거 연락처
+            </p>
+            <p className="mt-1 font-medium">
+              {order?.pickup_phone || order?.customer_phone || "없음"}
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" />
+              수거지
+            </p>
+            <p className="mt-1 font-medium">
+              {[order?.pickup_zipcode ? `[${order.pickup_zipcode}]` : null, order?.pickup_address, order?.pickup_address_detail]
+                .filter(Boolean)
+                .join(" ") || "주소 없음"}
+            </p>
+          </div>
+        </div>
+
         <div>
           <p className="text-sm text-muted-foreground flex items-center gap-1.5">
             <StickyNote className="h-3.5 w-3.5" />

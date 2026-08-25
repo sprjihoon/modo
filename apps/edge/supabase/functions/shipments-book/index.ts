@@ -10,6 +10,7 @@ import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { insertOrder, mockInsertOrder, getApprovalNumber, getResInfo, type InsertOrderParams } from '../_shared/epost/index.ts';
+import { createPickupBookingLock, isPickupBookingLock, isStalePickupBookingLock } from '../_shared/book-pickup.ts';
 
 interface ShipmentBookRequest {
   order_id: string;
@@ -155,7 +156,8 @@ Deno.serve(async (req) => {
         delivery_address,
         delivery_address_detail,
         delivery_zipcode,
-        delivery_phone
+        delivery_phone,
+        updated_at
       `)
       .eq('id', order_id)
       .single();
@@ -186,9 +188,40 @@ Deno.serve(async (req) => {
     }
     const existingOrderWithDate = { ...existingOrder, pickup_date: pickupDateValue };
 
-    // 이미 tracking_no가 있으면 중복 요청
-    if (existingOrder.tracking_no) {
-      return errorResponse('Shipment already booked', 400, 'ALREADY_BOOKED');
+    // 이미 실제 송장이 있으면 우체국에 다시 넣지 않는다
+    if (existingOrder.tracking_no && !isPickupBookingLock(existingOrder.tracking_no)) {
+      return successResponse({
+        tracking_no: existingOrder.tracking_no,
+        pickup_tracking_no: existingOrder.tracking_no,
+        already_booked: true,
+      });
+    }
+    if (
+      isPickupBookingLock(existingOrder.tracking_no) &&
+      !isStalePickupBookingLock(existingOrder.tracking_no, existingOrder.updated_at)
+    ) {
+      return successResponse({
+        tracking_no: null,
+        pickup_tracking_no: null,
+        already_booked: true,
+        booking_in_progress: true,
+      });
+    }
+
+    const { data: existingShipmentBefore } = await supabase
+      .from('shipments')
+      .select('id, pickup_tracking_no, tracking_no')
+      .eq('order_id', order_id)
+      .maybeSingle();
+    const existingPickupNo = [existingShipmentBefore?.pickup_tracking_no, existingShipmentBefore?.tracking_no]
+      .find((value) => value && !isPickupBookingLock(value));
+    if (existingPickupNo) {
+      await supabase.from('orders').update({ tracking_no: existingPickupNo }).eq('id', order_id);
+      return successResponse({
+        tracking_no: existingPickupNo,
+        pickup_tracking_no: existingPickupNo,
+        already_booked: true,
+      });
     }
 
     // addresses 테이블에서 주소 정보 가져오기
@@ -703,6 +736,57 @@ Deno.serve(async (req) => {
       volume: epostParams.volume,
     });
 
+    const lockValue = createPickupBookingLock();
+    let claimedLock = false;
+    if (!existingOrder.tracking_no) {
+      const { data: claimRow } = await supabase
+        .from('orders')
+        .update({ tracking_no: lockValue })
+        .eq('id', order_id)
+        .is('tracking_no', null)
+        .select('id')
+        .maybeSingle();
+      claimedLock = !!claimRow;
+    } else if (isStalePickupBookingLock(existingOrder.tracking_no, existingOrder.updated_at)) {
+      const { data: claimRow } = await supabase
+        .from('orders')
+        .update({ tracking_no: lockValue })
+        .eq('id', order_id)
+        .eq('tracking_no', existingOrder.tracking_no)
+        .select('id')
+        .maybeSingle();
+      claimedLock = !!claimRow;
+    }
+
+    if (!claimedLock) {
+      const { data: latest } = await supabase
+        .from('orders')
+        .select('tracking_no')
+        .eq('id', order_id)
+        .maybeSingle();
+      if (latest?.tracking_no && !isPickupBookingLock(latest.tracking_no)) {
+        return successResponse({
+          tracking_no: latest.tracking_no,
+          pickup_tracking_no: latest.tracking_no,
+          already_booked: true,
+        });
+      }
+      return successResponse({
+        tracking_no: null,
+        pickup_tracking_no: null,
+        already_booked: true,
+        booking_in_progress: true,
+      });
+    }
+
+    const releaseBookingLock = async () => {
+      await supabase
+        .from('orders')
+        .update({ tracking_no: null })
+        .eq('id', order_id)
+        .eq('tracking_no', lockValue);
+    };
+
     // 우체국 API 호출
     let epostResponse;
     try {
@@ -921,10 +1005,28 @@ Deno.serve(async (req) => {
       
       // 더 자세한 에러 메시지 제공
       const errorMessage = apiError?.message || '우체국 API 호출 중 오류가 발생했습니다';
+      await releaseBookingLock();
       return errorResponse(`EPost API failed: ${errorMessage}`, 500, 'EPOST_API_ERROR');
     }
 
     const pickupTrackingNo = epostResponse.regiNo;
+    if (!pickupTrackingNo) {
+      await releaseBookingLock();
+      return errorResponse('EPost API failed: missing tracking number', 500, 'EPOST_API_ERROR');
+    }
+
+    // 우체국 성공 직후 송장을 먼저 남겨, 이후 재시도가 다시 신청하지 않게 한다
+    for (let persistAttempt = 1; persistAttempt <= 3; persistAttempt++) {
+      const { error: persistError } = await supabase
+        .from('orders')
+        .update({ tracking_no: pickupTrackingNo })
+        .eq('id', order_id);
+      if (!persistError) break;
+      console.error(`❌ tracking_no 즉시 저장 실패 (${persistAttempt}/3):`, persistError);
+      if (persistAttempt < 3) {
+        await new Promise((resolve) => setTimeout(resolve, 300 * persistAttempt));
+      }
+    }
     const labelUrl = `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${pickupTrackingNo}`;
     const pickupDate = epostResponse.resDate.substring(0, 8); // YYYYMMDD
     

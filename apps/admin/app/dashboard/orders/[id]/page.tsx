@@ -14,10 +14,11 @@ import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
 import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review-dialog";
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
 import { OrderCsCard } from "@/components/orders/order-cs-card";
+import { formatOrderDate, isPastOrderDate, isPickupBookingLock, isRealTrackingNo, todayYmdKst } from "@/lib/missing-pickup";
 import { canShowReturnShipmentUi, getEffectiveOrderStatus } from "@/lib/order-return-flow";
 import { getOrderSourceBadge, getOrderSourceLabel } from "@/lib/order-source";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
-import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image, RotateCcw, PlusCircle } from "lucide-react";
+import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image, RotateCcw, PlusCircle, CalendarDays } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +47,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isCompletingReturn, setIsCompletingReturn] = useState(false);
   const [isBookingPickup, setIsBookingPickup] = useState(false);
+  const [rebookPickupDate, setRebookPickupDate] = useState("");
   const [sendingPushVideoId, setSendingPushVideoId] = useState<string | null>(null);
   const [barcodes, setBarcodes] = useState<any[]>([]);
   const [photos, setPhotos] = useState<Record<number, { before?: string; after?: string }>>({});
@@ -57,12 +59,18 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
 
   const handleBookPickup = async () => {
     if (!order?.id) return;
-    if (!confirm("우체국 수거예약을 다시 시도할까요?\n실패했던 주문은 서버가 자동 재시도하지만, 지금 바로 발행할 수 있습니다.")) {
+    const nextDate = rebookPickupDate || order.pickup_date || "";
+    const dateLabel = formatOrderDate(nextDate) || "우체국 기본일(내일)";
+    if (!confirm(`우체국 수거예약을 다시 시도할까요?\n수거일: ${dateLabel}`)) {
       return;
     }
     setIsBookingPickup(true);
     try {
-      const res = await fetch(`/api/orders/${order.id}/book-pickup`, { method: "POST" });
+      const res = await fetch(`/api/orders/${order.id}/book-pickup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pickupDate: nextDate || undefined }),
+      });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "수거예약 실패");
       alert(data.trackingNo ? `수거송장 ${data.trackingNo} 이(가) 발행되었습니다.` : "수거예약이 완료되었습니다.");
@@ -135,6 +143,8 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
           console.log('👤 사용자 ID:', data.order.user_id);
           setOrder(data.order);
           setVideos(data.order.videos || []);
+          const requested = String(data.order.pickup_date ?? "").slice(0, 10);
+          setRebookPickupDate(isPastOrderDate(requested) ? todayYmdKst() : requested);
 
           // Load barcodes and photos
           loadBarcodes(params.id);
@@ -506,7 +516,9 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
     customerPhone: order.customer_phone || '',
     item: order.item_name || `${order.clothing_type || ''} - ${order.repair_type || ''}`,
     description: order.item_description || order.item_name || '',
-    trackingNo: order.tracking_no || order.shipment?.pickup_tracking_no || '',
+    trackingNo: isRealTrackingNo(order.tracking_no)
+      ? order.tracking_no
+      : (isRealTrackingNo(order.shipment?.pickup_tracking_no) ? order.shipment.pickup_tracking_no : ''),
     deliveryTrackingNo: order.shipment?.delivery_tracking_no,
     labelUrl: null as string | null,
     status: order.status,
@@ -638,15 +650,41 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
         </div>
       </div>
 
-      {order && order.status === "PAID" && order.payment_status === "PAID" && !order.canceled_at && !displayOrder.trackingNo && (
+      {order && order.status === "PAID" && order.payment_status === "PAID" && !order.canceled_at && isPickupBookingLock(order.tracking_no) && (
+        <Card className="border-sky-300 bg-sky-50/70">
+          <CardContent className="pt-6">
+            <p className="font-semibold text-sky-800">수거예약을 진행 중입니다</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              우체국에 중복 신청하지 않도록 잠시 잠가 두었습니다. 끝나면 송장번호가 표시됩니다.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {order && order.status === "PAID" && order.payment_status === "PAID" && !order.canceled_at && !displayOrder.trackingNo && !isPickupBookingLock(order.tracking_no) && (
         <Card className="border-amber-400 bg-amber-50/70">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <p className="font-semibold text-amber-800">수거송장이 발행되지 않았습니다</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  결제는 완료됐지만 우체국 수거예약이 실패했습니다. 서버가 6시간마다 다시 시도합니다. 지금 바로 재발행할 수도 있습니다.
+                  고객 희망 수거일: <strong>{formatOrderDate(order.pickup_date) || "미지정"}</strong>
+                  {isPastOrderDate(order.pickup_date) ? " (이미 지난 날짜)" : ""}
                 </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  결제는 완료됐지만 우체국 수거예약이 실패했습니다. 새 수거일을 확인하고 재발행하세요.
+                </p>
+                <div className="mt-3 flex items-center gap-2">
+                  <Label htmlFor="rebook-pickup-date" className="text-sm">재예약 수거일</Label>
+                  <input
+                    id="rebook-pickup-date"
+                    type="date"
+                    className="h-9 rounded-md border px-2 text-sm"
+                    min={todayYmdKst()}
+                    value={rebookPickupDate}
+                    onChange={(e) => setRebookPickupDate(e.target.value)}
+                  />
+                </div>
               </div>
               <Button
                 onClick={handleBookPickup}
@@ -1053,8 +1091,33 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
             </div>
             
             <div>
+              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5" />
+                희망 수거일
+              </p>
+              <p className="font-medium text-sm">
+                {formatOrderDate(order?.pickup_date) || "미지정"}
+                {isPastOrderDate(order?.pickup_date) ? (
+                  <span className="ml-2 text-xs text-amber-700">지난 날짜</span>
+                ) : null}
+              </p>
+              {order?.shipment?.pickup_scheduled_date && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  우체국 수거 예정일: {formatOrderDate(order.shipment.pickup_scheduled_date)}
+                </p>
+              )}
+            </div>
+            <div>
               <p className="text-sm text-muted-foreground">수거지</p>
+              {order?.pickup_zipcode && (
+                <p className="text-xs text-muted-foreground">[{order.pickup_zipcode}]</p>
+              )}
               <p className="font-medium text-sm">{displayOrder.pickupAddress}</p>
+              {(order?.pickup_phone || order?.customer_phone) && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  연락처 {order.pickup_phone || order.customer_phone}
+                </p>
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">

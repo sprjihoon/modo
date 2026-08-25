@@ -6,6 +6,26 @@
  * reconcile-pickup-bookings cron 이 이후에도 다시 시도한다.
  */
 
+export const PICKUP_BOOKING_LOCK_PREFIX = 'LOCK:';
+export const PICKUP_BOOKING_LOCK_TTL_MS = 10 * 60 * 1000;
+
+export function isPickupBookingLock(value?: string | null): boolean {
+  return !!value && String(value).startsWith(PICKUP_BOOKING_LOCK_PREFIX);
+}
+
+export function isStalePickupBookingLock(value?: string | null, updatedAt?: string | null): boolean {
+  if (!isPickupBookingLock(value)) return false;
+  const fromLock = Date.parse(String(value).slice(PICKUP_BOOKING_LOCK_PREFIX.length));
+  const fromUpdated = Date.parse(updatedAt || '');
+  const ts = Number.isFinite(fromLock) ? fromLock : fromUpdated;
+  if (!Number.isFinite(ts)) return true;
+  return Date.now() - ts > PICKUP_BOOKING_LOCK_TTL_MS;
+}
+
+export function createPickupBookingLock(): string {
+  return `${PICKUP_BOOKING_LOCK_PREFIX}${new Date().toISOString()}`;
+}
+
 export type BookPickupResult = {
   ok: boolean;
   trackingNo?: string | null;
@@ -35,11 +55,16 @@ function parseBookResponse(status: number, data: any): {
   code?: string;
 } {
   const code = typeof data?.code === 'string' ? data.code : undefined;
-  if (code === 'ALREADY_BOOKED' || (status === 400 && /already booked/i.test(String(data?.error ?? '')))) {
+  if (
+    code === 'ALREADY_BOOKED' ||
+    code === 'BOOKING_IN_PROGRESS' ||
+    data?.data?.already_booked === true ||
+    (status === 400 && /already booked/i.test(String(data?.error ?? '')))
+  ) {
     return {
       ok: true,
       trackingNo: data?.data?.tracking_no ?? data?.data?.pickup_tracking_no ?? null,
-      code: 'ALREADY_BOOKED',
+      code: code || (data?.data?.booking_in_progress ? 'BOOKING_IN_PROGRESS' : 'ALREADY_BOOKED'),
     };
   }
   if (status >= 200 && status < 300 && data?.success) {

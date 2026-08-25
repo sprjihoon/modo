@@ -4,7 +4,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { bookPickupWithRetry, notifyStaffPickupBookFailed } from '../_shared/book-pickup.ts';
+import { bookPickupWithRetry, isStalePickupBookingLock, notifyStaffPickupBookFailed } from '../_shared/book-pickup.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -32,32 +32,37 @@ Deno.serve(async (req) => {
 
     const { data: orders, error } = await supabase
       .from('orders')
-      .select('id, order_number, customer_name, pickup_address, pickup_address_detail, pickup_zipcode, pickup_phone, delivery_address, delivery_address_detail, delivery_zipcode, delivery_phone, notes')
+      .select('id, order_number, customer_name, pickup_address, pickup_address_detail, pickup_zipcode, pickup_phone, delivery_address, delivery_address_detail, delivery_zipcode, delivery_phone, notes, tracking_no, updated_at')
       .eq('status', 'PAID')
       .eq('payment_status', 'PAID')
-      .is('tracking_no', null)
+      .or('tracking_no.is.null,tracking_no.like.LOCK:%')
       .is('canceled_at', null)
       .gte('created_at', minCreated)
       .lte('created_at', maxCreated)
       .order('created_at', { ascending: true })
-      .limit(MAX_PER_RUN);
+      .limit(MAX_PER_RUN * 2);
 
     if (error) {
       console.error('[reconcile-pickup] 조회 실패:', error);
       return Response.json({ error: error.message }, { status: 500 });
     }
 
-    if (!orders?.length) {
+    const targets = (orders ?? []).filter((order) => {
+      if (!order.tracking_no) return true;
+      return isStalePickupBookingLock(order.tracking_no, order.updated_at);
+    }).slice(0, MAX_PER_RUN);
+
+    if (!targets.length) {
       console.log('[reconcile-pickup] 대상 없음');
       return Response.json({ scanned: 0, booked: 0, failed: 0 });
     }
 
-    console.log(`[reconcile-pickup] 대상 ${orders.length}건`);
+    console.log(`[reconcile-pickup] 대상 ${targets.length}건`);
     const results: Array<Record<string, unknown>> = [];
     let booked = 0;
     let failed = 0;
 
-    for (const order of orders) {
+    for (const order of targets) {
       const bookResult = await bookPickupWithRetry({
         orderId: order.id,
         payload: {
@@ -91,7 +96,7 @@ Deno.serve(async (req) => {
       await new Promise((resolve) => setTimeout(resolve, 400));
     }
 
-    return Response.json({ scanned: orders.length, booked, failed, results });
+    return Response.json({ scanned: targets.length, booked, failed, results });
   } catch (e) {
     console.error('[reconcile-pickup] 오류:', e);
     return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });

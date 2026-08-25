@@ -5,11 +5,16 @@ export function parseShipmentsBookResult(status: number, data: any): {
   code?: string;
 } {
   const code = typeof data?.code === "string" ? data.code : undefined;
-  if (code === "ALREADY_BOOKED" || (status === 400 && /already booked/i.test(String(data?.error ?? "")))) {
+  if (
+    code === "ALREADY_BOOKED" ||
+    code === "BOOKING_IN_PROGRESS" ||
+    data?.data?.already_booked === true ||
+    (status === 400 && /already booked/i.test(String(data?.error ?? "")))
+  ) {
     return {
       ok: true,
       trackingNo: data?.data?.tracking_no ?? data?.data?.pickup_tracking_no ?? null,
-      code: "ALREADY_BOOKED",
+      code: code || (data?.data?.booking_in_progress ? "BOOKING_IN_PROGRESS" : "ALREADY_BOOKED"),
     };
   }
   if (status >= 200 && status < 300 && data?.success) {
