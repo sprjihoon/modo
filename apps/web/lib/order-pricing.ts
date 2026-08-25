@@ -95,6 +95,7 @@ export interface OrderQuoteResult {
     promotionCodeId: string | null;
     promotionDiscountAmount: number;
     originalTotalPrice: number;
+    orderSource: "web";
   };
 }
 
@@ -302,6 +303,7 @@ export async function quoteOrder(
       promotionCodeId: verifiedPromotionCodeId,
       promotionDiscountAmount,
       originalTotalPrice,
+      orderSource: "web",
     },
   };
 }

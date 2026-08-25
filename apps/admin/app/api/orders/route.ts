@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
+    const missingPickup = searchParams.get('missingPickup') === '1';
     const rawSearch = searchParams.get('search');
     // PostgREST 필터 인젝션 방지: 특수문자 제거 후 최대 100자 제한
     const search = rawSearch
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const promotionFilter = searchParams.get('promotionFilter');
+    const sourceFilter = searchParams.get('source');
     const sortBy = searchParams.get('sortBy') || 'date';
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '20'), 100);
@@ -47,7 +49,13 @@ export async function GET(request: NextRequest) {
     }
 
     // 상태 필터
-    if (status && status !== 'ALL') {
+    if (missingPickup) {
+      query = query
+        .eq('status', 'PAID')
+        .eq('payment_status', 'PAID')
+        .is('tracking_no', null)
+        .is('canceled_at', null);
+    } else if (status && status !== 'ALL') {
       query = query.eq('status', status);
     }
 
@@ -70,6 +78,12 @@ export async function GET(request: NextRequest) {
       query = query.not('promotion_code_id', 'is', null);
     } else if (promotionFilter === 'NOT_USED') {
       query = query.is('promotion_code_id', null);
+    }
+
+    if (sourceFilter === 'web') {
+      query = query.eq('order_source', 'web');
+    } else if (sourceFilter === 'app') {
+      query = query.in('order_source', ['app', 'ios', 'android']);
     }
 
     // 페이징 적용
@@ -105,6 +119,16 @@ export async function GET(request: NextRequest) {
     const CLOSED_STATUSES = ['CANCELLED', 'RETURN_PENDING', 'RETURN_SHIPPING', 'RETURN_DONE'];
     const activeStatsData = statsData?.filter(o => !CLOSED_STATUSES.includes(o.status)) ?? [];
 
+    const missingPickupSince = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { count: missingPickupCount } = await supabaseAdmin
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'PAID')
+      .eq('payment_status', 'PAID')
+      .is('tracking_no', null)
+      .is('canceled_at', null)
+      .gte('created_at', missingPickupSince);
+
     const stats = {
       total: activeStatsData.length,
       pending: activeStatsData.filter(o => o.status === 'PENDING').length,
@@ -115,6 +139,7 @@ export async function GET(request: NextRequest) {
       readyToShip: activeStatsData.filter(o => o.status === 'READY_TO_SHIP').length,
       delivered: activeStatsData.filter(o => o.status === 'DELIVERED').length,
       cancelled: statsData?.filter(o => o.status === 'CANCELLED').length || 0,
+      missingPickup: missingPickupCount || 0,
       promotionUsed: activeStatsData.filter(o => o.promotion_code_id).length,
       totalDiscount: activeStatsData.reduce((sum, o) => sum + (o.promotion_discount_amount || 0), 0),
       totalRevenue: activeStatsData.reduce((sum, o) => sum + (o.total_price || 0), 0),

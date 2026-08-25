@@ -1,6 +1,8 @@
 // PortOne V2 ?? ?? (??? ????)
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { bookPickupWithRetry, notifyStaffPickupBookFailed } from '../_shared/book-pickup.ts'
+import { orderSourceFromPayload } from '../_shared/order-source.ts'
 
 const PORTONE_API_SECRET = Deno.env.get('PORTONE_API_SECRET') || ''
 const PORTONE_API_URL = 'https://api.portone.io'
@@ -294,6 +296,7 @@ serve(async (req) => {
         repair_parts: Array.isArray(pickup.repairParts) && pickup.repairParts.length > 0 ? pickup.repairParts : null,
         images_with_pins: Array.isArray(pickup.imagesWithPins) && pickup.imagesWithPins.length > 0 ? pickup.imagesWithPins : null,
         images: Array.isArray(pickup.imageUrls) && pickup.imageUrls.length > 0 ? { urls: pickup.imageUrls } : null,
+        order_source: orderSourceFromPayload(pickup),
       }
 
       let attempt = 0
@@ -393,40 +396,31 @@ serve(async (req) => {
         console.log('?? ?? ??(??):', e)
       }
 
-      // ?? ?? ????? ?? (JWT ??? - service_role key ??)
-      try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        const shipmentRes = await fetch(`${supabaseUrl}/functions/v1/shipments-book`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${serviceRoleKey}`,
-          },
-          body: JSON.stringify({
-            order_id: newOrderId,
-            customer_name: pickup.customerName || '??',
-            pickup_address: pickup.pickupAddress || '',
-            pickup_address_detail: pickup.pickupAddressDetail || '',
-            pickup_zipcode: pickup.pickupZipcode || '',
-            pickup_phone: pickup.pickupPhone || '',
-            delivery_address: pickup.deliveryAddress || pickup.pickupAddress || '',
-            delivery_address_detail: pickup.deliveryAddressDetail || pickup.pickupAddressDetail || '',
-            delivery_zipcode: pickup.deliveryZipcode || pickup.pickupZipcode || '',
-            delivery_phone: pickup.deliveryPhone || pickup.pickupPhone || '',
-            delivery_message: pickup.notes || '',
-            test_mode: false,
-          }),
+      const bookResult = await bookPickupWithRetry({
+        orderId: newOrderId,
+        payload: {
+          customer_name: pickup.customerName || '',
+          pickup_address: pickup.pickupAddress || '',
+          pickup_address_detail: pickup.pickupAddressDetail || '',
+          pickup_zipcode: pickup.pickupZipcode || '',
+          pickup_phone: pickup.pickupPhone || '',
+          delivery_address: pickup.deliveryAddress || pickup.pickupAddress || '',
+          delivery_address_detail: pickup.deliveryAddressDetail || pickup.pickupAddressDetail || '',
+          delivery_zipcode: pickup.deliveryZipcode || pickup.pickupZipcode || '',
+          delivery_phone: pickup.deliveryPhone || pickup.pickupPhone || '',
+          delivery_message: pickup.notes || '',
+        },
+      })
+      if (bookResult.ok) {
+        console.log('수거예약 성공:', bookResult.trackingNo, 'attempts=', bookResult.attempts)
+      } else {
+        console.error('수거예약 재시도 후에도 실패:', JSON.stringify(bookResult))
+        await notifyStaffPickupBookFailed(supabaseClient, {
+          orderId: newOrderId,
+          orderNumber: orderNumber,
+          customerName: pickup.customerName || null,
+          error: bookResult.error,
         })
-        const shipmentData = await shipmentRes.json()
-        if (shipmentRes.ok && shipmentData.success) {
-          const trackingNo = shipmentData.data?.tracking_no ?? shipmentData.data?.pickup_tracking_no
-          console.log('? ?? ?? ??. ????:', trackingNo)
-        } else {
-          console.error('? ?? ?? ?? (??? ??):', JSON.stringify(shipmentData))
-        }
-      } catch (shipErr) {
-        console.error('? ?? ?? ?? ?? (??? ??):', shipErr)
       }
 
       orderData._resolved_id = newOrderId

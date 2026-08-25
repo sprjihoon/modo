@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
       repair_parts: p.repairParts,
       images_with_pins: p.imagesWithPins,
       images: p.imageUrls ? { urls: p.imageUrls } : null,
+      order_source: "web",
     };
 
     let inserted: { id: string } | null = null;
@@ -119,32 +120,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 수거 예약 호출
-    try {
-      const bookRes = await fetch(`${url}/functions/v1/shipments-book`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${srk}`,
-          apikey: srk,
-        },
-        body: JSON.stringify({
-          order_id: inserted.id,
-          customer_name: p.customerName,
-          pickup_address: p.pickupAddress,
-          pickup_phone: p.pickupPhone,
-          pickup_zipcode: p.pickupZipcode ?? "",
-          delivery_address: p.deliveryAddress,
-          delivery_phone: p.deliveryPhone,
-          delivery_zipcode: p.deliveryZipcode ?? "",
-          delivery_message: p.notes ?? "",
-          test_mode: false,
-        }),
-      });
-      const bookData = await bookRes.json();
-      if (!bookRes.ok) console.error("0원 주문 수거 예약 실패:", bookData);
-    } catch (e) {
-      console.error("0원 주문 수거 예약 호출 오류 (무시):", e);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const bookRes = await fetch(`${url}/functions/v1/shipments-book`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${srk}`,
+            apikey: srk,
+          },
+          body: JSON.stringify({
+            order_id: inserted.id,
+            customer_name: p.customerName,
+            pickup_address: p.pickupAddress,
+            pickup_phone: p.pickupPhone,
+            pickup_zipcode: p.pickupZipcode ?? "",
+            delivery_address: p.deliveryAddress,
+            delivery_phone: p.deliveryPhone,
+            delivery_zipcode: p.deliveryZipcode ?? "",
+            delivery_message: p.notes ?? "",
+            test_mode: false,
+          }),
+        });
+        const bookData = await bookRes.json();
+        if (bookRes.ok && (bookData?.success || bookData?.code === "ALREADY_BOOKED")) break;
+        console.error(`0원 주문 수거 예약 실패 attempt ${attempt}:`, bookData);
+      } catch (e) {
+        console.error(`0원 주문 수거 예약 호출 오류 attempt ${attempt}:`, e);
+      }
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+      }
     }
 
     return NextResponse.json({ orderId: inserted.id, totalPrice: 0 });

@@ -130,9 +130,9 @@ Deno.serve(async (req) => {
     const CENTER_ADDRESS2 = Deno.env.get('CENTER_ADDRESS2') || '동대구우체국 2층 소포실 모두의수선';
     const CENTER_PHONE = (Deno.env.get('CENTER_PHONE') || '01027239490').replace(/-/g, '').substring(0, 12);
 
-    // 필수 필드 검증
-    if (!order_id || !customer_name) {
-      return errorResponse('Missing required fields: order_id, customer_name', 400, 'MISSING_FIELDS');
+    // 주문 ID만 필수. 고객명은 본문 또는 DB 주문을 사용한다.
+    if (!order_id) {
+      return errorResponse('Missing required fields: order_id', 400, 'MISSING_FIELDS');
     }
 
     // Supabase 클라이언트 생성
@@ -163,6 +163,13 @@ Deno.serve(async (req) => {
     if (orderCheckError || !existingOrder) {
       console.error('❌ 주문 조회 실패:', orderCheckError);
       return errorResponse('Order not found', 404, 'ORDER_NOT_FOUND');
+    }
+
+    const resolvedCustomerName = (customer_name && String(customer_name).trim())
+      || existingOrder.customer_name
+      || '';
+    if (!resolvedCustomerName) {
+      return errorResponse('Missing required fields: order_id, customer_name', 400, 'MISSING_FIELDS');
     }
 
     // pickup_date 별도 조회 (컬럼이 없어도 주문 조회가 실패하지 않도록)
@@ -588,7 +595,7 @@ Deno.serve(async (req) => {
           : '없음',
         ordMob: deliveryInfo.phone.replace(/-/g, '').substring(0, 12),
         
-        recNm: existingOrder.customer_name || customer_name,
+        recNm: existingOrder.customer_name || resolvedCustomerName,
         recZip: pickupInfo.zipcode ? pickupInfo.zipcode.trim().replace(/-/g, '') : '',
         recAddr1: pickupInfo.address || '고객 수거지 주소',
         recAddr2: (pickupInfo.detail && pickupInfo.detail.trim() !== '') 
@@ -606,7 +613,7 @@ Deno.serve(async (req) => {
           : CENTER_ADDRESS2,
         ordMob: pickupInfo.phone ? pickupInfo.phone.replace(/-/g, '').substring(0, 12) : CENTER_PHONE,
         
-        recNm: existingOrder.customer_name || customer_name,
+        recNm: existingOrder.customer_name || resolvedCustomerName,
         recZip: deliveryInfo.zipcode ? deliveryInfo.zipcode.trim().replace(/-/g, '') : '',
         recAddr1: deliveryInfo.address || '고객 배송지 주소',
         recAddr2: (deliveryInfo.detail && deliveryInfo.detail.trim() !== '') 
@@ -935,7 +942,7 @@ Deno.serve(async (req) => {
     console.log('💾 shipments 테이블 저장 시도:', {
       order_id,
       tracking_no: pickupTrackingNo,
-      customer_name,
+      customer_name: resolvedCustomerName,
       pickup_phone: pickupInfo.phone,
       delivery_phone: deliveryInfo.phone,
     });
@@ -1056,7 +1063,7 @@ Deno.serve(async (req) => {
           delivery_address_detail: deliveryInfo.detail || '',
           delivery_zipcode: deliveryInfo.zipcode,
           delivery_phone: deliveryInfo.phone,
-          customer_name,
+          customer_name: resolvedCustomerName,
           status: 'BOOKED',
           carrier: 'EPOST',
           pickup_requested_at: new Date().toISOString(),
@@ -1097,7 +1104,7 @@ Deno.serve(async (req) => {
           delivery_address_detail: deliveryInfo.detail || '',
           delivery_zipcode: deliveryInfo.zipcode,
           delivery_phone: deliveryInfo.phone,
-          customer_name,
+          customer_name: resolvedCustomerName,
           status: 'BOOKED',
           carrier: 'EPOST',
           pickup_requested_at: new Date().toISOString(),

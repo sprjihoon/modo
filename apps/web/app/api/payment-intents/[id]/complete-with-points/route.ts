@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { orderSourceFromPayload } from "@/lib/order-source";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 
@@ -106,6 +107,7 @@ export async function POST(
       repair_parts: Array.isArray(p.repairParts) ? p.repairParts : null,
       images_with_pins: Array.isArray(p.imagesWithPins) ? p.imagesWithPins : null,
       images: Array.isArray(p.imageUrls) ? { urls: p.imageUrls } : null,
+      order_source: orderSourceFromPayload(p) ?? "web",
     };
 
     let inserted: { id: string } | null = null;
@@ -151,14 +153,19 @@ export async function POST(
       /* ignore */
     }
 
-    // 우체국 수거 예약 (기존 free 경로와 동일 패턴)
-    try {
-      const { error: bookErr } = await svc.functions.invoke("shipments-book", {
-        body: { order_id: inserted.id },
-      });
-      if (bookErr) console.error("[complete-with-points] book", bookErr);
-    } catch (e) {
-      console.error("[complete-with-points] book invoke", e);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const { data: bookData, error: bookErr } = await svc.functions.invoke("shipments-book", {
+          body: { order_id: inserted.id, customer_name: p.customerName || "" },
+        });
+        if (!bookErr && (bookData?.success || bookData?.code === "ALREADY_BOOKED")) break;
+        console.error(`[complete-with-points] book attempt ${attempt}`, bookErr || bookData);
+      } catch (e) {
+        console.error(`[complete-with-points] book invoke attempt ${attempt}`, e);
+      }
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+      }
     }
 
     return NextResponse.json({ orderId: inserted.id });

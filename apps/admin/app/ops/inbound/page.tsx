@@ -7,6 +7,7 @@ import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shi
 import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
 import { getRepairItemCount } from "@/lib/barcode";
+import { getOrderSourceBadge } from "@/lib/order-source";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ type ShipmentData = {
   trackingNo: string; // 입고송장번호 (pickup_tracking_no)
   outboundTrackingNo?: string; // 출고송장번호 (tracking_no)
   customerName: string;
+  orderSource?: string | null;
   customerPhone?: string; // 고객 전화번호
   customerZipcode?: string; // 고객 우편번호 (추가)
   brandName?: string;
@@ -177,6 +179,7 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       trackingNo: inboundTrackingNo, // 입고송장번호
       outboundTrackingNo: outboundTrackingNo, // 출고송장번호
       customerName: order.customer_name || "고객명 없음",
+      orderSource: order.order_source || null,
       customerPhone: order.customer_phone || undefined,
       customerZipcode: order.delivery_zipcode, // 우편번호 매핑
       brandName: "브랜드 없음", // TODO: 브랜드 정보 추가 필요
@@ -629,8 +632,16 @@ export default function InboundPage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-500">고객명</label>
-                <p className="text-sm font-semibold text-gray-900 mt-1">
+                <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-2">
                   {result.customerName}
+                  {(() => {
+                    const sourceBadge = getOrderSourceBadge(result.orderSource);
+                    return sourceBadge ? (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${sourceBadge.className}`}>
+                        {sourceBadge.label}
+                      </span>
+                    ) : null;
+                  })()}
                 </p>
               </div>
               <div>

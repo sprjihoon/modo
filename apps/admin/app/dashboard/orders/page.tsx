@@ -26,6 +26,7 @@ import {
   Truck,
   Settings as SettingsIcon,
 } from "lucide-react";
+import { getOrderSourceBadge } from "@/lib/order-source";
 
 const statusMap = {
   ALL: { label: "전체", color: "bg-gray-100 text-gray-800" },
@@ -117,6 +118,7 @@ interface Order {
     customerAction?: string;
     returnTrackingNo?: string;
   } | null;
+  order_source?: string | null;
   // 취소/반송 보기 모드에서 표시되는 큐 종류
   queue_kind?: string;
   cancellation_reason?: string | null;
@@ -151,6 +153,7 @@ interface Stats {
   readyToShip: number;
   delivered: number;
   cancelled: number;
+  missingPickup?: number;
   promotionUsed: number;
   totalDiscount: number;
   totalRevenue: number;
@@ -177,6 +180,9 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>(
     searchParams.get("status") || "ALL"
   );
+  const [missingPickupOnly, setMissingPickupOnly] = useState(
+    searchParams.get("missingPickup") === "1"
+  );
   const [sortBy, setSortBy] = useState<string>("date");
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -195,6 +201,7 @@ export default function OrdersPage() {
 
   // 프로모션 필터 추가
   const [promotionFilter, setPromotionFilter] = useState<string>("ALL"); // ALL, USED, NOT_USED
+  const [sourceFilter, setSourceFilter] = useState<string>("ALL"); // ALL, web, app
 
   // 페이징
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -219,16 +226,17 @@ export default function OrdersPage() {
 
   useEffect(() => {
     setCancelView(resolveCancelViewFromSearchParams(searchParams));
+    setMissingPickupOnly(searchParams.get("missingPickup") === "1");
   }, [searchParams]);
 
   useEffect(() => {
     loadOrders();
-  }, [statusFilter, startDate, endDate, currentPage, pageSize, promotionFilter, cancelView, sortBy]);
+  }, [statusFilter, startDate, endDate, currentPage, pageSize, promotionFilter, sourceFilter, cancelView, sortBy, missingPickupOnly]);
 
   // 필터 변경 시 페이지 1로 리셋
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, startDate, endDate, search, promotionFilter, cancelView]);
+  }, [statusFilter, startDate, endDate, search, promotionFilter, sourceFilter, cancelView, missingPickupOnly]);
 
   // 검색어 변경 시 debounce 적용
   useEffect(() => {
@@ -302,7 +310,9 @@ export default function OrdersPage() {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       if (promotionFilter !== "ALL") params.append('promotionFilter', promotionFilter);
+      if (sourceFilter !== "ALL") params.append('source', sourceFilter);
       if (sortBy !== "date") params.append('sortBy', sortBy);
+      if (missingPickupOnly) params.append('missingPickup', '1');
       params.append('page', String(currentPage));
       params.append('pageSize', String(pageSize));
 
@@ -355,6 +365,7 @@ export default function OrdersPage() {
 
   // 상태 필터 변경 핸들러 — 취소/반송 상태 선택 시 날짜 필터 전체로 초기화
   const handleStatusFilterChange = (value: string) => {
+    setMissingPickupOnly(false);
     setStatusFilter(value);
     if (CANCEL_RETURN_STATUSES.includes(value)) {
       setStartDate("");
@@ -464,12 +475,32 @@ export default function OrdersPage() {
         </div>
       )}
 
+      {cancelView === "OFF" && (stats?.missingPickup ?? 0) > 0 && (
+        <Card className="border-amber-400 bg-amber-50/70">
+          <CardContent className="pt-6 flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-sm font-medium text-amber-800">
+              수거송장 미발행 {stats?.missingPickup}건 — 결제는 됐지만 우체국 예약이 없습니다. 서버가 6시간마다 재시도합니다.
+            </p>
+            <Button
+              size="sm"
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={() => {
+                setMissingPickupOnly(true);
+                setStatusFilter("PAID");
+              }}
+            >
+              미발행만 보기
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats — 일반 보기에서만 노출 */}
       {cancelView === "OFF" && stats && (
         <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-6">
           <Card 
-            className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'ALL' ? 'ring-2 ring-primary' : ''}`}
-            onClick={() => setStatusFilter('ALL')}
+            className={`cursor-pointer transition-all hover:shadow-md ${!missingPickupOnly && statusFilter === 'ALL' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => { setMissingPickupOnly(false); setStatusFilter('ALL'); }}
           >
             <CardHeader className="pb-2">
               <CardDescription>전체 주문</CardDescription>
@@ -621,7 +652,7 @@ export default function OrdersPage() {
           )}
 
           {/* 검색 및 상태/정렬 필터 */}
-          <div className="grid gap-4 md:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-6">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -654,6 +685,18 @@ export default function OrdersPage() {
                   <SelectItem value="ALL">전체</SelectItem>
                   <SelectItem value="USED">프로모션 사용</SelectItem>
                   <SelectItem value="NOT_USED">프로모션 미사용</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+            {cancelView === "OFF" && (
+              <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="주문 경로" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">전체 경로</SelectItem>
+                  <SelectItem value="web">웹</SelectItem>
+                  <SelectItem value="app">앱</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -713,13 +756,23 @@ export default function OrdersPage() {
                       order.status === "RETURN_SHIPPING");
                   return (
                     <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
-                      <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <div className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                        order.status === "PAID" && !order.tracking_no ? "border-amber-300 bg-amber-50/50" : ""
+                      }`}>
                         <div className="flex items-center space-x-4 flex-1">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-medium">
                                 {order.item_name || `${order.clothing_type} - ${order.repair_type}`}
                               </p>
+                              {(() => {
+                                const sourceBadge = getOrderSourceBadge(order.order_source);
+                                return sourceBadge ? (
+                                  <Badge variant="outline" className={`${sourceBadge.className} text-xs`}>
+                                    {sourceBadge.label}
+                                  </Badge>
+                                ) : null;
+                              })()}
                               {order.promotion_codes && (
                                 <Badge className="bg-green-100 text-green-800 text-xs">
                                   🎟️ {order.promotion_codes.code}
@@ -736,7 +789,9 @@ export default function OrdersPage() {
                               {order.order_number} • {order.customer_name || order.customer_email || '고객'}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {order.tracking_no ? `송장: ${order.tracking_no}` : '송장 미발급'}
+                              {order.tracking_no ? `송장: ${order.tracking_no}` : (
+                                order.status === "PAID" ? "수거송장 미발행 — 자동 재시도 대상" : "송장 미발급"
+                              )}
                               {cancelView !== "OFF" && order.cancellation_reason ? (
                                 <span className="ml-2 text-rose-600">사유: {order.cancellation_reason}</span>
                               ) : null}

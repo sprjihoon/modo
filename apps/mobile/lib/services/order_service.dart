@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/enums/action_type.dart';
@@ -207,6 +209,7 @@ class OrderService {
       final orderData = <String, dynamic>{
         'user_id': userId, // public.users의 id 사용
         'order_number': orderNumber,
+        'order_source': _clientOrderSource(),
         'clothing_type': clothingType ?? '기타',
         'repair_type': repairType ?? '기타',
         'base_price': basePrice,
@@ -280,6 +283,21 @@ class OrderService {
     }
   }
 
+  String _clientOrderSource() {
+    if (kIsWeb) return 'web';
+    return Platform.isIOS ? 'ios' : 'android';
+  }
+
+  Map<String, dynamic> _withOrderSource(Map<String, dynamic> draft) {
+    if (draft['orderSource'] != null || draft['order_source'] != null) {
+      return draft;
+    }
+    return <String, dynamic>{
+      ...draft,
+      'orderSource': _clientOrderSource(),
+    };
+  }
+
   /// 결제 인텐트 생성 (신규 흐름)
   ///
   /// 서버가 권위적 가격을 계산해 [payment_intents] 테이블에 임시 저장하고
@@ -294,7 +312,7 @@ class OrderService {
     try {
       final response = await _supabase.functions.invoke(
         'orders-quote',
-        body: draft,
+        body: _withOrderSource(draft),
       );
       final data = response.data;
       if (data is! Map) throw Exception('잘못된 응답 형식');
@@ -316,7 +334,7 @@ class OrderService {
     try {
       final response = await _supabase.functions.invoke(
         'orders-free',
-        body: draft,
+        body: _withOrderSource(draft),
       );
       final data = response.data;
       if (data is! Map) throw Exception('잘못된 응답 형식');

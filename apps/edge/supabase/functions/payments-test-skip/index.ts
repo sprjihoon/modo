@@ -18,6 +18,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handleCorsOptions } from '../_shared/cors.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
+import { orderSourceFromPayload } from '../_shared/order-source.ts';
 
 interface RequestBody {
   intent_id?: string;
@@ -165,6 +166,7 @@ Deno.serve(async (req) => {
       repair_parts: p.repairParts,
       images_with_pins: p.imagesWithPins,
       images: p.imageUrls ? { urls: p.imageUrls } : null,
+      order_source: orderSourceFromPayload(p),
     };
 
     // 8) orders insert (없는 컬럼은 자동 제거 후 재시도 — orders-free 와 동일 패턴)

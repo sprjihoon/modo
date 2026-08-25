@@ -43,6 +43,7 @@ interface Stats {
   readyToShip: number;
   delivered: number;
   cancelled: number;
+  missingPickup?: number;
   promotionUsed: number;
   totalDiscount: number;
   totalRevenue: number;
@@ -300,6 +301,29 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
+      {(stats?.missingPickup ?? 0) > 0 && (
+        <Card className="border-amber-400 bg-amber-50/70 dark:bg-amber-950/20">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-amber-800">수거송장 미발행 {stats?.missingPickup}건</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    결제는 됐지만 우체국 수거예약이 안 된 주문입니다. 서버가 6시간마다 다시 시도하고, 주문 상세에서 바로 재발행할 수 있습니다.
+                  </p>
+                </div>
+              </div>
+              <Link href="/dashboard/orders?missingPickup=1">
+                <Button size="sm" className="bg-amber-600 hover:bg-amber-700">
+                  바로 확인
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {dashboardStats.map((stat) => (
@@ -358,6 +382,19 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {(stats?.missingPickup ?? 0) > 0 && (
+                <div className="flex items-center justify-between p-3 border border-amber-300 bg-amber-50/60 rounded-lg">
+                  <div>
+                    <p className="font-medium text-amber-800">수거송장 미발행</p>
+                    <p className="text-sm text-muted-foreground">{stats?.missingPickup || 0}건</p>
+                  </div>
+                  <Link href="/dashboard/orders?missingPickup=1">
+                    <Button size="sm" variant="destructive">
+                      확인
+                    </Button>
+                  </Link>
+                </div>
+              )}
               <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
                   <p className="font-medium">입고 대기 (수거예약)</p>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/ops-auth";
 import { notifyCustomer } from "@/lib/notify-customer";
+import { bookPickupForOrder } from "@/lib/book-pickup";
 import {
   CLOSED_CS_STATUSES,
   WORKSHOP_STATUSES,
@@ -136,36 +137,11 @@ export async function POST(
 
     let bookWarning: string | null = null;
     if (atHome) {
-      try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (supabaseUrl && serviceRoleKey) {
-          const bookRes = await fetch(`${supabaseUrl}/functions/v1/shipments-book`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${serviceRoleKey}`,
-            },
-            body: JSON.stringify({
-              order_id: orderId,
-              customer_name: order.customer_name,
-              pickup_address: order.pickup_address,
-              pickup_address_detail: order.pickup_address_detail,
-              pickup_zipcode: order.pickup_zipcode,
-              pickup_phone: order.pickup_phone || order.customer_phone,
-              delivery_address: order.delivery_address,
-              delivery_address_detail: order.delivery_address_detail,
-              delivery_zipcode: order.delivery_zipcode,
-              delivery_phone: order.delivery_phone || order.customer_phone,
-              goods_name: order.item_name || "의류 수선(재작업)",
-            }),
-          });
-          if (!bookRes.ok) {
-            bookWarning = "회차는 열렸지만 우체국 수거 예약에 실패했습니다. 송장을 다시 확인해 주세요.";
-          }
-        }
-      } catch (e) {
-        console.warn("재작업 수거 예약 호출 실패:", e);
+      const bookResult = await bookPickupForOrder(
+        { ...order, id: orderId },
+        { goods_name: order.item_name || "의류 수선(재작업)" }
+      );
+      if (!bookResult.ok) {
         bookWarning = "회차는 열렸지만 우체국 수거 예약에 실패했습니다. 송장을 다시 확인해 주세요.";
       }
     }

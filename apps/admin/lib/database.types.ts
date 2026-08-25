@@ -1178,6 +1178,7 @@ export type Database = {
           item_name: string | null
           notes: string | null
           order_number: string
+          order_source: string | null
           original_total_price: number | null
           paid_at: string | null
           payment_id: string | null
@@ -1230,6 +1231,7 @@ export type Database = {
           item_name?: string | null
           notes?: string | null
           order_number: string
+          order_source?: string | null
           original_total_price?: number | null
           paid_at?: string | null
           payment_id?: string | null
@@ -1282,6 +1284,7 @@ export type Database = {
           item_name?: string | null
           notes?: string | null
           order_number?: string
+          order_source?: string | null
           original_total_price?: number | null
           paid_at?: string | null
           payment_id?: string | null

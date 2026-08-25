@@ -3,6 +3,8 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { bookPickupWithRetry, notifyStaffPickupBookFailed } from '../_shared/book-pickup.ts'
+import { orderSourceFromPayload } from '../_shared/order-source.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -108,6 +110,7 @@ serve(async (req) => {
       repair_parts: Array.isArray(p.repairParts) ? p.repairParts : null,
       images_with_pins: Array.isArray(p.imagesWithPins) ? p.imagesWithPins : null,
       images: Array.isArray(p.imageUrls) ? { urls: p.imageUrls } : null,
+      order_source: orderSourceFromPayload(p),
     }
 
     let inserted: { id: string } | null = null
@@ -152,18 +155,27 @@ serve(async (req) => {
       /* ignore */
     }
 
-    try {
-      await fetch(`${SUPABASE_URL}/functions/v1/shipments-book`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: authHeader,
-          apikey: SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ order_id: inserted.id }),
+    const bookResult = await bookPickupWithRetry({
+      orderId: inserted.id,
+      payload: {
+        customer_name: insertData.customer_name,
+        pickup_address: insertData.pickup_address,
+        pickup_phone: insertData.pickup_phone,
+        pickup_zipcode: insertData.pickup_zipcode ?? '',
+        delivery_address: insertData.delivery_address,
+        delivery_phone: insertData.delivery_phone,
+        delivery_zipcode: insertData.delivery_zipcode ?? '',
+        delivery_message: insertData.notes ?? '',
+      },
+    })
+    if (!bookResult.ok) {
+      console.error('[payments-complete-with-points] 수거예약 재시도 실패:', JSON.stringify(bookResult))
+      await notifyStaffPickupBookFailed(admin, {
+        orderId: inserted.id,
+        orderNumber,
+        customerName: insertData.customer_name,
+        error: bookResult.error,
       })
-    } catch (e) {
-      console.error('[payments-complete-with-points] book', e)
     }
 
     return json({ orderId: inserted.id })

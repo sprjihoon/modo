@@ -8,6 +8,8 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { bookPickupWithRetry, notifyStaffPickupBookFailed } from '../_shared/book-pickup.ts'
+import { resolveOrderSourceFromRequest } from '../_shared/order-source.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,6 +36,16 @@ serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+    const rawText = await req.text()
+    let body: Record<string, unknown> = {}
+    try {
+      body = JSON.parse(rawText || '{}')
+    } catch {
+      body = {}
+    }
+    const orderSource = resolveOrderSourceFromRequest(req, body, 'app')
+    body.orderSource = orderSource
+
     // orders-quote 호출로 가격/페이로드 재계산 (서버 권위)
     const quoteResp = await fetch(`${SUPABASE_URL}/functions/v1/orders-quote`, {
       method: 'POST',
@@ -42,7 +54,7 @@ serve(async (req) => {
         Authorization: authHeader,
         apikey: SUPABASE_ANON_KEY,
       },
-      body: await req.clone().text(),
+      body: JSON.stringify(body),
     })
     const quoteJson = await quoteResp.json()
     if (!quoteResp.ok) {
@@ -100,6 +112,7 @@ serve(async (req) => {
       repair_parts: Array.isArray(pickup.repairParts) && pickup.repairParts.length > 0 ? pickup.repairParts : null,
       images_with_pins: Array.isArray(pickup.imagesWithPins) && pickup.imagesWithPins.length > 0 ? pickup.imagesWithPins : null,
       images: Array.isArray(pickup.imageUrls) && pickup.imageUrls.length > 0 ? { urls: pickup.imageUrls } : null,
+      order_source: orderSource,
     }
 
     let attempt = 0
@@ -124,30 +137,27 @@ serve(async (req) => {
     }
     const newOrderId = inserted.id as string
 
-    // 수거 예약 (오류 무시)
-    try {
-      await fetch(`${SUPABASE_URL}/functions/v1/shipments-book`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: authHeader,
-          apikey: SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
-          order_id: newOrderId,
-          customer_name: insertData.customer_name,
-          pickup_address: insertData.pickup_address,
-          pickup_phone: insertData.pickup_phone,
-          pickup_zipcode: insertData.pickup_zipcode ?? '',
-          delivery_address: insertData.delivery_address,
-          delivery_phone: insertData.delivery_phone,
-          delivery_zipcode: insertData.delivery_zipcode ?? '',
-          delivery_message: insertData.notes ?? '',
-          test_mode: false,
-        }),
+    const bookResult = await bookPickupWithRetry({
+      orderId: newOrderId,
+      payload: {
+        customer_name: insertData.customer_name,
+        pickup_address: insertData.pickup_address,
+        pickup_phone: insertData.pickup_phone,
+        pickup_zipcode: insertData.pickup_zipcode ?? '',
+        delivery_address: insertData.delivery_address,
+        delivery_phone: insertData.delivery_phone,
+        delivery_zipcode: insertData.delivery_zipcode ?? '',
+        delivery_message: insertData.notes ?? '',
+      },
+    })
+    if (!bookResult.ok) {
+      console.error('0원 주문 수거예약 재시도 실패:', JSON.stringify(bookResult))
+      await notifyStaffPickupBookFailed(admin, {
+        orderId: newOrderId,
+        orderNumber,
+        customerName: insertData.customer_name,
+        error: bookResult.error,
       })
-    } catch (e) {
-      console.warn('shipments-book 호출 실패 (무시):', e)
     }
 
     // 알림 (오류 무시)

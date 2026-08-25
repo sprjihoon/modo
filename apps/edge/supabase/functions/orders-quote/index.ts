@@ -7,6 +7,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveOrderSourceFromRequest } from '../_shared/order-source.ts'
 
 interface RepairPart { name?: string; price?: number; quantity?: number; detail?: string }
 interface InputItem {
@@ -74,6 +75,7 @@ serve(async (req) => {
     const userPhone = (userRow.phone as string) || '010-0000-0000'
 
     const body = await req.json().catch(() => ({}))
+    const orderSource = resolveOrderSourceFromRequest(req, body as Record<string, unknown>, 'app')
 
     const itemsArr: InputItem[] = Array.isArray(body.items) ? body.items : []
     const clothingType = (itemsArr[0]?.clothingType as string) ?? body.clothingType ?? ''
@@ -242,6 +244,7 @@ serve(async (req) => {
       promotionCodeId: verifiedPromotionCodeId,
       promotionDiscountAmount,
       originalTotalPrice,
+      orderSource,
     }
 
     // payment_intents insert (service-role 우회)

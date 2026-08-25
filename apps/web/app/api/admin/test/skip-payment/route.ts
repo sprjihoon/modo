@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
       repair_parts: p.repairParts,
       images_with_pins: p.imagesWithPins,
       images: p.imageUrls ? { urls: p.imageUrls } : null,
+      order_source: "web",
     };
 
     // (PGRST204) 없는 컬럼은 자동 제거하며 재시도 — orders-free 와 동일
