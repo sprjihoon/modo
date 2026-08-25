@@ -24,17 +24,15 @@ export async function notifyCustomer(
   }
 
   try {
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceRoleKey) return;
+
     const { data: userRow } = await supabase
       .from("users")
       .select("fcm_token")
       .eq("id", params.userId)
       .maybeSingle();
-
-    if (!userRow?.fcm_token) return;
-
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceRoleKey) return;
 
     await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
       method: "POST",
@@ -47,7 +45,7 @@ export async function notifyCustomer(
         orderId: params.orderId,
         title: params.title,
         body: params.body,
-        fcmToken: userRow.fcm_token,
+        fcmToken: userRow?.fcm_token || undefined,
       }),
     });
   } catch (e) {

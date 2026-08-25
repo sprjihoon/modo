@@ -8,6 +8,7 @@ import {
 import { NextRequest, NextResponse } from "next/server";
 import { logActionServer } from "@/lib/api/action-logs-server";
 import { ActionType } from "@/lib/types/action-log";
+import { flushPendingNotifications } from "@/lib/flush-notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -240,6 +241,8 @@ export async function PATCH(
     } catch (logError) {
       console.log("상태 변경 로그 기록 실패:", logError);
     }
+
+    flushPendingNotifications();
 
     return NextResponse.json({
       success: true,

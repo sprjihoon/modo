@@ -197,16 +197,15 @@ export async function POST(request: NextRequest) {
           order_id: affectedOrder.id,
         });
 
-        // 2. 고객 FCM 토큰 조회 후 푸시 전송
         const { data: userRow } = await supabase
           .from("users")
           .select("fcm_token")
           .eq("id", affectedOrder.user_id)
           .maybeSingle();
 
-        if (userRow?.fcm_token) {
-          const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-          const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (supabaseUrl && serviceRoleKey) {
           await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
             method: "POST",
             headers: {
@@ -218,7 +217,7 @@ export async function POST(request: NextRequest) {
               orderId: affectedOrder.id,
               title: notifTitle,
               body: notifBody,
-              fcmToken: userRow.fcm_token,
+              fcmToken: userRow?.fcm_token || undefined,
             }),
           });
         }

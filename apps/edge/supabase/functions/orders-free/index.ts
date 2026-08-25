@@ -10,6 +10,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { bookPickupWithRetry, notifyStaffPickupBookFailed } from '../_shared/book-pickup.ts'
 import { resolveOrderSourceFromRequest } from '../_shared/order-source.ts'
+import { flushPendingNotifications } from '../_shared/flush-notifications.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -171,6 +172,7 @@ serve(async (req) => {
       })
     } catch { /* ignore */ }
 
+    flushPendingNotifications()
     return json({ orderId: newOrderId, totalPrice: 0 })
   } catch (e) {
     console.error('orders-free 오류:', e)

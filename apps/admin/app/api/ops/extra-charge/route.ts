@@ -104,10 +104,12 @@ export async function POST(request: NextRequest) {
                 Authorization: `Bearer ${supabaseServiceKey}`,
               },
               body: JSON.stringify({
+                userId: m.id,
                 fcmToken: m.fcm_token,
                 title: "추가 비용 검토 요청",
                 body: `작업자 추가 비용 요청: ${reason}`,
                 data: { order_id: orderId, type: "EXTRA_CHARGE_REVIEW" },
+                skipEmail: true,
               }),
             });
           } catch (e) {

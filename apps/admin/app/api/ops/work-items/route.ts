@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireStaff } from "@/lib/ops-auth";
+import { flushPendingNotifications } from "@/lib/flush-notifications";
 
 // 작업 아이템 상태 조회
 export async function GET(request: NextRequest) {
@@ -137,6 +138,8 @@ export async function POST(request: NextRequest) {
       console.error("배송 상태 업데이트 오류:", shipmentUpdateError);
       // 작업 아이템은 이미 생성되었으므로 에러를 무시하고 계속 진행
     }
+
+    flushPendingNotifications();
 
     return NextResponse.json({
       success: true,

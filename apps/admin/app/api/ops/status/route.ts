@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireStaff } from "@/lib/ops-auth";
+import { flushPendingNotifications } from "@/lib/flush-notifications";
 import type { Database } from "@/lib/database.types";
 
 type ShipmentStatus = Database["public"]["Enums"]["shipment_status"];
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
     }).rpc("ops_set_status", { p_order_id: orderId, p_status: status });
 
     if (error) throw new Error(error.message);
+
+    const result = data as { noop?: boolean } | null;
+    if (!result?.noop) flushPendingNotifications();
 
     return NextResponse.json({ success: true, result: data });
   } catch (e: any) {

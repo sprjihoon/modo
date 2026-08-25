@@ -61,9 +61,32 @@ serve(async (req) => {
     // 2. 각 이벤트 처리
     const results = await Promise.allSettled(
       events.map(async (event) => {
-        if (!event.fcm_token) {
-          console.log(`⚠️ 이벤트 ${event.id}: FCM 토큰 없음`)
-          return { success: false, eventId: event.id, reason: 'No FCM token' }
+        const { data: claimed } = await supabase
+          .from('notification_events')
+          .update({ error_message: 'processing' })
+          .eq('id', event.id)
+          .eq('notification_sent', false)
+          .or('error_message.is.null,error_message.neq.processing')
+          .select('id')
+          .maybeSingle()
+
+        if (!claimed) {
+          const { data: existing } = await supabase
+            .from('notification_events')
+            .select('error_message, updated_at, notification_sent')
+            .eq('id', event.id)
+            .maybeSingle()
+
+          const updatedAt = existing?.updated_at ? new Date(existing.updated_at).getTime() : 0
+          const staleProcessing =
+            existing &&
+            !existing.notification_sent &&
+            existing.error_message === 'processing' &&
+            Date.now() - updatedAt > 2 * 60 * 1000
+
+          if (!staleProcessing) {
+            return { success: false, eventId: event.id, reason: 'already processing' }
+          }
         }
 
         // 알림 메시지 생성
@@ -98,7 +121,7 @@ serve(async (req) => {
             userId: event.user_id,
             title,
             body,
-            fcmToken: event.fcm_token,
+            fcmToken: event.fcm_token || undefined,
           },
         })
 

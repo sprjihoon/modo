@@ -56,6 +56,10 @@ EPOST_OFFICE_SER=251132110
 # Supabase (자동 설정됨)
 SUPABASE_URL=auto
 SUPABASE_SERVICE_ROLE_KEY=auto
+
+# Resend - 주문 결과 이메일
+RESEND_API_KEY=re_xxxxxxxx
+RESEND_FROM_EMAIL=모두의수선 <noreply@modo.io.kr>
 ```
 
 ### 5. Edge Functions 배포

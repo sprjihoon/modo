@@ -29,6 +29,7 @@ modo/
 | 배포 | Vercel (web · admin), Supabase (edge functions) |
 | 인증 | Supabase Auth (Google · Naver · Apple · 이메일) |
 | 물류 | 우체국 택배 API (수거 예약 / 취소) |
+| 이메일 | **Resend** (주문 상태 변경 안내, 가입 이메일) |
 
 ---
 
@@ -388,6 +389,7 @@ SQL: `apps/sql/migrations/20260819_update_damage_compensation.sql` (라이브 �
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-25 | 주문 상태 이메일 | 주문 상태 변경 시 FCM 푸시와 함께 Resend 메일을 가입 이메일로 발송. `notification_events` + `trigger_order_status_changed` 를 CLI로 운영 DB에 적용 |
 | 2026-08-20 | 앱 업데이트·알림 설정 | `app_versions`로 최신/최소 버전 안내. 로그인 후 알림이 꺼져 있으면 시스템 설정으로 이동. 앱 `1.0.2+25`. iOS `1.0.2` 빌드 25 **Waiting for Review** · Play Alpha AAB 25 업로드. 어드민 설정 → 앱 버전 |
 | 2026-08-20 | 어드민 CS 처리 | 주문 상세에서 재작업·수선비 환불·전손·분실 보상. `order_cs_events` 이력. 고객 웹·앱에 회차/배너·푸시 |
 | 2026-08-19 | 전손·분실 보상 | 이용약관 제15조·환불정책 제6·7조: `min(잔존가치, 수선비×5, 20만 원)`. 수선 실패는 재작업/수선비 환불. 가치 신고 없음. SQL `20260819_update_damage_compensation.sql` |
@@ -515,9 +517,11 @@ supabase secrets set PORTONE_API_SECRET=xxx
 # 함수 배포
 supabase functions deploy payments-confirm --no-verify-jwt
 supabase functions deploy payments-cancel --no-verify-jwt
+supabase functions deploy send-push-notification
+supabase functions deploy process-pending-notifications
 
-# DB 마이그레이션
-supabase db push
+# DB — 특정 SQL만 원격에 적용 (전체 db push 금지: 히스토리 미스매치)
+supabase db query --linked --file supabase/migrations/20260825000000_send_order_status_email_on_change.sql
 ```
 
 ---
@@ -543,6 +547,10 @@ PORTONE_WEBHOOK_SECRET=...
 # 네이버 로그인
 NAVER_CLIENT_ID=...
 NAVER_CLIENT_SECRET=...
+
+# Resend (주문 상태 이메일, Edge Function secrets)
+RESEND_API_KEY=re_xxxxxxxx
+RESEND_FROM_EMAIL=모두의수선 <noreply@modo.io.kr>
 ```
 
 ---

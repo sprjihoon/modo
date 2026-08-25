@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateOrderBarcodes } from "@/lib/barcode";
 import { requireStaff } from "@/lib/ops-auth";
+import { flushPendingNotifications } from "@/lib/flush-notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -88,6 +89,8 @@ export async function POST(request: NextRequest) {
       throw new Error(orderError.message);
     }
 
+    flushPendingNotifications();
+
     // 4. 내부 바코드 자동 생성
     let barcodesGenerated = 0;
     let barcodeError: string | null = null;
@@ -162,6 +165,8 @@ export async function PATCH(request: NextRequest) {
     if (orderError) {
       throw new Error(orderError.message);
     }
+
+    flushPendingNotifications();
 
     return NextResponse.json({
       success: true,

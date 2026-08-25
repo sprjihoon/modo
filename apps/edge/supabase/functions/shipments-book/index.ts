@@ -11,6 +11,7 @@ import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
 import { insertOrder, mockInsertOrder, getApprovalNumber, getResInfo, type InsertOrderParams } from '../_shared/epost/index.ts';
 import { createPickupBookingLock, isPickupBookingLock, isStalePickupBookingLock } from '../_shared/book-pickup.ts';
+import { flushPendingNotifications } from '../_shared/flush-notifications.ts';
 
 interface ShipmentBookRequest {
   order_id: string;
@@ -1324,6 +1325,8 @@ Deno.serve(async (req) => {
     } else {
       console.warn('⚠️ user_id가 없어 알림을 생성하지 않습니다.');
     }
+
+    flushPendingNotifications();
 
     // 성공 응답
     return successResponse(

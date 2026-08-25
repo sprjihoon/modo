@@ -83,20 +83,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "알림 저장 실패" }, { status: 500 });
     }
 
-    // FCM 푸시 전송
     let fcmSent = false;
     try {
-      const { data: userRow } = await supabaseAdmin
-        .from("users")
-        .select("fcm_token")
-        .eq("id", order.user_id)
-        .maybeSingle();
+      const supabaseUrl =
+        process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-      if (userRow?.fcm_token) {
-        const supabaseUrl =
-          process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
+      if (supabaseUrl && serviceRoleKey) {
         const pushRes = await fetch(
           `${supabaseUrl}/functions/v1/send-push-notification`,
           {
@@ -107,6 +100,7 @@ export async function POST(req: NextRequest) {
             },
             body: JSON.stringify({
               userId: order.user_id,
+              orderId,
               title: notifTitle,
               body: notifBody,
               data: {
@@ -133,8 +127,8 @@ export async function POST(req: NextRequest) {
       notification,
       fcmSent,
       message: fcmSent
-        ? "고객에게 앱 푸시 알림이 전송되었습니다"
-        : "알림이 저장되었습니다 (앱 미설치 또는 FCM 토큰 없음)",
+        ? "고객에게 앱 푸시와 이메일이 전송되었습니다"
+        : "알림이 저장되었습니다. 가입 이메일이 있으면 메일도 발송됩니다.",
     });
   } catch (e: any) {
     console.error("CS 영상 공유 오류:", e);

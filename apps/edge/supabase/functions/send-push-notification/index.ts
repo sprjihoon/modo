@@ -1,23 +1,24 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
+import { isDeliverableEmail, sendOrderResultEmail } from '../_shared/resend.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const FCM_SERVER_KEY = Deno.env.get('FCM_SERVER_KEY')! // Firebase Console에서 발급
 
 interface NotificationPayload {
-  eventId?: string // notification_events.id
-  orderId: string
-  userId: string
+  eventId?: string
+  orderId?: string
+  userId?: string
   title: string
   body: string
-  fcmToken: string
+  fcmToken?: string
+  email?: string
+  skipEmail?: boolean
   data?: Record<string, string>
 }
 
 serve(async (req) => {
   try {
-    // CORS 처리
     if (req.method === 'OPTIONS') {
       return new Response('ok', {
         headers: {
@@ -29,86 +30,145 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
-    // 1. 요청 바디 파싱
     const payload: NotificationPayload = await req.json()
-    console.log('📱 푸시 알림 발송 요청:', payload)
-
-    // 2. FCM API 호출
-    const fcmResponse = await fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `key=${FCM_SERVER_KEY}`,
-      },
-      body: JSON.stringify({
-        to: payload.fcmToken,
-        notification: {
-          title: payload.title,
-          body: payload.body,
-          sound: 'default',
-          badge: '1',
-        },
-        data: {
-          order_id: payload.orderId,
-          ...(payload.data || {}),
-        },
-        priority: 'high',
-      }),
+    console.log('📱 알림 발송 요청:', {
+      userId: payload.userId,
+      orderId: payload.orderId,
+      title: payload.title,
+      hasToken: !!payload.fcmToken,
+      skipEmail: !!payload.skipEmail,
     })
 
-    const fcmResult = await fcmResponse.json()
-    console.log('✅ FCM 응답:', fcmResult)
+    if (!payload.title || !payload.body) {
+      return jsonResponse({ success: false, error: 'title, body는 필수입니다' }, 400)
+    }
 
-    // 3. 결과 확인
-    const success = fcmResult.success === 1
+    let fcmToken = payload.fcmToken || ''
+    let email = payload.email || ''
+    let customerName = ''
 
-    // 4. notification_events 테이블 업데이트 (eventId가 있는 경우)
+    if (payload.userId) {
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('email, name, fcm_token')
+        .eq('id', payload.userId)
+        .maybeSingle()
+
+      if (!fcmToken) fcmToken = userRow?.fcm_token || ''
+      if (!email) email = userRow?.email || ''
+      customerName = userRow?.name || ''
+    }
+
+    if (!isDeliverableEmail(email) && payload.orderId) {
+      const { data: orderRow } = await supabase
+        .from('orders')
+        .select('customer_email, customer_name')
+        .eq('id', payload.orderId)
+        .maybeSingle()
+
+      if (isDeliverableEmail(orderRow?.customer_email)) {
+        email = orderRow.customer_email
+      }
+      if (!customerName) customerName = orderRow?.customer_name || ''
+    }
+
+    let fcmSent = false
+    let fcmError: string | undefined
+
+    if (fcmToken) {
+      try {
+        const fcmServerKey = Deno.env.get('FCM_SERVER_KEY')
+        if (!fcmServerKey) {
+          fcmError = 'FCM_SERVER_KEY not configured'
+        } else {
+          const fcmResponse = await fetch('https://fcm.googleapis.com/fcm/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `key=${fcmServerKey}`,
+            },
+            body: JSON.stringify({
+              to: fcmToken,
+              notification: {
+                title: payload.title,
+                body: payload.body,
+                sound: 'default',
+                badge: '1',
+              },
+              data: {
+                order_id: payload.orderId || '',
+                ...(payload.data || {}),
+              },
+              priority: 'high',
+            }),
+          })
+
+          const fcmResult = await fcmResponse.json()
+          console.log('✅ FCM 응답:', fcmResult)
+          fcmSent = fcmResult.success === 1
+          if (!fcmSent) fcmError = JSON.stringify(fcmResult)
+        }
+      } catch (error) {
+        fcmError = error instanceof Error ? error.message : String(error)
+        console.error('❌ FCM 발송 실패:', fcmError)
+      }
+    }
+
+    let emailSent = false
+    let emailId: string | undefined
+    let emailError: string | undefined
+
+    if (!payload.skipEmail) {
+      const emailResult = await sendOrderResultEmail({
+        to: email,
+        title: payload.title,
+        body: payload.body,
+        orderId: payload.orderId,
+        customerName,
+      })
+      emailSent = emailResult.sent
+      emailId = emailResult.id
+      emailError = emailResult.error
+    }
+
+    const success = fcmSent || emailSent
+
     if (payload.eventId) {
-      // retry_count는 별도 RPC로 증가 (inline에 넣으면 Promise가 값으로 저장되는 버그)
       await supabase.rpc('increment_retry_count', { event_id: payload.eventId })
       await supabase
         .from('notification_events')
         .update({
           notification_sent: success,
           notification_sent_at: success ? new Date().toISOString() : null,
-          error_message: success ? null : JSON.stringify(fcmResult),
+          error_message: success
+            ? null
+            : JSON.stringify({ fcm: fcmError, email: emailError }),
         })
         .eq('id', payload.eventId)
-
-      console.log(`✅ 이벤트 ${payload.eventId} 업데이트 완료`)
     }
 
-    return new Response(
-      JSON.stringify({
-        success,
-        message: success ? '푸시 알림 발송 성공' : '푸시 알림 발송 실패',
-        fcmResult,
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        status: success ? 200 : 500,
-      }
-    )
+    return jsonResponse({
+      success,
+      message: success ? '알림 발송 성공' : '알림 발송 실패',
+      fcm: { sent: fcmSent, error: fcmError },
+      email: { sent: emailSent, id: emailId, error: emailError },
+    }, success ? 200 : 500)
   } catch (error) {
-    console.error('❌ 푸시 알림 발송 오류:', error)
+    console.error('❌ 알림 발송 오류:', error)
 
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        status: 500,
-      }
-    )
+    return jsonResponse({
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    }, 500)
   }
 })
 
+function jsonResponse(body: Record<string, unknown>, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+  })
+}

@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { bookPickupWithRetry, notifyStaffPickupBookFailed } from '../_shared/book-pickup.ts'
 import { orderSourceFromPayload } from '../_shared/order-source.ts'
+import { flushPendingNotifications } from '../_shared/flush-notifications.ts'
 
 const PORTONE_API_SECRET = Deno.env.get('PORTONE_API_SECRET') || ''
 const PORTONE_API_URL = 'https://api.portone.io'
@@ -472,6 +473,7 @@ serve(async (req) => {
     }
 
     const responseOrderId = (orderData && (orderData as any)._resolved_id) || order_id
+    flushPendingNotifications()
 
     return new Response(
       JSON.stringify({
