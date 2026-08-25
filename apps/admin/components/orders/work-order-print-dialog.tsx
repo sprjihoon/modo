@@ -3,14 +3,16 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, Printer, Loader2, X } from "lucide-react";
-import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin, type ExtraChargeInfo } from "@/components/ops/work-order-sheet";
+import { WorkOrderSheet, type WorkOrderData, type ExtraChargeInfo } from "@/components/ops/work-order-sheet";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { customerRequestSummary, parseWorkOrderImages } from "@/lib/work-order-images";
 
 interface WorkOrderPrintDialogProps {
   order: any;
+  buttonClassName?: string;
 }
 
-export function WorkOrderPrintDialog({ order }: WorkOrderPrintDialogProps) {
+export function WorkOrderPrintDialog({ order, buttonClassName }: WorkOrderPrintDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,39 +30,6 @@ export function WorkOrderPrintDialog({ order }: WorkOrderPrintDialogProps) {
     setError("");
 
     try {
-      // 이미지 URL 추출
-      let imageUrls: string[] = [];
-      if (order.images_with_pins && Array.isArray(order.images_with_pins)) {
-        imageUrls = order.images_with_pins.map((img: any) => img?.imagePath || img?.url).filter(Boolean);
-      } else if (order.images?.urls && Array.isArray(order.images.urls)) {
-        imageUrls = order.images.urls;
-      } else if (order.image_urls && Array.isArray(order.image_urls)) {
-        imageUrls = order.image_urls;
-      }
-
-      // 이미지 데이터 변환 (images_with_pins에서 핀 정보 추출)
-      const convertToWorkOrderImages = (imageUrls: string[], imagesWithPins?: any[]): WorkOrderImage[] => {
-        // images_with_pins가 있으면 사용
-        if (imagesWithPins && Array.isArray(imagesWithPins) && imagesWithPins.length > 0) {
-          return imagesWithPins.map((imgData: any) => {
-            const pins: WorkOrderPin[] = (imgData.pins || []).map((pin: any) => ({
-              x: pin.relative_x || pin.x || 0.5,
-              y: pin.relative_y || pin.y || 0.5,
-              memo: pin.memo || "",
-            }));
-
-            return {
-              url: imgData.imagePath || imgData.url || "",
-              pins,
-            };
-          });
-        }
-        
-        // images_with_pins가 없으면 이미지만 표시
-        if (!imageUrls || imageUrls.length === 0) return [];
-        return imageUrls.map(url => ({ url, pins: [] }));
-      };
-
       // shipment 정보에서 outbound 송장번호 가져오기
       let outboundTrackingNo = order.shipment?.delivery_tracking_no || order.delivery_tracking_no;
       
@@ -92,9 +61,9 @@ export function WorkOrderPrintDialog({ order }: WorkOrderPrintDialogProps) {
         customerName: order.customer_name || "고객명 없음",
         customerPhone: order.customer_phone,
         itemName: order.item_name || `${order.clothing_type || ''} - ${order.repair_type || ''}`,
-        summary: order.item_description || order.item_name || "수선 요청 정보 없음",
+        summary: customerRequestSummary(order),
         repairParts: Array.isArray(order.repair_parts) ? order.repair_parts : [],
-        images: convertToWorkOrderImages(imageUrls, order.images_with_pins),
+        images: parseWorkOrderImages(order),
         extraCharge,
       };
 
@@ -121,7 +90,7 @@ export function WorkOrderPrintDialog({ order }: WorkOrderPrintDialogProps) {
 
   return (
     <>
-      <Button variant="outline" size="sm" className="w-full" onClick={handleOpen}>
+      <Button variant="outline" size="sm" className={buttonClassName ?? "w-full"} onClick={handleOpen}>
         <FileText className="h-4 w-4 mr-2" />
         작업지시서 출력
       </Button>

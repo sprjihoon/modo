@@ -9,7 +9,7 @@ import { OrderTimeline } from "@/components/orders/order-timeline";
 import { StatusChangeDialog } from "@/components/orders/status-change-dialog";
 import { PaymentRefundDialog } from "@/components/orders/payment-refund-dialog";
 import { TrackingManageDialog } from "@/components/orders/tracking-manage-dialog";
-import { WorkOrderPrintDialog } from "@/components/orders/work-order-print-dialog";
+import { CustomerWorkRequestCard } from "@/components/orders/customer-work-request-card";
 import { LabelPrintDialog } from "@/components/orders/label-print-dialog";
 import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review-dialog";
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
@@ -725,6 +725,8 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
         <OrderCsCard order={order} onChanged={() => loadOrder()} />
       )}
 
+      {order && <CustomerWorkRequestCard order={order} />}
+
       <div className="grid gap-6 md:grid-cols-2">
         {/* Order Info */}
         <Card>
@@ -786,7 +788,9 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
             })()}
             <div>
               <p className="text-sm text-muted-foreground">상세 설명</p>
-              <p className="font-medium">{displayOrder.description}</p>
+              <p className="font-medium whitespace-pre-wrap">
+                {order.notes || order.repair_detail || displayOrder.description}
+              </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">주문 경로</p>
@@ -807,12 +811,6 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                 } as Record<string,string>)[getEffectiveOrderStatus(order)] || getEffectiveOrderStatus(order)
               }</Badge>
             </div>
-            {/* 작업지시서: 입고 이후 또는 추가결제 대기(HOLD) 상태에서도 출력 가능 */}
-            {['INBOUND', 'PROCESSING', 'HOLD', 'READY_TO_SHIP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(displayOrder.status) && (
-              <div className="pt-4 border-t">
-                <WorkOrderPrintDialog order={order} />
-              </div>
-            )}
           </CardContent>
         </Card>
 

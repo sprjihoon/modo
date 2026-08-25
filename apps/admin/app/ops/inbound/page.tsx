@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Scan, Package, Search, FileText, Printer, AlertTriangle, Tag } from "lucide-react";
-import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage, type WorkOrderPin } from "@/components/ops/work-order-sheet";
+import { WorkOrderSheet, type WorkOrderData, type WorkOrderImage } from "@/components/ops/work-order-sheet";
+import { customerRequestSummary, parseWorkOrderImages } from "@/lib/work-order-images";
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
@@ -108,15 +109,8 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       order.delivery_address_detail,
     ].filter(Boolean).join(" ");
 
-    // 이미지 URL 추출
-    let imageUrls: string[] = [];
-    if (order.images_with_pins && Array.isArray(order.images_with_pins)) {
-      imageUrls = order.images_with_pins.map((img: any) => img?.imagePath || img?.url).filter(Boolean);
-    } else if (order.images?.urls && Array.isArray(order.images.urls)) {
-      imageUrls = order.images.urls;
-    } else if (order.image_urls && Array.isArray(order.image_urls)) {
-      imageUrls = order.image_urls;
-    }
+    const workImages = parseWorkOrderImages(order);
+    const imageUrls = workImages.map((img) => img.url);
 
     // 핀 개수 계산
     let totalPins = 0;
@@ -185,7 +179,7 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       brandName: "브랜드 없음", // TODO: 브랜드 정보 추가 필요
       status: shipment.status || order.status || "UNKNOWN",
       deliveryInfo: deliveryInfo || shipment.delivery_info, // 파싱된 delivery_info 사용
-      summary: order.item_description || order.item_name || "수선 요청 정보 없음",
+      summary: customerRequestSummary(order),
       pickupAddress: pickupAddr || "주소 없음",
       deliveryAddress: deliveryAddr || "주소 없음",
       orderId: order.id || "",
@@ -360,27 +354,11 @@ export default function InboundPage() {
     return {};
   };
 
-  // 이미지 데이터 변환 함수 (images_with_pins에서 핀 정보 추출)
   const convertToWorkOrderImages = (imageUrls?: string[], imagesWithPins?: any[]): WorkOrderImage[] => {
-    // images_with_pins가 있으면 사용
-    if (imagesWithPins && Array.isArray(imagesWithPins) && imagesWithPins.length > 0) {
-      return imagesWithPins.map((imgData: any) => {
-        const pins: WorkOrderPin[] = (imgData.pins || []).map((pin: any) => ({
-          x: pin.relative_x || pin.x || 0.5,
-          y: pin.relative_y || pin.y || 0.5,
-          memo: pin.memo || "",
-        }));
-
-        return {
-          url: imgData.imagePath || imgData.url || "",
-          pins,
-        };
-      });
-    }
-    
-    // images_with_pins가 없으면 이미지만 표시
-    if (!imageUrls || imageUrls.length === 0) return [];
-    return imageUrls.map(url => ({ url, pins: [] }));
+    return parseWorkOrderImages({
+      images_with_pins: imagesWithPins,
+      images: imageUrls ? { urls: imageUrls } : null,
+    });
   };
 
   // 입고 처리 함수

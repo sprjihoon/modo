@@ -9,6 +9,7 @@ import {
 } from "@/components/ops/work-order-sheet";
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import { normalizeRepairPart } from "@/lib/barcode";
+import { customerRequestSummary, parseWorkOrderImages } from "@/lib/work-order-images";
 
 type LookupResult = {
   orderId: string;
@@ -57,15 +58,7 @@ export default function ReprintPage() {
       const rawParts = Array.isArray(order.repair_parts) ? (order.repair_parts as unknown[]) : [];
       const repairParts = rawParts.map(normalizeRepairPart).filter(Boolean);
 
-      let images: WorkOrderImage[] = [];
-      if (Array.isArray(order.images_with_pins)) {
-        images = order.images_with_pins.map((img: any) => ({
-          url: img?.imagePath || img?.url || "",
-          pins: Array.isArray(img?.pins)
-            ? img.pins.map((p: any) => ({ x: p.x ?? 0, y: p.y ?? 0, memo: p.memo ?? "" }))
-            : [],
-        }));
-      }
+      const images = parseWorkOrderImages(order);
 
       // 송장 라벨 데이터 구성
       let shippingLabel: ShippingLabelData | null = null;
@@ -100,7 +93,7 @@ export default function ReprintPage() {
         customerName: order.customer_name,
         customerPhone: order.customer_phone,
         itemName: order.item_name,
-        summary: order.repair_summary || repairParts.join(", "),
+        summary: customerRequestSummary(order) || order.repair_summary || repairParts.join(", "),
         repairParts,
         images,
         shippingLabel,

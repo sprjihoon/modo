@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { customerRequestSummary, parseWorkOrderImages } from "@/lib/work-order-images";
 import {
   WorkOrderSheet,
   type WorkOrderData,
@@ -138,18 +139,7 @@ export default function WorkPage() {
       const rawParts = Array.isArray(order.repair_parts) ? (order.repair_parts as unknown[]) : [];
       const repairParts = rawParts.map(normalizeRepairPart).filter(Boolean);
 
-      // images_with_pins → WorkOrderImage[]
-      let images: WorkOrderImage[] = [];
-      if (Array.isArray(order.images_with_pins)) {
-        images = order.images_with_pins.map((img: any) => ({
-          url: img?.imagePath || img?.url || "",
-          pins: Array.isArray(img?.pins)
-            ? img.pins.map((p: any) => ({ x: p.x ?? 0, y: p.y ?? 0, memo: p.memo ?? "" }))
-            : [],
-        }));
-      } else if (Array.isArray(order.images?.urls)) {
-        images = order.images.urls.map((url: string) => ({ url, pins: [] }));
-      }
+      const images = parseWorkOrderImages(order);
 
       const found: LookupResult = {
         orderId: shipment.order_id,
@@ -160,7 +150,7 @@ export default function WorkPage() {
         customerName: order.customer_name,
         customerPhone: order.customer_phone,
         itemName: order.item_name,
-        summary: order.repair_summary || repairParts.join(", "),
+        summary: customerRequestSummary(order) || order.repair_summary || repairParts.join(", "),
         images,
         scannedItemSeq: scannedItemSeq ?? null,
         extraChargeStatus: order.extra_charge_status ?? null,
