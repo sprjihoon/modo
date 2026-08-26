@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Settings,
-  Bell,
   Database,
   Save,
   FileText,
@@ -24,14 +23,6 @@ import Link from "next/link";
 
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [settings, setSettings] = useState({
-    siteName: "모두의수선",
-    siteUrl: "https://modu-repair.com",
-    adminEmail: "admin@modu-repair.com",
-    supportEmail: "support@modu-repair.com",
-    enableNotifications: true,
-    enableEmailAlerts: true,
-  });
 
   // 센터(입고 도착지) 설정
   const [centerSettings, setCenterSettings] = useState({
@@ -277,94 +268,6 @@ export default function SettingsPage() {
         <h1 className="text-3xl font-bold">설정</h1>
         <p className="text-muted-foreground">시스템 설정을 관리합니다</p>
       </div>
-
-      {/* General Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            일반 설정
-          </CardTitle>
-          <CardDescription>기본 시스템 설정입니다</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="siteName">사이트 이름</Label>
-            <Input
-              id="siteName"
-              value={settings.siteName}
-              onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="siteUrl">사이트 URL</Label>
-            <Input
-              id="siteUrl"
-              value={settings.siteUrl}
-              onChange={(e) => setSettings({ ...settings, siteUrl: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="adminEmail">관리자 이메일</Label>
-            <Input
-              id="adminEmail"
-              type="email"
-              value={settings.adminEmail}
-              onChange={(e) => setSettings({ ...settings, adminEmail: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="supportEmail">고객지원 이메일</Label>
-            <Input
-              id="supportEmail"
-              type="email"
-              value={settings.supportEmail}
-              onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Notification Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            알림 설정
-          </CardTitle>
-          <CardDescription>알림 및 이메일 설정입니다</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>푸시 알림</Label>
-              <p className="text-sm text-muted-foreground">주문 상태 변경 시 푸시 알림 발송</p>
-            </div>
-            <Button
-              variant={settings.enableNotifications ? "default" : "outline"}
-              onClick={() =>
-                setSettings({ ...settings, enableNotifications: !settings.enableNotifications })
-              }
-            >
-              {settings.enableNotifications ? "활성화" : "비활성화"}
-            </Button>
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>이메일 알림</Label>
-              <p className="text-sm text-muted-foreground">중요 이벤트 발생 시 이메일 발송</p>
-            </div>
-            <Button
-              variant={settings.enableEmailAlerts ? "default" : "outline"}
-              onClick={() =>
-                setSettings({ ...settings, enableEmailAlerts: !settings.enableEmailAlerts })
-              }
-            >
-              {settings.enableEmailAlerts ? "활성화" : "비활성화"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* 일일 주문 제한량 설정 */}
       <Card className="border-orange-200 dark:border-orange-800">
