@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { DashboardNav } from "@/components/dashboard/dashboard-nav";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { canAccessAdminDashboard } from "@/lib/staff-permissions";
 
 export default function DashboardLayout({
   children,
@@ -47,7 +48,7 @@ export default function DashboardLayout({
       }
 
       // 3. 관리자 권한 확인 (SUPER_ADMIN / ADMIN)
-      if (!["SUPER_ADMIN", "ADMIN"].includes(userData.role)) {
+      if (!canAccessAdminDashboard(userData.role)) {
         console.error("❌ 관리자 권한이 없습니다:", userData.role);
         await supabase.auth.signOut();
         alert("⛔ 관리자(ADMIN/SUPER_ADMIN) 계정이 필요합니다.");

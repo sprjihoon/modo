@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Package, Wrench, Send, FileText, ClipboardList, LayoutDashboard, RotateCcw, RefreshCcw, Truck, Barcode } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { createClient } from "@/lib/supabase/client";
+import { canAccessOpsConsole, canSeeOpsMenu, isStaffRole } from "@/lib/staff-permissions";
 
 const navigation = [
   { name: "나의 대시보드", href: "/ops/my-dashboard", icon: LayoutDashboard },
@@ -59,7 +60,7 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
       }
 
       // 3. 센터 콘솔은 SUPER_ADMIN, ADMIN, MANAGER, WORKER 모두 접근 가능
-      if (!["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"].includes(userData.role)) {
+      if (!canAccessOpsConsole(userData.role)) {
         console.error("❌ 접근 권한이 없습니다:", userData.role);
         await supabase.auth.signOut();
         alert("⛔ 접근 권한이 없습니다.");
@@ -99,38 +100,11 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
 
     console.log("🔍 현재 역할:", userRole);
 
-    switch (userRole) {
-      case "WORKER":
-        // 작업자: 작업 메뉴와 본인의 작업내역
-        const workerMenu = navigation.filter(
-          (item) => item.href === "/ops/work" || item.href === "/ops/my-dashboard" || item.href === "/ops/work-history"
-        );
-        console.log("👷 작업자 메뉴:", workerMenu.map((m) => m.name));
-        return workerMenu;
-      case "MANAGER":
-        // 입출고관리자: 입고, 출고, 반송, 작업내역 메뉴
-        const managerMenu = navigation.filter(
-          (item) =>
-            item.href === "/ops/inbound" ||
-            item.href === "/ops/outbound" ||
-            item.href === "/ops/returns" ||
-            item.href === "/ops/reprint" ||
-            item.href === "/ops/my-dashboard" ||
-            item.href === "/ops/work-history" ||
-            item.href === "/ops/label-editor" ||
-            item.href === "/ops/barcode-layout"
-        );
-        console.log("📦 입출고관리자 메뉴:", managerMenu.map((m) => m.name));
-        return managerMenu;
-      case "ADMIN":
-      case "SUPER_ADMIN":
-        // 관리자: 모든 메뉴
-        console.log("👑 관리자 메뉴: 모든 메뉴 표시");
-        return navigation;
-      default:
-        console.log("⚠️ 알 수 없는 역할:", userRole, "- 모든 메뉴 표시");
-        return navigation;
+    if (!isStaffRole(userRole)) {
+      console.log("⚠️ 알 수 없는 역할:", userRole, "- 메뉴 숨김");
+      return [];
     }
+    return navigation.filter((item) => canSeeOpsMenu(userRole, item.href));
   };
 
   const filteredNavigation = getFilteredNavigation();

@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/ops-auth";
+import { canAssignRole, isStaffRole } from "@/lib/staff-permissions";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,9 +16,6 @@ const supabaseAdmin = createClient(
     },
   }
 );
-
-// 역할 타입 정의
-type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "WORKER";
 
 /**
  * GET /api/admin/staff
@@ -133,12 +131,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 역할 검증
-    const validRoles: StaffRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"];
-    if (!validRoles.includes(role)) {
+    if (!isStaffRole(role) || !canAssignRole(auth.user.role, role)) {
       return NextResponse.json(
-        { success: false, error: "유효하지 않은 역할입니다." },
-        { status: 400 }
+        { success: false, error: "부여할 수 없는 역할입니다." },
+        { status: 403 }
       );
     }
 

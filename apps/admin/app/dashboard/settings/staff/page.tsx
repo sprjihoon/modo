@@ -26,6 +26,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Users, Plus, Edit, Trash2, Phone, Mail, Calendar, Shield, ShieldCheck, Truck, Wrench } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  assignableRoles,
+  canDeleteStaff,
+  canEditStaff,
+  isStaffRole,
+  type StaffRole as PermissionStaffRole,
+} from "@/lib/staff-permissions";
 
 type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "WORKER";
 
@@ -92,6 +100,7 @@ export default function StaffManagementPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  const [actorRole, setActorRole] = useState<PermissionStaffRole | null>(null);
 
   // 직원 목록 로드
   const loadStaffList = async () => {
@@ -120,6 +129,20 @@ export default function StaffManagementPage() {
   useEffect(() => {
     loadStaffList();
   }, [roleFilter]);
+
+  useEffect(() => {
+    const loadActor = async () => {
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authId = sessionData.session?.user.id;
+      if (!authId) return;
+      const { data } = await supabase.from("users").select("role").eq("auth_id", authId).maybeSingle();
+      if (data?.role && isStaffRole(data.role)) setActorRole(data.role);
+    };
+    void loadActor();
+  }, []);
+
+  const roleOptions = actorRole ? assignableRoles(actorRole) : [];
 
   // 직원 생성
   const handleCreateStaff = async (data: CreateStaffData) => {
@@ -363,18 +386,20 @@ export default function StaffManagementPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedStaff(staff);
-                          setIsEditDialogOpen(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        수정
-                      </Button>
-                      {staff.role !== "SUPER_ADMIN" && (
+                      {actorRole && canEditStaff(actorRole, staff.role) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedStaff(staff);
+                            setIsEditDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          수정
+                        </Button>
+                      )}
+                      {actorRole && canDeleteStaff(actorRole, staff.role) && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -402,6 +427,7 @@ export default function StaffManagementPage() {
         open={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         onCreate={handleCreateStaff}
+        allowedRoles={roleOptions}
       />
 
       {/* 직원 수정 다이얼로그 */}
@@ -414,6 +440,7 @@ export default function StaffManagementPage() {
             setSelectedStaff(null);
           }}
           onUpdate={(data) => handleUpdateStaff(selectedStaff.id, data)}
+          allowedRoles={roleOptions}
         />
       )}
 
@@ -452,10 +479,12 @@ function CreateStaffDialog({
   open,
   onClose,
   onCreate,
+  allowedRoles,
 }: {
   open: boolean;
   onClose: () => void;
   onCreate: (data: CreateStaffData) => void;
+  allowedRoles: StaffRole[];
 }) {
   const [formData, setFormData] = useState<CreateStaffData>({
     email: "",
@@ -577,10 +606,11 @@ function CreateStaffDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SUPER_ADMIN">최고관리자</SelectItem>
-                  <SelectItem value="ADMIN">관리자</SelectItem>
-                  <SelectItem value="MANAGER">입출고관리자</SelectItem>
-                  <SelectItem value="WORKER">작업자</SelectItem>
+                  {allowedRoles.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {roleInfo[role].label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
@@ -611,11 +641,13 @@ function EditStaffDialog({
   staff,
   onClose,
   onUpdate,
+  allowedRoles,
 }: {
   open: boolean;
   staff: StaffMember;
   onClose: () => void;
   onUpdate: (data: UpdateStaffData) => void;
+  allowedRoles: StaffRole[];
 }) {
   const [formData, setFormData] = useState<UpdateStaffData>({
     name: staff.name,
@@ -714,10 +746,11 @@ function EditStaffDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SUPER_ADMIN">최고관리자</SelectItem>
-                  <SelectItem value="ADMIN">관리자</SelectItem>
-                  <SelectItem value="MANAGER">입출고관리자</SelectItem>
-                  <SelectItem value="WORKER">작업자</SelectItem>
+                  {allowedRoles.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {roleInfo[role].label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

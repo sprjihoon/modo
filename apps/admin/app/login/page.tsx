@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { logAction } from "@/lib/api/action-logs";
 import { ActionType } from "@/lib/types/action-log";
+import { canAccessOpsConsole, loginLandingPath } from "@/lib/staff-permissions";
 
 const SAVED_EMAIL_KEY = "modo_admin_saved_email";
 
@@ -73,8 +74,7 @@ export default function LoginPage() {
       console.log("✅ 사용자 프로필 조회 완료:", userData);
 
       // 3. 직원 역할 확인 — 역할별 랜딩 경로 분기
-      const STAFF_ROLES = ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"];
-      if (!STAFF_ROLES.includes(userData.role)) {
+      if (!canAccessOpsConsole(userData.role)) {
         await supabase.auth.signOut();
         throw new Error("직원 계정만 접근 가능합니다.");
       }
@@ -96,10 +96,7 @@ export default function LoginPage() {
       // 5. 역할별 랜딩 페이지로 이동
       //    SUPER_ADMIN / ADMIN → 관리자 대시보드
       //    MANAGER / WORKER    → 센터 콘솔
-      const landingPath = ["SUPER_ADMIN", "ADMIN"].includes(userData.role)
-        ? "/dashboard"
-        : "/ops/inbound";
-      router.push(landingPath);
+      router.push(loginLandingPath(userData.role));
       router.refresh();
     } catch (error: any) {
       console.error("❌ 로그인 실패:", error);

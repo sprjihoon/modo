@@ -1,5 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/ops-auth";
+import {
+  canAssignRole,
+  canDeleteStaff,
+  canEditStaff,
+  isStaffRole,
+} from "@/lib/staff-permissions";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,10 +22,6 @@ const supabaseAdmin = createClient(
   }
 );
 
-// 역할 타입 정의
-type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "WORKER";
-const validRoles: StaffRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"];
-
 /**
  * GET /api/admin/staff/[id]
  * 직원 정보 조회
@@ -28,6 +31,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const resolvedParams = await Promise.resolve(params);
     const { id } = resolvedParams;
 
@@ -66,6 +72,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const resolvedParams = await Promise.resolve(params);
     const { id } = resolvedParams;
     const body = await request.json();
@@ -79,11 +88,10 @@ export async function PUT(
       );
     }
 
-    // 역할 검증
-    if (!validRoles.includes(role)) {
+    if (!isStaffRole(role) || !canAssignRole(auth.user.role, role)) {
       return NextResponse.json(
-        { success: false, error: "유효하지 않은 역할입니다." },
-        { status: 400 }
+        { success: false, error: "부여할 수 없는 역할입니다." },
+        { status: 403 }
       );
     }
 
@@ -98,6 +106,13 @@ export async function PUT(
       return NextResponse.json(
         { success: false, error: "직원을 찾을 수 없습니다." },
         { status: 404 }
+      );
+    }
+
+    if (!isStaffRole(existingStaff.role) || !canEditStaff(auth.user.role, existingStaff.role)) {
+      return NextResponse.json(
+        { success: false, error: "이 계정을 수정할 권한이 없습니다." },
+        { status: 403 }
       );
     }
 
@@ -141,6 +156,17 @@ export async function PUT(
       );
     }
 
+    if (existingStaff.auth_id) {
+      const { error: usersSyncError } = await supabaseAdmin
+        .from("users")
+        .update({ name, phone, role })
+        .eq("auth_id", existingStaff.auth_id);
+
+      if (usersSyncError) {
+        console.error("⚠️ users.role 동기화 실패:", usersSyncError);
+      }
+    }
+
     // 3. 비밀번호 변경 요청이 있는 경우
     if (password && password.length >= 6 && existingStaff.auth_id) {
       const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -180,6 +206,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAdmin();
+    if (auth.response) return auth.response;
+
     const resolvedParams = await Promise.resolve(params);
     const { id } = resolvedParams;
 
@@ -197,10 +226,9 @@ export async function DELETE(
       );
     }
 
-    // SUPER_ADMIN 계정은 삭제 불가
-    if (staff.role === "SUPER_ADMIN") {
+    if (!isStaffRole(staff.role) || !canDeleteStaff(auth.user.role, staff.role)) {
       return NextResponse.json(
-        { success: false, error: "최고관리자 계정은 삭제할 수 없습니다." },
+        { success: false, error: "이 계정을 삭제할 권한이 없습니다." },
         { status: 403 }
       );
     }
