@@ -116,10 +116,22 @@ function buildOrderEmailHtml(params: {
 </html>`;
 }
 
-export async function sendOrderResultEmail(
-  request: OrderEmailRequest
-): Promise<ResendResult> {
-  if (!isDeliverableEmail(request.to)) {
+export function opsAlertRecipients(): string[] {
+  const raw = Deno.env.get('OPS_REPORT_EMAIL') || '';
+  return raw
+    .split(/[,;\s]+/)
+    .map((value) => value.trim())
+    .filter((value) => isDeliverableEmail(value));
+}
+
+export async function sendResendEmail(params: {
+  to: string[];
+  subject: string;
+  html: string;
+  text: string;
+}): Promise<ResendResult> {
+  const to = params.to.map((v) => v.trim()).filter((v) => isDeliverableEmail(v));
+  if (to.length === 0) {
     return { sent: false, skipped: true, error: 'deliverable email not found' };
   }
 
@@ -131,22 +143,12 @@ export async function sendOrderResultEmail(
 
   const from = Deno.env.get('RESEND_FROM_EMAIL') || DEFAULT_FROM;
   const replyTo = Deno.env.get('RESEND_REPLY_TO');
-  const appUrl = (Deno.env.get('APP_URL') || DEFAULT_APP_URL).replace(/\/$/, '');
-  const orderUrl = request.orderId ? `${appUrl}/orders/${request.orderId}` : undefined;
-
   const payload: Record<string, unknown> = {
     from,
-    to: [request.to.trim()],
-    subject: `[모두의수선] ${request.title}`,
-    html: buildOrderEmailHtml({
-      title: request.title,
-      body: request.body,
-      customerName: request.customerName,
-      orderUrl,
-    }),
-    text: [request.customerName ? `${request.customerName}님,` : null, request.title, request.body, orderUrl]
-      .filter(Boolean)
-      .join('\n\n'),
+    to,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
   };
   if (replyTo) payload.reply_to = replyTo;
 
@@ -176,4 +178,41 @@ export async function sendOrderResultEmail(
     console.error('❌ Resend 발송 오류:', message);
     return { sent: false, error: message };
   }
+}
+
+export async function sendOrderResultEmail(
+  request: OrderEmailRequest
+): Promise<ResendResult> {
+  const appUrl = (Deno.env.get('APP_URL') || DEFAULT_APP_URL).replace(/\/$/, '');
+  const orderUrl = request.orderId ? `${appUrl}/orders/${request.orderId}` : undefined;
+
+  return sendResendEmail({
+    to: [request.to],
+    subject: `[모두의수선] ${request.title}`,
+    html: buildOrderEmailHtml({
+      title: request.title,
+      body: request.body,
+      customerName: request.customerName,
+      orderUrl,
+    }),
+    text: [request.customerName ? `${request.customerName}님,` : null, request.title, request.body, orderUrl]
+      .filter(Boolean)
+      .join('\n\n'),
+  });
+}
+
+export async function sendOpsAlertEmail(params: {
+  title: string;
+  lines: string[];
+  href?: string;
+}): Promise<ResendResult> {
+  const to = opsAlertRecipients();
+  const href = params.href || 'https://admin.modo.mom/dashboard/reports';
+  const body = params.lines.join('<br />');
+  return sendResendEmail({
+    to,
+    subject: `[모두의수선] ${params.title}`,
+    html: `<p style="font-family:-apple-system,sans-serif;font-size:15px;line-height:1.7;color:#111827;">${body}</p><p><a href="${href}" style="color:#00C896;">어드민에서 보기</a></p>`,
+    text: `${params.title}\n\n${params.lines.join('\n')}\n\n${href}`,
+  });
 }

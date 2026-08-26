@@ -1043,6 +1043,33 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_daily_reports: {
+        Row: {
+          email_error: string | null
+          email_sent_at: string | null
+          generated_at: string
+          generated_by: string | null
+          metrics: Json
+          report_date: string
+        }
+        Insert: {
+          email_error?: string | null
+          email_sent_at?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          metrics?: Json
+          report_date: string
+        }
+        Update: {
+          email_error?: string | null
+          email_sent_at?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          metrics?: Json
+          report_date?: string
+        }
+        Relationships: []
+      }
       order_waitlist: {
         Row: {
           created_at: string

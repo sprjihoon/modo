@@ -29,7 +29,7 @@ modo/
 | 배포 | Vercel (web · admin), Supabase (edge functions) |
 | 인증 | Supabase Auth (Google · Naver · Apple · 이메일) |
 | 물류 | 우체국 택배 API (수거 예약 / 취소) |
-| 이메일 | **Resend** (주문 상태 변경 안내, 가입 이메일) |
+| 이메일 | **Resend** (주문 상태 · 운영 아침 리포트 · 신규 주문/가입 알림) |
 
 ---
 
@@ -403,6 +403,24 @@ SQL: `apps/sql/migrations/20260819_update_damage_compensation.sql` (라이브 �
 
 ---
 
+## 운영 모니터 리포트
+
+어드민 **분석 → 운영 리포트** (`/dashboard/reports`). 일자 스냅샷을 저장해 추이를 보고, 칸을 누르면 그날 리포트로 들어간다.
+
+| 항목 | 내용 |
+|---|---|
+| 아침 메일 | 매일 KST 08:10 (Vercel cron `10 23 * * *` UTC) 전날 스냅샷을 `OPS_REPORT_EMAIL`로 발송 |
+| 즉시 메일 | 결제 `PAID` · 고객 가입 시 Edge `send-ops-alert` |
+| 화면 | 하루 맥박/파이프라인/예외. 추이는 기간 직접 지정 + 일·주·월 묶음 |
+| 날짜 추출 | 그래프·날짜 칸 클릭. 주·월은 해당 구간 일별로 펼친 뒤 하루를 고름. URL `?date=YYYY-MM-DD` |
+| 저장 | `ops_daily_reports` (KST 하루, JSON). 과거 백필은 맥박만, 파이프라인은 오늘·어제 |
+| 수신 | Edge·Vercel `OPS_REPORT_EMAIL` (쉼표 구분). 화면에서 메일 보내기는 로그인한 관리자 주소도 포함 |
+| 테스트 | `cd apps/admin && npx tsx lib/ops-daily-report.test.ts` |
+
+SQL: `apps/sql/migrations/create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26 라이브 반영).
+
+---
+
 ## 직원 권한
 
 역할은 `users.role` / `staff.role` 기준이다. 로그인·메뉴·URL·직원 CRUD가 같은 규칙을 쓴다. 코드: `apps/admin/lib/staff-permissions.ts`
@@ -426,6 +444,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-26 | 운영 모니터 리포트 | 일자 스냅샷·추이(기간/일·주·월). 아침 메일, 주문·가입 즉시 메일. 어드민 분석 → 운영 리포트 |
 | 2026-08-26 | 포인트 설정 통합 | 가입·초대·주문 적립은 어드민 **포인트 관리 → 포인트 설정**에서만 변경. 설정 화면 카드는 제거. 예전 `/dashboard/settings/points`는 리다이렉트 |
 | 2026-08-26 | 직원 권한 | 직원 CRUD에 관리자 인증·역할 승격 제한. 센터는 URL 직접 접근도 역할 홈으로 차단. QA 계정 4개 |
 | 2026-08-26 | 배송 시작 알림 문구 | `order_out_for_delivery` 템플릿이 `?? ??`로 깨져 푸시·메일이 깨지던 문제를 복구. 발신 주소는 Auth SMTP와 같은 `모두의수선 <noreply@modo.mom>` |
@@ -591,6 +610,7 @@ NAVER_CLIENT_SECRET=...
 # Resend (주문 상태 이메일, Edge Function secrets)
 RESEND_API_KEY=re_xxxxxxxx
 RESEND_FROM_EMAIL=모두의수선 <noreply@modo.mom>
+OPS_REPORT_EMAIL=support_modo@tillion.kr
 ```
 
 ---
