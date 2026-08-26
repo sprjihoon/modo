@@ -2,8 +2,10 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "모두의수선 — 비대면 의류 수선 서비스",
-  description: "옷을 맡기면 수선 후 배달해드립니다. 바지·청바지 기장, 아우터 소매, 지퍼 교체 등 전문 수선 서비스.",
+  title: "수선 서비스 안내",
+  description:
+    "온라인으로 맡기는 의류 수선. 바지·청바지 기장, 아우터 소매, 지퍼 교체 등 비대면 수선 서비스.",
+  alternates: { canonical: "/shop" },
 };
 
 const SERVICES = [

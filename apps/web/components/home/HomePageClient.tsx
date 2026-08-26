@@ -123,7 +123,7 @@ export function HomePageClient() {
                 {" "}님 반가워요! 👋
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                비대면 의류 수선 서비스입니다.
+                온라인으로 맡기는 비대면 의류 수선입니다.
               </p>
             </div>
           )}
@@ -154,6 +154,14 @@ export function HomePageClient() {
             <span className="text-sm font-semibold text-gray-700">
               쉬운가이드
             </span>
+          </Link>
+        </div>
+        <div className="px-4 mt-3">
+          <Link
+            href="/guide"
+            className="block text-center text-sm font-semibold text-[#00C896] py-2"
+          >
+            온라인 수선 이용 안내
           </Link>
         </div>
 

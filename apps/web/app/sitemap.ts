@@ -7,17 +7,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const paths = [
     "/",
+    "/guide",
     "/guide/price",
     "/guide/easy",
     "/guide/measure",
+    "/faq",
     "/shop",
     "/download",
     "/announcements",
     "/terms",
     "/privacy-policy",
     "/refund-policy",
-    "/login",
-    "/signup",
   ];
 
   return paths.map((path) => ({

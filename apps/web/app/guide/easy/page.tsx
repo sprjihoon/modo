@@ -1,8 +1,17 @@
+import type { Metadata } from "next";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { EasyGuideClient } from "@/components/guide/EasyGuideClient";
 import { createClient } from "@/lib/supabase/server";
+import { pageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = pageMetadata({
+  title: "온라인 수선 이용 방법",
+  description:
+    "비대면 의류 수선 이용 방법. 접수, 택배 수거, 전문 수선, 집으로 배송까지 온라인으로 진행합니다.",
+  path: "/guide/easy",
+});
 
 interface EasyGuideStep {
   emoji: string;
