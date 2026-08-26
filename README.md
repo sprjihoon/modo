@@ -402,10 +402,30 @@ SQL: `apps/sql/migrations/20260819_update_damage_compensation.sql` (라이브 �
 
 ---
 
+## 직원 권한
+
+역할은 `users.role` / `staff.role` 기준이다. 로그인·메뉴·URL·직원 CRUD가 같은 규칙을 쓴다. 코드: `apps/admin/lib/staff-permissions.ts`
+
+| 역할 | 로그인 후 | 관리자 대시보드 | 직원 계정 관리 | 센터 콘솔 |
+|---|---|---|---|---|
+| `SUPER_ADMIN` 최고관리자 | `/dashboard` | 가능 | 모든 역할 부여. 최고관리자 수정 가능, 삭제 불가 | 전체 |
+| `ADMIN` 관리자 | `/dashboard` | 가능 | 최고관리자 생성/수정/삭제 불가 | 전체 |
+| `MANAGER` 입출고관리자 | `/ops/inbound` | 불가 (로그인으로 퇴출) | 불가 | 입고·출고·반송·재출력·작업내역·레이아웃 |
+| `WORKER` 작업자 | `/ops/work` | 불가 | 불가 | 작업·나의 대시보드·작업내역 |
+
+- 직원 관리 UI: `/dashboard/settings/staff`. 목록/생성 API는 `requireAdmin()`, 단건 조회·수정·삭제도 동일. 역할 변경은 `users.role`에 동기화.
+- 센터는 메뉴만 숨기지 않는다. 주소로 `/ops/work` 등을 열면 권한 없는 역할은 자기 홈으로 보낸다. 입고 API는 작업자 거부, 작업 API는 입출고관리자 거부.
+- 권한 테스트: `cd apps/admin && npx tsx lib/staff-permissions.test.ts`
+
+QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.admin@modo.mom` · `qa.manager@modo.mom` · `qa.worker@modo.mom`
+
+---
+
 ## 알려진 이슈 / 수정 이력
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-26 | 직원 권한 | 직원 CRUD에 관리자 인증·역할 승격 제한. 센터는 URL 직접 접근도 역할 홈으로 차단. QA 계정 4개 |
 | 2026-08-26 | 배송 시작 알림 문구 | `order_out_for_delivery` 템플릿이 `?? ??`로 깨져 푸시·메일이 깨지던 문제를 복구. 발신 주소는 Auth SMTP와 같은 `모두의수선 <noreply@modo.mom>` |
 | 2026-08-25 | 주문 상태 이메일 | 주문 상태 변경 시 FCM 푸시와 함께 Resend 메일을 가입 이메일로 발송. `notification_events` + `trigger_order_status_changed` 를 CLI로 운영 DB에 적용 |
 | 2026-08-20 | 앱 업데이트·알림 설정 | `app_versions`로 최신/최소 버전 안내. 로그인 후 알림이 꺼져 있으면 시스템 설정으로 이동. 앱 `1.0.2+25`. iOS `1.0.2` 빌드 25 **Waiting for Review** · Play Alpha AAB 25 업로드. 어드민 설정 → 앱 버전 |
