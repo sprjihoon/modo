@@ -6,7 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { Package, Wrench, Send, FileText, ClipboardList, LayoutDashboard, RotateCcw, RefreshCcw, Truck, Barcode } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { createClient } from "@/lib/supabase/client";
-import { canAccessOpsConsole, canSeeOpsMenu, isStaffRole } from "@/lib/staff-permissions";
+import {
+  canAccessOpsConsole,
+  canAccessOpsPath,
+  canSeeOpsMenu,
+  isStaffRole,
+  loginLandingPath,
+} from "@/lib/staff-permissions";
 
 const navigation = [
   { name: "나의 대시보드", href: "/ops/my-dashboard", icon: LayoutDashboard },
@@ -31,6 +37,13 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (!userRole || !isStaffRole(userRole)) return;
+    if (!canAccessOpsPath(userRole, pathname)) {
+      router.replace(loginLandingPath(userRole));
+    }
+  }, [pathname, userRole, router]);
 
   const checkAuth = async () => {
     try {
@@ -71,6 +84,9 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
       console.log("✅ 인증 완료:", userData.email, userData.role);
       setUserRole(userData.role);
       setIsAuthorized(true);
+      if (!canAccessOpsPath(userData.role, pathname)) {
+        router.replace(loginLandingPath(userData.role));
+      }
     } catch (error) {
       console.error("❌ 인증 확인 중 오류:", error);
       router.push("/login");
@@ -108,6 +124,7 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
   };
 
   const filteredNavigation = getFilteredNavigation();
+  const pageAllowed = isStaffRole(userRole) && canAccessOpsPath(userRole, pathname);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
@@ -166,7 +183,11 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
 
         {/* 메인 컨텐츠 영역 */}
         <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900 p-6">
-          {children}
+          {pageAllowed ? children : (
+            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+              이 화면에 대한 권한이 없습니다. 이동 중...
+            </div>
+          )}
         </div>
       </div>
     </div>

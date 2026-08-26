@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateOrderBarcodes } from "@/lib/barcode";
-import { requireStaff } from "@/lib/ops-auth";
+import { requireOpsInbound } from "@/lib/ops-auth";
 import { flushPendingNotifications } from "@/lib/flush-notifications";
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireStaff();
+    const auth = await requireOpsInbound();
     if (auth.response) return auth.response;
 
     const body = await request.json();
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
 // 입고 취소(BOOKED로 되돌리기)
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = await requireStaff();
+    const auth = await requireOpsInbound();
     if (auth.response) return auth.response;
 
     const body = await request.json();

@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  ADMIN_ROLES,
+  OPS_INBOUND_ROLES,
+  OPS_WORK_ROLES,
+  STAFF_ROLES,
+  type StaffRole,
+} from "@/lib/staff-permissions";
 
-export type StaffRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "WORKER";
-
-const STAFF_ROLES: StaffRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER"];
-const ADMIN_ROLES: StaffRole[] = ["SUPER_ADMIN", "ADMIN"];
+export type { StaffRole };
 
 export interface StaffUser {
   id: string;
@@ -67,4 +71,12 @@ export async function requireStaff(
   }
 
   return { user: { id: user.id, role: user.role as StaffRole } };
+}
+
+export async function requireOpsInbound() {
+  return requireStaff(OPS_INBOUND_ROLES);
+}
+
+export async function requireOpsWork() {
+  return requireStaff(OPS_WORK_ROLES);
 }

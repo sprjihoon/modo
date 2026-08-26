@@ -6,6 +6,7 @@ import {
   canAssignRole,
   canDeleteStaff,
   canEditStaff,
+  canAccessOpsPath,
   canSeeOpsMenu,
   loginLandingPath,
 } from "./staff-permissions";
@@ -62,5 +63,17 @@ assert(canSeeOpsMenu("MANAGER", "/ops/inbound") === true, "입출고관리자 �
 assert(canSeeOpsMenu("MANAGER", "/ops/work") === false, "입출고관리자 작업 숨김");
 assert(canSeeOpsMenu("ADMIN", "/ops/work") === true, "관리자 센터 전체");
 assert(canSeeOpsMenu("SUPER_ADMIN", "/ops/outbound") === true, "최고관리자 센터 전체");
+
+assert(canAccessOpsPath("MANAGER", "/ops/work") === false, "입출고관리자 작업 URL 차단");
+assert(canAccessOpsPath("MANAGER", "/ops/work/") === false, "입출고관리자 작업 URL 슬래시");
+assert(canAccessOpsPath("WORKER", "/ops/inbound") === false, "작업자 입고 URL 차단");
+assert(canAccessOpsPath("WORKER", "/ops/delivery-monitor") === false, "작업자 배송모니터 차단");
+assert(canAccessOpsPath("MANAGER", "/ops/delivery-monitor") === false, "입출고관리자 배송모니터 차단");
+assert(canAccessOpsPath("WORKER", "/ops/work") === true, "작업자 작업 URL 허용");
+assert(canAccessOpsPath("MANAGER", "/ops/inbound") === true, "입출고관리자 입고 URL 허용");
+assert(canAccessOpsPath("MANAGER", "/ops/print/barcodes") === true, "입출고관리자 바코드 출력");
+assert(canAccessOpsPath("WORKER", "/ops/test") === false, "작업자 테스트 페이지 차단");
+assert(canAccessOpsPath("ADMIN", "/ops/work") === true, "관리자 작업 URL 허용");
+assert(canAccessOpsPath("ADMIN", "/ops/test") === true, "관리자 테스트 페이지 허용");
 
 console.log("staff-permissions tests passed");

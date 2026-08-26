@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requireStaff } from "@/lib/ops-auth";
+import { requireOpsWork } from "@/lib/ops-auth";
 import { flushPendingNotifications } from "@/lib/flush-notifications";
 
 // 작업 아이템 상태 조회
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireStaff();
+    const auth = await requireOpsWork();
     if (auth.response) return auth.response;
 
     const { searchParams } = new URL(request.url);
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 // 작업 시작
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireStaff();
+    const auth = await requireOpsWork();
     if (auth.response) return auth.response;
 
     const body = await request.json();
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
 // 작업 완료 / 작업 중으로 되돌리기
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = await requireStaff();
+    const auth = await requireOpsWork();
     if (auth.response) return auth.response;
 
     const body = await request.json();
