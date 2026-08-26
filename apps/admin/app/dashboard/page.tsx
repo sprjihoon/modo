@@ -564,7 +564,7 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground">포인트 적립/사용 내역</p>
+              <p className="text-xs text-muted-foreground">가입·초대·주문 적립 설정과 내역</p>
             </CardContent>
           </Card>
         </Link>

@@ -426,7 +426,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-26 | 포인트 설정 통합 | 가입·초대·주문 적립 설정을 어드민 **포인트 관리**(`/dashboard/points?tab=settings`)에 모음. 예전 설정 페이지는 리다이렉트 |
+| 2026-08-26 | 포인트 설정 통합 | 가입·초대·주문 적립은 어드민 **포인트 관리 → 포인트 설정**에서만 변경. 설정 화면 카드는 제거. 예전 `/dashboard/settings/points`는 리다이렉트 |
 | 2026-08-26 | 직원 권한 | 직원 CRUD에 관리자 인증·역할 승격 제한. 센터는 URL 직접 접근도 역할 홈으로 차단. QA 계정 4개 |
 | 2026-08-26 | 배송 시작 알림 문구 | `order_out_for_delivery` 템플릿이 `?? ??`로 깨져 푸시·메일이 깨지던 문제를 복구. 발신 주소는 Auth SMTP와 같은 `모두의수선 <noreply@modo.mom>` |
 | 2026-08-25 | 주문 상태 이메일 | 주문 상태 변경 시 FCM 푸시와 함께 Resend 메일을 가입 이메일로 발송. `notification_events` + `trigger_order_status_changed` 를 CLI로 운영 DB에 적용 |
