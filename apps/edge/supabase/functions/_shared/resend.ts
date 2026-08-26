@@ -3,13 +3,13 @@
  *
  * Secrets:
  *   RESEND_API_KEY      필수
- *   RESEND_FROM_EMAIL   선택 (기본: 모두의수선 <noreply@modo.io.kr>)
+ *   RESEND_FROM_EMAIL   선택 (기본: 모두의수선 <noreply@modo.mom>)
  *   RESEND_REPLY_TO     선택
  *   APP_URL             선택 (기본: https://modo.io.kr)
  */
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
-const DEFAULT_FROM = '모두의수선 <noreply@modo.io.kr>';
+const DEFAULT_FROM = '모두의수선 <noreply@modo.mom>';
 const DEFAULT_APP_URL = 'https://modo.io.kr';
 
 const PLACEHOLDER_EMAIL_SUFFIXES = [

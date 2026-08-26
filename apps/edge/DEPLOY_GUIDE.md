@@ -57,10 +57,12 @@ EPOST_OFFICE_SER=251132110
 SUPABASE_URL=auto
 SUPABASE_SERVICE_ROLE_KEY=auto
 
-# Resend - 주문 결과 이메일
+# Resend - 주문 결과 이메일 (Auth 비밀번호 재설정과 동일 From)
 RESEND_API_KEY=re_xxxxxxxx
-RESEND_FROM_EMAIL=모두의수선 <noreply@modo.io.kr>
+RESEND_FROM_EMAIL=모두의수선 <noreply@modo.mom>
 ```
+
+메일 문구는 푸시와 같이 `notification_templates`를 쓴다. 어드민 `/dashboard/notifications/templates`에서 수정. 배송 시작(`order_out_for_delivery`) 한글 복구는 `fix_order_out_for_delivery_template.sql`.
 
 ### 5. Edge Functions 배포
 

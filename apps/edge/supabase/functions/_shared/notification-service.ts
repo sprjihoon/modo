@@ -376,6 +376,10 @@ function getOrderStatusMessage(status: string, orderNumber: string): { title: st
       title: '출고 완료',
       body: `주문(${orderNumber})의 수선이 완료되어 출고되었습니다.`,
     },
+    OUT_FOR_DELIVERY: {
+      title: '배송 시작',
+      body: `주문(${orderNumber})의 수선이 완료되어 고객님께 배송을 시작했습니다.`,
+    },
     DELIVERED: {
       title: '배송 완료',
       body: `주문(${orderNumber})이 배송 완료되었습니다. 감사합니다!`,

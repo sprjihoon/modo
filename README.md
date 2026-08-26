@@ -385,10 +385,28 @@ SQL: `apps/sql/migrations/20260819_update_damage_compensation.sql` (라이브 �
 
 ---
 
+## 주문 상태 이메일 (Resend)
+
+주문 상태가 바뀌면 FCM 푸시와 같은 문구로 가입 이메일에 Resend 메일을 보낸다.
+
+| 항목 | 내용 |
+|---|---|
+| 발신 | `모두의수선 <noreply@modo.mom>` (비밀번호 재설정 SMTP와 동일) |
+| 수신 | `users.email` 우선, 없으면 `orders.customer_email`. `@noemail.local` / `@example.com` 은 건너뜀 |
+| 제목 | `[모두의수선] {템플릿 제목}` |
+| 본문 | `notification_templates` (푸시와 동일). `{{order_number}}` 치환. 버튼은 `https://modo.io.kr/orders/{id}` |
+| 문구 수정 | 어드민 `/dashboard/notifications/templates` |
+| Edge secrets | `RESEND_API_KEY` (발송 전용 키), `RESEND_FROM_EMAIL` |
+
+배송중(`OUT_FOR_DELIVERY`) 템플릿은 Windows CLI 적용 중 한글이 `?`로 저장됐었다. 복구 SQL: `apps/sql/migrations/fix_order_out_for_delivery_template.sql` (2026-08-26 라이브 반영). 한글 INSERT는 hex → UTF-8로 넣을 것.
+
+---
+
 ## 알려진 이슈 / 수정 이력
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-26 | 배송 시작 알림 문구 | `order_out_for_delivery` 템플릿이 `?? ??`로 깨져 푸시·메일이 깨지던 문제를 복구. 발신 주소는 Auth SMTP와 같은 `모두의수선 <noreply@modo.mom>` |
 | 2026-08-25 | 주문 상태 이메일 | 주문 상태 변경 시 FCM 푸시와 함께 Resend 메일을 가입 이메일로 발송. `notification_events` + `trigger_order_status_changed` 를 CLI로 운영 DB에 적용 |
 | 2026-08-20 | 앱 업데이트·알림 설정 | `app_versions`로 최신/최소 버전 안내. 로그인 후 알림이 꺼져 있으면 시스템 설정으로 이동. 앱 `1.0.2+25`. iOS `1.0.2` 빌드 25 **Waiting for Review** · Play Alpha AAB 25 업로드. 어드민 설정 → 앱 버전 |
 | 2026-08-20 | 어드민 CS 처리 | 주문 상세에서 재작업·수선비 환불·전손·분실 보상. `order_cs_events` 이력. 고객 웹·앱에 회차/배너·푸시 |
@@ -550,7 +568,7 @@ NAVER_CLIENT_SECRET=...
 
 # Resend (주문 상태 이메일, Edge Function secrets)
 RESEND_API_KEY=re_xxxxxxxx
-RESEND_FROM_EMAIL=모두의수선 <noreply@modo.io.kr>
+RESEND_FROM_EMAIL=모두의수선 <noreply@modo.mom>
 ```
 
 ---
@@ -609,4 +627,8 @@ cd apps/edge
 supabase db push
 ```
 
-마이그레이션 파일 위치: `apps/edge/supabase/migrations/`
+부분 적용(권장): `supabase db query --linked --file apps/sql/migrations/<file>.sql`
+
+마이그레이션 파일 위치: `apps/edge/supabase/migrations/` · `apps/sql/migrations/`
+
+Windows CLI로 한글 SQL을 넣으면 `?`로 깨질 수 있다. 운영 문구 복구는 hex → UTF-8 (`fix_order_out_for_delivery_template.sql`)을 쓴다.
