@@ -505,21 +505,21 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Coins className="h-5 w-5 text-blue-600" />
-            포인트 적립률 설정
+            포인트 설정
           </CardTitle>
-          <CardDescription>기간별 포인트 적립률을 관리합니다</CardDescription>
+          <CardDescription>가입·초대·주문 적립을 포인트 관리에서 함께 설정합니다</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">포인트 적립 정책 관리</p>
               <p className="text-sm text-muted-foreground">
-                결제 금액의 x% 적립 설정, 기간별 적립률 관리
+                가입 포인트, 친구 초대, 주문 완료 적립률
               </p>
             </div>
-            <Link href="/dashboard/settings/points">
+            <Link href="/dashboard/points?tab=settings">
               <Button>
-                설정 관리
+                포인트 관리에서 설정
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>

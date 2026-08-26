@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ import {
   Calendar
 } from "lucide-react";
 import PointSettingDialog from "@/components/settings/PointSettingDialog";
+import SignupInvitePointSettings from "@/components/settings/SignupInvitePointSettings";
 
 interface PointSetting {
   id: string;
@@ -88,7 +89,10 @@ const getDaysAgo = (days: number) => {
 
 export default function PointsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("settings");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get("tab") === "settings" ? "settings" : "history"
+  );
   
   // 포인트 설정 관련 상태
   const [settings, setSettings] = useState<PointSetting[]>([]);
@@ -399,7 +403,7 @@ export default function PointsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">포인트 관리</h1>
-        <p className="text-muted-foreground">포인트 적립률 설정 및 거래 내역을 관리합니다</p>
+        <p className="text-muted-foreground">가입·초대·주문 적립 설정과 거래 내역을 관리합니다</p>
       </div>
 
       {/* Stats */}
@@ -613,7 +617,7 @@ export default function PointsPage() {
         <TabsList>
           <TabsTrigger value="settings">
             <Settings className="h-4 w-4 mr-2" />
-            포인트 적립률 설정
+            포인트 설정
           </TabsTrigger>
           <TabsTrigger value="history">
             <TrendingUp className="h-4 w-4 mr-2" />
@@ -623,6 +627,8 @@ export default function PointsPage() {
 
         {/* 포인트 설정 탭 */}
         <TabsContent value="settings" className="space-y-4">
+          <SignupInvitePointSettings />
+
           {/* 현재 적용 중인 설정 */}
           {currentSetting && (
             <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950">
