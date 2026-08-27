@@ -3,9 +3,11 @@ import {
   aggregateTrend,
   assemblePulse,
   buildOpsReportEmailText,
+  customersOf,
   eachDateInclusive,
   exceptionAttention,
   kstDayRange,
+  resolveResendFrom,
   lastDayOfMonth,
   parseReportDate,
   shouldStorePipeline,
@@ -86,13 +88,24 @@ const metrics: OpsDailyMetrics = {
   center: { inboundScans: 0, workComplete: 0, outboundScans: 0 },
   moneyOut: { paymentRefund: 0, repairRefund: 0, compensation: 0, orderCancel: 0 },
 };
+assert(customersOf(metrics).signups === 3, "옛 스냅샷은 가입을 pulse에서");
+assert(customersOf(metrics).withdrawals === 0, "옛 스냅샷 탈퇴 기본 0");
 assert(exceptionAttention(metrics.exceptions) === 8, "살펴볼 일 합");
 
 const rows: OpsDailyReportRow[] = [
   {
     report_date: "2026-08-26",
     generated_at: "2026-08-26T00:00:00.000Z",
-    metrics,
+    metrics: {
+      ...metrics,
+      customers: {
+        signups: 3,
+        withdrawals: 0,
+        recentLogins: 9,
+        active30d: 12,
+        totalCustomers: 103,
+      },
+    },
     email_sent_at: null,
     email_error: null,
     generated_by: "test",
@@ -103,6 +116,13 @@ const rows: OpsDailyReportRow[] = [
     metrics: {
       ...metrics,
       pulse: { ...pulse, paidOrders: 1, revenue: 10000, signups: 0 },
+      customers: {
+        signups: 0,
+        withdrawals: 1,
+        recentLogins: 4,
+        active30d: 10,
+        totalCustomers: 100,
+      },
     },
     email_sent_at: null,
     email_error: null,
@@ -112,6 +132,9 @@ const rows: OpsDailyReportRow[] = [
 const trend = toTrendPoints(rows);
 assert(trend[0].date === "2026-08-25" && trend[1].date === "2026-08-26", "추이 오름차순");
 assert(trend[0].paidOrders === 1 && trend[1].paidOrders === 2, "추이 결제 건수");
+assert(trend[0].withdrawals === 1 && trend[1].withdrawals === 0, "탈퇴 추이");
+assert(trend[0].recentLogins === 4, "접속 추이");
+assert(trend[0].active30d === 10 && trend[0].totalCustomers === 100, "재고성 고객 지표");
 
 assert(weekStartMonday("2026-08-26") === "2026-08-24", "수요일은 월요일 시작");
 assert(weekStartMonday("2026-08-23") === "2026-08-17", "일요일은 전주 월요일");
@@ -120,12 +143,29 @@ assert(eachDateInclusive("2026-08-25", "2026-08-26").join(",") === "2026-08-25,2
 const week = aggregateTrend(trend, "week");
 assert(week.length === 1, "같은 주면 한 칸");
 assert(week[0].paidOrders === 3, "주 합계 결제");
+assert(week[0].withdrawals === 1, "주 합계 탈퇴");
+assert(week[0].active30d === 12 && week[0].totalCustomers === 103, "주말은 마지막 날 재고");
 assert(week[0].label.includes("~"), "주 라벨");
 assert(aggregateTrend(trend, "month")[0].label === "2026-08", "월 라벨");
 assert(lastDayOfMonth("2026-08-01") === "2026-08-31", "월말");
 
-const text = buildOpsReportEmailText("2026-08-25", metrics);
+const text = buildOpsReportEmailText("2026-08-25", {
+  ...metrics,
+  customers: {
+    signups: 3,
+    withdrawals: 1,
+    recentLogins: 8,
+    active30d: 40,
+    totalCustomers: 120,
+  },
+});
 assert(text.includes("2026-08-25"), "메일 날짜");
 assert(text.includes("결제 2"), "메일 결제 건");
+assert(text.includes("탈퇴 1"), "메일 탈퇴");
+assert(text.includes("활성(30일) 40"), "메일 활성");
+assert(text.includes("그날 접속 8"), "메일 접속");
+
+assert(resolveResendFrom("???? <noreply@modo.mom>").startsWith("모두의수선"), "깨진 발신명은 복구");
+assert(resolveResendFrom("=?UTF-8?B?66y464+Z7J2Y7Iug7Iah?= <noreply@modo.mom>").includes("UTF-8"), "인코딩된 발신명은 유지");
 
 console.log("ops-daily-report tests passed");

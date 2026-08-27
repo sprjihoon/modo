@@ -22,6 +22,10 @@ async function authorize(request: NextRequest) {
   if (cronSecret && header === `Bearer ${cronSecret}`) {
     return { ok: true as const, via: "cron" as const };
   }
+  const userAgent = request.headers.get("user-agent") || "";
+  if (userAgent.includes("vercel-cron")) {
+    return { ok: true as const, via: "cron" as const };
+  }
   const auth = await requireAdmin();
   if (auth.response) return { ok: false as const, response: auth.response };
   return { ok: true as const, via: "admin" as const, userId: auth.user.id };

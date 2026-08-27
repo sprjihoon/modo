@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addKstDays,
   aggregateTrend,
+  customersOf,
   exceptionAttention,
   kstToday,
   kstYesterday,
@@ -151,7 +152,6 @@ export default function OpsReportsPage() {
     () => aggregateTrend(toTrendPoints(reports), grain),
     [reports, grain]
   );
-  const prev = reports.find((r) => r.report_date === addKstDays(date, -1))?.metrics.pulse;
 
   function applyPreset(next: string) {
     setPreset(next);
@@ -240,9 +240,13 @@ export default function OpsReportsPage() {
   }
 
   const pulse = metrics?.pulse;
+  const customers = metrics ? customersOf(metrics) : null;
   const pipe = metrics?.pipeline;
   const ex = metrics?.exceptions;
   const attn = ex ? exceptionAttention(ex) : 0;
+  const prevRow = reports.find((r) => r.report_date === addKstDays(date, -1));
+  const prevPulse = prevRow?.metrics.pulse;
+  const prevCustomers = prevRow ? customersOf(prevRow.metrics) : null;
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -250,7 +254,7 @@ export default function OpsReportsPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">운영 리포트</h2>
           <p className="text-muted-foreground mt-1">
-            아침 메일로 하루를 보고, 추이에서 칸을 누르면 그날 리포트로 내려갑니다. 주문·가입은 생길 때 바로 메일이 갑니다.
+            매일 오전 9시에 전날 리포트를 메일로 보냅니다. 추이에서 칸을 누르면 그날로 내려갑니다.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -316,13 +320,13 @@ export default function OpsReportsPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Metric
               label="신규 가입"
-              value={pulse!.signups}
-              hint={prev ? `전일 ${prev.signups}` : undefined}
+              value={customers!.signups}
+              hint={prevCustomers ? `전일 ${prevCustomers.signups}` : undefined}
             />
             <Metric
               label="결제 주문"
               value={pulse!.paidOrders}
-              hint={prev ? `전일 ${prev.paidOrders}` : undefined}
+              hint={prevPulse ? `전일 ${prevPulse.paidOrders}` : undefined}
             />
             <Metric
               label="매출"
@@ -333,7 +337,30 @@ export default function OpsReportsPage() {
               label="살펴볼 일"
               value={attn}
               warn={attn > 0}
-              hint="취소큐·CS·웹훅·미발송 합"
+              hint="그날 취소·반송 + CS + 웹훅 + 미발송"
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Metric
+              label="탈퇴"
+              value={customers!.withdrawals}
+              hint={prevCustomers ? `전일 ${prevCustomers.withdrawals}` : "익명화된 탈퇴 회원"}
+            />
+            <Metric
+              label="활성 고객"
+              value={customers!.active30d}
+              hint="그날 기준 최근 30일 결제 고객"
+            />
+            <Metric
+              label="그날 접속"
+              value={customers!.recentLogins}
+              hint={prevCustomers ? `전일 ${prevCustomers.recentLogins}` : "마지막 로그인 기준"}
+            />
+            <Metric
+              label="전체 고객"
+              value={customers!.totalCustomers.toLocaleString("ko-KR")}
+              hint="탈퇴 제외 · 그날까지 누적"
             />
           </div>
 
@@ -373,6 +400,7 @@ export default function OpsReportsPage() {
                   <p>3일 이상 정체 <b>{pipe.stuckOver3Days}</b></p>
                   <p>오늘 수거 {pipe.pickupsToday} · 내일 {pipe.pickupsTomorrow}</p>
                   <p>대기열 {pipe.waitlist}</p>
+                  <p>남은 취소·반송 {pipe.cancelOpen ?? 0}</p>
                   <p>
                     한도 {pipe.todayOrderCount ?? "-"} / {pipe.orderLimit ?? "없음"}
                   </p>
@@ -391,7 +419,7 @@ export default function OpsReportsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-              <p>취소·반송 큐 <b>{ex!.cancelQueue}</b></p>
+              <p>그날 취소·반송 <b>{ex!.cancelQueue}</b></p>
               <p>CS 이벤트 <b>{ex!.csEvents}</b></p>
               <p>추가금 대기 <b>{ex!.extraChargePending}</b></p>
               <p>보상 미지급 <b>{ex!.compensationPending}</b></p>
@@ -529,10 +557,25 @@ export default function OpsReportsPage() {
                     <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="signups" name="가입" stroke="#6b7280" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="signups" name="가입" stroke="#2563eb" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="withdrawals" name="탈퇴" stroke="#9ca3af" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="recentLogins" name="접속" stroke="#7c3aed" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="paidOrders" name="결제" stroke="#00C896" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="paymentFailed" name="결제실패" stroke="#d97706" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="attention" name="살펴볼 일" stroke="#dc2626" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trend} onClick={(state) => openTrendPoint(trendPointDate(state))}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="active30d" name="활성 고객(30일)" stroke="#0284c7" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="totalCustomers" name="전체 고객" stroke="#111827" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
-import { sendOpsAlertEmail } from '../_shared/resend.ts'
+import { sendOpsAlertEmail, sendResendEmail, opsAlertRecipients } from '../_shared/resend.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -18,9 +18,32 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}))
-    const type = body.type === 'signup' ? 'signup' : body.type === 'order' ? 'order' : null
+    const type =
+      body.type === 'signup' || body.type === 'order' || body.type === 'daily-report'
+        ? body.type
+        : null
     if (!type) {
-      return json({ success: false, error: 'type=order|signup 필요' }, 400)
+      return json({ success: false, error: 'type=order|signup|daily-report 필요' }, 400)
+    }
+
+    if (type === 'daily-report') {
+      const reportDate = typeof body.reportDate === 'string' ? body.reportDate : ''
+      const html = typeof body.html === 'string' ? body.html : ''
+      const text = typeof body.text === 'string' ? body.text : ''
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(reportDate) || !html || !text) {
+        return json({ success: false, error: 'reportDate, html, text 필요' }, 400)
+      }
+      const extraTo = Array.isArray(body.to)
+        ? body.to.filter((value: unknown) => typeof value === 'string')
+        : []
+      const to = [...new Set([...opsAlertRecipients(), ...extraTo])]
+      const result = await sendResendEmail({
+        to,
+        subject: `[모두의수선] 운영 리포트 ${reportDate}`,
+        html,
+        text,
+      })
+      return json({ success: result.sent || result.skipped, ...result })
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)

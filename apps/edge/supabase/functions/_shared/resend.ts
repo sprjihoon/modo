@@ -33,6 +33,15 @@ export interface ResendResult {
   skipped?: boolean;
 }
 
+export function resolveResendFrom(raw?: string | null): string {
+  const value = raw?.trim() ?? '';
+  if (!value) return DEFAULT_FROM;
+  const name = (value.split('<')[0] ?? '').trim();
+  if (/^=\?UTF-8\?/i.test(name)) return value;
+  if (/\?/.test(name)) return DEFAULT_FROM;
+  return value;
+}
+
 export function isDeliverableEmail(email?: string | null): boolean {
   if (!email) return false;
   const value = email.trim().toLowerCase();
@@ -141,7 +150,7 @@ export async function sendResendEmail(params: {
     return { sent: false, skipped: true, error: 'RESEND_API_KEY not configured' };
   }
 
-  const from = Deno.env.get('RESEND_FROM_EMAIL') || DEFAULT_FROM;
+  const from = resolveResendFrom(Deno.env.get('RESEND_FROM_EMAIL'));
   const replyTo = Deno.env.get('RESEND_REPLY_TO');
   const payload: Record<string, unknown> = {
     from,

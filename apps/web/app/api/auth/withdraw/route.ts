@@ -20,13 +20,46 @@ export async function POST() {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // users 테이블에서 삭제 (cascade로 연관 데이터 처리)
-    await admin.from("users").delete().eq("auth_id", user.id);
+    const { data: profile, error: profileError } = await admin
+      .from("users")
+      .select("id, email")
+      .eq("auth_id", user.id)
+      .maybeSingle();
 
-    // Auth 유저 삭제
+    if (profileError) {
+      return NextResponse.json({ error: "사용자 정보를 찾을 수 없습니다." }, { status: 404 });
+    }
+
+    if (profile) {
+      const userIdShort = String(profile.id).replace(/-/g, "").substring(0, 16);
+      const { error: anonymizeError } = await admin
+        .from("users")
+        .update({
+          email: `deleted_${userIdShort}@deleted.modorepair.com`,
+          name: "탈퇴한 사용자",
+          phone: `0100000${userIdShort.substring(0, 4)}`,
+          default_address: null,
+          default_address_detail: null,
+          default_zipcode: null,
+          fcm_token: null,
+        })
+        .eq("id", profile.id);
+
+      if (anonymizeError) {
+        return NextResponse.json({ error: "탈퇴 처리에 실패했습니다." }, { status: 500 });
+      }
+
+      await admin.from("addresses").delete().eq("user_id", profile.id);
+      await admin.from("notifications").delete().eq("user_id", profile.id);
+    }
+
     const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
     if (deleteError) {
       return NextResponse.json({ error: "탈퇴 처리에 실패했습니다." }, { status: 500 });
+    }
+
+    if (profile) {
+      await admin.from("users").update({ auth_id: null }).eq("id", profile.id);
     }
 
     return NextResponse.json({ success: true });

@@ -24,6 +24,7 @@ export type OpsDailyPipeline = {
   stuckOver3Days: number;
   pickupsToday: number;
   pickupsTomorrow: number;
+  cancelOpen: number;
   orderLimit: number | null;
   todayOrderCount: number | null;
 };
@@ -52,12 +53,21 @@ export type OpsDailyMoneyOut = {
   orderCancel: number;
 };
 
+export type OpsDailyCustomers = {
+  signups: number;
+  withdrawals: number;
+  active30d: number;
+  recentLogins: number;
+  totalCustomers: number;
+};
+
 export type OpsDailyMetrics = {
   pulse: OpsDailyPulse;
   pipeline: OpsDailyPipeline | null;
   exceptions: OpsDailyExceptions;
   center: OpsDailyCenter;
   moneyOut: OpsDailyMoneyOut;
+  customers?: OpsDailyCustomers;
 };
 
 export type OpsDailyReportRow = {
@@ -115,6 +125,24 @@ export function emptyPulse(): OpsDailyPulse {
     promoUsed: 0,
     promoDiscount: 0,
     sources: { web: 0, app: 0, ios: 0, android: 0, other: 0 },
+  };
+}
+
+export function emptyCustomers(): OpsDailyCustomers {
+  return {
+    signups: 0,
+    withdrawals: 0,
+    active30d: 0,
+    recentLogins: 0,
+    totalCustomers: 0,
+  };
+}
+
+export function customersOf(metrics: OpsDailyMetrics): OpsDailyCustomers {
+  return {
+    ...emptyCustomers(),
+    ...(metrics.customers ?? {}),
+    signups: metrics.customers?.signups ?? metrics.pulse.signups,
   };
 }
 
@@ -184,6 +212,10 @@ export type TrendPoint = {
   date: string;
   label: string;
   signups: number;
+  withdrawals: number;
+  recentLogins: number;
+  active30d: number;
+  totalCustomers: number;
   paidOrders: number;
   revenue: number;
   paymentFailed: number;
@@ -215,16 +247,23 @@ function formatMd(dateYmd: string): string {
 export function toTrendPoints(rows: OpsDailyReportRow[]): TrendPoint[] {
   return [...rows]
     .sort((a, b) => a.report_date.localeCompare(b.report_date))
-    .map((row) => ({
-      date: row.report_date,
-      label: row.report_date,
-      signups: row.metrics.pulse.signups,
-      paidOrders: row.metrics.pulse.paidOrders,
-      revenue: row.metrics.pulse.revenue,
-      paymentFailed: row.metrics.pulse.paymentFailed,
-      csEvents: row.metrics.exceptions.csEvents,
-      attention: exceptionAttention(row.metrics.exceptions),
-    }));
+    .map((row) => {
+      const customers = customersOf(row.metrics);
+      return {
+        date: row.report_date,
+        label: row.report_date,
+        signups: customers.signups,
+        withdrawals: customers.withdrawals,
+        recentLogins: customers.recentLogins,
+        active30d: customers.active30d,
+        totalCustomers: customers.totalCustomers,
+        paidOrders: row.metrics.pulse.paidOrders,
+        revenue: row.metrics.pulse.revenue,
+        paymentFailed: row.metrics.pulse.paymentFailed,
+        csEvents: row.metrics.exceptions.csEvents,
+        attention: exceptionAttention(row.metrics.exceptions),
+      };
+    });
 }
 
 export function aggregateTrend(points: TrendPoint[], grain: TrendGrain): TrendPoint[] {
@@ -236,6 +275,10 @@ export function aggregateTrend(points: TrendPoint[], grain: TrendGrain): TrendPo
       date: key,
       label: key,
       signups: 0,
+      withdrawals: 0,
+      recentLogins: 0,
+      active30d: 0,
+      totalCustomers: 0,
       paidOrders: 0,
       revenue: 0,
       paymentFailed: 0,
@@ -243,6 +286,10 @@ export function aggregateTrend(points: TrendPoint[], grain: TrendGrain): TrendPo
       attention: 0,
     };
     current.signups += point.signups;
+    current.withdrawals += point.withdrawals;
+    current.recentLogins += point.recentLogins;
+    current.active30d = point.active30d;
+    current.totalCustomers = point.totalCustomers;
     current.paidOrders += point.paidOrders;
     current.revenue += point.revenue;
     current.paymentFailed += point.paymentFailed;
@@ -293,6 +340,16 @@ async function countRows(
   return count ?? 0;
 }
 
+async function rpcCount(
+  admin: AdminClient,
+  name: string,
+  args: Record<string, string>
+): Promise<number> {
+  const { data, error } = await (admin as any).rpc(name, args);
+  if (error || typeof data !== "number") return 0;
+  return data;
+}
+
 export async function buildOpsDailyMetrics(
   admin: AdminClient,
   reportDate: string
@@ -308,15 +365,22 @@ export async function buildOpsDailyMetrics(
     .gte("created_at", startUtc)
     .lte("created_at", endUtc);
 
+  const activeStartUtc = kstDayRange(addKstDays(reportDate, -29)).startUtc;
+
   const [
     ordersRes,
     signups,
+    withdrawals,
+    totalCustomers,
+    active30d,
+    recentLogins,
     paymentFailed,
     csEvents,
     compensationPending,
     webhookErrors,
     webhookBadSig,
-    cancelQueue,
+    cancelByAt,
+    cancelByReturn,
     inboundScans,
     workComplete,
     outboundScans,
@@ -330,6 +394,18 @@ export async function buildOpsDailyMetrics(
         .lte("created_at", endUtc)
         .not("email", "like", "deleted_%")
     ),
+    countRows(admin, "users", (q) =>
+      q
+        .eq("role", "CUSTOMER")
+        .like("email", "deleted_%@deleted.modorepair.com")
+        .gte("updated_at", startUtc)
+        .lte("updated_at", endUtc)
+    ),
+    countRows(admin, "users", (q) =>
+      q.eq("role", "CUSTOMER").not("email", "like", "deleted_%").lte("created_at", endUtc)
+    ),
+    rpcCount(admin, "count_active_customers", { p_start: activeStartUtc, p_end: endUtc }),
+    rpcCount(admin, "count_customer_signins", { p_start: startUtc, p_end: endUtc }),
     countRows(admin, "orders", (q) =>
       q.eq("payment_status", "FAILED").gte("created_at", startUtc).lte("created_at", endUtc)
     ),
@@ -345,7 +421,18 @@ export async function buildOpsDailyMetrics(
     countRows(admin, "webhook_logs", (q) =>
       q.eq("signature_ok", false).gte("received_at", startUtc).lte("received_at", endUtc)
     ),
-    countRows(admin, "cancellation_queue", (q) => q),
+    countRows(admin, "orders", (q) =>
+      q.not("canceled_at", "is", null).gte("canceled_at", startUtc).lte("canceled_at", endUtc)
+    ),
+    countRows(admin, "orders", (q) =>
+      q
+        .is("canceled_at", null)
+        .or(
+          "status.in.(RETURN_PENDING,RETURN_SHIPPING,RETURN_DONE),extra_charge_status.eq.RETURN_REQUESTED"
+        )
+        .gte("updated_at", startUtc)
+        .lte("updated_at", endUtc)
+    ),
     countRows(admin, "action_logs", (q) =>
       q.eq("action_type", "SCAN_INBOUND").gte("timestamp", startUtc).lte("timestamp", endUtc)
     ),
@@ -362,6 +449,8 @@ export async function buildOpsDailyMetrics(
       .lte("created_at", endUtc)
       .in("action", ["PAYMENT_REFUND", "REPAIR_REFUND", "COMPENSATION", "ORDER_CANCEL"]),
   ]);
+
+  const cancelQueue = cancelByAt + cancelByReturn;
 
   const pulse = assemblePulse({
     signups,
@@ -417,6 +506,7 @@ export async function buildOpsDailyMetrics(
       stuckOver3Days,
       pickupsToday,
       pickupsTomorrow,
+      cancelOpen,
       limitRow,
     ] = await Promise.all([
       countRows(admin, "orders", (q) => q.eq("status", "BOOKED")),
@@ -443,6 +533,7 @@ export async function buildOpsDailyMetrics(
       ),
       countRows(admin, "shipments", (q) => q.eq("pickup_scheduled_date", kstToday())),
       countRows(admin, "shipments", (q) => q.eq("pickup_scheduled_date", tomorrow)),
+      countRows(admin, "cancellation_queue", (q) => q.neq("queue_kind", "RETURN_DONE")),
       admin.from("company_info").select("daily_order_limit").limit(1).maybeSingle(),
     ]);
 
@@ -463,6 +554,7 @@ export async function buildOpsDailyMetrics(
       stuckOver3Days,
       pickupsToday,
       pickupsTomorrow,
+      cancelOpen,
       orderLimit: limitRow.data?.daily_order_limit ?? null,
       todayOrderCount,
     };
@@ -483,6 +575,13 @@ export async function buildOpsDailyMetrics(
     },
     center: { inboundScans, workComplete, outboundScans },
     moneyOut,
+    customers: {
+      signups,
+      withdrawals,
+      active30d,
+      recentLogins,
+      totalCustomers,
+    },
   };
 }
 
@@ -501,6 +600,7 @@ function won(n: number): string {
 export function buildOpsReportEmailHtml(reportDate: string, metrics: OpsDailyMetrics): string {
   const p = metrics.pulse;
   const e = metrics.exceptions;
+  const c = customersOf(metrics);
   const pipe = metrics.pipeline;
   const attn = exceptionAttention(e);
   const pipelineRows = pipe
@@ -508,7 +608,8 @@ export function buildOpsReportEmailHtml(reportDate: string, metrics: OpsDailyMet
       <tr><td style="padding:6px 0;color:#4b5563;">수거 대기</td><td style="text-align:right;font-weight:700;">${pipe.booked}</td></tr>
       <tr><td style="padding:6px 0;color:#4b5563;">입고 / 작업 / 홀드</td><td style="text-align:right;font-weight:700;">${pipe.inbound} / ${pipe.processing} / ${pipe.hold}</td></tr>
       <tr><td style="padding:6px 0;color:#4b5563;">출고 대기 / 배송중</td><td style="text-align:right;font-weight:700;">${pipe.readyToShip} / ${pipe.outForDelivery}</td></tr>
-      <tr><td style="padding:6px 0;color:#4b5563;">미수거 · 3일 정체 · 대기열</td><td style="text-align:right;font-weight:700;">${pipe.missingPickup} · ${pipe.stuckOver3Days} · ${pipe.waitlist}</td></tr>`
+      <tr><td style="padding:6px 0;color:#4b5563;">미수거 · 3일 정체 · 대기열</td><td style="text-align:right;font-weight:700;">${pipe.missingPickup} · ${pipe.stuckOver3Days} · ${pipe.waitlist}</td></tr>
+      <tr><td style="padding:6px 0;color:#4b5563;">남은 취소·반송</td><td style="text-align:right;font-weight:700;">${pipe.cancelOpen}</td></tr>`
     : `<tr><td colspan="2" style="padding:6px 0;color:#9ca3af;">당시 파이프라인 스냅샷 없음 (과거 백필)</td></tr>`;
 
   return `<!DOCTYPE html>
@@ -519,7 +620,8 @@ export function buildOpsReportEmailHtml(reportDate: string, metrics: OpsDailyMet
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;">
         <tr><td style="background:#00C896;padding:20px 28px;color:#ffffff;font-size:18px;font-weight:800;">모두의수선 운영 리포트</td></tr>
         <tr><td style="padding:24px 28px 8px;color:#111827;font-size:20px;font-weight:800;">${reportDate}</td></tr>
-        <tr><td style="padding:8px 28px 0;color:#4b5563;font-size:14px;">가입 ${p.signups} · 결제 ${p.paidOrders} · 매출 ${won(p.revenue)} · 살펴볼 일 ${attn}</td></tr>
+        <tr><td style="padding:8px 28px 0;color:#4b5563;font-size:14px;">가입 ${c.signups} · 탈퇴 ${c.withdrawals} · 결제 ${p.paidOrders} · 매출 ${won(p.revenue)} · 살펴볼 일 ${attn}</td></tr>
+        <tr><td style="padding:6px 28px 0;color:#6b7280;font-size:13px;">활성(30일) ${c.active30d} · 그날 접속 ${c.recentLogins} · 전체 고객 ${c.totalCustomers}</td></tr>
         <tr><td style="padding:20px 28px 8px;font-size:13px;font-weight:700;color:#111827;">맥박</td></tr>
         <tr><td style="padding:0 28px;">
           <table width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;">
@@ -532,7 +634,7 @@ export function buildOpsReportEmailHtml(reportDate: string, metrics: OpsDailyMet
         <tr><td style="padding:0 28px;"><table width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;">${pipelineRows}</table></td></tr>
         <tr><td style="padding:20px 28px 8px;font-size:13px;font-weight:700;color:#111827;">예외</td></tr>
         <tr><td style="padding:0 28px 28px;"><table width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;">
-          <tr><td style="padding:6px 0;color:#4b5563;">취소·반송 큐</td><td style="text-align:right;font-weight:700;">${e.cancelQueue}</td></tr>
+          <tr><td style="padding:6px 0;color:#4b5563;">그날 취소·반송</td><td style="text-align:right;font-weight:700;">${e.cancelQueue}</td></tr>
           <tr><td style="padding:6px 0;color:#4b5563;">CS · 추가금 대기 · 보상 미지급</td><td style="text-align:right;font-weight:700;">${e.csEvents} · ${e.extraChargePending} · ${e.compensationPending}</td></tr>
           <tr><td style="padding:6px 0;color:#4b5563;">웹훅 오류 / 서명</td><td style="text-align:right;font-weight:700;">${e.webhookErrors} / ${e.webhookBadSig}</td></tr>
           <tr><td style="padding:6px 0;color:#4b5563;">알림 미발송 / 재시도 3+</td><td style="text-align:right;font-weight:700;">${e.notificationsUnsent} / ${e.notificationsRetry3}</td></tr>
@@ -547,12 +649,25 @@ export function buildOpsReportEmailHtml(reportDate: string, metrics: OpsDailyMet
 export function buildOpsReportEmailText(reportDate: string, metrics: OpsDailyMetrics): string {
   const p = metrics.pulse;
   const e = metrics.exceptions;
+  const c = customersOf(metrics);
   return [
     `모두의수선 운영 리포트 ${reportDate}`,
-    `가입 ${p.signups} / 결제 ${p.paidOrders} / 매출 ${p.revenue}원`,
+    `가입 ${c.signups} / 탈퇴 ${c.withdrawals} / 결제 ${p.paidOrders} / 매출 ${p.revenue}원`,
+    `활성(30일) ${c.active30d} / 그날 접속 ${c.recentLogins} / 전체 ${c.totalCustomers}`,
     `결제실패 ${p.paymentFailed} / CS ${e.csEvents} / 살펴볼 일 ${exceptionAttention(e)}`,
     `https://admin.modo.mom/dashboard/reports?date=${reportDate}`,
   ].join("\n");
+}
+
+const DEFAULT_RESEND_FROM = "모두의수선 <noreply@modo.mom>";
+
+export function resolveResendFrom(raw?: string | null): string {
+  const value = raw?.trim() ?? "";
+  if (!value) return DEFAULT_RESEND_FROM;
+  const name = (value.split("<")[0] ?? "").trim();
+  if (/^=\?UTF-8\?/i.test(name)) return value;
+  if (/\?/.test(name)) return DEFAULT_RESEND_FROM;
+  return value;
 }
 
 export async function sendOpsReportEmail(params: {
@@ -560,22 +675,31 @@ export async function sendOpsReportEmail(params: {
   reportDate: string;
   metrics: OpsDailyMetrics;
 }): Promise<{ sent: boolean; error?: string; id?: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { sent: false, error: "RESEND_API_KEY not configured" };
+  const html = buildOpsReportEmailHtml(params.reportDate, params.metrics);
+  const text = buildOpsReportEmailText(params.reportDate, params.metrics);
+
+  const viaEdge = await sendOpsReportEmailViaEdge({
+    to: params.to,
+    reportDate: params.reportDate,
+    html,
+    text,
+  });
+  if (viaEdge.sent || !process.env.RESEND_API_KEY) return viaEdge;
+
   if (params.to.length === 0) return { sent: false, error: "수신 주소 없음" };
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: process.env.RESEND_FROM_EMAIL || "모두의수선 <noreply@modo.mom>",
+      from: resolveResendFrom(process.env.RESEND_FROM_EMAIL),
       to: params.to,
       subject: `[모두의수선] 운영 리포트 ${params.reportDate}`,
-      html: buildOpsReportEmailHtml(params.reportDate, params.metrics),
-      text: buildOpsReportEmailText(params.reportDate, params.metrics),
+      html,
+      text,
     }),
   });
   const result = await response.json();
@@ -586,4 +710,43 @@ export async function sendOpsReportEmail(params: {
     };
   }
   return { sent: true, id: result.id };
+}
+
+async function sendOpsReportEmailViaEdge(params: {
+  to: string[];
+  reportDate: string;
+  html: string;
+  text: string;
+}): Promise<{ sent: boolean; error?: string; id?: string }> {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    return { sent: false, error: "Supabase 설정 없음" };
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/send-ops-alert`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${serviceRoleKey}`,
+    },
+    body: JSON.stringify({
+      type: "daily-report",
+      reportDate: params.reportDate,
+      html: params.html,
+      text: params.text,
+      to: params.to,
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.sent === false) {
+    return {
+      sent: false,
+      error:
+        typeof result?.error === "string"
+          ? result.error
+          : `Edge 메일 발송 실패 (${response.status})`,
+    };
+  }
+  return { sent: true, id: typeof result.id === "string" ? result.id : undefined };
 }
