@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -25,6 +27,7 @@ class _MeasureGuideAccordionState extends State<MeasureGuideAccordion> {
   WebViewController? _controller;
   bool _loading = true;
   String? _error;
+  double? _contentHeight;
 
   /// widget 테스트에서 WebView 플랫폼 미구현 오류를 피한다.
   bool get _skipWebView {
@@ -52,18 +55,67 @@ class _MeasureGuideAccordionState extends State<MeasureGuideAccordion> {
       setState(() {
         _loading = true;
         _error = null;
+        _contentHeight = null;
       });
     }
   }
+
+  void _onContentHeight(String raw) {
+    final parsed = double.tryParse(raw.replaceAll(RegExp(r'[^0-9.]'), ''));
+    if (parsed == null || parsed < 80) return;
+    if (_contentHeight != null && (parsed - _contentHeight!).abs() < 8) return;
+    if (!mounted) return;
+    setState(() => _contentHeight = parsed);
+  }
+
+  static const _heightReporterJs = '''
+(function(){
+  function send(){
+    var h = Math.max(
+      document.body ? document.body.scrollHeight : 0,
+      document.documentElement ? document.documentElement.scrollHeight : 0
+    );
+    if (window.MeasureGuideHeight) MeasureGuideHeight.postMessage(String(h));
+  }
+  try {
+    document.documentElement.style.height = 'auto';
+    document.documentElement.style.minHeight = '0';
+    document.documentElement.style.overflow = 'visible';
+    if (document.body) {
+      document.body.style.minHeight = '0';
+      document.body.style.height = 'auto';
+      document.body.style.overflow = 'visible';
+    }
+  } catch (e) {}
+  send();
+  if (window.ResizeObserver && document.body) {
+    new ResizeObserver(send).observe(document.body);
+  }
+  document.querySelectorAll('img').forEach(function(img){
+    img.addEventListener('load', send);
+  });
+  setTimeout(send, 300);
+  setTimeout(send, 1000);
+  setTimeout(send, 2500);
+})();
+''';
 
   void _initWebView() {
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
+      ..addJavaScriptChannel(
+        'MeasureGuideHeight',
+        onMessageReceived: (message) => _onContentHeight(message.message),
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageFinished: (_) {
-            if (mounted) setState(() => _loading = false);
+          onPageFinished: (_) async {
+            if (!mounted) return;
+            setState(() => _loading = false);
+            try {
+              await _controller?.runJavaScript(_heightReporterJs);
+            } catch (_) {}
           },
           onWebResourceError: (err) {
             if (mounted) {
@@ -79,6 +131,13 @@ class _MeasureGuideAccordionState extends State<MeasureGuideAccordion> {
     _controller = controller;
   }
 
+  double _guideHeight(BuildContext context) {
+    if (_contentHeight != null) {
+      return _contentHeight!.clamp(200.0, 4000.0);
+    }
+    return (MediaQuery.sizeOf(context).height * 0.72).clamp(380.0, 720.0);
+  }
+
   void _toggle() {
     setState(() {
       _open = !_open;
@@ -92,7 +151,8 @@ class _MeasureGuideAccordionState extends State<MeasureGuideAccordion> {
 
   @override
   Widget build(BuildContext context) {
-    final guideHeight = (MediaQuery.sizeOf(context).height * 0.55).clamp(280.0, 480.0);
+    final guideHeight = _guideHeight(context);
+    final sizedToContent = _contentHeight != null;
 
     return Container(
       decoration: BoxDecoration(
@@ -169,7 +229,18 @@ class _MeasureGuideAccordionState extends State<MeasureGuideAccordion> {
                   : Stack(
                       children: [
                         if (_controller != null)
-                          WebViewWidget(controller: _controller!),
+                          WebViewWidget(
+                            controller: _controller!,
+                            // 높이를 콘텐츠에 맞춘 뒤에는 바깥 ListView가 스크롤한다.
+                            // 아직이면 WebView가 제스처를 받아 가이드를 직접 스크롤한다.
+                            gestureRecognizers: sizedToContent
+                                ? const <Factory<OneSequenceGestureRecognizer>>{}
+                                : {
+                                    Factory<EagerGestureRecognizer>(
+                                      EagerGestureRecognizer.new,
+                                    ),
+                                  },
+                          ),
                         if (_loading)
                           const Center(
                             child: SizedBox(

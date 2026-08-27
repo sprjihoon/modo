@@ -1,5 +1,6 @@
 import { PageLayout } from "@/components/layout/PageLayout";
 import { MeasureGuideClient } from "@/components/guide/MeasureGuideClient";
+import { MeasureEmbedHeight } from "@/components/guide/MeasureEmbedHeight";
 
 export default async function MeasureGuidePage({
   searchParams,
@@ -15,7 +16,12 @@ export default async function MeasureGuidePage({
   );
 
   if (embed) {
-    return <div className="min-h-screen bg-white">{client}</div>;
+    return (
+      <div className="bg-white overflow-visible">
+        {client}
+        <MeasureEmbedHeight />
+      </div>
+    );
   }
 
   return (

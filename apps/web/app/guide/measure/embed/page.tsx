@@ -1,4 +1,5 @@
 import { MeasureGuideClient } from "@/components/guide/MeasureGuideClient";
+import { MeasureEmbedHeight } from "@/components/guide/MeasureEmbedHeight";
 
 /**
  * Flutter 앱 치수 입력 화면용 임베드 가이드.
@@ -13,8 +14,9 @@ export default async function MeasureGuideEmbedPage({
   const type = params.type?.trim() || null;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="bg-white overflow-visible">
       <MeasureGuideClient initialTypeId={type} lockType={!!type} />
+      <MeasureEmbedHeight />
     </div>
   );
 }

@@ -178,6 +178,8 @@ class _MeasurementStepState extends State<MeasurementStep> {
         ),
         Expanded(
           child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
               Container(

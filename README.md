@@ -273,7 +273,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.2+25`** (iOS·Play 동일) |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.2+26`** (iOS·Play 동일). 직전 업로드는 `+25` |
 | App Store Connect App ID | `6759492888` |
 | iOS 스토어 | **판매 중 `1.0` 빌드 21** (2026-08-17) · `1.0.2` 빌드 **25** **Waiting for Review** (2026-08-20) · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
@@ -281,7 +281,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Play 상태 | Alpha **`25 (1.0.2)` 업로드** (2026-08-20) · 직전 테스터 제공은 `21 (1.0.1)` · 프로덕션은 개인 계정 14일(약 **2026-08-28**) 이후 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.2+25`) · 백업 `Documents/modo-android-signing/app-release-1.0.2+25.aab` |
+| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.2+26` 맥북에서 생성) · 직전 백업 `Documents/modo-android-signing/app-release-1.0.2+25.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -295,7 +295,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **21** (`1.0`). 다음 버전 **`1.0.2` 빌드 25** 심사 대기. 검색 반영은 최대 24시간 |
+| App Store 현재 빌드 | 판매 중 **21** (`1.0`). `1.0.2` 빌드 **25** 심사 대기. 치수 가이드 스크롤 수정은 맥북에서 **빌드 26** 으로 다시 만들 것 |
 | 앱 업데이트 안내 | `app_versions` (플랫폼별 최신/최소 버전). 어드민 설정 → **앱 버전**. 스토어에 올린 뒤에만 최신을 바꿀 것 |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
@@ -332,6 +332,30 @@ flutter build ipa --release --build-name=1.0.2 --build-number=<N> \
 #   --apiKey 5NS9QNDJUH --apiIssuer <issuerId>
 ```
 
+### 맥북에서 `1.0.2+26` (치수 가이드 스크롤)
+
+Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 뒤 아래만 실행하면 된다. `pubspec.yaml`은 이미 `1.0.2+26`.
+
+```bash
+git pull
+cd apps/mobile
+flutter pub get
+
+# 실기기 확인 (선택)
+flutter run --release
+
+# Play AAB
+flutter build appbundle --release --build-name=1.0.2 --build-number=26
+# → build/app/outputs/bundle/release/app-release.aab
+
+# App Store / TestFlight IPA
+flutter build ipa --release --build-name=1.0.2 --build-number=26 \
+  --export-options-plist=ios/ExportOptions.plist
+# → build/ios/ipa/모두의수선.ipa
+```
+
+빌드 25가 심사 중이면 ASC에서 25를 취소하거나, 26을 올린 뒤 그 빌드로 교체한다. Play Alpha는 26 AAB로 교체하면 된다. 스토어에 올린 뒤에만 어드민 **앱 버전**의 최신을 `1.0.2` / 빌드 26으로 바꾼다.
+
 ### 체크리스트
 
 1. ~~App Store Connect 앱 등록~~ (`com.modurepair.app` / App ID `6759492888`)
@@ -353,11 +377,12 @@ flutter build ipa --release --build-name=1.0.2 --build-number=<N> \
 17. ~~`1.0.1+21` 가격 탭 가운데 정렬 · 수선 확인 널 가드 · 2.1 긴 화면 녹화~~ · **App Store 승인·출시 · Play Alpha 21**
 18. ~~`1.0.1+22` 어드민 CS 처리~~ (재작업·수선비 환불·전손 보상 · 고객 회차 표시)
 19. **`1.0.2+25` 업데이트 안내 · 알림 설정 이동** (`app_versions` · 어드민 앱 버전 · iOS 빌드 25 심사 대기 · Play Alpha AAB 25 업로드)
-20. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
-21. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상**(약 **2026-08-28**) 후 프로덕션 액세스 신청
-22. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
-23. ~~Google Search Console~~ (소유확인 · 사이트맵 제출, 2026-08-18)
-24. ~~의류 전손·분실 보상 기준~~ (`app_contents` 제15조·환불정책 제6·7조, 2026-08-19)
+20. **`1.0.2+26` 치수 가이드 스크롤** (맥북에서 IPA·AAB 생성. 입력 화면 「치수 재는 방법」이 잘리던 문제)
+21. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
+22. 개인 계정 프로덕션: 비공개 테스트 **옵트인 테스터 12명+** · **14일 이상**(약 **2026-08-28**) 후 프로덕션 액세스 신청
+23. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
+24. ~~Google Search Console~~ (소유확인 · 사이트맵 제출, 2026-08-18)
+25. ~~의류 전손·분실 보상 기준~~ (`app_contents` 제15조·환불정책 제6·7조, 2026-08-19)
 
 ### 검색 (`modo.io.kr`)
 
@@ -447,6 +472,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-27 | 앱 치수 가이드 스크롤 | 수치 입력 화면 「치수 재는 방법」이 잘리고 스크롤이 안 되던 문제. 앱 `1.0.2+26` — IPA/AAB는 맥북에서 빌드 |
 | 2026-08-27 | 운영 리포트 고객 추이 | 가입·탈퇴·활성(30일)·그날 접속·전체 고객을 하루 숫자·추이·아침에 같이 표시. 아침 메일은 KST 09:00. 어드민 Resend 키 추가, 발신명 `????` 복구. 웹 탈퇴는 익명화 |
 | 2026-08-26 | 운영 모니터 리포트 | 일자 스냅샷·추이(기간/일·주·월). 아침 메일, 주문·가입 즉시 메일. 어드민 분석 → 운영 리포트 |
 | 2026-08-26 | 포인트 설정 통합 | 가입·초대·주문 적립은 어드민 **포인트 관리 → 포인트 설정**에서만 변경. 설정 화면 카드는 제거. 예전 `/dashboard/settings/points`는 리다이렉트 |
