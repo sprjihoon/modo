@@ -17,6 +17,7 @@ import { OrderCsCard } from "@/components/orders/order-cs-card";
 import { formatOrderDate, isPastOrderDate, isPickupBookingLock, isRealTrackingNo, todayYmdKst } from "@/lib/missing-pickup";
 import { canShowReturnShipmentUi, getEffectiveOrderStatus } from "@/lib/order-return-flow";
 import { getOrderSourceBadge, getOrderSourceLabel } from "@/lib/order-source";
+import { parseRepairPart } from "@/lib/repair-parts";
 import PointManagementDialog from "@/components/customers/PointManagementDialog";
 import { Package, Truck, User, CreditCard, History, ExternalLink, Video, Play, Printer, FileText, XCircle, Coins, Copy, Send, Tag, Image, RotateCcw, PlusCircle, CalendarDays } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -801,9 +802,8 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
               const canceledSet = new Set(canceled);
               return (
                 <div className="space-y-1.5">
-                  {order.repair_parts.map((raw: string, i: number) => {
-                    let item: { name: string; price?: number; quantity?: number } = { name: raw };
-                    try { item = JSON.parse(raw); } catch {}
+                  {order.repair_parts.map((raw: unknown, i: number) => {
+                    const item = parseRepairPart(raw);
                     const isCanceled = canceledSet.has(i);
                     const amt = (item.price ?? 0) * (item.quantity ?? 1);
                     return (
@@ -811,6 +811,9 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                         <span className={isCanceled ? "line-through text-muted-foreground" : ""}>
                           {item.name}
                           {(item.quantity ?? 1) > 1 && <span className="text-muted-foreground ml-1">×{item.quantity}</span>}
+                          {item.detail && (
+                            <span className="ml-2 text-xs font-medium text-emerald-700">({item.detail})</span>
+                          )}
                           {isCanceled && <span className="ml-2 text-xs text-red-400 font-medium">(취소됨)</span>}
                         </span>
                         {amt > 0 && (
@@ -1737,9 +1740,8 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-64 overflow-y-auto py-2">
-            {Array.isArray(order?.repair_parts) && order.repair_parts.map((raw: string, i: number) => {
-              let item: { name: string; price?: number; quantity?: number } = { name: raw };
-              try { item = JSON.parse(raw); } catch {}
+            {Array.isArray(order?.repair_parts) && order.repair_parts.map((raw: unknown, i: number) => {
+              const item = parseRepairPart(raw);
               const canceledSet = new Set<number>((order as any).canceled_repair_parts ?? []);
               const isCanceled = canceledSet.has(i);
               const isSelected = selectedCancelItems.has(i);

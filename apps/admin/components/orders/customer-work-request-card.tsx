@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Camera, CalendarDays, MapPin, Phone, StickyNote, X } from "lucide-react";
 import { WorkOrderPrintDialog } from "@/components/orders/work-order-print-dialog";
 import { parseWorkOrderImages, customerRequestSummary } from "@/lib/work-order-images";
+import { measurementLinesFromParts } from "@/lib/repair-parts";
 import { formatOrderDate } from "@/lib/missing-pickup";
 
 interface CustomerWorkRequestCardProps {
@@ -16,6 +17,7 @@ export function CustomerWorkRequestCard({ order }: CustomerWorkRequestCardProps)
   const notes = (order?.notes ?? "").trim();
   const repairDetail = (order?.repair_detail ?? "").trim();
   const summary = customerRequestSummary(order);
+  const measurements = measurementLinesFromParts(order?.repair_parts);
   const pinMemos = images.flatMap((image, imgIdx) =>
     (image.pins ?? [])
       .map((pin, pinIdx) => ({
@@ -92,6 +94,20 @@ export function CustomerWorkRequestCard({ order }: CustomerWorkRequestCardProps)
             </p>
           )}
         </div>
+
+        {measurements.length > 0 && (
+          <div>
+            <p className="text-sm text-muted-foreground">고객 입력 수치</p>
+            <div className="mt-2 space-y-2">
+              {measurements.map((line, idx) => (
+                <div key={`${line.name}-${idx}`} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <p className="text-sm font-medium">{line.name}</p>
+                  <p className="text-sm font-semibold text-emerald-800">{line.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div>
           <p className="text-sm text-muted-foreground mb-2">

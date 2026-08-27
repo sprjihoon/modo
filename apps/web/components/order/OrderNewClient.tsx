@@ -467,9 +467,19 @@ export function OrderNewClient() {
     const sel = prePhaseSelection;
     const price = measurementConfig.price || sel?.directPrice || 0;
     const priceRange = sel?.priceRange || `${price.toLocaleString("ko-KR")}원`;
-    const detail = measurementConfig.labels
-      .map((label, i) => `${label}: ${values[i] || "-"}`)
-      .join(", ");
+    const labels = measurementConfig.labels;
+    const groups = measurementConfig.groups;
+    const detail =
+      groups && groups.length > 0
+        ? groups
+            .map((group, gIdx) => {
+              const part = labels
+                .map((label, lIdx) => `${label}: ${values[gIdx * labels.length + lIdx] || "-"}`)
+                .join(", ");
+              return group.title ? `${group.title} (${part})` : part;
+            })
+            .join(" / ")
+        : labels.map((label, i) => `${label}: ${values[i] || "-"}`).join(", ");
     const repairItem: RepairItem = {
       name: measurementConfig.itemName,
       price,

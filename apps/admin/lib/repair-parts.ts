@@ -13,18 +13,48 @@ export interface ParsedRepairPart {
   detail?: string;
 }
 
-export function parseRepairPart(raw: string): ParsedRepairPart {
-  try {
-    const p = JSON.parse(raw);
+function asDetail(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+export function parseRepairPart(raw: unknown): ParsedRepairPart {
+  if (raw == null) return { name: "", price: 0, quantity: 1 };
+  if (typeof raw === "object") {
+    const p = raw as Record<string, unknown>;
     return {
-      name: p.name ?? "",
+      name: String(p.name ?? ""),
       price: Number(p.price) || 0,
       quantity: Number(p.quantity) || 1,
-      detail: p.detail,
+      detail: asDetail(p.detail),
     };
-  } catch {
-    return { name: raw, price: 0, quantity: 1 };
   }
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (s.startsWith("{")) {
+      try {
+        return parseRepairPart(JSON.parse(s));
+      } catch {
+        return { name: s, price: 0, quantity: 1 };
+      }
+    }
+    return { name: s, price: 0, quantity: 1 };
+  }
+  return { name: String(raw), price: 0, quantity: 1 };
+}
+
+/** 작업지시서·주문 상세에 표시할 고객 입력 수치만 추출 */
+export function measurementLinesFromParts(
+  parts?: unknown[] | null
+): Array<{ name: string; detail: string }> {
+  if (!Array.isArray(parts) || parts.length === 0) return [];
+  return parts
+    .map((raw) => {
+      const p = parseRepairPart(raw);
+      return p.detail ? { name: p.name || "수선", detail: p.detail } : null;
+    })
+    .filter((x): x is { name: string; detail: string } => !!x);
 }
 
 export function itemPrice(part: ParsedRepairPart): number {

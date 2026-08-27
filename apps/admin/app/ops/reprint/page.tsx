@@ -22,6 +22,7 @@ type LookupResult = {
   itemName?: string;
   summary?: string;
   repairParts?: string[];
+  rawRepairParts?: unknown[];
   images?: WorkOrderImage[];
   shippingLabel?: ShippingLabelData | null;
   scannedItemSeq?: number | null;
@@ -95,6 +96,7 @@ export default function ReprintPage() {
         itemName: order.item_name,
         summary: customerRequestSummary(order) || order.repair_summary || repairParts.join(", "),
         repairParts,
+        rawRepairParts: rawParts,
         images,
         shippingLabel,
         scannedItemSeq: scannedItemSeq ?? null,
@@ -117,7 +119,7 @@ export default function ReprintPage() {
       customerPhone: result.customerPhone,
       itemName: result.itemName || "",
       summary: result.summary || "",
-      repairParts: result.repairParts ?? [],
+      repairParts: (result.rawRepairParts?.length ? result.rawRepairParts : result.repairParts) ?? [],
       images: result.images ?? [],
     };
   }

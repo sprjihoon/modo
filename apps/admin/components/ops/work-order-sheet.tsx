@@ -1,6 +1,7 @@
 "use client";
 
-import { MapPin } from "lucide-react";
+import { MapPin, Ruler } from "lucide-react";
+import { measurementLinesFromParts, parseRepairPart } from "@/lib/repair-parts";
 
 export interface ExtraChargeInfo {
   status: string;          // PENDING_CUSTOMER | COMPLETED | SKIPPED | RETURN_REQUESTED
@@ -18,33 +19,16 @@ export interface WorkOrderData {
   itemName: string;
   summary: string;
   // text[] 컬럼이라 부위명 문자열 / JSON 직렬화 객체가 혼재 가능
-  repairParts?: Array<string | { name?: string; price?: number; quantity?: number; detail?: string }>;
+  repairParts?: unknown[];
   images?: WorkOrderImage[];
   extraCharge?: ExtraChargeInfo;
 }
 
 // repair_parts 항목을 표시 가능한 형태로 정규화
 export function formatRepairPart(raw: unknown): { label: string; sub?: string; price?: number } {
-  if (raw == null) return { label: "" };
-  if (typeof raw === "object") {
-    const obj = raw as { name?: string; price?: number; quantity?: number; detail?: string };
-    const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
-    return { label: `${obj.name ?? ""}${qty}`, sub: obj.detail, price: obj.price };
-  }
-  if (typeof raw === "string") {
-    const s = raw.trim();
-    if (s.startsWith("{")) {
-      try {
-        const obj = JSON.parse(s) as { name?: string; price?: number; quantity?: number; detail?: string };
-        const qty = (obj.quantity ?? 1) > 1 ? ` ×${obj.quantity}` : "";
-        return { label: `${obj.name ?? s}${qty}`, sub: obj.detail, price: obj.price };
-      } catch {
-        return { label: s };
-      }
-    }
-    return { label: s };
-  }
-  return { label: String(raw) };
+  const p = parseRepairPart(raw);
+  const qty = p.quantity > 1 ? ` ×${p.quantity}` : "";
+  return { label: `${p.name}${qty}`, sub: p.detail, price: p.price };
 }
 
 export interface WorkOrderImage {
@@ -79,6 +63,7 @@ export function WorkOrderSheet({
   const photoIndexesWithPins = (data.images || [])
     .map((img, idx) => (img.pins && img.pins!.length > 0 ? idx + 1 : null))
     .filter((v): v is number => !!v);
+  const measurementLines = measurementLinesFromParts(data.repairParts);
 
   return (
     <div
@@ -248,6 +233,27 @@ export function WorkOrderSheet({
             </div>
           )}
         </div>
+        {measurementLines.length > 0 && (
+          <div className="p-1.5 border-2 border-emerald-400 bg-emerald-50 rounded text-xs">
+            <label className="text-xs font-bold text-emerald-900 flex items-center gap-1 mb-1">
+              <Ruler className="h-3 w-3" />
+              고객 입력 수치
+            </label>
+            <div className="space-y-1">
+              {measurementLines.map((line, idx) => (
+                <div
+                  key={`${line.name}-${idx}`}
+                  className="bg-white border border-emerald-200 rounded px-1.5 py-1"
+                >
+                  <p className="text-[11px] font-semibold text-gray-700 leading-tight">{line.name}</p>
+                  <p className="text-sm font-bold text-emerald-900 leading-tight whitespace-pre-wrap">
+                    {line.detail}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="p-1.5 border border-gray-300 rounded text-xs">
           <label className="text-xs font-medium text-gray-600">수선 요청 상세</label>
           <p className="text-xs mt-0 whitespace-pre-wrap leading-tight">{data.summary}</p>

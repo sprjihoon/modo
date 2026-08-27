@@ -38,6 +38,7 @@ type LookupResult = {
   outboundTrackingNo?: string | null;
   status: string;
   repairParts?: string[];
+  rawRepairParts?: unknown[];
   customerName?: string;
   customerPhone?: string;
   itemName?: string;
@@ -79,7 +80,7 @@ function buildWorkOrderData(result: LookupResult): WorkOrderData {
     customerPhone: result.customerPhone,
     itemName: result.itemName || "",
     summary: result.summary || result.repairParts?.join(", ") || "",
-    repairParts: result.repairParts ?? [],
+    repairParts: (result.rawRepairParts?.length ? result.rawRepairParts : result.repairParts) ?? [],
     images: result.images ?? [],
     extraCharge,
   };
@@ -147,6 +148,7 @@ export default function WorkPage() {
         outboundTrackingNo: shipment.delivery_tracking_no ?? null,
         status: shipment.status || order.status,
         repairParts: repairParts.length > 0 ? repairParts : order.item_name ? [order.item_name] : [],
+        rawRepairParts: rawParts,
         customerName: order.customer_name,
         customerPhone: order.customer_phone,
         itemName: order.item_name,

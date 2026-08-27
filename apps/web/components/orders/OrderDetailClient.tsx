@@ -17,6 +17,7 @@ interface RepairItem {
   name: string;
   price?: number;
   quantity?: number;
+  detail?: string;
 }
 
 interface OrderData {
@@ -1045,6 +1046,11 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
                     }
                     <span className={cn("text-sm text-gray-700", isCanceledItem && "line-through")}>
                       {item.name}
+                      {item.detail ? (
+                        <span className="block text-xs text-[#00C896] font-medium mt-0.5">
+                          {item.detail}
+                        </span>
+                      ) : null}
                     </span>
                     {(item.quantity ?? 1) > 1 && (
                       <span className="text-xs text-gray-400">×{item.quantity}</span>

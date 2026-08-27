@@ -15,6 +15,28 @@ import '../../providers/cart_provider.dart';
 import '../../../../services/customer_event_service.dart';
 import '../widgets/order_flow_progress.dart';
 
+/// 수선 항목에서 고객 입력 수치(detail)를 꺼낸다.
+/// 신규 흐름은 `detail` 필드, 옛 포맷은 scope/measurement/selectedParts.
+String? repairItemDetail(Map<String, dynamic> item) {
+  final existing = item['detail']?.toString().trim();
+  if (existing != null && existing.isNotEmpty) return existing;
+
+  final scope = item['scope']?.toString();
+  final measurement = item['measurement']?.toString();
+  final selected = (item['selectedParts'] as List?)?.cast<dynamic>();
+  final parts = <String>[];
+  if (scope != null && scope.isNotEmpty) parts.add(scope);
+  if (measurement != null &&
+      measurement.isNotEmpty &&
+      measurement != '{}') {
+    parts.add(measurement);
+  }
+  if (selected != null && selected.isNotEmpty) {
+    parts.add('부위: ${selected.join(', ')}');
+  }
+  return parts.isEmpty ? null : parts.join(' / ');
+}
+
 /// 수거신청 페이지
 class PickupRequestPage extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>> repairItems;
@@ -327,6 +349,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       } else if (priceField is String) {
         minPrice = int.tryParse(priceField) ?? minPrice;
       }
+      final detail = repairItemDetail(item);
       return {
         'name': item['repairPart'] ?? item['name'] ?? '',
         'price': minPrice,
@@ -335,6 +358,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
         'repairPart': item['repairPart'] ?? item['name'] ?? '',
         'scope': item['scope'] ?? '',
         'measurement': item['measurement'] ?? '',
+        if (detail != null) 'detail': detail,
       };
     }
 
@@ -787,24 +811,12 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
         final price = item['price'] is int
             ? item['price'] as int
             : int.tryParse(item['price']?.toString() ?? '') ?? 0;
-        // 상세: 범위/측정/선택 부속 요약
-        final scope = item['scope']?.toString();
-        final measurement = item['measurement']?.toString();
-        final selected = (item['selectedParts'] as List?)?.cast<dynamic>();
-        final parts = <String>[];
-        if (scope != null && scope.isNotEmpty) parts.add(scope);
-        if (measurement != null && measurement.isNotEmpty && measurement != '{}') {
-          parts.add(measurement);
-        }
-        if (selected != null && selected.isNotEmpty) {
-          parts.add('부위: ${selected.join(', ')}');
-        }
-        final detail = parts.join(' / ');
+        final detail = repairItemDetail(item);
         final obj = <String, dynamic>{
           'name': name,
           'price': price,
           'quantity': 1,
-          if (detail.isNotEmpty) 'detail': detail,
+          if (detail != null) 'detail': detail,
         };
         return jsonEncode(obj);
       }).toList();
@@ -880,6 +892,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
             final repairs =
                 ((g['repairItems'] as List?) ?? []).whereType<Map>().map((it) {
               final m = Map<String, dynamic>.from(it);
+              final detail = repairItemDetail(m);
               return <String, dynamic>{
                 'name': (m['repairPart'] as String?) ??
                     (m['name'] as String?) ??
@@ -888,6 +901,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                     ? m['price']
                     : int.tryParse(m['price']?.toString() ?? '') ?? 0,
                 'quantity': 1,
+                if (detail != null) 'detail': detail,
               };
             }).toList();
             final pins = ((g['imagesWithPins'] as List?) ?? [])
@@ -902,6 +916,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
           }).toList(),
         // 평탄형도 같이 보내서 옛 서버/관리자 도구 호환을 유지한다.
         'repairItems': widget.repairItems.map((it) {
+          final detail = repairItemDetail(it);
           return <String, dynamic>{
             'name': (it['repairPart'] as String?) ??
                 (it['name'] as String?) ??
@@ -910,6 +925,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                 ? it['price']
                 : int.tryParse(it['price']?.toString() ?? '') ?? 0,
             'quantity': 1,
+            if (detail != null) 'detail': detail,
           };
         }).toList(),
         'imagesWithPins': widget.imagesWithPins ?? allImagesWithPins,

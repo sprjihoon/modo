@@ -13,18 +13,30 @@ export interface ParsedRepairPart {
   detail?: string;
 }
 
-export function parseRepairPart(raw: string): ParsedRepairPart {
-  try {
-    const p = JSON.parse(raw);
+export function parseRepairPart(raw: unknown): ParsedRepairPart {
+  if (raw == null) return { name: "", price: 0, quantity: 1 };
+  if (typeof raw === "object") {
+    const p = raw as Record<string, unknown>;
+    const detail = typeof p.detail === "string" ? p.detail.trim() : "";
     return {
-      name: p.name ?? "",
+      name: String(p.name ?? ""),
       price: Number(p.price) || 0,
       quantity: Number(p.quantity) || 1,
-      detail: p.detail,
+      detail: detail || undefined,
     };
-  } catch {
-    return { name: raw, price: 0, quantity: 1 };
   }
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (s.startsWith("{")) {
+      try {
+        return parseRepairPart(JSON.parse(s));
+      } catch {
+        return { name: s, price: 0, quantity: 1 };
+      }
+    }
+    return { name: s, price: 0, quantity: 1 };
+  }
+  return { name: String(raw), price: 0, quantity: 1 };
 }
 
 export function itemPrice(part: ParsedRepairPart): number {

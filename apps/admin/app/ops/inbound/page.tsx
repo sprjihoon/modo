@@ -897,7 +897,9 @@ export default function InboundPage() {
                     customerPhone: result.customerPhone,
                     itemName: result.itemName || "항목명 없음",
                     summary: result.summary || "수선 요청 정보 없음",
-                    repairParts: result.repairParts || [],
+                    repairParts: Array.isArray(result.order?.repair_parts)
+                      ? result.order.repair_parts
+                      : result.repairParts || [],
                     images: convertToWorkOrderImages(result.images, result.imagesWithPins) || [],
                   }}
                 />
