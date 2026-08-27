@@ -93,7 +93,7 @@ xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 - Distribution 인증서 + 프로파일 `ModoRepair AppStore`
 - Xcode Accounts 미로그인 시 Automatic 대신 Manual (`ExportOptions.plist`)
 - iOS 배포 타깃 **15.0** (ITMS-90068 / 2027 봄부터 ASC 업로드 필수)
-- 최신 코드: **`1.0.2+25`**. iOS **`1.0` 빌드 21 판매 중** (2026-08-17) · `1.0.2` 빌드 **25** **Waiting for Review** — https://apps.apple.com/kr/app/모두의수선/id6759492888
+- 최신 코드: **`1.0.2+27`** (맥북에서 IPA/AAB). iOS **`1.0` 빌드 21 판매 중** (2026-08-17) · `1.0.2` 빌드 **25** **Waiting for Review** — https://apps.apple.com/kr/app/모두의수선/id6759492888
 - Play Alpha: **`25 (1.0.2)` 업로드** (2026-08-20) · 직전 테스터 제공은 `21 (1.0.1)` · 프로덕션은 약 2026-08-28 이후 — `compileSdk`/`targetSdk` **36** (Play 2026-08-31 정책)
 - 앱 업데이트 안내: 테이블 `app_versions` · 어드민 `/dashboard/settings/app-versions`
 
