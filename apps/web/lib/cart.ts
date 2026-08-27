@@ -11,6 +11,7 @@ import {
   RepairItem,
   ImageWithPins,
 } from "@/components/order/OrderNewClient";
+import { repairItemDetail } from "@/lib/repair-parts";
 
 export interface CartDraftItem {
   id: string;          // cart_drafts.id (서버 UUID) 또는 로컬 임시 ID
@@ -104,9 +105,10 @@ function normalizeStoredDraft(raw: Record<string, unknown>): OrderDraft {
       clothingType: (raw.clothingType as string) ?? "",
       repairItems: [{
         name: (ri.repairPart as string) ?? (ri.name as string) ?? "",
-        price: 0,
+        price: typeof ri.price === "number" ? ri.price : 0,
         priceRange: (ri.priceRange as string) ?? "",
         quantity: 1,
+        detail: repairItemDetail(ri),
       }],
       imagesWithPins: [],
     };

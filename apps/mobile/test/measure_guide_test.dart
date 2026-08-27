@@ -66,6 +66,33 @@ void main() {
       expect(confirmY, lessThan(guideY));
     });
 
+    testWidgets('ListView can scroll so 치수 재는 방법 is reachable', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MeasurementStep(
+              config: const MeasurementStepConfig(
+                itemName: '소매기장 줄임',
+                labels: ['줄일 길이 (cm)'],
+                notes: '가이드가 잘리지 않도록 입력 화면을 스크롤할 수 있어야 합니다.\n'
+                    '두번째 안내\n세번째 안내\n네번째 안내',
+                measureGuideKey: 'sleeve-length',
+              ),
+              onConfirm: (_) {},
+              onBack: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(ListView), findsOneWidget);
+      expect(find.text('치수 재는 방법'), findsOneWidget);
+      await tester.drag(find.byType(ListView), const Offset(0, -240));
+      await tester.pump();
+      expect(find.text('치수 재는 방법'), findsOneWidget);
+    });
+
     testWidgets('confirm disabled until value entered', (tester) async {
       await tester.pumpWidget(
         MaterialApp(

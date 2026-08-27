@@ -12,6 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice, ORDER_STATUS_MAP } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { parseRepairPart } from "@/lib/repair-parts";
 
 interface RepairItem {
   name: string;
@@ -657,19 +658,14 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   // 모든 형식을 RepairItem[]으로 정규화한다.
   const normalizeRepairItem = (raw: unknown): RepairItem | null => {
     if (raw == null) return null;
-    if (typeof raw === "object") return raw as RepairItem;
-    if (typeof raw === "string") {
-      const trimmed = raw.trim();
-      if (trimmed.startsWith("{")) {
-        try {
-          return JSON.parse(trimmed) as RepairItem;
-        } catch {
-          return { name: raw };
-        }
-      }
-      return { name: raw };
-    }
-    return null;
+    const parsed = parseRepairPart(raw);
+    if (!parsed.name && !parsed.detail) return null;
+    return {
+      name: parsed.name || "수선",
+      price: parsed.price,
+      quantity: parsed.quantity,
+      detail: parsed.detail,
+    };
   };
   const rawList: unknown[] = Array.isArray(order.repair_parts)
     ? order.repair_parts

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../services/cart_service.dart';
 import '../../../../services/customer_event_service.dart';
+import '../domain/repair_item_payload.dart';
 
 /// 장바구니 항목 모델 (개별 수선 항목)
 ///
@@ -316,6 +317,10 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
     if (fallbackClothingType.isNotEmpty &&
         (ri['clothingType'] as String?)?.isEmpty != false) {
       ri['clothingType'] = fallbackClothingType;
+    }
+    final detail = repairItemDetail(ri);
+    if (detail != null) {
+      ri['detail'] = detail;
     }
     return ri;
   }

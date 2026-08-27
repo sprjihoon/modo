@@ -39,4 +39,13 @@ assert(lines[1].name === "허리줄임" && lines[1].detail === "허리: 28", "JS
 assert(measurementLinesFromParts([]).length === 0, "빈 배열");
 assert(measurementLinesFromParts(null).length === 0, "null");
 
+const fromOldApp = parseRepairPart({
+  name: "어깨줄임",
+  price: 15000,
+  quantity: 1,
+  scope: "전체",
+  measurement: "왼쪽: 2",
+});
+assert(fromOldApp.detail === "전체 / 왼쪽: 2", "옛 앱 필드도 작업지시서 수치로");
+
 console.log("repair-parts.test.ts: ok");

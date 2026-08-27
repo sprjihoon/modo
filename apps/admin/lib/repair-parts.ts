@@ -19,15 +19,28 @@ function asDetail(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function repairItemDetail(item: Record<string, unknown>): string | undefined {
+  const existing = asDetail(item.detail);
+  if (existing) return existing;
+  const parts: string[] = [];
+  const scope = String(item.scope ?? "").trim();
+  const measurement = String(item.measurement ?? "").trim();
+  if (scope) parts.push(scope);
+  if (measurement && measurement !== "{}") parts.push(measurement);
+  const selected = Array.isArray(item.selectedParts) ? item.selectedParts : [];
+  if (selected.length > 0) parts.push(`부위: ${selected.join(", ")}`);
+  return parts.length > 0 ? parts.join(" / ") : undefined;
+}
+
 export function parseRepairPart(raw: unknown): ParsedRepairPart {
   if (raw == null) return { name: "", price: 0, quantity: 1 };
   if (typeof raw === "object") {
     const p = raw as Record<string, unknown>;
     return {
-      name: String(p.name ?? ""),
+      name: String(p.name ?? p.repairPart ?? ""),
       price: Number(p.price) || 0,
       quantity: Number(p.quantity) || 1,
-      detail: asDetail(p.detail),
+      detail: repairItemDetail(p),
     };
   }
   if (typeof raw === "string") {

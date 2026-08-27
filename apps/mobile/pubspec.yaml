@@ -1,7 +1,7 @@
 name: modu_repair
 description: 모두의수선 - 비대면 의류 수선 플랫폼
 publish_to: 'none'
-version: 1.0.2+27
+version: 1.0.3+29
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -79,6 +79,7 @@ dependencies:
   logger: ^2.0.2
   uuid: ^4.2.2
   url_launcher: ^6.2.0
+  share_plus: ^10.1.4
   
   # Deep Links (OAuth 콜백 처리용)
   app_links: ^6.1.1

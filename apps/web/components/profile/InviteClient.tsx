@@ -14,6 +14,7 @@ export function InviteClient() {
   const [canApplyInvite, setCanApplyInvite] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const [enterCode, setEnterCode] = useState("");
   const [applyLoading, setApplyLoading] = useState(false);
@@ -52,12 +53,17 @@ export function InviteClient() {
   async function shareInvite() {
     const link = `${getSiteUrl()}/signup?invite=${encodeURIComponent(inviteCode)}`;
     const text = `모두의수선 초대 코드: ${inviteCode}\n가입하면 서로 포인트 적립! (초대자 ${rewardAmount.toLocaleString("ko-KR")}P / 가입자 ${inviteeRewardAmount.toLocaleString("ko-KR")}P)\n${link}`;
-    if (navigator.share) {
-      await navigator.share({ title: "모두의수선 초대", text });
-    } else {
-      await navigator.clipboard.writeText(text);
-      alert("초대 메시지가 복사되었습니다");
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title: "모두의수선 초대", text, url: link });
+        return;
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
     }
+    await navigator.clipboard.writeText(text);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2500);
   }
 
   async function handleApplyCode() {
@@ -184,6 +190,11 @@ export function InviteClient() {
         {copied && (
           <p className="text-center text-xs text-[#00C896] mt-2">
             초대 코드가 복사되었습니다!
+          </p>
+        )}
+        {shareCopied && (
+          <p className="text-center text-xs text-[#00C896] mt-2">
+            초대 메시지가 복사되었습니다. 카카오톡에 붙여넣어 보내주세요.
           </p>
         )}
 

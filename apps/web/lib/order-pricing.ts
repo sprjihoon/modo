@@ -5,6 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getRemoteAreaFee } from "@/lib/remote-area";
 import { getShippingSettings } from "@/lib/shipping-settings";
+import { toQuoteRepairItem } from "@/lib/repair-parts";
 
 export interface RepairPart {
   name: string;
@@ -120,9 +121,12 @@ export async function quoteOrder(
   const itemsArr: OrderInputItem[] = Array.isArray(input.items) ? input.items : [];
 
   const clothingType = itemsArr[0]?.clothingType ?? input.clothingType ?? "";
-  const repairItems: RepairPart[] = itemsArr.length > 0
+  const rawRepairItems: unknown[] = itemsArr.length > 0
     ? itemsArr.flatMap((it) => it.repairItems ?? [])
     : (input.repairItems ?? []);
+  const repairItems: RepairPart[] = rawRepairItems.map((item) =>
+    toQuoteRepairItem((item ?? {}) as Record<string, unknown>)
+  );
   const imagesWithPins = itemsArr.length > 0
     ? itemsArr.flatMap((it) => it.imagesWithPins ?? [])
     : (input.imagesWithPins ?? []);

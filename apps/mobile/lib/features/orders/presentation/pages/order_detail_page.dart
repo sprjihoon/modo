@@ -18,6 +18,7 @@ import '../../../../services/shipping_settings_service.dart';
 import '../../../../core/enums/extra_charge_status.dart';
 import '../../providers/extra_charge_provider.dart';
 import '../../domain/models/extra_charge_data.dart';
+import '../../domain/repair_item_payload.dart';
 import '../../../profile/presentation/widgets/daum_postcode_widget.dart';
 
 /// 주문 상세 화면
@@ -1505,6 +1506,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
               _formatOrderNumber(
                   _orderData?['order_number'] ?? widget.orderId)),
           _buildInfoRow('수선 항목', _orderData?['item_name'] ?? '수선 항목'),
+          ..._buildMeasurementRows(),
           _buildInfoRow('주문일시', _formatDateTime(_orderData?['created_at'])),
           Divider(height: 24, color: Colors.grey.shade200),
           // 배송비 내역이 있는 경우 항목별 표시
@@ -1522,6 +1524,50 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         ],
       ),
     );
+  }
+
+  List<Widget> _buildMeasurementRows() {
+    final lines = measurementLinesFromParts(_orderData?['repair_parts']);
+    if (lines.isEmpty) return const [];
+    return [
+      const SizedBox(height: 4),
+      ...lines.map(
+        (part) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF5),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFA7F3D0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  part.name.isEmpty ? '수선' : part.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF065F46),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  part.detail ?? '',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF047857),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildInfoRow(String label, String value, {bool isHighlight = false}) {
@@ -3187,11 +3233,10 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
 
       // repair_parts에서 항목 이름 추출
       final rawParts = order['repair_parts'] as List<dynamic>? ?? [];
-      final repairPartNames = rawParts.map<String>((p) {
-        if (p is String) return p;
-        if (p is Map) return (p['name'] as String?) ?? '';
-        return '';
-      }).where((s) => s.isNotEmpty).toList();
+      final repairPartNames = rawParts
+          .map((p) => parseRepairPart(p).name)
+          .where((s) => s.isNotEmpty)
+          .toList();
 
       // sequence별 그룹화
       final Map<int, Map<String, String?>> bySeq = {};

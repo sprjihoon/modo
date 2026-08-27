@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,32 +8,11 @@ import '../../../../services/island_area_service.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/promotion_service.dart';
 import '../../../../services/shipping_settings_service.dart';
+import '../../domain/repair_item_payload.dart';
 import '../../providers/repair_items_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../../../services/customer_event_service.dart';
 import '../widgets/order_flow_progress.dart';
-
-/// 수선 항목에서 고객 입력 수치(detail)를 꺼낸다.
-/// 신규 흐름은 `detail` 필드, 옛 포맷은 scope/measurement/selectedParts.
-String? repairItemDetail(Map<String, dynamic> item) {
-  final existing = item['detail']?.toString().trim();
-  if (existing != null && existing.isNotEmpty) return existing;
-
-  final scope = item['scope']?.toString();
-  final measurement = item['measurement']?.toString();
-  final selected = (item['selectedParts'] as List?)?.cast<dynamic>();
-  final parts = <String>[];
-  if (scope != null && scope.isNotEmpty) parts.add(scope);
-  if (measurement != null &&
-      measurement.isNotEmpty &&
-      measurement != '{}') {
-    parts.add(measurement);
-  }
-  if (selected != null && selected.isNotEmpty) {
-    parts.add('부위: ${selected.join(', ')}');
-  }
-  return parts.isEmpty ? null : parts.join(' / ');
-}
 
 /// 수거신청 페이지
 class PickupRequestPage extends ConsumerStatefulWidget {
@@ -804,22 +781,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       
       // repair_parts 배열 생성 (웹과 동일한 구조: {name, price, quantity, detail}을 JSON 직렬화)
       // text[] 컬럼이라 객체를 직접 넣지 못하므로 jsonEncode로 직렬화한다.
-      final List<String> repairParts = widget.repairItems.map((item) {
-        final name = (item['repairPart'] as String?) ??
-            (item['name'] as String?) ??
-            '';
-        final price = item['price'] is int
-            ? item['price'] as int
-            : int.tryParse(item['price']?.toString() ?? '') ?? 0;
-        final detail = repairItemDetail(item);
-        final obj = <String, dynamic>{
-          'name': name,
-          'price': price,
-          'quantity': 1,
-          if (detail != null) 'detail': detail,
-        };
-        return jsonEncode(obj);
-      }).toList();
+      final List<String> repairParts =
+          widget.repairItems.map(toRepairPartJson).toList();
       
       debugPrint('주문명: $itemNames');
       debugPrint('주문 상세: $itemDescription');
@@ -891,18 +854,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
           'items': widget.bundleItems!.map((g) {
             final repairs =
                 ((g['repairItems'] as List?) ?? []).whereType<Map>().map((it) {
-              final m = Map<String, dynamic>.from(it);
-              final detail = repairItemDetail(m);
-              return <String, dynamic>{
-                'name': (m['repairPart'] as String?) ??
-                    (m['name'] as String?) ??
-                    '수선',
-                'price': (m['price'] is int)
-                    ? m['price']
-                    : int.tryParse(m['price']?.toString() ?? '') ?? 0,
-                'quantity': 1,
-                if (detail != null) 'detail': detail,
-              };
+              return toQuoteRepairItem(Map<String, dynamic>.from(it));
             }).toList();
             final pins = ((g['imagesWithPins'] as List?) ?? [])
                 .whereType<Map>()
@@ -915,19 +867,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
             };
           }).toList(),
         // 평탄형도 같이 보내서 옛 서버/관리자 도구 호환을 유지한다.
-        'repairItems': widget.repairItems.map((it) {
-          final detail = repairItemDetail(it);
-          return <String, dynamic>{
-            'name': (it['repairPart'] as String?) ??
-                (it['name'] as String?) ??
-                '수선',
-            'price': (it['price'] is int)
-                ? it['price']
-                : int.tryParse(it['price']?.toString() ?? '') ?? 0,
-            'quantity': 1,
-            if (detail != null) 'detail': detail,
-          };
-        }).toList(),
+        'repairItems': widget.repairItems.map(toQuoteRepairItem).toList(),
         'imagesWithPins': widget.imagesWithPins ?? allImagesWithPins,
         'imageUrls': widget.imageUrls,
         'pickupAddress': pickupAddr,

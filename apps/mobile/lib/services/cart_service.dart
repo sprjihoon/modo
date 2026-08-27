@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../features/orders/domain/repair_item_payload.dart';
+
 /// 크로스 디바이스 장바구니 Supabase CRUD 서비스.
 ///
 /// cart_drafts 테이블에 직접 접근한다.
@@ -54,18 +56,24 @@ class CartService {
       (cartItemJson['imageUrls'] as List?) ?? [],
     );
     final priceRange = repairItem['priceRange'] as String? ?? '';
+    final detail = repairItemDetail(repairItem);
     return {
       'clothingType': cartItemJson['clothingType'] as String? ?? '',
       'repairItems': [
         {
           'name': repairItem['repairPart'] ?? repairItem['name'] ?? '',
-          'price': _extractMinPrice(priceRange),
+          'price': repairItem['price'] is int
+              ? repairItem['price']
+              : _extractMinPrice(priceRange),
           'priceRange': priceRange,
           'quantity': 1,
           // 앱 전용 필드도 함께 저장해 앱이 다시 읽을 때 그대로 쓸 수 있게 한다.
           'repairPart': repairItem['repairPart'] ?? '',
           'scope': repairItem['scope'] ?? '',
           'measurement': repairItem['measurement'] ?? '',
+          if (repairItem['detailedMeasurements'] != null)
+            'detailedMeasurements': repairItem['detailedMeasurements'],
+          if (detail != null) 'detail': detail,
         }
       ],
       'imageUrls': imageUrls,

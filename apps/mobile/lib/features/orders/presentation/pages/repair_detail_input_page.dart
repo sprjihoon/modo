@@ -722,6 +722,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                           final repairItem = {
                             'id': itemId,
                             'repairPart': widget.repairPart,
+                            'name': widget.repairPart,
                             'priceRange': effectivePrice != null
                                 ? '${effectivePrice.toString().replaceAllMapped(
                                       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -735,6 +736,7 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
                                 .map((p) => p['name'])
                                 .toList(),
                             'detailedMeasurements': detailedMeasurements,
+                            'detail': measurements,
                             // 이미지 데이터 복사본 저장 (순환 참조 없음)
                             'itemImages': imageDataCopy,
                           };

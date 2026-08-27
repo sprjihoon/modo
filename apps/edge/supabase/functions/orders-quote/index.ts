@@ -8,6 +8,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveOrderSourceFromRequest } from '../_shared/order-source.ts'
+import { toQuoteRepairItem } from '../_shared/repair-parts.ts'
 
 interface RepairPart { name?: string; price?: number; quantity?: number; detail?: string }
 interface InputItem {
@@ -79,9 +80,12 @@ serve(async (req) => {
 
     const itemsArr: InputItem[] = Array.isArray(body.items) ? body.items : []
     const clothingType = (itemsArr[0]?.clothingType as string) ?? body.clothingType ?? ''
-    const repairItems: RepairPart[] = itemsArr.length > 0
+    const rawRepairItems: unknown[] = itemsArr.length > 0
       ? itemsArr.flatMap((it) => it.repairItems ?? [])
       : (Array.isArray(body.repairItems) ? body.repairItems : [])
+    const repairItems: RepairPart[] = rawRepairItems.map((item) =>
+      toQuoteRepairItem((item ?? {}) as Record<string, unknown>)
+    )
     const imagesWithPins: Array<{ imageUrl: string; pins?: unknown[] }> = itemsArr.length > 0
       ? itemsArr.flatMap((it) => it.imagesWithPins ?? [])
       : (Array.isArray(body.imagesWithPins) ? body.imagesWithPins : [])
