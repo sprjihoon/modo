@@ -202,7 +202,7 @@ flutter build ipa --release --build-name=1.0.4 --build-number=32 \
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-심사 중인 **1.0.4 / 31** 을 **32**로 교체한다. Play는 32 AAB를 올린 뒤에만 어드민 **앱 버전**을 `1.0.4+32`로 바꾼다.
+심사 중이던 **1.0.4 / 31** 은 취소했고 **32**를 다시 제출했다. Play는 32 AAB를 올린 뒤에만 어드민 **앱 버전**을 `1.0.4+32`로 바꾼다.
 
 ### Android (Play)
 
@@ -244,7 +244,7 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.3 (29)`** 판매 중. **`1.0.4`** 심사는 **32**로 교체 |
+| 최신 업로드 | **`1.0.3 (29)`** 판매 중. **`1.0.4 (32)`** 심사 대기 |
 | App Store | **판매 중 `1.0.3` 빌드 29** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 | 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |

@@ -306,7 +306,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **29** (`1.0.3`). **`1.0.4` 빌드 31** 심사 중 → 교체 빌드는 **32** |
+| App Store 현재 빌드 | 판매 중 **29** (`1.0.3`). **`1.0.4` 빌드 32** 심사 대기 (`WAITING_FOR_REVIEW`) |
 | 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`** (2026-08-25). 앱 「업데이트 확인」은 스토어가 아니라 이 값과 비교. Alpha 28을 안내하려면 Android 최신을 `1.0.3+28`로 바꾼다. 32를 스토어에 올린 뒤에만 `1.0.4+32` |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
@@ -352,7 +352,7 @@ Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 �
 - 수치 입력 「이전」은 1개짜리 수선항목 그리드를 건너뛰고 사진·핀 화면으로 돌아간다.
 - `1.0.4+31`의 웹 가입·초대·카톡 `og.jpg`는 그대로 포함한다.
 
-`1.0.3` 빌드 29는 판매 중이다. 심사 중인 **1.0.4 / 31** 을 취소하고 **32**로 교체한다.
+`1.0.3` 빌드 29는 판매 중이다. 심사 중이던 **1.0.4 / 31** 은 취소했고 **32**를 다시 제출했다.
 
 ```bash
 git checkout main
@@ -374,7 +374,7 @@ flutter build ipa --release --build-name=1.0.4 --build-number=32 \
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS는 심사 중인 **1.0.4(31)** 을 **32**로 교체한다. Play는 **32** AAB를 올리면 된다. 스토어에 올린 뒤에만 어드민 **앱 버전** 최신을 `1.0.4+32`로 바꾼다.
+iOS **1.0.4(32)** 은 심사 대기. Play는 **32** AAB를 올리면 된다. 스토어에 올린 뒤에만 어드민 **앱 버전** 최신을 `1.0.4+32`로 바꾼다.
 
 ### 체크리스트
 
