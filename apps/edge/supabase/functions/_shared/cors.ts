@@ -13,6 +13,7 @@ const ALLOWED_ORIGINS = new Set([
   // Admin consoles
   'https://admin.modo.mom',
   'https://admin.modorepair.com',
+  'https://admin.modo.io.kr',
 ]);
 
 /**

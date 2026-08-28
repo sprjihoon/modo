@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
 interface Announcement {
   id: string
@@ -29,8 +28,6 @@ export default function AnnouncementsPage() {
   const [editingAnnouncement, setEditingAnnouncement] = useState<Partial<Announcement> | null>(null)
   const [isSending, setIsSending] = useState(false)
 
-  const supabase = createClient()
-
   useEffect(() => {
     loadAnnouncements()
   }, [])
@@ -38,13 +35,12 @@ export default function AnnouncementsPage() {
   const loadAnnouncements = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setAnnouncements(data || [])
+      const res = await fetch('/api/admin/announcements')
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || '공지사항을 불러오는 데 실패했습니다')
+      }
+      setAnnouncements(json.data || [])
     } catch (error) {
       console.error('공지사항 로드 실패:', error)
       alert('공지사항을 불러오는 데 실패했습니다')
@@ -75,55 +71,24 @@ export default function AnnouncementsPage() {
     if (!editingAnnouncement) return
 
     try {
-      // 현재 사용자 정보 가져오기
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error('로그인이 필요합니다')
-
-      // public.users에서 user_id 조회
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_id', user.id)
-        .single()
-
-      if (!userData) throw new Error('사용자 정보를 찾을 수 없습니다')
-
-      if (editingAnnouncement.id) {
-        // 수정
-        const { error } = await supabase
-          .from('announcements')
-          .update({
-            title: editingAnnouncement.title,
-            content: editingAnnouncement.content,
-            type: editingAnnouncement.type,
-            send_push: editingAnnouncement.send_push,
-            target_audience: editingAnnouncement.target_audience,
-            is_pinned: editingAnnouncement.is_pinned,
-            image_url: editingAnnouncement.image_url || null,
-            link_url: editingAnnouncement.link_url || null,
-            updated_by: userData.id,
-          })
-          .eq('id', editingAnnouncement.id)
-
-        if (error) throw error
-      } else {
-        // 신규
-        const { error } = await supabase.from('announcements').insert({
+      const res = await fetch('/api/admin/announcements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingAnnouncement.id,
           title: editingAnnouncement.title,
           content: editingAnnouncement.content,
           type: editingAnnouncement.type,
-          status: 'draft',
           send_push: editingAnnouncement.send_push,
           target_audience: editingAnnouncement.target_audience,
           is_pinned: editingAnnouncement.is_pinned,
           image_url: editingAnnouncement.image_url || null,
           link_url: editingAnnouncement.link_url || null,
-          created_by: userData.id,
-        })
-
-        if (error) throw error
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || '공지사항 저장에 실패했습니다')
       }
 
       alert('공지사항이 저장되었습니다')
@@ -136,14 +101,11 @@ export default function AnnouncementsPage() {
   }
 
   const handleSendPush = async (announcement: Announcement) => {
-    if (!announcement.send_push) {
-      alert('푸시 알림 발송이 비활성화되어 있습니다')
-      return
-    }
-
     if (
       !confirm(
-        `공지사항을 전체 고객에게 발송하시겠습니까?\n대상: ${getTargetAudienceName(announcement.target_audience)}`
+        `고객 앱/웹 공지사항에 게시합니다.\n대상: ${getTargetAudienceName(announcement.target_audience)}${
+          announcement.send_push ? '\n푸시 알림도 함께 발송됩니다.' : ''
+        }`
       )
     ) {
       return
@@ -152,27 +114,22 @@ export default function AnnouncementsPage() {
     try {
       setIsSending(true)
 
-      // Edge Function 호출
-      const { data, error } = await supabase.functions.invoke('send-announcement-push', {
-        body: {
-          announcementId: announcement.id,
-          title: announcement.title,
-          content: announcement.content,
-          targetAudience: announcement.target_audience,
-          imageUrl: announcement.image_url,
-          linkUrl: announcement.link_url,
-        },
+      const res = await fetch('/api/admin/announcements/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ announcementId: announcement.id }),
       })
+      const data = await res.json()
 
-      if (error) throw error
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || '공지 게시에 실패했습니다')
+      }
 
-      alert(
-        `푸시 알림 발송 완료!\n총 ${data.total}명 중 ${data.success}명 성공, ${data.failed}명 실패`
-      )
+      alert(data.message)
       loadAnnouncements()
     } catch (error: any) {
-      console.error('푸시 발송 실패:', error)
-      alert(error.message || '푸시 발송에 실패했습니다')
+      console.error('공지 게시 실패:', error)
+      alert(error.message || '공지 게시에 실패했습니다')
     } finally {
       setIsSending(false)
     }
@@ -182,9 +139,13 @@ export default function AnnouncementsPage() {
     if (!confirm('공지사항을 삭제하시겠습니까?')) return
 
     try {
-      const { error } = await supabase.from('announcements').delete().eq('id', id)
-
-      if (error) throw error
+      const res = await fetch(`/api/admin/announcements?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || '삭제에 실패했습니다')
+      }
       alert('공지사항이 삭제되었습니다')
       loadAnnouncements()
     } catch (error) {
@@ -249,7 +210,7 @@ export default function AnnouncementsPage() {
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">공지사항 관리</h1>
-          <p className="text-gray-600 mt-2">공지사항을 작성하고 전체 고객에게 푸시 알림을 발송할 수 있습니다</p>
+          <p className="text-gray-600 mt-2">공지사항을 작성하고 고객 앱/웹에 게시한 뒤, 필요하면 푸시 알림도 발송할 수 있습니다</p>
         </div>
         <button
           onClick={handleNew}
@@ -350,13 +311,17 @@ export default function AnnouncementsPage() {
                     >
                       편집
                     </button>
-                    {announcement.status === 'draft' && (
+                    {(announcement.status !== 'sent' || announcement.send_push) && (
                       <button
                         onClick={() => handleSendPush(announcement)}
                         disabled={isSending}
                         className="text-green-600 hover:text-green-900 disabled:text-gray-400"
                       >
-                        {isSending ? '발송 중...' : '발송'}
+                        {isSending
+                          ? '게시 중...'
+                          : announcement.status === 'sent'
+                            ? '푸시 재발송'
+                            : '게시/발송'}
                       </button>
                     )}
                     <button
