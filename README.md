@@ -278,21 +278,21 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ## 앱스토어 / Play 출시 준비
 
-**지금 맥북:** `git pull` 후 아래 「맥북에서 `1.0.4+32`」만 실행하면 된다. 자세한 명령은 `apps/mobile/README.md`에도 같다.
+**지금 맥북:** `git pull` 후 아래 「맥북에서 `1.0.4+33`」만 실행하면 된다. 자세한 명령은 `apps/mobile/README.md`에도 같다.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.4+32`** (iOS·Play 동일). `+31`은 이미 각 마켓에 올라감 |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.4+33`** (iOS·Play 동일). `+32`는 심사 취소 후 33으로 교체 |
 | App Store Connect App ID | `6759492888` |
 | iOS 스토어 | **판매 중 `1.0.3`** (빌드 29, 2026-08-28) · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | Alpha **`28 (1.0.3)` 테스터 제공** · **`31` 번들 업로드됨** · 다음 업로드 **`32 (1.0.4)`** · 프로덕션 액세스 신청 검토 중 (2026-08-28, 보통 7일) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | Alpha **`28 (1.0.3)` 테스터 제공** · **`33 (1.0.4)` 검토 중** · 프로덕션 액세스 신청 검토 중 (2026-08-28, 보통 7일) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `1.0.4+32` · 백업 `Documents/modo-android-signing/app-release-1.0.4+32.aab` |
+| Android AAB | `1.0.4+33` · 백업 `Documents/modo-android-signing/app-release-1.0.4+33.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -306,8 +306,8 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **29** (`1.0.3`). **`1.0.4` 빌드 32** 심사 대기 (`WAITING_FOR_REVIEW`) |
-| 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`** (2026-08-25). 앱 「업데이트 확인」은 스토어가 아니라 이 값과 비교. Alpha 28을 안내하려면 Android 최신을 `1.0.3+28`로 바꾼다. 32를 스토어에 올린 뒤에만 `1.0.4+32` |
+| App Store 현재 빌드 | 판매 중 **29** (`1.0.3`). **`1.0.4` 빌드 33** 심사 대기 (`WAITING_FOR_REVIEW`) |
+| 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`** (2026-08-25). 앱 「업데이트 확인」은 스토어가 아니라 이 값과 비교. Alpha 28을 안내하려면 Android 최신을 `1.0.3+28`로 바꾼다. 33을 스토어에 올린 뒤에만 `1.0.4+33` |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
 ### 심사용 테스트 계정
@@ -343,16 +343,15 @@ flutter build ipa --release --build-name=1.0.4 --build-number=<N> \
 #   --apiKey 5NS9QNDJUH --apiIssuer <issuerId>
 ```
 
-### 맥북에서 `1.0.4+32` (결제 전 수치 확인 + 수치 이전)
+### 맥북에서 `1.0.4+33` (공지 상세 라우트)
 
-Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 뒤 아래만 실행하면 된다. `pubspec.yaml`은 이미 `1.0.4+32`. `+31`은 이미 각 마켓에 올라감.
+Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 뒤 아래만 실행하면 된다. `pubspec.yaml`은 이미 `1.0.4+33`.
 
-이 빌드에 포함된 앱·웹 수정:
-- 결제 직전 「주문 정보」와 수거 요약에 고객이 입력한 수치를 보여 준다.
-- 수치 입력 「이전」은 1개짜리 수선항목 그리드를 건너뛰고 사진·핀 화면으로 돌아간다.
-- `1.0.4+31`의 웹 가입·초대·카톡 `og.jpg`는 그대로 포함한다.
+이 빌드에 포함된 앱 수정:
+- 알림 탭에서 공지를 누르면 `/announcements/:id`로 연다. 예전 빌드는 이 경로가 없어 404였다.
+- `1.0.4+32`의 결제 전 수치·수치 이전, `+31`의 웹 가입·초대는 그대로 포함한다.
 
-`1.0.3` 빌드 29는 판매 중이다. 심사 중이던 **1.0.4 / 31** 은 취소했고 **32**를 다시 제출했다.
+`1.0.3` 빌드 29는 판매 중이다. 심사 중이던 **1.0.4 / 32** 는 취소하고 **33**으로 교체한다.
 
 ```bash
 git checkout main
@@ -360,21 +359,18 @@ git pull
 cd apps/mobile
 flutter pub get
 
-# 실기기 확인 (선택) — 3단계에 담기 버튼이 없고, 4단계에서 담으면 /cart 에 항목이 보여야 한다
-flutter run --release
-
 # Play AAB
-flutter build appbundle --release --build-name=1.0.4 --build-number=32
+flutter build appbundle --release --build-name=1.0.4 --build-number=33
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.4+32.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.4+33.aab
 
 # App Store / TestFlight IPA
-flutter build ipa --release --build-name=1.0.4 --build-number=32 \
+flutter build ipa --release --build-name=1.0.4 --build-number=33 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS **1.0.4(32)** 은 심사 대기. Play는 **32** AAB를 올리면 된다. 스토어에 올린 뒤에만 어드민 **앱 버전** 최신을 `1.0.4+32`로 바꾼다.
+iOS **1.0.4(33)** 심사 대기. Play Alpha **33** 검토 중. 스토어에 반영된 뒤에만 어드민 **앱 버전** 최신을 `1.0.4+33`로 바꾼다.
 
 ### 체크리스트
 
@@ -401,7 +397,8 @@ iOS **1.0.4(32)** 은 심사 대기. Play는 **32** AAB를 올리면 된다. 스
 21. ~~`1.0.2+27` 고객 수치 저장~~ → 맥북에서 **`1.0.3+29`** 로 올림 (iOS 판매 중 · Play Alpha 29 검토 중)
 22. ~~`1.0.3+30` 가격안내 순서~~ → **`1.0.4+31`에 흡수** (장바구니 담기 + 3단계 담기 제거 + 포인트 intent 숨김)
 28. ~~`1.0.4+31` 웹 가입·초대~~ → **`1.0.4+32`에 흡수**
-29. **`1.0.4+32` 결제 전 수치 · 수치 이전** (주문 정보에 입력 수치 · 이전이 사진/핀으로)
+29. ~~`1.0.4+32` 결제 전 수치 · 수치 이전~~ → **`1.0.4+33`에 흡수**
+30. **`1.0.4+33` 공지 상세 라우트** (알림 탭 → `/announcements/:id`)
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 24. 프로덕션 액세스 신청 **검토 중** (2026-08-28 16:07). 승인 후 프로덕션에 28/29/30 출시 시작. `/download` Play URL은 프로덕션 나온 뒤에
 25. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
@@ -499,7 +496,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-29 | 전체공지 게시 | 어드민 발송이 Edge Function 직접 호출이라 공지가 `draft`에 남고 앱·웹에 안 보임. `/api/admin/announcements/send`로 게시(`sent`)와 푸시를 분리. `send-announcement-push` 운영 배포. 클릭 시 없던 `/announcements/:id` 상세 추가. 웹 공지는 읽어도 목록 유지. **앱 상세 클릭 수정은 다음 스토어 빌드 필요** |
+| 2026-08-29 | 전체공지 게시 | 어드민 발송이 Edge Function 직접 호출이라 공지가 `draft`에 남고 앱·웹에 안 보임. `/api/admin/announcements/send`로 게시(`sent`)와 푸시를 분리. `send-announcement-push` 운영 배포. 클릭 시 없던 `/announcements/:id` 상세 추가. 웹 공지는 읽어도 목록 유지. **앱 상세 클릭은 `1.0.4+33`** |
 | 2026-08-28 | 결제 전 수치 · 이전 | 결제/수거 화면에 입력 수치 표시. 수치 「이전」은 건너뛴 수선항목 그리드 대신 사진·핀으로. 스토어 `1.0.4+32` |
 | 2026-08-28 | 카톡 OG 이미지 | `og.png`(725KB)는 제목만 나오고 그림이 비었다. `og.jpg`(62KB, 2:1)로 교체. 라이브 `https://modo.io.kr/og.jpg`. 이미 보낸 카톡은 캐시라 새 메시지로 확인 |
 | 2026-08-28 | 웹 가입·초대 | 초대는 웹 가입 후 앱 설치. 카톡 `og.jpg`. 앱 가입은 웹을 연다. iOS `1.0.4+31` 심사 대기. Play 31은 번들만 업로드, Alpha는 28 |
