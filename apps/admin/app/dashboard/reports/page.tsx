@@ -5,7 +5,9 @@ import {
   addKstDays,
   aggregateTrend,
   customersOf,
+  DEFAULT_OPS_REPORT_SETTINGS,
   exceptionAttention,
+  formatOpsReportTime,
   kstToday,
   kstYesterday,
   lastDayOfMonth,
@@ -15,12 +17,15 @@ import {
   weekStartMonday,
   type OpsDailyMetrics,
   type OpsDailyReportRow,
+  type OpsReportScheduleSettings,
   type TrendGrain,
 } from "@/lib/ops-daily-report";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Loader2,
   RefreshCw,
@@ -28,6 +33,8 @@ import {
   Calendar,
   AlertCircle,
   TrendingUp,
+  Clock,
+  Save,
 } from "lucide-react";
 import {
   CartesianGrid,
@@ -92,9 +99,12 @@ export default function OpsReportsPage() {
   const [reports, setReports] = useState<OpsDailyReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [trendLoading, setTrendLoading] = useState(false);
-  const [working, setWorking] = useState<"generate" | "email" | "fill" | null>(null);
+  const [working, setWorking] = useState<"generate" | "email" | "fill" | "schedule" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [schedule, setSchedule] = useState<OpsReportScheduleSettings>(DEFAULT_OPS_REPORT_SETTINGS);
+  const [scheduleHour, setScheduleHour] = useState(DEFAULT_OPS_REPORT_SETTINGS.sendHour);
+  const [scheduleEnabled, setScheduleEnabled] = useState(DEFAULT_OPS_REPORT_SETTINGS.enabled);
 
   const loadDay = useCallback(async (targetDate: string) => {
     setLoading(true);
@@ -142,6 +152,59 @@ export default function OpsReportsPage() {
     url.searchParams.set("date", date);
     window.history.replaceState(null, "", `${url.pathname}${url.search}`);
   }, [date, loadDay]);
+
+  useEffect(() => {
+    fetch("/api/admin/ops-reports/settings")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.success || !json.settings) return;
+        const next = {
+          enabled: json.settings.enabled !== false,
+          sendHour: Number(json.settings.sendHour) || 9,
+          sendMinute: Number(json.settings.sendMinute) || 0,
+        };
+        setSchedule(next);
+        setScheduleHour(next.sendHour);
+        setScheduleEnabled(next.enabled);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  async function saveSchedule() {
+    setWorking("schedule");
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/admin/ops-reports/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: scheduleEnabled,
+          sendHour: scheduleHour,
+          sendMinute: 0,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || "발송 시각 저장 실패");
+      const next = {
+        enabled: json.settings.enabled !== false,
+        sendHour: Number(json.settings.sendHour) || 9,
+        sendMinute: Number(json.settings.sendMinute) || 0,
+      };
+      setSchedule(next);
+      setScheduleHour(next.sendHour);
+      setScheduleEnabled(next.enabled);
+      setNotice(
+        next.enabled
+          ? `매일 ${formatOpsReportTime(next.sendHour, next.sendMinute)}에 전날 데이터를 그때 기준으로 집계해 메일로 보냅니다`
+          : "자동 발송을 껐습니다"
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setWorking(null);
+    }
+  }
 
   useEffect(() => {
     loadTrend(trendFrom, trendTo);
@@ -254,7 +317,10 @@ export default function OpsReportsPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">운영 리포트</h2>
           <p className="text-muted-foreground mt-1">
-            매일 오전 9시에 전날 리포트를 메일로 보냅니다. 추이에서 칸을 누르면 그날로 내려갑니다.
+            {schedule.enabled
+              ? `매일 ${formatOpsReportTime(schedule.sendHour, schedule.sendMinute)}에 전날 데이터를 그 시각 기준으로 다시 집계해 메일로 보냅니다.`
+              : "자동 발송이 꺼져 있습니다. 아래에서 시각을 정할 수 있습니다."}{" "}
+            추이에서 칸을 누르면 그날로 내려갑니다.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -298,6 +364,48 @@ export default function OpsReportsPage() {
       {notice && !error && (
         <p className="text-sm text-muted-foreground">{notice}</p>
       )}
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Clock className="h-5 w-5" />
+            자동 발송
+          </CardTitle>
+          <CardDescription>
+            설정한 한국 시간 정각에 전날(어제 0시~24시)을 그때 기준으로 다시 집계한 뒤 메일로 보냅니다.
+            파이프라인·예외는 발송 시각 스냅샷입니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 md:flex-row md:items-end">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="ops-report-auto-send"
+              checked={scheduleEnabled}
+              onCheckedChange={setScheduleEnabled}
+            />
+            <Label htmlFor="ops-report-auto-send">매일 자동 발송</Label>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="ops-report-hour">발송 시각 (KST)</Label>
+            <select
+              id="ops-report-hour"
+              className="flex h-9 w-32 rounded-md border border-input bg-background px-3 text-sm"
+              value={scheduleHour}
+              onChange={(e) => setScheduleHour(Number(e.target.value))}
+            >
+              {Array.from({ length: 24 }, (_, hour) => (
+                <option key={hour} value={hour}>
+                  {formatOpsReportTime(hour, 0)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button size="sm" disabled={working !== null} onClick={saveSchedule}>
+            {working === "schedule" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <span className="ml-2">저장</span>
+          </Button>
+        </CardContent>
+      </Card>
 
       <div id="report-day" />
       {loading && !metrics ? (

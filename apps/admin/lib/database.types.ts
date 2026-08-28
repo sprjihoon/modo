@@ -1070,6 +1070,33 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_report_settings: {
+        Row: {
+          enabled: boolean
+          id: number
+          send_hour: number
+          send_minute: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          id?: number
+          send_hour?: number
+          send_minute?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          id?: number
+          send_hour?: number
+          send_minute?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       order_waitlist: {
         Row: {
           created_at: string

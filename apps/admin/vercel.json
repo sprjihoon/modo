@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/admin/ops-reports/generate",
-      "schedule": "0 0 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }

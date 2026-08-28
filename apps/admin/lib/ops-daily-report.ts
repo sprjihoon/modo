@@ -326,6 +326,88 @@ export function parseReportDate(value: string | null | undefined): string | null
   return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
 }
 
+export type OpsReportScheduleSettings = {
+  enabled: boolean;
+  sendHour: number;
+  sendMinute: number;
+};
+
+export const DEFAULT_OPS_REPORT_SETTINGS: OpsReportScheduleSettings = {
+  enabled: true,
+  sendHour: 9,
+  sendMinute: 0,
+};
+
+export function kstTimeParts(now = new Date()): { date: string; hour: number; minute: number } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(now)
+      .map((part) => [part.type, part.value])
+  );
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+  };
+}
+
+/** 설정한 KST 시각부터 windowMinutes 안에 있으면 아침 메일 시각 */
+export function shouldSendOpsReportNow(
+  settings: OpsReportScheduleSettings,
+  now = new Date(),
+  windowMinutes = 20
+): boolean {
+  if (!settings.enabled) return false;
+  const kst = kstTimeParts(now);
+  const scheduled = settings.sendHour * 60 + settings.sendMinute;
+  const current = kst.hour * 60 + kst.minute;
+  let elapsed = current - scheduled;
+  if (elapsed < 0) elapsed += 24 * 60;
+  return elapsed < windowMinutes;
+}
+
+export function sentOnKstDate(emailSentAt: string | null | undefined, kstDate: string): boolean {
+  if (!emailSentAt) return false;
+  return kstTimeParts(new Date(emailSentAt)).date === kstDate;
+}
+
+export function formatOpsReportTime(hour: number, minute = 0): string {
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+export function parseOpsReportTime(value: string): { hour: number; minute: number } | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return { hour, minute };
+}
+
+export function normalizeOpsReportSettings(row: {
+  enabled?: boolean | null;
+  send_hour?: number | null;
+  send_minute?: number | null;
+} | null): OpsReportScheduleSettings {
+  if (!row) return { ...DEFAULT_OPS_REPORT_SETTINGS };
+  const hour = Number(row.send_hour);
+  const minute = Number(row.send_minute);
+  return {
+    enabled: row.enabled !== false,
+    sendHour: Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : 9,
+    sendMinute: Number.isInteger(minute) && minute >= 0 && minute <= 59 ? minute : 0,
+  };
+}
+
 type AdminClient = ReturnType<typeof import("./supabase").getSupabaseAdmin>;
 
 async function countRows(

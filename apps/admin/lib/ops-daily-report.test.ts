@@ -6,10 +6,16 @@ import {
   customersOf,
   eachDateInclusive,
   exceptionAttention,
+  formatOpsReportTime,
   kstDayRange,
+  kstTimeParts,
+  normalizeOpsReportSettings,
+  parseOpsReportTime,
   resolveResendFrom,
   lastDayOfMonth,
   parseReportDate,
+  sentOnKstDate,
+  shouldSendOpsReportNow,
   shouldStorePipeline,
   toTrendPoints,
   weekStartMonday,
@@ -167,5 +173,24 @@ assert(text.includes("그날 접속 8"), "메일 접속");
 
 assert(resolveResendFrom("???? <noreply@modo.mom>").startsWith("모두의수선"), "깨진 발신명은 복구");
 assert(resolveResendFrom("=?UTF-8?B?66y464+Z7J2Y7Iug7Iah?= <noreply@modo.mom>").includes("UTF-8"), "인코딩된 발신명은 유지");
+
+const atKst9 = new Date("2026-08-28T00:00:00.000Z");
+assert(kstTimeParts(atKst9).hour === 9 && kstTimeParts(atKst9).minute === 0, "UTC 0시는 KST 9시");
+assert(shouldSendOpsReportNow({ enabled: true, sendHour: 9, sendMinute: 0 }, atKst9), "09:00에 발송");
+assert(
+  !shouldSendOpsReportNow({ enabled: true, sendHour: 9, sendMinute: 0 }, new Date("2026-08-28T01:00:00.000Z")),
+  "10시에는 안 보냄"
+);
+assert(!shouldSendOpsReportNow({ enabled: false, sendHour: 9, sendMinute: 0 }, atKst9), "끄면 안 보냄");
+assert(
+  shouldSendOpsReportNow({ enabled: true, sendHour: 8, sendMinute: 0 }, new Date("2026-08-27T23:00:00.000Z")),
+  "08:00 설정은 UTC 23시에 발송"
+);
+assert(parseOpsReportTime("09:00")?.hour === 9, "시각 파싱");
+assert(parseOpsReportTime("25:00") === null, "잘못된 시");
+assert(formatOpsReportTime(9, 0) === "09:00", "시각 포맷");
+assert(normalizeOpsReportSettings(null).sendHour === 9, "기본 9시");
+assert(sentOnKstDate("2026-08-27T23:30:00.000Z", "2026-08-28"), "KST 8/28 오전에 보낸 메일");
+assert(!sentOnKstDate("2026-08-27T14:00:00.000Z", "2026-08-28"), "전날 보낸 메일은 오늘 발송과 별개");
 
 console.log("ops-daily-report tests passed");

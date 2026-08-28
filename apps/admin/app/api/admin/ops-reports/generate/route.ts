@@ -8,9 +8,12 @@ import {
   eachDateInclusive,
   kstToday,
   kstYesterday,
+  normalizeOpsReportSettings,
   parseReportDate,
   reportEmailRecipients,
   sendOpsReportEmail,
+  sentOnKstDate,
+  shouldSendOpsReportNow,
 } from "@/lib/ops-daily-report";
 
 export const dynamic = "force-dynamic";
@@ -69,9 +72,45 @@ async function upsertReport(
   return data;
 }
 
+async function loadSchedule() {
+  const admin = getSupabaseAdmin();
+  const { data } = await admin
+    .from("ops_report_settings")
+    .select("enabled, send_hour, send_minute")
+    .eq("id", 1)
+    .maybeSingle();
+  return normalizeOpsReportSettings(data);
+}
+
 export async function GET(request: NextRequest) {
+  const settings = await loadSchedule();
+  if (!shouldSendOpsReportNow(settings)) {
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: "not-send-time",
+      schedule: settings,
+    });
+  }
+
+  const reportDate = kstYesterday();
+  const { data: existing } = await getSupabaseAdmin()
+    .from("ops_daily_reports")
+    .select("email_sent_at")
+    .eq("report_date", reportDate)
+    .maybeSingle();
+  if (sentOnKstDate(existing?.email_sent_at, kstToday())) {
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: "already-sent",
+      schedule: settings,
+    });
+  }
+
+  // 설정한 KST 시각(기본 09:00)에 전날을 다시 집계한 뒤 메일 발송
   return generate(request, {
-    date: kstYesterday(),
+    date: reportDate,
     backfillDays: 30,
     sendEmail: true,
   });

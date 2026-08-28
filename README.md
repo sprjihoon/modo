@@ -459,7 +459,10 @@ SQL: `apps/sql/migrations/20260819_update_damage_compensation.sql` (라이브 �
 
 | 항목 | 내용 |
 |---|---|
-| 아침 메일 | 매일 KST 09:00 (Vercel cron `0 0 * * *` UTC) 전날 스냅샷을 Edge `send-ops-alert`(`type=daily-report`)로 발송 |
+| 아침 메일 | 매일 설정 시각(기본 KST 09:00)에 전날을 **그때 기준으로 다시 집계**한 뒤 Edge `send-ops-alert`(`type=daily-report`)로 발송. 예전에 저장해 둔 스냅샷을 보내지 않음 |
+| 집계 기준 | 맥박(가입·결제·매출)은 어제 KST 0시~24시. 파이프라인·예외는 발송 시각 스냅샷 |
+| 시각 설정 | 어드민 운영 리포트 **자동 발송** 칸. on/off + 정각(KST). `ops_report_settings` |
+| 크론 | Vercel `0 * * * *`(매시). 설정 시각이 아니면 skip. 같은 날 이미 보낸 전날 리포트는 다시 안 보냄 |
 | 즉시 메일 | 결제 `PAID` · 고객 가입 시 Edge `send-ops-alert` |
 | 화면 | 맥박/파이프라인/예외 + 가입·탈퇴·활성(30일)·그날 접속·전체 고객. 추이는 기간 + 일·주·월 |
 | 날짜 추출 | 그래프·날짜 칸 클릭. 주·월은 해당 구간 일별로 펼친 뒤 하루를 고름. URL `?date=YYYY-MM-DD` |
@@ -470,7 +473,7 @@ SQL: `apps/sql/migrations/20260819_update_damage_compensation.sql` (라이브 �
 
 고객 지표: 가입은 `users` CUSTOMER(탈퇴 이메일 제외). 탈퇴는 `deleted_%@deleted.modorepair.com` 의 그날 `updated_at`. 활성은 그날 기준 최근 30일 `PAID` 결제 고객(`count_active_customers`). 그날 접속은 `auth.users.last_sign_in_at`(`count_customer_signins`). 웹 탈퇴는 행을 지우지 않고 앱과 같이 익명화한다.
 
-SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), `add_ops_customer_report_rpcs.sql` (2026-08-27 라이브 반영).
+SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), `add_ops_customer_report_rpcs.sql` (2026-08-27 라이브 반영), `create_ops_report_settings.sql` (2026-08-28 라이브 반영).
 
 ---
 
@@ -503,6 +506,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 | 2026-08-28 | 앱 가격안내 순서 | 앱 가격안내가 웹과 달리 직접가격을 묶고 직속 항목을 앞에 둠. 웹 `display_order`와 동일. `1.0.4+31`에 포함 |
 | 2026-08-27 | 앱 고객 수치 저장 | 앱 결제 견적이 `repairParts.detail`을 빼서 작업지시서에 고객 수치가 안 나옴. 앱 `1.0.3+29` 스토어 반영. 기존 앱 주문은 복구 불가. 어드민 표시는 웹 배포 |
 | 2026-08-27 | 앱 치수 가이드 스크롤 | 수치 입력 화면 「치수 재는 방법」이 잘리고 스크롤이 안 되던 문제. `1.0.2+26` 코드는 27에 포함 |
+| 2026-08-28 | 운영 리포트 발송 시각 | 매일 기본 KST 09:00에 전날을 그 시각 기준으로 다시 집계해 메일. 어드민에서 시각·자동발송 on/off. `ops_report_settings` |
 | 2026-08-27 | 운영 리포트 고객 추이 | 가입·탈퇴·활성(30일)·그날 접속·전체 고객을 하루 숫자·추이·아침에 같이 표시. 아침 메일은 KST 09:00. 어드민 Resend 키 추가, 발신명 `????` 복구. 웹 탈퇴는 익명화 |
 | 2026-08-26 | 운영 모니터 리포트 | 일자 스냅샷·추이(기간/일·주·월). 아침 메일, 주문·가입 즉시 메일. 어드민 분석 → 운영 리포트 |
 | 2026-08-26 | 포인트 설정 통합 | 가입·초대·주문 적립은 어드민 **포인트 관리 → 포인트 설정**에서만 변경. 설정 화면 카드는 제거. 예전 `/dashboard/settings/points`는 리다이렉트 |
