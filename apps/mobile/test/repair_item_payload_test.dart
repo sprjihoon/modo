@@ -170,6 +170,18 @@ void main() {
       expect(lines.first.name, '소매기장 줄임');
       expect(lines.first.detail, '줄일 길이 (cm): 3');
     });
+
+    test('payment intent repairParts objects keep measurements', () {
+      final lines = measurementLinesFromParts([
+        {
+          'name': '소매기장 줄임',
+          'price': 15000,
+          'quantity': 1,
+          'detail': '줄일 길이 (cm): 3',
+        },
+      ]);
+      expect(lines.single.detail, '줄일 길이 (cm): 3');
+    });
   });
 
   group('order draft to pickup extra', () {

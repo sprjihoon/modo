@@ -8,6 +8,7 @@ import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/point_service.dart';
 import '../../domain/models/image_pin.dart';
+import '../../domain/repair_item_payload.dart';
 
 /// 결제 페이지 - 토스페이먼츠 사용
 class PaymentPage extends ConsumerStatefulWidget {
@@ -626,15 +627,56 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
           ),
           const SizedBox(height: 16),
           _buildInfoRow('수선 항목', (_orderData!['item_name'] as String?) ?? '수선'),
-          _buildInfoRow(
-            '상세 설명',
-            (_orderData!['item_description'] as String?) ?? '-',
-          ),
+          ..._buildMeasurementRows(),
           if ((_orderData!['notes'] as String?)?.isNotEmpty == true)
             _buildInfoRow('요청사항', (_orderData!['notes'] as String?) ?? ''),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildMeasurementRows() {
+    final lines = measurementLinesFromParts(_orderData?['repair_parts']);
+    if (lines.isEmpty) return const [];
+    return [
+      const SizedBox(height: 4),
+      ...lines.map(
+        (part) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF5),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFA7F3D0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  part.name.isEmpty ? '수선' : part.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF065F46),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  part.detail ?? '',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF047857),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   String _formatPrice(int price) {

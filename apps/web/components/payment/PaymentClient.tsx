@@ -9,6 +9,7 @@ import { Analytics } from "@/lib/analytics";
 import { addCartItem } from "@/lib/cart";
 import { CompanyFooter } from "@/components/layout/CompanyFooter";
 import type { OrderDraft } from "@/components/order/OrderNewClient";
+import { parseRepairPart } from "@/lib/repair-parts";
 
 interface IntentPayload {
   itemName: string;
@@ -27,7 +28,12 @@ interface IntentPayload {
   remoteAreaFee: number;
   promotionDiscountAmount: number;
 
-  repairParts: Array<{ name: string; price?: number; quantity?: number }> | null;
+  repairParts: Array<{
+    name: string;
+    price?: number;
+    quantity?: number;
+    detail?: string;
+  }> | null;
 }
 
 interface PaymentIntent {
@@ -407,7 +413,9 @@ export function PaymentClient() {
   }
 
   const p = intent.payload;
-  const repairItems = Array.isArray(p.repairParts) ? p.repairParts : [];
+  const repairItems = Array.isArray(p.repairParts)
+    ? p.repairParts.map((raw) => parseRepairPart(raw))
+    : [];
   const shippingFeeDisplay = p.shippingFee ?? 7000;
   const shippingDiscount = p.shippingDiscountAmount ?? 0;
   const actualShipping = shippingFeeDisplay - shippingDiscount;
@@ -429,16 +437,21 @@ export function PaymentClient() {
           {repairItems.length > 0 ? (
             <div className="space-y-1.5">
               {repairItems.map((item, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
+                <div key={i} className="flex items-start justify-between gap-3 text-sm">
                   <span className="text-gray-700">
                     {item.name}
-                    {(item.quantity ?? 1) > 1 && (
+                    {item.quantity > 1 && (
                       <span className="text-gray-400 ml-1">×{item.quantity}</span>
                     )}
+                    {item.detail ? (
+                      <span className="block text-xs text-[#00C896] font-medium mt-0.5">
+                        {item.detail}
+                      </span>
+                    ) : null}
                   </span>
-                  {(item.price ?? 0) > 0 && (
-                    <span className="text-gray-600 font-medium">
-                      {formatPrice((item.price ?? 0) * (item.quantity ?? 1))}
+                  {item.price > 0 && (
+                    <span className="text-gray-600 font-medium shrink-0">
+                      {formatPrice(item.price * item.quantity)}
                     </span>
                   )}
                 </div>

@@ -684,12 +684,21 @@ export function PickupStep({ draft, onNext, onBack, onSaveToCart }: PickupStepPr
               {clothingTypesLabel} ({clothingCount}벌)
             </span>
           </p>
-          <p className="text-sm text-gray-700 mt-1">
-            수선 항목:{" "}
-            <span className="font-semibold">
-              {allRepairItems.map((i) => i.name).join(", ")}
-            </span>
-          </p>
+          <div className="text-sm text-gray-700 mt-1">
+            <p className="font-semibold mb-1">수선 항목</p>
+            <ul className="space-y-1">
+              {allRepairItems.map((i, idx) => (
+                <li key={`${i.name}-${idx}`}>
+                  <span>{i.name}</span>
+                  {i.detail ? (
+                    <span className="block text-xs text-[#00C896] font-medium">
+                      {i.detail}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
           <p className="text-sm text-gray-700 mt-1">
             예상 금액:{" "}
             <span className="font-bold text-[#00C896]">

@@ -500,6 +500,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
       clothingCategoryId: effectiveCategoryId,
       categoryMeasureGuideKey: _stagingSubCategory?.measureGuideKey,
       onNext: (items) => handleRepairDone(items),
+      onBack: _popMode,
     );
   }
 

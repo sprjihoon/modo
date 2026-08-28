@@ -1075,13 +1075,45 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      '수선',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
+                    if (widget.repairItems.isEmpty)
+                      Text(
+                        '수선',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      )
+                    else
+                      ...widget.repairItems.map((item) {
+                        final parsed = parseRepairPart(item);
+                        final name = parsed.name.isEmpty ? '수선' : parsed.name;
+                        final detail = parsed.detail;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade800,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (detail != null && detail.isNotEmpty)
+                                Text(
+                                  detail,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF00C896),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
                     const SizedBox(height: 32),
                     
                     // 수거 희망일

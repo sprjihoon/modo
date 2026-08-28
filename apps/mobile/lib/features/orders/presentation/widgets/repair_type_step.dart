@@ -79,17 +79,29 @@ class _SelectedItem {
   });
 }
 
+/// 수치 입력 「이전」에서 1개짜리 수선항목 그리드를 건너뛴다.
+/// 세부 부위 화면이 남아 있으면 그쪽으로만 돌아간다.
+bool shouldLeaveRepairTypeOnMeasureBack({
+  required int repairTypeCount,
+  required bool hasSubPartsView,
+}) {
+  if (hasSubPartsView) return false;
+  return repairTypeCount <= 1;
+}
+
 class RepairTypeStepWidget extends StatefulWidget {
   final String clothingType;
   final String? clothingCategoryId;
   final String? categoryMeasureGuideKey;
   final void Function(List<models.RepairItem> items) onNext;
+  final VoidCallback? onBack;
 
   const RepairTypeStepWidget({
     required this.clothingType,
     this.clothingCategoryId,
     this.categoryMeasureGuideKey,
     required this.onNext,
+    this.onBack,
     super.key,
   });
 
@@ -280,6 +292,20 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
     }
   }
 
+  void _closeMeasureView() {
+    final leave = shouldLeaveRepairTypeOnMeasureBack(
+      repairTypeCount: _repairTypes.length,
+      hasSubPartsView: _subPartsRepairType != null,
+    );
+    setState(() {
+      _measureRepairType = null;
+      _measureChosenParts = null;
+      _measureOverridePrice = null;
+      _measureValues = [];
+    });
+    if (leave) widget.onBack?.call();
+  }
+
   void _openMeasureView(_RepairType type, {List<_SubPart>? chosenParts, int? overridePrice}) {
     final groups = (chosenParts != null && chosenParts.isNotEmpty) ? chosenParts.length : 1;
     setState(() {
@@ -296,10 +322,11 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
 
     if (_subPartsMode == 'all') {
       final allPrice = type.allOptionPrice ?? type.price;
-      setState(() { _subPartsRepairType = null; _subParts = []; });
       if (type.requiresMeasurement) {
+        // 세부 부위 화면은 유지해 수치 입력 「이전」에서 복귀한다.
         _openMeasureView(type, overridePrice: allPrice);
       } else {
+        setState(() { _subPartsRepairType = null; _subParts = []; });
         _addSimpleItem(type, overridePrice: allPrice);
       }
       return;
@@ -308,14 +335,14 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
     final chosenParts = _subParts.where((p) => _subPartsSelectedIds.contains(p.id)).toList();
     if (chosenParts.isEmpty) return;
 
-    setState(() { _subPartsRepairType = null; _subParts = []; });
-
     if (type.requiresMeasurement) {
       _openMeasureView(type, chosenParts: chosenParts);
       return;
     }
 
     setState(() {
+      _subPartsRepairType = null;
+      _subParts = [];
       for (final part in chosenParts) {
         _selectedItems.add(_SelectedItem(
           id: '${type.id}_${part.id}',
@@ -361,6 +388,8 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
       _measureChosenParts = null;
       _measureOverridePrice = null;
       _measureValues = [];
+      _subPartsRepairType = null;
+      _subParts = [];
     });
   }
 
@@ -735,11 +764,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => setState(() {
-                        _measureRepairType = null;
-                        _measureChosenParts = null;
-                        _measureValues = [];
-                      }),
+                      onPressed: _closeMeasureView,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.grey.shade500,
                         side: BorderSide(color: Colors.grey.shade200),

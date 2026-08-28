@@ -67,4 +67,12 @@ const lines = measurementLinesFromParts([
 assert(lines.length === 2, "수치가 있는 항목만");
 assert(parseRepairPart("소매기장 줄임").detail === undefined, "평문은 수치 없음");
 
+const checkout = parseRepairPart({
+  name: "소매기장 줄임",
+  price: 15000,
+  quantity: 1,
+  detail: "줄일 길이 (cm): 3",
+});
+assert(checkout.detail === "줄일 길이 (cm): 3", "결제 주문정보 수치");
+
 console.log("web repair-parts.test.ts: ok");
