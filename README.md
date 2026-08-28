@@ -384,7 +384,7 @@ iOS **1.0.4(32)** 은 심사 대기. Play는 **32** AAB를 올리면 된다. 스
 4. ~~Play 앱 생성·내부 테스트·스토어/앱 콘텐츠~~ (`com.modurepair.app` / App ID `4975768727608817713`)
 5. ~~Play 비공개 테스트(Alpha) `1.0.0 (4)` 게시 개요 제출~~
 6. ~~`1.0.0+5` SafeArea AAB Play Alpha 교체·검토 제출~~ (하단 내비 inset · 수선부위 그리드 핏)
-7. ~~웹·앱 알림 UX~~ (`/notifications` 내 알림·공지 탭, 본문 ORD 주문번호 숨김, **읽은 항목 숨김·닫기**)
+7. ~~웹·앱 알림 UX~~ (`/notifications` 내 알림·공지 탭, 본문 ORD 주문번호 숨김. 개인 알림은 읽으면 숨김. **공지는 읽어도 목록에 유지**, 상세 `/announcements/:id`)
 8. ~~수선신청 UX~~ (소카테고리 가격 라벨 제거, 가격표 CTA 연결, 참고 안내 배너 제거)
 9. ~~`1.0.0+8`~~ (라이트 테마 · 네이버 · 가격표 배너 제거 · 홈 팝업 앱 연동)
 10. ~~ITMS-90068 / 빌드 9~~ · **`1.0.0+10`** 회원가입 SNS(Google/네이버/카카오) 연결 · Play Alpha AAB·App Store 빌드 교체
@@ -499,6 +499,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-29 | 전체공지 게시 | 어드민 발송이 Edge Function 직접 호출이라 공지가 `draft`에 남고 앱·웹에 안 보임. `/api/admin/announcements/send`로 게시(`sent`)와 푸시를 분리. `send-announcement-push` 운영 배포. 클릭 시 없던 `/announcements/:id` 상세 추가. 웹 공지는 읽어도 목록 유지. **앱 상세 클릭 수정은 다음 스토어 빌드 필요** |
 | 2026-08-28 | 결제 전 수치 · 이전 | 결제/수거 화면에 입력 수치 표시. 수치 「이전」은 건너뛴 수선항목 그리드 대신 사진·핀으로. 스토어 `1.0.4+32` |
 | 2026-08-28 | 카톡 OG 이미지 | `og.png`(725KB)는 제목만 나오고 그림이 비었다. `og.jpg`(62KB, 2:1)로 교체. 라이브 `https://modo.io.kr/og.jpg`. 이미 보낸 카톡은 캐시라 새 메시지로 확인 |
 | 2026-08-28 | 웹 가입·초대 | 초대는 웹 가입 후 앱 설치. 카톡 `og.jpg`. 앱 가입은 웹을 연다. iOS `1.0.4+31` 심사 대기. Play 31은 번들만 업로드, Alpha는 28 |
@@ -642,6 +643,7 @@ supabase functions deploy payments-confirm --no-verify-jwt
 supabase functions deploy payments-cancel --no-verify-jwt
 supabase functions deploy send-push-notification
 supabase functions deploy process-pending-notifications
+supabase functions deploy send-announcement-push
 
 # DB — 특정 SQL만 원격에 적용 (전체 db push 금지: 히스토리 미스매치)
 supabase db query --linked --file supabase/migrations/20260825000000_send_order_status_email_on_change.sql
