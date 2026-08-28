@@ -20,7 +20,10 @@ const publicExactPaths = {
   '/profile/settings',
 };
 
-bool isPublicPath(String path) => publicExactPaths.contains(path);
+bool isPublicPath(String path) =>
+    publicExactPaths.contains(path) ||
+    path == '/announcements' ||
+    path.startsWith('/announcements/');
 
 bool isSignedIn() => Supabase.instance.client.auth.currentUser != null;
 

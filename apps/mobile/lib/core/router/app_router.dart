@@ -40,6 +40,7 @@ import '../../features/profile/presentation/pages/receipt_page.dart';
 import '../../features/profile/presentation/pages/points_history_page.dart';
 import '../../features/profile/presentation/pages/invite_friends_page.dart';
 import '../../features/announcements/presentation/pages/announcements_page.dart';
+import '../../features/announcements/presentation/pages/announcement_detail_page.dart';
 import '../../features/profile/presentation/pages/customer_service_page.dart';
 import '../../features/profile/presentation/pages/faq_page.dart';
 import '../../features/profile/presentation/pages/app_settings_page.dart';
@@ -121,6 +122,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/notifications',
         name: 'notifications',
         builder: (context, state) => const NotificationsPage(),
+      ),
+
+      GoRoute(
+        path: '/announcements/:id',
+        name: 'announcement-detail',
+        builder: (context, state) {
+          final extra = state.extra;
+          return AnnouncementDetailLoader(
+            announcementId: state.pathParameters['id']!,
+            announcement: extra is Map
+                ? Map<String, dynamic>.from(extra)
+                : null,
+          );
+        },
       ),
 
       // Content View (이용약관, 개인정보처리방침, 환불정책 등)

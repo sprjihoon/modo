@@ -4,6 +4,85 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 
+/// ID만 있을 때 공지를 불러와 상세 화면을 연다.
+class AnnouncementDetailLoader extends StatefulWidget {
+  final String announcementId;
+  final Map<String, dynamic>? announcement;
+
+  const AnnouncementDetailLoader({
+    Key? key,
+    required this.announcementId,
+    this.announcement,
+  }) : super(key: key);
+
+  @override
+  State<AnnouncementDetailLoader> createState() =>
+      _AnnouncementDetailLoaderState();
+}
+
+class _AnnouncementDetailLoaderState extends State<AnnouncementDetailLoader> {
+  Map<String, dynamic>? _data;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.announcement;
+    if (initial != null && initial['id'] == widget.announcementId) {
+      _data = initial;
+      _loading = false;
+    } else {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    try {
+      final row = await Supabase.instance.client
+          .from('announcements')
+          .select()
+          .eq('id', widget.announcementId)
+          .eq('status', 'sent')
+          .maybeSingle();
+      if (!mounted) return;
+      setState(() {
+        _data = row == null ? null : Map<String, dynamic>.from(row);
+        _loading = false;
+        _error = row == null ? '공지사항을 찾을 수 없습니다' : null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = '공지사항을 불러오지 못했습니다';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        appBar: ModoAppBar(title: Text('공지사항')),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_data == null) {
+      return Scaffold(
+        appBar: const ModoAppBar(title: Text('공지사항')),
+        body: Center(
+          child: Text(
+            _error ?? '공지사항을 찾을 수 없습니다',
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+        ),
+      );
+    }
+    return AnnouncementDetailPage(announcement: _data!);
+  }
+}
+
 /// 공지사항 상세 화면
 class AnnouncementDetailPage extends StatefulWidget {
   final Map<String, dynamic> announcement;

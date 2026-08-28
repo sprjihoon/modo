@@ -14,6 +14,7 @@ interface Announcement {
 
 export function AnnouncementsClient() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -29,7 +30,6 @@ export function AnnouncementsClient() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      let readIds = new Set<string>();
       if (user) {
         const { data: userRow } = await supabase
           .from("users")
@@ -43,7 +43,7 @@ export function AnnouncementsClient() {
             .from("announcement_reads")
             .select("announcement_id")
             .eq("user_id", userRow.id);
-          readIds = new Set((reads ?? []).map((r) => r.announcement_id));
+          setReadIds(new Set((reads ?? []).map((r) => r.announcement_id)));
         }
       }
 
@@ -54,10 +54,7 @@ export function AnnouncementsClient() {
         .order("is_pinned", { ascending: false })
         .order("created_at", { ascending: false });
 
-      // 읽은 공지는 목록에서 제외
-      setAnnouncements(
-        (data ?? []).filter((a) => !readIds.has(a.id))
-      );
+      setAnnouncements(data ?? []);
     } catch {
       // 에러 무시
     } finally {
@@ -124,8 +121,7 @@ export function AnnouncementsClient() {
     return (
       <div className="py-20 text-center">
         <Megaphone className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-        <p className="text-sm text-gray-400">새 공지사항이 없습니다</p>
-        <p className="text-xs text-gray-300 mt-1">읽은 공지는 목록에서 제외됩니다</p>
+        <p className="text-sm text-gray-400">공지사항이 없습니다</p>
       </div>
     );
   }
@@ -152,7 +148,13 @@ export function AnnouncementsClient() {
                 }
               >
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-900">{a.title}</p>
+                  <p
+                    className={`text-sm font-semibold ${
+                      readIds.has(a.id) ? "text-gray-500" : "text-gray-900"
+                    }`}
+                  >
+                    {a.title}
+                  </p>
                   {a.created_at && (
                     <p className="text-xs text-gray-400 mt-0.5">
                       {formatDate(a.created_at)}

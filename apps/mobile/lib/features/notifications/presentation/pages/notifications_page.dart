@@ -638,9 +638,7 @@ class _NotificationsPageState extends State<NotificationsPage>
         onTap: () {
           final announcementId = announcement['id'] as String?;
           if (announcementId != null) {
-            // 상세 이동 시 읽음 처리(목록에서 제외)
-            _dismissAnnouncement(announcementId);
-            context.push('/announcements/$announcementId');
+            context.push('/announcements/$announcementId', extra: announcement);
           }
         },
         borderRadius: BorderRadius.circular(12),

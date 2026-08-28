@@ -12,6 +12,7 @@ void main() {
       expect(isPublicPath('/easy-guide'), isTrue);
       expect(isPublicPath('/profile'), isTrue);
       expect(isPublicPath('/profile/notices'), isTrue);
+      expect(isPublicPath('/announcements/abc'), isTrue);
       expect(isPublicPath('/profile/customer-service'), isTrue);
       expect(isPublicPath('/profile/faq'), isTrue);
       expect(isPublicPath('/profile/settings'), isTrue);
