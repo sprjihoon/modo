@@ -9,9 +9,10 @@ export const DEFAULT_DESCRIPTION =
 
 /** 카톡·SNS 링크 미리보기. `public/og.jpg` (1200×600, 2:1, ~60KB) */
 export const OG_IMAGE_PATH = "/og.jpg";
+export const OG_IMAGE_URL = `${SITE_URL}${OG_IMAGE_PATH}`;
 export const OG_IMAGE = {
-  url: OG_IMAGE_PATH,
-  secureUrl: OG_IMAGE_PATH,
+  url: OG_IMAGE_URL,
+  secureUrl: OG_IMAGE_URL,
   type: "image/jpeg",
   width: 1200,
   height: 600,
