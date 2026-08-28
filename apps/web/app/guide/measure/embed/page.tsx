@@ -14,7 +14,11 @@ export default async function MeasureGuideEmbedPage({
   const type = params.type?.trim() || null;
 
   return (
-    <div className="bg-white overflow-visible">
+    <div
+      id="measure-guide-embed"
+      data-measure-guide-root
+      className="bg-white overflow-visible"
+    >
       <MeasureGuideClient initialTypeId={type} lockType={!!type} />
       <MeasureEmbedHeight />
     </div>

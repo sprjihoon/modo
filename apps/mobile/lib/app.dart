@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/auth/guest_access.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'core/widgets/system_nav_inset.dart';
+import 'services/invite_service.dart';
 import 'services/network_monitor_service.dart';
 import 'services/notification_service.dart';
 import 'services/point_service.dart';
@@ -36,6 +38,7 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    applyLightSystemUiOverlay();
     _setupAuthListener();
     _setupNotificationNavigation();
   }
@@ -153,6 +156,12 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
         }
 
         try {
+          await InviteService().applyStashedInviteCode();
+        } catch (e) {
+          debugPrint('⚠️ [App] 초대 코드 적용 실패(무시): $e');
+        }
+
+        try {
           await NotificationService().initialize(requestIfNeeded: false);
           await NotificationService().onLogin();
         } catch (e) {
@@ -251,6 +260,12 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.lightTheme,
       themeMode: ThemeMode.light,
+
+      builder: (context, child) {
+        return SystemNavInset(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
 
       // Routing
       routerConfig: router,

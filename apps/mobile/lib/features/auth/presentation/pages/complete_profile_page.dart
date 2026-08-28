@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
+import '../../../../services/invite_service.dart';
 
 /// 소셜 로그인 후 추가 정보 입력 페이지
 /// 이용약관 동의 + 전화번호 입력 (법적 필수사항)
@@ -122,6 +123,9 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
       );
 
       if (response == true || response == 'true') {
+        try {
+          await InviteService().applyStashedInviteCode();
+        } catch (_) {}
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

@@ -61,21 +61,34 @@ class _MeasureGuideAccordionState extends State<MeasureGuideAccordion> {
   }
 
   void _onContentHeight(String raw) {
-    final parsed = double.tryParse(raw.replaceAll(RegExp(r'[^0-9.]'), ''));
-    if (parsed == null || parsed < 80) return;
-    if (_contentHeight != null && (parsed - _contentHeight!).abs() < 8) return;
+    final parsed = parseMeasureGuideHeightMessage(
+      raw,
+      current: _contentHeight,
+    );
+    if (parsed == null || parsed == _contentHeight) return;
     if (!mounted) return;
     setState(() => _contentHeight = parsed);
   }
 
+  /// document.scrollHeight 는 WebView 뷰포트에 고정되어 짧은 탭으로
+  /// 줄지 않는다. 가이드 본문 요소 높이를 재고, 탭 전환 시 다시 보낸다.
   static const _heightReporterJs = '''
 (function(){
+  function measure(){
+    var root = document.getElementById('measure-guide-embed')
+      || document.querySelector('[data-measure-guide-root]')
+      || document.querySelector('.pb-10')
+      || (document.body && document.body.firstElementChild);
+    if (root) {
+      var rectH = 0;
+      try { rectH = root.getBoundingClientRect().height || 0; } catch (e) {}
+      return Math.ceil(Math.max(root.scrollHeight || 0, rectH));
+    }
+    return 0;
+  }
   function send(){
-    var h = Math.max(
-      document.body ? document.body.scrollHeight : 0,
-      document.documentElement ? document.documentElement.scrollHeight : 0
-    );
-    if (window.MeasureGuideHeight) MeasureGuideHeight.postMessage(String(h));
+    var h = measure();
+    if (h >= 80 && window.MeasureGuideHeight) MeasureGuideHeight.postMessage(String(h));
   }
   try {
     document.documentElement.style.height = 'auto';
@@ -88,15 +101,24 @@ class _MeasureGuideAccordionState extends State<MeasureGuideAccordion> {
     }
   } catch (e) {}
   send();
-  if (window.ResizeObserver && document.body) {
-    new ResizeObserver(send).observe(document.body);
+  var root = document.getElementById('measure-guide-embed')
+    || document.querySelector('[data-measure-guide-root]')
+    || document.querySelector('.pb-10')
+    || document.body;
+  if (window.ResizeObserver && root) {
+    new ResizeObserver(send).observe(root);
   }
+  window.addEventListener('measure-guide-layout', send);
+  document.addEventListener('click', function(){
+    setTimeout(send, 50);
+    setTimeout(send, 320);
+  }, true);
   document.querySelectorAll('img').forEach(function(img){
     img.addEventListener('load', send);
   });
-  setTimeout(send, 300);
+  setTimeout(send, 120);
+  setTimeout(send, 400);
   setTimeout(send, 1000);
-  setTimeout(send, 2500);
 })();
 ''';
 

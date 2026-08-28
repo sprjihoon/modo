@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { expandMeasureGuideTypeIds } from "@/lib/measure-guide";
+import { MEASURE_GUIDE_LAYOUT_EVENT } from "@/lib/measure-guide-embed-height";
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 const LIME = "#CDEE00";
@@ -646,6 +647,11 @@ export function MeasureGuideClient({
       allowedTypes.find((t) => t.id === ids[0])?.id ?? allowedTypes[0]?.id;
     if (next) setSelectedId(next);
   }, [initialTypeId, allowedTypes]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new Event(MEASURE_GUIDE_LAYOUT_EVENT));
+  }, [tab, selectedId]);
 
   const current = allowedTypes.find((t) => t.id === selectedId) ?? allowedTypes[0] ?? TYPES[0];
   const dailyTypes = lockType ? allowedTypes : TYPES;

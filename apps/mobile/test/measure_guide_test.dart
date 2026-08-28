@@ -31,6 +31,30 @@ void main() {
     });
   });
 
+  group('parseMeasureGuideHeightMessage', () {
+    test('accepts a shorter tab height after a taller one', () {
+      expect(
+        parseMeasureGuideHeightMessage('1180', current: 1180),
+        1180,
+      );
+      expect(
+        parseMeasureGuideHeightMessage('640', current: 1180),
+        640,
+      );
+    });
+
+    test('ignores jitter under 8px', () {
+      expect(
+        parseMeasureGuideHeightMessage('645', current: 640),
+        640,
+      );
+    });
+
+    test('rejects tiny values', () {
+      expect(parseMeasureGuideHeightMessage('12'), isNull);
+    });
+  });
+
   group('MeasurementStep layout', () {
     testWidgets('이전/확인 appear above 치수 재는 방법', (tester) async {
       await tester.pumpWidget(

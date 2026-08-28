@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../features/profile/domain/invite_stash.dart';
+
 class InviteInfo {
   const InviteInfo({
     required this.inviteCode,
@@ -122,5 +124,17 @@ class InviteService {
       debugPrint('초대 코드 적용 실패: $e');
       return const InviteApplyResult(ok: false, reason: 'server_error');
     }
+  }
+
+  /// 가입·OAuth 후 스태시된 초대 코드를 적용한다. 웹 `applyStashedInviteCode`와 동일.
+  Future<InviteApplyResult?> applyStashedInviteCode() async {
+    final code = await readStashedInviteCode();
+    if (code.isEmpty) return null;
+
+    final result = await applyInviteCode(code);
+    if (shouldClearInviteStash(ok: result.ok, reason: result.reason)) {
+      await clearStashedInviteCode();
+    }
+    return result;
   }
 }

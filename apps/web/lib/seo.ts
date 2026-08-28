@@ -7,6 +7,15 @@ export const DEFAULT_TITLE = "모두의수선 | 온라인 수선 · 비대면 �
 export const DEFAULT_DESCRIPTION =
   "온라인으로 옷 수선을 맡기세요. 문 앞 택배 수거부터 전문 수선, 집으로 배송까지. 바지 기장, 지퍼, 허리 수선 등 비대면 의류 수선.";
 
+/** 카톡·SNS 링크 미리보기. `public/og.png` (1200×630) */
+export const OG_IMAGE_PATH = "/og.png";
+export const OG_IMAGE = {
+  url: OG_IMAGE_PATH,
+  width: 1200,
+  height: 630,
+  alt: "모두의수선 — 문 앞에서 맡기는 비대면 의류 수선",
+} as const;
+
 export const DEFAULT_KEYWORDS = [
   "온라인수선",
   "온라인 수선",
@@ -38,6 +47,13 @@ export function pageMetadata(input: {
       locale: "ko_KR",
       siteName: SITE_NAME,
       type: "website",
+      images: [OG_IMAGE],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: input.title,
+      description: input.description,
+      images: [OG_IMAGE_PATH],
     },
   };
 }

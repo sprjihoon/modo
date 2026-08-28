@@ -5,12 +5,16 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { User, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { SIGNUP_COMPLETE_PATH } from "@/lib/invite";
 import { safeRedirectPath } from "@/lib/utils";
 
 export function CompleteProfileClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = safeRedirectPath(searchParams.get("redirectTo"), "/");
+  const redirectTo = safeRedirectPath(
+    searchParams.get("redirectTo"),
+    SIGNUP_COMPLETE_PATH
+  );
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");

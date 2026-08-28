@@ -133,6 +133,14 @@ String? resolveMeasureGuideId(
   return null;
 }
 
+/// WebView가 보낸 가이드 높이. 탭이 짧아져도 새 높이를 받는다.
+double? parseMeasureGuideHeightMessage(String raw, {double? current}) {
+  final parsed = double.tryParse(raw.replaceAll(RegExp(r'[^0-9.]'), ''));
+  if (parsed == null || parsed < 80) return null;
+  if (current != null && (parsed - current).abs() < 8) return current;
+  return parsed;
+}
+
 /// Flutter WebView 임베드 URL (웹 `/guide/measure?embed=1`).
 String measureGuideEmbedUrl(String? typeId, {String baseUrl = 'https://modo.io.kr'}) {
   final base = baseUrl.replaceAll(RegExp(r'/$'), '');

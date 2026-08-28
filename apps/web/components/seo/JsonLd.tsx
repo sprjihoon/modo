@@ -1,5 +1,5 @@
 import { DEFAULT_FAQ_ITEMS } from "@/lib/faq";
-import { DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { DEFAULT_DESCRIPTION, OG_IMAGE_PATH, SITE_NAME, SITE_URL } from "@/lib/seo";
 
 export function SiteJsonLd() {
   const organization = {
@@ -7,7 +7,8 @@ export function SiteJsonLd() {
     "@type": "Organization",
     name: SITE_NAME,
     url: SITE_URL,
-    logo: `${SITE_URL}/icon.png`,
+    logo: `${SITE_URL}${OG_IMAGE_PATH}`,
+    image: `${SITE_URL}${OG_IMAGE_PATH}`,
     description: DEFAULT_DESCRIPTION,
     areaServed: "KR",
   };

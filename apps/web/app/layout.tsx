@@ -5,7 +5,14 @@ import { Providers } from "./providers";
 import { Analytics } from "@vercel/analytics/react";
 import { OrderHowToSideWidget } from "@/components/order/OrderHowToSideWidget";
 import { SiteJsonLd } from "@/components/seo/JsonLd";
-import { DEFAULT_DESCRIPTION, DEFAULT_KEYWORDS, DEFAULT_TITLE, SITE_NAME } from "@/lib/seo";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_KEYWORDS,
+  DEFAULT_TITLE,
+  OG_IMAGE,
+  OG_IMAGE_PATH,
+  SITE_NAME,
+} from "@/lib/seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -36,6 +43,13 @@ export const metadata: Metadata = {
     type: "website",
     locale: "ko_KR",
     siteName: SITE_NAME,
+    images: [OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [OG_IMAGE_PATH],
   },
 };
 

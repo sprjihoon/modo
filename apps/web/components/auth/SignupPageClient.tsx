@@ -7,9 +7,12 @@ import { Eye, EyeOff, Mail, Lock, User, Phone, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   applyStashedInviteCode,
+  loginHrefWithInvite,
   normalizeInviteCode,
+  SIGNUP_COMPLETE_PATH,
   stashInviteCode,
 } from "@/lib/invite";
+import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 
 export function SignupPageClient() {
   const router = useRouter();
@@ -149,7 +152,7 @@ export function SignupPageClient() {
           }
         }
 
-        router.push("/");
+        router.push(SIGNUP_COMPLETE_PATH);
         router.refresh();
       }
     } catch {
@@ -301,9 +304,30 @@ export function SignupPageClient() {
         </button>
       </form>
 
+      <div className="flex items-center gap-3 my-6">
+        <div className="flex-1 h-px bg-gray-100" />
+        <span className="text-xs text-gray-300">또는</span>
+        <div className="flex-1 h-px bg-gray-100" />
+      </div>
+
+      <p className="text-xs text-gray-400 text-center mb-3">
+        {form.inviteCode
+          ? `초대 코드 ${form.inviteCode}가 간편가입에도 적용됩니다`
+          : "카카오·네이버 등으로 간편가입할 수 있습니다"}
+      </p>
+
+      <SocialAuthButtons
+        inviteCode={form.inviteCode}
+        actionVerb="가입"
+        redirectTo={SIGNUP_COMPLETE_PATH}
+      />
+
       <p className="text-center text-xs text-gray-400 mt-4">
         이미 회원이신가요?{" "}
-        <Link href="/login" className="text-[#00C896] font-semibold underline">
+        <Link
+          href={loginHrefWithInvite(form.inviteCode)}
+          className="text-[#00C896] font-semibold underline"
+        >
           로그인
         </Link>
       </p>

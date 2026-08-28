@@ -17,7 +17,11 @@ export default async function MeasureGuidePage({
 
   if (embed) {
     return (
-      <div className="bg-white overflow-visible">
+      <div
+        id="measure-guide-embed"
+        data-measure-guide-root
+        className="bg-white overflow-visible"
+      >
         {client}
         <MeasureEmbedHeight />
       </div>

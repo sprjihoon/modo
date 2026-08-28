@@ -5,6 +5,27 @@ export function normalizeInviteCode(code?: string | null): string {
   return (code || "").trim().toUpperCase();
 }
 
+/** 초대 코드를 로그인/가입 URL에 유지한다. */
+export function loginHrefWithInvite(inviteCode?: string | null): string {
+  const code = normalizeInviteCode(inviteCode);
+  return code ? `/login?invite=${encodeURIComponent(code)}` : "/login";
+}
+
+export function signupHrefWithInvite(inviteCode?: string | null): string {
+  const code = normalizeInviteCode(inviteCode);
+  return code ? `/signup?invite=${encodeURIComponent(code)}` : "/signup";
+}
+
+/** 웹 가입 후 앱 설치 유도 */
+export const SIGNUP_COMPLETE_PATH = "/download?joined=1";
+
+export function isSignupCompletePath(path?: string | null): boolean {
+  if (!path) return false;
+  const [pathname, query = ""] = path.split("?");
+  if (pathname !== "/download") return false;
+  return new URLSearchParams(query).get("joined") === "1";
+}
+
 /** 초대 코드를 쿠키·localStorage에 저장 (OAuth 콜백용) */
 export function stashInviteCode(code?: string | null) {
   const normalized = normalizeInviteCode(code);

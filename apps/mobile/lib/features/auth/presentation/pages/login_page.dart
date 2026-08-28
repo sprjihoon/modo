@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/auth/guest_access.dart';
 import '../../../../core/widgets/company_footer.dart';
+import '../../../../services/invite_service.dart';
+import '../../../profile/domain/invite_share.dart';
 import '../../data/providers/auth_provider.dart';
 
 /// 로그인 화면
@@ -123,6 +125,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
     }
   }
 
+  String? _inviteFromRoute() {
+    return GoRouterState.of(context).uri.queryParameters['invite'];
+  }
+
   String? _returnPath() {
     return safeReturnPath(
       GoRouterState.of(context).uri.queryParameters['from'],
@@ -164,6 +170,10 @@ class _LoginPageState extends ConsumerState<LoginPage>
         email: email,
         password: password,
       );
+
+      try {
+        await InviteService().applyStashedInviteCode();
+      } catch (_) {}
 
       final prefs = await SharedPreferences.getInstance();
       if (_rememberMe) {
@@ -669,10 +679,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
                               ),
                               TextButton(
                                 onPressed: () {
-                                  context.push('/signup');
+                                  context.push(
+                                    signupPathWithInvite(_inviteFromRoute()),
+                                  );
                                 },
                                 child: const Text(
-                                  '회원가입',
+                                  '웹에서 가입',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
