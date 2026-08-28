@@ -32,10 +32,11 @@ const signupMeta = pageMetadata({
   path: "/signup",
 });
 const ogImages = signupMeta.openGraph?.images;
-assert(OG_IMAGE_PATH === "/og.png", "og image path");
-assert(OG_IMAGE.width === 1200 && OG_IMAGE.height === 630, "og image size");
+assert(OG_IMAGE_PATH === "/og.jpg", "og image path");
+assert(OG_IMAGE.width === 1200 && OG_IMAGE.height === 600, "og image size");
+assert(OG_IMAGE.type === "image/jpeg", "og image type");
 assert(
-  Array.isArray(ogImages) && ogImages[0] && typeof ogImages[0] === "object" && "url" in ogImages[0] && ogImages[0].url === "/og.png",
+  Array.isArray(ogImages) && ogImages[0] && typeof ogImages[0] === "object" && "url" in ogImages[0] && ogImages[0].url === "/og.jpg",
   "signup metadata includes og image"
 );
 

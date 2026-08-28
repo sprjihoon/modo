@@ -56,6 +56,14 @@ const nextConfig = {
   async headers() {
     return [
       {
+        source: '/og.jpg',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Cache-Control', value: 'public, max-age=86400' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+      {
         // /postcode 는 우리 도메인 내 iframe으로 사용되므로 X-Frame-Options 제외
         source: '/postcode',
         headers: securityHeaders.filter((h) => h.key !== 'X-Frame-Options'),
