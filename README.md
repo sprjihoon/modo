@@ -221,7 +221,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 초대·신규 가입은 **웹에서 끝내고**, 앱은 설치 후 같은 계정으로 로그인한다.
 
-1. 공유 링크 `https://modo.io.kr/signup?invite=CODE` (카톡 미리보기 `og.png`)
+1. 공유 링크 `https://modo.io.kr/signup?invite=CODE` (카톡 미리보기 `og.jpg` 1200×600 2:1, ~62KB)
 2. 웹에서 이메일 또는 카카오·네이버 등으로 가입 → 초대 코드 적용
 3. `/download?joined=1` 에서 앱 설치 안내
 4. 앱 「웹에서 가입」은 위 웹 가입 페이지를 연다. 앱 안에서는 로그인만 한다.
@@ -284,15 +284,15 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.4+31`** (iOS·Play 동일). `1.0.3` 빌드 29가 판매 중이라 심사용 버전은 1.0.4. 스토어에 올린 코드는 `+29` |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.4+31`** (iOS·Play 동일). iOS는 `1.0.3` 빌드 29가 판매 중이라 심사용 버전은 1.0.4 |
 | App Store Connect App ID | `6759492888` |
 | iOS 스토어 | **판매 중 `1.0.3`** (빌드 29, 2026-08-28) · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | Alpha **`28 (1.0.3)` 테스터 제공** · **`29 (1.0.3)` 검토 중** (2026-08-27) · 프로덕션 액세스 신청 검토 중 (2026-08-28 16:07, 보통 7일) · 공개 페이지는 있음 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | Alpha **`28 (1.0.3)` 테스터 제공** · **`31 (1.0.4)` AAB는 번들 라이브러리에만 업로드** (출시/rollout 전) · 프로덕션 액세스 신청 검토 중 (2026-08-28, 보통 7일) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.4+31` 맥북에서 생성) · 직전 백업 `Documents/modo-android-signing/app-release-1.0.3+29.aab` |
+| Android AAB | `1.0.4+31` · 백업 `Documents/modo-android-signing/app-release-1.0.4+31.aab` · USB 설치 APK 동일 폴더 `app-release-1.0.4+31.apk` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -306,8 +306,8 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **29** (`1.0.3`). 다음 업로드·심사는 **`1.0.4` 빌드 31** |
-| 앱 업데이트 안내 | `app_versions` (플랫폼별 최신/최소 버전). 어드민 설정 → **앱 버전**. 스토어에 올린 뒤에만 최신을 바꿀 것 |
+| App Store 현재 빌드 | 판매 중 **29** (`1.0.3`). **`1.0.4` 빌드 31** 심사 대기 (`WAITING_FOR_REVIEW`) |
+| 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`** (2026-08-25). 앱 「업데이트 확인」은 스토어가 아니라 이 값과 비교. Alpha 28을 안내하려면 Android 최신을 `1.0.3+28`로 바꾼다. 31 Alpha 출시 뒤에만 `1.0.4+31` |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
 ### 심사용 테스트 계정
@@ -350,7 +350,7 @@ Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 �
 이 빌드에 포함된 앱·웹 수정:
 - 초대·신규 가입은 웹(`modo.io.kr/signup?invite=코드`)에서 끝낸 뒤 앱 설치를 안내한다.
 - 앱 「웹에서 가입」은 브라우저로 웹 가입을 연다. 앱은 설치 후 로그인.
-- 카톡 링크 미리보기(`public/og.png`).
+- 카톡 링크 미리보기(`public/og.jpg`, 1200×600 2:1, ~62KB). 예전 `og.png`(725KB)는 카톡이 이미지를 못 받아 빈칸이 됐다.
 - 수선 항목(3단계) 담기 제거. 수거 정보(4단계)에서만 담기.
 - 가격안내 순서 웹과 동일. 포인트 내역 `intent:` UUID 숨김. Android 시스템 내비 inset. 치수 가이드 높이.
 
@@ -376,7 +376,7 @@ flutter build ipa --release --build-name=1.0.4 --build-number=31 \
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS는 1.0.3(29)이 판매 중이므로 **1.0.4(31)** 을 올려 심사한다. Play는 31 AAB를 다음 버전으로 올리면 된다. 스토어에 올린 뒤에만 어드민 **앱 버전**의 최신을 `1.0.4` / 31로 바꾼다.
+iOS **1.0.4(31)** 은 심사 대기. Play 31 AAB는 콘솔에만 있고 Alpha 테스터는 아직 28을 받는다. Alpha에 31을 출시한 뒤에만 어드민 **앱 버전** 최신을 `1.0.4+31`로 바꾼다.
 
 ### 체크리스트
 
@@ -402,7 +402,7 @@ iOS는 1.0.3(29)이 판매 중이므로 **1.0.4(31)** 을 올려 심사한다. P
 20. **`1.0.2+26` 치수 가이드 스크롤** (코드만. 스토어 업로드 전에 27로 흡수)
 21. ~~`1.0.2+27` 고객 수치 저장~~ → 맥북에서 **`1.0.3+29`** 로 올림 (iOS 판매 중 · Play Alpha 29 검토 중)
 22. ~~`1.0.3+30` 가격안내 순서~~ → **`1.0.4+31`에 흡수** (장바구니 담기 + 3단계 담기 제거 + 포인트 intent 숨김)
-28. **`1.0.4+31` 웹 가입·초대** (카톡 OG · 가입 후 앱 설치 유도 · 앱은 웹 가입 후 로그인)
+28. **`1.0.4+31` 웹 가입·초대** (카톡 `og.jpg` · 가입 후 앱 설치 유도 · 앱은 웹 가입 후 로그인)
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 24. 프로덕션 액세스 신청 **검토 중** (2026-08-28 16:07). 승인 후 프로덕션에 28/29/30 출시 시작. `/download` Play URL은 프로덕션 나온 뒤에
 25. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
@@ -497,7 +497,8 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-28 | 웹 가입·초대 | 초대는 웹 가입 후 앱 설치. 카톡 `og.png`. 앱 가입은 웹을 연다. 스토어 `1.0.4+31` (1.0.3 29가 판매 중) |
+| 2026-08-28 | 카톡 OG 이미지 | `og.png`(725KB)는 제목만 나오고 그림이 비었다. `og.jpg`(62KB, 2:1)로 교체. 라이브 `https://modo.io.kr/og.jpg`. 이미 보낸 카톡은 캐시라 새 메시지로 확인 |
+| 2026-08-28 | 웹 가입·초대 | 초대는 웹 가입 후 앱 설치. 카톡 `og.jpg`. 앱 가입은 웹을 연다. iOS `1.0.4+31` 심사 대기. Play 31은 번들만 업로드, Alpha는 28 |
 | 2026-08-28 | 장바구니 담기 | 3단계(수선 항목) 담기 버튼 제거(웹·앱). 4단계(수거 정보)에서만 담기. 앱이 `items[]` 초안을 무시해 기존 장바구니가 있을 때 안 담기던 문제. 포인트 내역 intent UUID 숨김. 앱 `1.0.4+31` |
 | 2026-08-28 | 앱 가격안내 순서 | 앱 가격안내가 웹과 달리 직접가격을 묶고 직속 항목을 앞에 둠. 웹 `display_order`와 동일. `1.0.4+31`에 포함 |
 | 2026-08-27 | 앱 고객 수치 저장 | 앱 결제 견적이 `repairParts.detail`을 빼서 작업지시서에 고객 수치가 안 나옴. 앱 `1.0.3+29` 스토어 반영. 기존 앱 주문은 복구 불가. 어드민 표시는 웹 배포 |

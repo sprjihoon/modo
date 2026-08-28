@@ -93,9 +93,10 @@ xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 - Distribution 인증서 + 프로파일 `ModoRepair AppStore`
 - Xcode Accounts 미로그인 시 Automatic 대신 Manual (`ExportOptions.plist`)
 - iOS 배포 타깃 **15.0** (ITMS-90068 / 2027 봄부터 ASC 업로드 필수)
-- 최신 코드: **`1.0.4+31`** (맥북에서 IPA/AAB). iOS **`1.0.3` 빌드 29 판매 중** — 다음 심사는 **1.0.4 / 31** — https://apps.apple.com/kr/app/모두의수선/id6759492888
-- Play Alpha: **`28 (1.0.3)` 테스터 제공** · **`29 (1.0.3)` 검토 중** · 프로덕션 액세스 신청 검토 중 (2026-08-28) — `compileSdk`/`targetSdk` **36**
-- 앱 업데이트 안내: 테이블 `app_versions` · 어드민 `/dashboard/settings/app-versions`
+- 최신 코드: **`1.0.4+31`**. iOS **`1.0.3` 빌드 29 판매 중** · **`1.0.4` 31 심사 대기** — https://apps.apple.com/kr/app/모두의수선/id6759492888
+- Play Alpha: **`28 (1.0.3)` 테스터 제공** · **`31` AAB는 번들 라이브러리만** · 프로덕션 액세스 신청 검토 중 (2026-08-28) — `compileSdk`/`targetSdk` **36**
+- 카톡 OG: 라이브 `https://modo.io.kr/og.jpg` (62KB, 1200×600)
+- 앱 업데이트 안내: `app_versions` 최신은 아직 **`1.0.2`** · 어드민 `/dashboard/settings/app-versions`
 
 ### Firebase App Distribution (테스트 배포)
 

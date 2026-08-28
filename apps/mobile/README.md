@@ -183,7 +183,7 @@ flutter test --coverage
 
 Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 뒤 아래만 실행한다. `pubspec.yaml`은 이미 `1.0.4+31`. `1.0.3` 빌드 29가 판매 중이라 심사용 버전은 1.0.4.
 
-포함 내용: 웹 가입·초대 후 앱 설치 유도 · 카톡 OG · 3단계 담기 제거 · 4단계에서만 장바구니 담기 · 포인트 intent 숨김 · 가격안내 순서.
+포함 내용: 웹 가입·초대 후 앱 설치 유도 · 카톡 OG(`og.jpg`) · 3단계 담기 제거 · 4단계에서만 장바구니 담기 · 포인트 intent 숨김 · 가격안내 순서.
 
 ```bash
 git checkout main
@@ -202,7 +202,7 @@ flutter build ipa --release --build-name=1.0.4 --build-number=31 \
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-29를 덮어쓰지 말고 **1.0.4 / 31**을 새로 올린다. 스토어에 올린 뒤에만 어드민 **앱 버전**을 `1.0.4` / 31으로 바꾼다.
+29를 덮어쓰지 말고 **1.0.4 / 31**을 새로 올린다. Play는 31 AAB를 Alpha에 **출시**한 뒤에만 어드민 **앱 버전**을 `1.0.4+31`로 바꾼다. USB 설치 APK는 `~/Documents/modo-android-signing/app-release-1.0.4+31.apk`.
 
 ### Android (Play)
 
@@ -210,8 +210,8 @@ flutter build ipa --release --build-name=1.0.4 --build-number=31 \
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | 비공개 테스트(Alpha) — **`28 (1.0.3)` 테스터 제공** · **`29 (1.0.3)` 검토 중** · 프로덕션 액세스는 신청 검토 중 (2026-08-28) |
-| 버전 | `pubspec.yaml` → `1.0.4+31` (다음 맥북 빌드) · 스토어에 올린 코드는 `1.0.3+29` |
+| 현재 트랙 | 비공개 테스트(Alpha) — **`28 (1.0.3)` 테스터 제공** · **`31 (1.0.4)` 번들만 업로드** (출시 전) · 프로덕션 액세스는 신청 검토 중 (2026-08-28) |
+| 버전 | `pubspec.yaml` → `1.0.4+31` · Alpha 테스터는 아직 28 |
 | 최근 UX | 4단계에서만 장바구니 담기 · 가격안내 순서 · 포인트 intent 숨김 |
 | AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.4+31.aab` |
 | targetSdk | **36** (Android 16) — `android/app/build.gradle.kts` 고정 · Play 2026-08-31 정책 |
@@ -244,7 +244,7 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.3 (29)`** 판매 중. 다음 맥북 빌드·심사는 **`1.0.4 (31)`** |
+| 최신 업로드 | **`1.0.3 (29)`** 판매 중. **`1.0.4 (31)`** 심사 대기 (`WAITING_FOR_REVIEW`) |
 | App Store | **판매 중 `1.0.3` 빌드 29** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 | 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |
