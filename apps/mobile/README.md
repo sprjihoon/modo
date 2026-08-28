@@ -179,6 +179,31 @@ flutter test --coverage
 
 루트 [`README.md`](../../README.md)의 **앱스토어 / Play 출시 준비**가 최신 상태의 기준입니다.
 
+### 맥북에서 `1.0.3+30` (지금 이 빌드)
+
+Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 뒤 아래만 실행한다. `pubspec.yaml`은 이미 `1.0.3+30`.
+
+포함 내용: 가격안내 순서를 웹(`/guide/price`)과 동일하게. (치수 가이드 스크롤은 29 소스에 이미 있음. 테스터가 28이면 30으로 가야 그 화면도 고쳐진다.)
+
+```bash
+git checkout main
+git pull
+cd apps/mobile
+flutter pub get
+
+# Play AAB
+flutter build appbundle --release --build-name=1.0.3 --build-number=30
+# → build/app/outputs/bundle/release/app-release.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.3+30.aab
+
+# App Store / TestFlight IPA
+flutter build ipa --release --build-name=1.0.3 --build-number=30 \
+  --export-options-plist=ios/ExportOptions.plist
+# → build/ios/ipa/모두의수선.ipa
+```
+
+29를 덮어쓰지 말고 30을 새로 올린다. 스토어에 올린 뒤에만 어드민 **앱 버전**을 `1.0.3` / 30으로 바꾼다.
+
 ### Android (Play)
 
 | 항목 | 값 |

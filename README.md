@@ -269,6 +269,8 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ## 앱스토어 / Play 출시 준비
 
+**지금 맥북:** `git pull` 후 아래 「맥북에서 `1.0.3+30`」만 실행하면 된다. 자세한 명령은 `apps/mobile/README.md`에도 같다.
+
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
