@@ -343,6 +343,8 @@ class RepairService {
               );
             }).toList();
 
+            subs.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
             return RepairMainCategory(
               id: mainId,
               name: (main['name'] as String?) ?? '',
@@ -353,6 +355,7 @@ class RepairService {
                   allTypes.where((t) => t.categoryId == mainId).toList(),
             );
           }).toList();
+          mainCategories.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
           // 어느 대카테고리에도 속하지 않고, 대카테고리 직속 자식의 하위도 아닌 orphan
           final allKnownParentIds = {...mainIds, ...directChildIds};

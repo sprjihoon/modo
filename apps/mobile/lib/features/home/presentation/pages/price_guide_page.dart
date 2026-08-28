@@ -294,8 +294,8 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
 
       final blocks = <Widget>[];
 
-      // 대카테고리 자체 가격
-      if (main.price != null) {
+      // 대카테고리 자체 가격 (웹 `/guide/price`와 동일)
+      if (main.price != null && main.price! > 0) {
         blocks.add(
           _ItemListCard(
             items: [RepairTypeItem(id: main.id, name: main.name, price: main.price)],
@@ -304,78 +304,50 @@ class _PriceGuidePageState extends State<PriceGuidePage> {
         );
       }
 
-      // 대카테고리 직속 repair_types
-      if (main.repairTypes.isNotEmpty) {
-        blocks.add(
-          _ItemListCard(
-            items: main.repairTypes,
-            priceLabel: _priceLabel,
-          ),
-        );
-      }
+      // 소카테고리·직접가격을 display_order로 섞어 렌더 (웹 sections.sort와 동일)
+      final orderedSubs = [...main.subCategories]
+        ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
-      // 직접가격 항목 (대카테고리 바로 아래 직접입력 세부항목)을 하나의 카드로 묶기
-      final directPriceItems = main.subCategories
-          .where((s) => s.price != null && s.repairTypes.isEmpty)
-          .toList();
-
-      if (directPriceItems.isNotEmpty) {
-        if (blocks.isNotEmpty) blocks.add(const SizedBox(height: 20));
-        blocks.add(
-          _ItemListCard(
-            items: directPriceItems.map((s) => RepairTypeItem(
-              id: s.id,
-              name: s.name,
-              price: s.price,
-            ),).toList(),
-            priceLabel: _priceLabel,
-          ),
-        );
-      }
-
-      // 소카테고리 (중간 그룹핑 역할: repair_types 보유 or 직접가격+하위항목 포함)
-      final regularSubs = main.subCategories
-          .where((s) => !(s.price != null && s.repairTypes.isEmpty))
-          .toList();
-
-      for (final sub in regularSubs) {
+      for (final sub in orderedSubs) {
+        final isDirectPrice = sub.price != null && sub.repairTypes.isEmpty;
         if (blocks.isNotEmpty) blocks.add(const SizedBox(height: 20));
         blocks.add(_buildSubCategoryHeader(sub.name));
         blocks.add(const SizedBox(height: 8));
 
-        if (sub.repairTypes.isNotEmpty) {
-          final items = <RepairTypeItem>[];
-          if (sub.price != null) {
-            items.add(RepairTypeItem(
-              id: sub.id,
-              name: '전체',
-              price: sub.price,
-            ),);
-          }
-          items.addAll(sub.repairTypes);
-          blocks.add(
-            _ItemListCard(items: items, priceLabel: _priceLabel),
-          );
-        } else if (sub.price != null) {
+        if (isDirectPrice) {
           blocks.add(
             _ItemListCard(
               items: [
-                RepairTypeItem(
-                  id: sub.id,
-                  name: sub.name,
-                  price: sub.price,
-                ),
+                RepairTypeItem(id: sub.id, name: sub.name, price: sub.price),
               ],
               priceLabel: _priceLabel,
             ),
           );
-        } else {
-          blocks.add(_buildEmptyState());
+          continue;
         }
+
+        final items = <RepairTypeItem>[];
+        if (sub.price != null) {
+          items.add(RepairTypeItem(id: sub.id, name: '전체', price: sub.price));
+        }
+        items.addAll(sub.repairTypes);
+        blocks.add(
+          items.isNotEmpty
+              ? _ItemListCard(items: items, priceLabel: _priceLabel)
+              : _buildEmptyState(),
+        );
+      }
+
+      // 대카테고리 직속 항목은 웹처럼 소카테고리 뒤에 각각 섹션으로
+      for (final item in main.repairTypes) {
+        if (blocks.isNotEmpty) blocks.add(const SizedBox(height: 20));
+        blocks.add(_buildSubCategoryHeader(item.name));
+        blocks.add(const SizedBox(height: 8));
+        blocks.add(_ItemListCard(items: [item], priceLabel: _priceLabel));
       }
 
       if (main.subCategories.isEmpty && main.repairTypes.isEmpty) {
-        blocks.add(_buildEmptyState());
+        if (blocks.isEmpty) blocks.add(_buildEmptyState());
       }
 
       return Column(
