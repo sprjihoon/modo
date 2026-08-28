@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
       success: true,
       published: true,
       total: push.total,
-      success: push.success,
+      sentCount: push.success,
       failed: push.failed,
       pushError: push.error,
       message: buildAnnouncementSendMessage({
