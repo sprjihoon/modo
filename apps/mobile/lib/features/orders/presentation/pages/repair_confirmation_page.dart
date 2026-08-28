@@ -471,9 +471,7 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
     // Provider 초기화
     ref.read(repairItemsProvider.notifier).clear();
     
-    // 장바구니 아이콘 배지로 추가된 것을 확인할 수 있으므로 SnackBar 없이 홈으로 이동
-    // (SnackBar는 페이지 이동 시 사라지지 않는 문제가 있음)
-    context.go('/home');
+    context.go('/cart');
   }
   
   /// 다른 의류 추가하기

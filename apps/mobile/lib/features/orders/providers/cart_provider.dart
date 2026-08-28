@@ -4,89 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../services/cart_service.dart';
 import '../../../../services/customer_event_service.dart';
-import '../domain/repair_item_payload.dart';
+import '../domain/cart_draft_items.dart';
+import '../domain/cart_item.dart';
 
-/// 장바구니 항목 모델 (개별 수선 항목)
-///
-/// 묶음 결제(여러 CartItem 을 한번에 quote/intent 로 보내는 흐름) 를 위해
-/// 한 의류(=clothing item) 안에 들어 있던 핀/사진/clothingType 도 같이 들고 다닌다.
-/// 같은 의류에서 떨어져 나온 CartItem 들은 [groupKey] 가 동일하다.
-class CartItem {
-  final String id;         // 로컬 임시 ID (서버와 연결되면 serverId 로 교체됨)
-  final String? serverId;  // cart_drafts.id (서버 UUID) — null 이면 아직 미업로드
-  final Map<String, dynamic> repairItem;
-  final List<String> imageUrls;
-  /// 핀까지 포함된 원본 이미지 정보. (서버 quote/intent 에 그대로 전달)
-  final List<Map<String, dynamic>> imagesWithPins;
-  /// 같은 의류에서 떨어져 나온 CartItem 들이 공유하는 키.
-  /// (보통 `${serverId}#c${clothingIdx}` 형태. fallback 으로 serverId 만 쓰기도 한다.)
-  final String groupKey;
-  /// 이 묶음(의류)의 종류 표기. (없으면 빈 문자열)
-  final String clothingType;
-  final DateTime addedAt;
-
-  CartItem({
-    required this.id,
-    required this.repairItem,
-    required this.imageUrls,
-    this.imagesWithPins = const [],
-    this.serverId,
-    String? groupKey,
-    this.clothingType = '',
-    DateTime? addedAt,
-  })  : groupKey = groupKey ?? (serverId ?? id),
-        addedAt = addedAt ?? DateTime.now();
-
-  int get price {
-    final priceRange = repairItem['priceRange'] as String? ?? '0';
-    final prices = priceRange.split('~');
-    if (prices.isNotEmpty) {
-      final minPrice = prices[0]
-          .replaceAll('원', '')
-          .replaceAll(',', '')
-          .replaceAll('부위당', '')
-          .trim();
-      return int.tryParse(minPrice) ?? 0;
-    }
-    return 0;
-  }
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'serverId': serverId,
-        'repairItem': repairItem,
-        'imageUrls': imageUrls,
-        'imagesWithPins': imagesWithPins,
-        'groupKey': groupKey,
-        'clothingType': clothingType,
-        'addedAt': addedAt.toIso8601String(),
-      };
-
-  factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
-        id: json['id'] as String,
-        serverId: json['serverId'] as String?,
-        repairItem: Map<String, dynamic>.from(json['repairItem'] as Map),
-        imageUrls: List<String>.from(json['imageUrls'] as List),
-        imagesWithPins: ((json['imagesWithPins'] as List?) ?? [])
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList(),
-        groupKey: json['groupKey'] as String?,
-        clothingType: (json['clothingType'] as String?) ?? '',
-        addedAt: DateTime.parse(json['addedAt'] as String),
-      );
-
-  CartItem copyWith({String? serverId}) => CartItem(
-        id: id,
-        serverId: serverId ?? this.serverId,
-        repairItem: repairItem,
-        imageUrls: imageUrls,
-        imagesWithPins: imagesWithPins,
-        groupKey: groupKey,
-        clothingType: clothingType,
-        addedAt: addedAt,
-      );
-}
+export '../domain/cart_item.dart';
 
 /// 장바구니 상태 관리
 /// - 로그인 상태이면 Supabase cart_drafts 를 primary storage 로 사용한다.
@@ -155,121 +76,11 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
         try {
           final data = Map<String, dynamic>.from(row['draft_data'] as Map);
           final serverId = row['id'] as String;
-
-          // 1. 신규 웹 멀티 포맷: items: ClothingItem[]
-          //    각 의류(clothing)는 groupKey 로 묶어서 묶음 결제 시 복원할 수 있게 한다.
-          final itemsList = data['items'] as List?;
-          if (itemsList != null && itemsList.isNotEmpty) {
-            int globalIdx = 0;
-            for (int clothingIdx = 0;
-                clothingIdx < itemsList.length;
-                clothingIdx++) {
-              final clothingRaw = itemsList[clothingIdx];
-              if (clothingRaw is! Map) continue;
-              final clothing = Map<String, dynamic>.from(clothingRaw);
-              final repairItemsList = (clothing['repairItems'] as List?) ?? [];
-              final imagesWithPinsRaw =
-                  (clothing['imagesWithPins'] as List?) ?? [];
-              final imagesWithPins = imagesWithPinsRaw
-                  .whereType<Map>()
-                  .map((e) => Map<String, dynamic>.from(e))
-                  .toList();
-              final imageUrls = imagesWithPins
-                  .map((m) => m['imageUrl'] as String?)
-                  .where((u) => u != null && u.isNotEmpty)
-                  .cast<String>()
-                  .toList();
-              final clothingType =
-                  (clothing['clothingType'] as String?) ?? '';
-              final groupKey = '${serverId}#c$clothingIdx';
-
-              for (final riRaw in repairItemsList) {
-                if (riRaw is! Map) continue;
-                final ri = _normalizeRepairItem(
-                  Map<String, dynamic>.from(riRaw),
-                  fallbackClothingType: clothingType,
-                );
-                items.add(CartItem(
-                  id: '${serverId}_$globalIdx',
-                  serverId: serverId,
-                  repairItem: ri,
-                  imageUrls: imageUrls,
-                  imagesWithPins: imagesWithPins,
-                  groupKey: groupKey,
-                  clothingType: clothingType,
-                ));
-                globalIdx++;
-              }
-            }
-            continue;
-          }
-
-          // 2. 통합 포맷: repairItems 배열 (한 row 가 곧 한 의류로 간주)
-          final repairItemsList = data['repairItems'] as List?;
-          if (repairItemsList != null && repairItemsList.isNotEmpty) {
-            final clothingType = (data['clothingType'] as String?) ?? '';
-            final imagesWithPinsRaw = (data['imagesWithPins'] as List?) ?? [];
-            final imagesWithPins = imagesWithPinsRaw
-                .whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList();
-            final imageUrls = imagesWithPins.isNotEmpty
-                ? imagesWithPins
-                    .map((m) => m['imageUrl'] as String?)
-                    .where((u) => u != null && u.isNotEmpty)
-                    .cast<String>()
-                    .toList()
-                : List<String>.from((data['imageUrls'] as List?) ?? []);
-            for (int idx = 0; idx < repairItemsList.length; idx++) {
-              final ri = _normalizeRepairItem(
-                Map<String, dynamic>.from(repairItemsList[idx] as Map),
-                fallbackClothingType: clothingType,
-              );
-              items.add(CartItem(
-                id: '${serverId}_$idx',
-                serverId: serverId,
-                repairItem: ri,
-                imageUrls: imageUrls,
-                imagesWithPins: imagesWithPins,
-                groupKey: serverId,
-                clothingType: clothingType,
-              ));
-            }
-            continue;
-          }
-
-          // 3. 구형 앱 포맷: repairItem 단일 맵
-          if (data['repairItem'] is Map) {
-            final clothingType = (data['clothingType'] as String?) ?? '';
-            final imagesWithPinsRaw = (data['imagesWithPins'] as List?) ?? [];
-            final imagesWithPins = imagesWithPinsRaw
-                .whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList();
-            final imageUrls = imagesWithPins.isNotEmpty
-                ? imagesWithPins
-                    .map((m) => m['imageUrl'] as String?)
-                    .where((u) => u != null && u.isNotEmpty)
-                    .cast<String>()
-                    .toList()
-                : List<String>.from((data['imageUrls'] as List?) ?? []);
-            final ri = _normalizeRepairItem(
-              Map<String, dynamic>.from(data['repairItem'] as Map),
-              fallbackClothingType: clothingType,
-            );
-            items.add(CartItem(
-              id: serverId,
-              serverId: serverId,
-              repairItem: ri,
-              imageUrls: imageUrls,
-              imagesWithPins: imagesWithPins,
-              groupKey: serverId,
-              clothingType: clothingType,
-            ));
-          }
+          items.addAll(
+            cartItemsFromDraft(data, idPrefix: serverId, serverId: serverId),
+          );
         } catch (e) {
           debugPrint('CartNotifier._syncFromServer item parse error: $e');
-          // 파싱 실패한 항목은 건너뛴다.
         }
       }
 
@@ -278,51 +89,6 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
     } catch (e) {
       debugPrint('CartNotifier._syncFromServer error: $e');
     }
-  }
-
-  // ── 내부 헬퍼 ──────────────────────────────────────────────────────────
-
-  /// 어떤 포맷에서 들어오든 cart_page / pickup_request_page 에서 안전하게
-  /// String 으로 다룰 수 있도록 주요 필드를 모두 채워준다.
-  /// (웹은 RepairItem.{name,price,priceRange,quantity} 만 저장하므로
-  ///  repairPart/scope/measurement 가 비어 들어오는 경우가 많다.)
-  Map<String, dynamic> _normalizeRepairItem(
-    Map<String, dynamic> ri, {
-    String fallbackClothingType = '',
-  }) {
-    final name = (ri['name'] as String?) ?? '';
-    final repairPart = (ri['repairPart'] as String?)?.trim();
-    if (repairPart == null || repairPart.isEmpty) {
-      ri['repairPart'] = name.isNotEmpty ? name : '수선 항목';
-    }
-    if (ri['name'] == null || (ri['name'] as String).isEmpty) {
-      ri['name'] = ri['repairPart'];
-    }
-    ri['scope'] = (ri['scope'] as String?) ?? '';
-    ri['measurement'] = (ri['measurement'] as String?) ?? '';
-    ri['priceRange'] = (ri['priceRange'] as String?) ?? '';
-    if (ri['price'] is! int) {
-      final p = ri['price'];
-      if (p is num) {
-        ri['price'] = p.toInt();
-      } else if (p is String) {
-        ri['price'] = int.tryParse(p) ?? 0;
-      } else {
-        ri['price'] = 0;
-      }
-    }
-    if (ri['quantity'] is! int) {
-      ri['quantity'] = 1;
-    }
-    if (fallbackClothingType.isNotEmpty &&
-        (ri['clothingType'] as String?)?.isEmpty != false) {
-      ri['clothingType'] = fallbackClothingType;
-    }
-    final detail = repairItemDetail(ri);
-    if (detail != null) {
-      ri['detail'] = detail;
-    }
-    return ri;
   }
 
   // ── 공개 API ────────────────────────────────────────────────────────────
@@ -397,32 +163,38 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
   }
 
   /// OrderDraft 형식(수거 정보 포함)으로 장바구니에 추가한다.
+  /// 신규 흐름은 `items[]` 만 있고 최상위 `repairItems` 가 없다.
   Future<void> addOrderDraftToCart(Map<String, dynamic> orderDraft) async {
-    final localId = '${DateTime.now().millisecondsSinceEpoch}';
-    final repairItems = (orderDraft['repairItems'] as List?) ?? [];
-    final imageUrls = List<String>.from((orderDraft['imageUrls'] as List?) ?? []);
-
-    // 로컬 상태에는 각 repairItem을 CartItem으로 추가
-    final newItems = <CartItem>[];
-    for (int i = 0; i < repairItems.length; i++) {
-      final ri = Map<String, dynamic>.from(repairItems[i] as Map);
-      if (!ri.containsKey('repairPart') ||
-          (ri['repairPart'] as String? ?? '').isEmpty) {
-        ri['repairPart'] = ri['name'] ?? '';
-      }
-      newItems.add(CartItem(
-        id: '${localId}_$i',
-        repairItem: ri,
-        imageUrls: imageUrls,
-      ));
-    }
-
-    // 서버에는 전체 OrderDraft 를 하나의 row 로 저장
+    String? serverId;
     if (_svc.isLoggedIn) {
-      await _svc.addOrderDraft(orderDraft);
+      serverId = await _svc.addOrderDraft(orderDraft);
+      if (serverId == null) {
+        throw Exception('장바구니 저장에 실패했습니다');
+      }
+      await _syncFromServer();
+      if (state.any((i) => i.serverId == serverId)) {
+        _trackAdds(state.where((i) => i.serverId == serverId));
+        return;
+      }
     }
 
-    for (final item in newItems) {
+    final localId = serverId ?? '${DateTime.now().millisecondsSinceEpoch}';
+    final newItems = cartItemsFromDraft(
+      orderDraft,
+      idPrefix: localId,
+      serverId: serverId,
+    );
+    if (newItems.isEmpty) {
+      throw Exception('담을 수선 항목이 없습니다');
+    }
+
+    _trackAdds(newItems);
+    state = [...state, ...newItems];
+    await _saveLocalCache();
+  }
+
+  void _trackAdds(Iterable<CartItem> items) {
+    for (final item in items) {
       final name = (item.repairItem['name'] ??
               item.repairItem['repairPart'] ??
               item.clothingType)
@@ -434,9 +206,6 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
         price: item.price,
       );
     }
-
-    state = [...state, ...newItems];
-    await _saveLocalCache();
   }
 
   /// 항목을 장바구니에서 제거한다.

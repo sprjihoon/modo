@@ -331,6 +331,23 @@ export function OrderNewClient() {
     router.push("/cart");
   }
 
+  async function handlePickupSaveToCart(pickupData: Partial<OrderDraft>) {
+    const next: OrderDraft = { ...draftRef.current, ...pickupData };
+    draftRef.current = next;
+    setDraft(next);
+    if (next.items.length > 0) {
+      await addCartItem(next);
+      if (resumingCartId) {
+        try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
+      }
+    }
+    if (popstateHandlerRef.current) {
+      window.removeEventListener("popstate", popstateHandlerRef.current);
+      popstateHandlerRef.current = null;
+    }
+    router.push("/cart");
+  }
+
   function handleExitWithoutSaving() {
     setShowExitDialog(false);
     if (popstateHandlerRef.current) {
@@ -542,26 +559,6 @@ export function OrderNewClient() {
     pushMode("pickup");
   }
 
-  // ── 메인 → 담기 (수거정보 없이) ────────────────────────────────────────
-  const [isSavingToCart, setIsSavingToCart] = useState(false);
-  async function handleSaveToCartFromList() {
-    if (draft.items.length === 0 || isSavingToCart) return;
-    setIsSavingToCart(true);
-    try {
-      await addCartItem(draft);
-      if (resumingCartId) {
-        try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
-      }
-      if (popstateHandlerRef.current) {
-        window.removeEventListener("popstate", popstateHandlerRef.current);
-        popstateHandlerRef.current = null;
-      }
-      router.push("/cart");
-    } catch {
-      setIsSavingToCart(false);
-    }
-  }
-
   // ── 수거정보 완료 → 바로 결제 진행 ─────────────────────────────────────
   async function handlePickupDone(pickupData: Partial<OrderDraft>) {
     setIsProcessing(true);
@@ -631,7 +628,6 @@ export function OrderNewClient() {
             onAddItem={startAddClothing}
             onRemoveItem={handleRemoveItem}
             onProceedToPickup={handleProceedToPickup}
-            onSaveToCart={handleSaveToCartFromList}
           />
         )}
 
@@ -680,7 +676,11 @@ export function OrderNewClient() {
           <PickupStep
             draft={draft}
             onNext={handlePickupDone}
-            onBack={() => setShowExitDialog(true)}
+            onBack={(data) => {
+              if (data) setDraft((prev) => ({ ...prev, ...data }));
+              setShowExitDialog(true);
+            }}
+            onSaveToCart={handlePickupSaveToCart}
           />
         )}
       </div>
@@ -701,18 +701,21 @@ export function OrderNewClient() {
               <X className="w-5 h-5" />
             </button>
             <p className="text-base font-bold text-gray-900 mb-1">
-              결제를 중단하시겠어요?
+              {mode === "pickup" ? "결제를 중단하시겠어요?" : "작성을 중단하시겠어요?"}
             </p>
             <p className="text-sm text-gray-500 mb-5">
-              장바구니에 담아두면 나중에 이어서 결제할 수 있습니다.
+              {mode === "pickup"
+                ? "장바구니에 담아두면 나중에 이어서 결제할 수 있습니다."
+                : "수거 정보를 입력한 뒤 장바구니에 담을 수 있습니다."}
             </p>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => setShowExitDialog(false)}
                 className="touch-target w-full py-3.5 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80"
               >
-                계속 결제하기
+                {mode === "pickup" ? "계속 결제하기" : "계속 작성하기"}
               </button>
+              {mode === "pickup" && (
               <button
                 onClick={handleExitSaveToCart}
                 disabled={draft.items.length === 0}
@@ -721,6 +724,7 @@ export function OrderNewClient() {
                 <ShoppingCart className="w-4 h-4" />
                 장바구니에 담기
               </button>
+              )}
               <button
                 onClick={handleExitWithoutSaving}
                 className="w-full py-3 text-gray-400 text-sm font-medium active:opacity-70"

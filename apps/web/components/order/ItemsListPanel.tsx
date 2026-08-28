@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, ChevronRight, ShoppingCart } from "lucide-react";
+import { Plus, ChevronRight } from "lucide-react";
 import type { ClothingItem } from "./OrderNewClient";
 import { ClothingItemCard } from "./ClothingItemCard";
 
@@ -9,7 +9,6 @@ interface Props {
   onAddItem: () => void;
   onRemoveItem: (index: number) => void;
   onProceedToPickup: () => void;
-  onSaveToCart: () => void;
 }
 
 function formatPrice(n: number) {
@@ -21,7 +20,6 @@ export function ItemsListPanel({
   onAddItem,
   onRemoveItem,
   onProceedToPickup,
-  onSaveToCart,
 }: Props) {
   const totalRepairItems = items.reduce(
     (sum, it) => sum + it.repairItems.length,
@@ -98,19 +96,11 @@ export function ItemsListPanel({
             </p>
           </div>
 
-          <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-2 mt-4">
-            <button
-              type="button"
-              onClick={onSaveToCart}
-              className="touch-target flex items-center justify-center gap-1 px-4 py-4 border border-[#00C896] text-[#00C896] rounded-xl text-sm font-bold active:bg-[#00C896]/5"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              담기
-            </button>
+          <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 mt-4">
             <button
               type="button"
               onClick={onProceedToPickup}
-              className="touch-target flex-1 py-4 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 flex items-center justify-center gap-1"
+              className="touch-target w-full py-4 bg-[#00C896] text-white text-sm font-bold rounded-xl active:opacity-80 flex items-center justify-center gap-1"
             >
               수거 정보 입력
               <ChevronRight className="w-4 h-4" />

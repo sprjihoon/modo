@@ -64,7 +64,7 @@ export function CartClient() {
         </div>
         <p className="text-base font-bold text-gray-700">장바구니가 비어 있습니다</p>
         <p className="text-sm text-gray-400 leading-relaxed">
-          수거신청 중 &apos;담기&apos; 버튼을 눌러<br />항목을 저장해보세요
+          수거 정보를 입력한 뒤 장바구니에 담아 두세요
         </p>
         <Link
           href="/order/new"

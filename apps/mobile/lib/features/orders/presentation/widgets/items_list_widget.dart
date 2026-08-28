@@ -10,14 +10,12 @@ class ItemsListWidget extends StatelessWidget {
   final VoidCallback onAddItem;
   final void Function(int index) onRemoveItem;
   final VoidCallback onProceedToPickup;
-  final VoidCallback onSaveToCart;
 
   const ItemsListWidget({
     required this.items,
     required this.onAddItem,
     required this.onRemoveItem,
     required this.onProceedToPickup,
-    required this.onSaveToCart,
     super.key,
   });
 
@@ -238,64 +236,32 @@ class ItemsListWidget extends StatelessWidget {
             ),
             child: SafeArea(
               top: false,
-              child: Row(
-                children: [
-                  InkWell(
-                    onTap: onSaveToCart,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: _brandColor),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.shopping_cart_outlined, size: 16, color: _brandColor),
-                          SizedBox(width: 4),
-                          Text(
-                            '담기',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: _brandColor,
-                            ),
-                          ),
-                        ],
-                      ),
+              child: ElevatedButton(
+                  onPressed: onProceedToPickup,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _brandColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 0,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: onProceedToPickup,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _brandColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '수거 정보 입력',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
                         ),
-                        elevation: 0,
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '수거 정보 입력',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          Icon(Icons.chevron_right, size: 18),
-                        ],
-                      ),
-                    ),
+                      SizedBox(width: 4),
+                      Icon(Icons.chevron_right, size: 18),
+                    ],
                   ),
-                ],
-              ),
+                ),
             ),
           ),
       ],

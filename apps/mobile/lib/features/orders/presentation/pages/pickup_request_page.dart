@@ -402,21 +402,28 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       }
     }
 
-    await cartNotifier.addOrderDraftToCart(orderDraft);
+    try {
+      await cartNotifier.addOrderDraftToCart(orderDraft);
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     if (!mounted) return;
     messenger.showSnackBar(
       const SnackBar(
-        content: Text('장바구니에 저장되었습니다'),
+        content: Text('장바구니에 담았습니다'),
         backgroundColor: Color(0xFF00C896),
         duration: Duration(seconds: 2),
       ),
     );
-    router.go('/home');
-    Future.delayed(const Duration(milliseconds: 250), () {
-      if (!mounted) return;
-      router.push('/cart');
-    });
+    router.go('/cart');
   }
 
   /// 뒤로가기 시 이탈 확인

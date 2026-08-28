@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Coins, TrendingUp, TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { formatPointDescription } from "@/lib/point-description";
 import { formatDate, formatPrice } from "@/lib/utils";
 
 interface PointTransaction {
@@ -102,7 +103,7 @@ export function PointsClient() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-800">
-                      {t.description || (isEarn ? "포인트 적립" : "포인트 사용")}
+                      {formatPointDescription(t.description, isEarn)}
                     </p>
                     {t.created_at && (
                       <p className="text-xs text-gray-400 mt-0.5">

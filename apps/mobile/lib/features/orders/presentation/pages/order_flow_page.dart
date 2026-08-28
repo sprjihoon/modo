@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/customer_event_service.dart';
 import '../../domain/models/order_draft.dart';
-import '../../providers/cart_provider.dart';
 import '../widgets/items_list_widget.dart';
 import '../widgets/clothing_type_step.dart';
 import '../widgets/sub_category_step.dart' as sub_cat;
@@ -293,26 +292,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
                     ),
                   ),
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('계속 결제하기'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _brandColor,
-                    side: BorderSide(color: _brandColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _saveToCartAndExit();
-                  },
-                  child: const Text('장바구니에 담기'),
+                  child: const Text('계속 작성하기'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -335,19 +315,6 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
         ),
       ),
     );
-  }
-
-  Future<void> _saveToCartAndExit() async {
-    if (_draft.items.isEmpty) {
-      context.go('/home');
-      return;
-    }
-
-    final cartNotifier = ref.read(cartProvider.notifier);
-    await cartNotifier.addOrderDraftToCart(_draft.toJson());
-
-    if (!mounted) return;
-    context.go('/home');
   }
 
   bool _handleBackNavigation() {
@@ -459,7 +426,6 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
       onAddItem: startAddClothing,
       onRemoveItem: handleRemoveItem,
       onProceedToPickup: handleProceedToPickup,
-      onSaveToCart: () => _saveToCartAndExit(),
     );
   }
 
@@ -573,7 +539,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
         'repairItems': repairItems,
         'imageUrls': allImageUrls,
         'imagesWithPins': _draft.items.expand((c) => c.imagesWithPins.map((i) => i.toJson())).toList(),
-        'bundleItems': bundleItems.length > 1 ? bundleItems : null,
+        'bundleItems': bundleItems.isNotEmpty ? bundleItems : null,
       });
       // After navigating, go back to list mode so returning works
       setState(() {

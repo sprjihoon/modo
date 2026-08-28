@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/point_service.dart';
+import '../../domain/point_description.dart';
 
 /// 포인트 적립 내역 페이지
 class PointsHistoryPage extends ConsumerStatefulWidget {
@@ -57,14 +58,17 @@ class _PointsHistoryPageState extends ConsumerState<PointsHistoryPage> {
           'ADMIN_SUB' => '관리자차감',
           _ => isEarn ? '적립' : '사용',
         };
-        final reason = (item['description'] as String?)?.trim();
+        final reason = formatPointDescription(
+          item['description'] as String?,
+          isEarn: isEarn,
+        );
 
         return {
           'date': DateFormat('yyyy.MM.dd HH:mm').format(createdAt),
           'rawDate': createdAt,
           'type': label,
           'isEarn': isEarn,
-          'reason': (reason == null || reason.isEmpty) ? '내용 없음' : reason,
+          'reason': reason,
           'points': amount,
           'balance': balanceAfter,
         };

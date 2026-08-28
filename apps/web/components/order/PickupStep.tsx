@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   MapPin, Calendar, MessageSquare, ChevronDown, CheckCircle,
-  Plus, Info, Truck,
+  Plus, Info, Truck, ShoppingCart,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,8 @@ interface Address {
 interface PickupStepProps {
   draft: OrderDraft;
   onNext: (data: Partial<OrderDraft>) => void;
-  onBack: () => void;
+  onBack: (data?: Partial<OrderDraft>) => void;
+  onSaveToCart: (data: Partial<OrderDraft>) => Promise<void>;
 }
 
 // 한국 법정공휴일 (토·일은 별도 처리)
@@ -70,7 +71,7 @@ const FALLBACK_SHIPPING: ShippingSettings = {
   returnShippingFee: 7000,
 };
 
-export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
+export function PickupStep({ draft, onNext, onBack, onSaveToCart }: PickupStepProps) {
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   const [showAddressList, setShowAddressList] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
@@ -250,44 +251,69 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
     setPickupPhone("");
   }
 
-  async function handleSubmit() {
-    if (!address.trim()) { alert("수거 주소를 입력해주세요."); return; }
-    if (!pickupDate) { alert("수거 희망일을 선택해주세요."); return; }
+  function collectPickupData(): Partial<OrderDraft> {
+    const cleanedPhone = pickupPhone.trim();
+    return {
+      pickupAddress: address.trim(),
+      pickupAddressDetail: addressDetail.trim(),
+      pickupZipcode: pickupZipcode.trim(),
+      pickupPhone: cleanedPhone,
+      pickupDate,
+      notes,
+      deliveryAddress: sameAsPickup ? address.trim() : deliveryAddress.trim(),
+      deliveryAddressDetail: sameAsPickup ? addressDetail.trim() : deliveryAddressDetail.trim(),
+      deliveryZipcode: sameAsPickup ? pickupZipcode.trim() : deliveryZipcode.trim(),
+      deliveryPhone: cleanedPhone,
+      agreedToExtraCharge,
+      remoteAreaFee,
+    };
+  }
+
+  function validatePickup(): boolean {
+    if (!address.trim()) { alert("수거 주소를 입력해주세요."); return false; }
+    if (!pickupDate) { alert("수거 희망일을 선택해주세요."); return false; }
     if (disabledDates.includes(pickupDate)) {
-      alert("토·일요일 및 공휴일은 수거가 불가합니다. 다른 날짜를 선택해주세요."); return;
+      alert("토·일요일 및 공휴일은 수거가 불가합니다. 다른 날짜를 선택해주세요.");
+      return false;
     }
     const cleanedPhone = pickupPhone.trim();
     if (!cleanedPhone) {
       alert("수거지 연락처를 입력해주세요. (수거 기사가 연락드릴 번호)");
-      return;
+      return false;
     }
     if (!/^[0-9\-\s]{9,}$/.test(cleanedPhone)) {
       alert("수거지 연락처 형식이 올바르지 않습니다. (예: 010-1234-5678)");
-      return;
+      return false;
     }
     if (!sameAsPickup && !deliveryAddress.trim()) {
-      alert("수선 후 배송받을 주소를 입력해주세요."); return;
+      alert("수선 후 배송받을 주소를 입력해주세요.");
+      return false;
     }
     if (!agreedToExtraCharge) {
-      alert("추가 결제 안내에 동의해주세요."); return;
+      alert("추가 결제 안내에 동의해주세요.");
+      return false;
     }
+    return true;
+  }
+
+  async function handleSubmit() {
+    if (!validatePickup()) return;
     setIsSubmitting(true);
     try {
-      await onNext({
-        pickupAddress: address.trim(),
-        pickupAddressDetail: addressDetail.trim(),
-        pickupZipcode: pickupZipcode.trim(),
-        pickupPhone: cleanedPhone,
-        pickupDate,
-        notes,
-        deliveryAddress: sameAsPickup ? address.trim() : deliveryAddress.trim(),
-        deliveryAddressDetail: sameAsPickup ? addressDetail.trim() : deliveryAddressDetail.trim(),
-        deliveryZipcode: sameAsPickup ? pickupZipcode.trim() : deliveryZipcode.trim(),
-        // 수거지=배송지 동일이면 동일한 연락처, 아니면 동일 연락처를 기본값으로 사용 (별도 UI는 추후 추가).
-        deliveryPhone: cleanedPhone,
-        agreedToExtraCharge: true,
-        remoteAreaFee,
-      });
+      await onNext(collectPickupData());
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSaveToCart() {
+    if (!validatePickup()) return;
+    setIsSubmitting(true);
+    try {
+      await onSaveToCart(collectPickupData());
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert(msg || "장바구니 담기에 실패했습니다.");
     } finally {
       setIsSubmitting(false);
     }
@@ -676,8 +702,21 @@ export function PickupStep({ draft, onNext, onBack }: PickupStepProps) {
 
       {/* 하단 버튼 */}
       <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-2">
-        <button type="button" onClick={onBack} className="btn-outline px-5 py-4">
+        <button
+          type="button"
+          onClick={() => onBack(collectPickupData())}
+          className="btn-outline px-5 py-4"
+        >
           이전
+        </button>
+        <button
+          type="button"
+          onClick={handleSaveToCart}
+          disabled={isSubmitting}
+          className="touch-target px-4 py-4 rounded-xl text-sm font-bold border border-[#00C896] text-[#00C896] active:bg-[#00C896]/5 disabled:opacity-40 flex items-center justify-center gap-1"
+        >
+          <ShoppingCart className="w-4 h-4" />
+          담기
         </button>
         <button
           type="button"

@@ -21,6 +21,7 @@ class _CartPageState extends ConsumerState<CartPage> {
   void initState() {
     super.initState();
     CustomerEventService.trackPageView(pageTitle: '장바구니', pageUrl: '/cart');
+    Future.microtask(() => ref.read(cartProvider.notifier).refresh());
   }
 
   @override

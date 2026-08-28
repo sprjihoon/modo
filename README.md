@@ -269,13 +269,13 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ## 앱스토어 / Play 출시 준비
 
-**지금 맥북:** `git pull` 후 아래 「맥북에서 `1.0.3+30`」만 실행하면 된다. 자세한 명령은 `apps/mobile/README.md`에도 같다.
+**지금 맥북:** `git pull` 후 아래 「맥북에서 `1.0.3+31`」만 실행하면 된다. 자세한 명령은 `apps/mobile/README.md`에도 같다.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.3+30`** (iOS·Play 동일). 다음 맥북 빌드. 스토어에 이미 올린 코드는 `+29` |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.3+31`** (iOS·Play 동일). 다음 맥북 빌드. 스토어에 이미 올린 코드는 `+29`. 30은 스토어에 안 올렸으면 31만 만들면 된다 |
 | App Store Connect App ID | `6759492888` |
 | iOS 스토어 | **판매 중 `1.0.3`** (빌드 29, 2026-08-28) · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
@@ -283,7 +283,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Play 상태 | Alpha **`28 (1.0.3)` 테스터 제공** · **`29 (1.0.3)` 검토 중** (2026-08-27) · 프로덕션 액세스 신청 검토 중 (2026-08-28 16:07, 보통 7일) · 공개 페이지는 있음 · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.3+30` 맥북에서 생성) · 직전 백업 `Documents/modo-android-signing/app-release-1.0.3+29.aab` |
+| Android AAB | `apps/mobile/build/app/outputs/bundle/release/app-release.aab` (`1.0.3+31` 맥북에서 생성) · 직전 백업 `Documents/modo-android-signing/app-release-1.0.3+29.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -297,7 +297,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **29** (`1.0.3`). 다음 업로드는 맥북에서 **빌드 30** |
+| App Store 현재 빌드 | 판매 중 **29** (`1.0.3`). 다음 업로드는 맥북에서 **빌드 31** |
 | 앱 업데이트 안내 | `app_versions` (플랫폼별 최신/최소 버전). 어드민 설정 → **앱 버전**. 스토어에 올린 뒤에만 최신을 바꿀 것 |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
@@ -334,15 +334,17 @@ flutter build ipa --release --build-name=1.0.3 --build-number=<N> \
 #   --apiKey 5NS9QNDJUH --apiIssuer <issuerId>
 ```
 
-### 맥북에서 `1.0.3+30` (가격안내 순서를 웹과 동일하게)
+### 맥북에서 `1.0.3+31` (장바구니 담기 + 가격안내 순서)
 
-Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 뒤 아래만 실행하면 된다. `pubspec.yaml`은 이미 `1.0.3+30`.
+Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 뒤 아래만 실행하면 된다. `pubspec.yaml`은 이미 `1.0.3+31`.
 
 이 빌드에 포함된 앱 수정:
-- 가격안내가 웹(`/guide/price`)과 다르게 보이던 문제. 앱이 직접가격을 한 카드로 묶고 직속 항목을 앞에 두고 있었다. 관리자 `display_order`대로 웹과 같이 그린다.
-- DB만 바꿔서는 안 된다. 정렬은 앱 코드라서 **30 IPA/AAB**가 있어야 폰에 반영된다.
+- 수선 항목(3단계)의 「담기」는 웹·앱 모두 제거. 주소 없는 상태에선 담기지 않았다.
+- 수거 정보(4단계)에서만 담기. 신규 `items[]` 초안도 장바구니에 펼쳐진다. 담은 뒤 장바구니로 이동.
+- 포인트 내역의 `intent:` UUID는 숨김.
+- 가격안내 순서를 웹과 동일하게 (원래 30 내용. 30을 스토어에 안 올렸으면 31만 만들면 된다.)
 
-`+29`는 이미 스토어에 올라갔다 (iOS 판매 중 · Play Alpha 검토 중). 29를 덮어쓰지 말고 **30을 새로** 올린다.
+`+29`는 이미 스토어에 있다. 29·30을 덮어쓰지 말고 **31을 새로** 올린다.
 
 ```bash
 git checkout main
@@ -350,21 +352,21 @@ git pull
 cd apps/mobile
 flutter pub get
 
-# 실기기 확인 (선택) — 가격안내 탭·항목 순서가 modo.io.kr/guide/price 와 같은지 보면 된다
+# 실기기 확인 (선택) — 3단계에 담기 버튼이 없고, 4단계에서 담으면 /cart 에 항목이 보여야 한다
 flutter run --release
 
 # Play AAB
-flutter build appbundle --release --build-name=1.0.3 --build-number=30
+flutter build appbundle --release --build-name=1.0.3 --build-number=31
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.3+30.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.3+31.aab
 
 # App Store / TestFlight IPA
-flutter build ipa --release --build-name=1.0.3 --build-number=30 \
+flutter build ipa --release --build-name=1.0.3 --build-number=31 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS는 29가 판매 중이므로 30을 올린 뒤 그 빌드로 제출하면 된다. Play는 Alpha 29 검토가 끝나도 30 AAB를 다음 버전으로 올리면 된다. 프로덕션 액세스가 승인되면 30을 프로덕션에 승격해도 된다. 스토어에 올린 뒤에만 어드민 **앱 버전**의 최신을 `1.0.3` / 빌드 30으로 바꾼다.
+iOS는 29가 판매 중이므로 31을 올린 뒤 그 빌드로 제출하면 된다. Play는 31 AAB를 다음 버전으로 올리면 된다. 스토어에 올린 뒤에만 어드민 **앱 버전**의 최신을 `1.0.3` / 빌드 31로 바꾼다.
 
 ### 체크리스트
 
@@ -389,7 +391,7 @@ iOS는 29가 판매 중이므로 30을 올린 뒤 그 빌드로 제출하면 된
 19. **`1.0.2+25` 업데이트 안내 · 알림 설정 이동** (`app_versions` · 어드민 앱 버전 · iOS 빌드 25 심사 대기 · Play Alpha AAB 25 업로드)
 20. **`1.0.2+26` 치수 가이드 스크롤** (코드만. 스토어 업로드 전에 27로 흡수)
 21. ~~`1.0.2+27` 고객 수치 저장~~ → 맥북에서 **`1.0.3+29`** 로 올림 (iOS 판매 중 · Play Alpha 29 검토 중)
-22. **`1.0.3+30` 가격안내 순서** (맥북에서 IPA·AAB. 웹 `/guide/price`와 동일 `display_order`)
+22. ~~`1.0.3+30` 가격안내 순서~~ → **`1.0.3+31`에 흡수** (장바구니 담기 + 3단계 담기 제거 + 포인트 intent 숨김)
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 24. 프로덕션 액세스 신청 **검토 중** (2026-08-28 16:07). 승인 후 프로덕션에 28/29/30 출시 시작. `/download` Play URL은 프로덕션 나온 뒤에
 25. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
@@ -484,7 +486,8 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-28 | 앱 가격안내 순서 | 앱 가격안내가 웹과 달리 직접가격을 묶고 직속 항목을 앞에 둠. 웹 `display_order`와 동일하게 수정. 앱 `1.0.3+30` — IPA/AAB는 맥북에서 빌드. DB만으로는 안 됨 |
+| 2026-08-28 | 장바구니 담기 | 3단계(수선 항목) 담기 버튼 제거(웹·앱). 4단계(수거 정보)에서만 담기. 앱이 `items[]` 초안을 무시해 기존 장바구니가 있을 때 안 담기던 문제. 포인트 내역 intent UUID 숨김. 앱 `1.0.3+31` |
+| 2026-08-28 | 앱 가격안내 순서 | 앱 가격안내가 웹과 달리 직접가격을 묶고 직속 항목을 앞에 둠. 웹 `display_order`와 동일. `1.0.3+31`에 포함 |
 | 2026-08-27 | 앱 고객 수치 저장 | 앱 결제 견적이 `repairParts.detail`을 빼서 작업지시서에 고객 수치가 안 나옴. 앱 `1.0.3+29` 스토어 반영. 기존 앱 주문은 복구 불가. 어드민 표시는 웹 배포 |
 | 2026-08-27 | 앱 치수 가이드 스크롤 | 수치 입력 화면 「치수 재는 방법」이 잘리고 스크롤이 안 되던 문제. `1.0.2+26` 코드는 27에 포함 |
 | 2026-08-27 | 운영 리포트 고객 추이 | 가입·탈퇴·활성(30일)·그날 접속·전체 고객을 하루 숫자·추이·아침에 같이 표시. 아침 메일은 KST 09:00. 어드민 Resend 키 추가, 발신명 `????` 복구. 웹 탈퇴는 익명화 |
