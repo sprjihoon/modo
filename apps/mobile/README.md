@@ -181,7 +181,7 @@ flutter test --coverage
 
 ### 맥북에서 `1.0.5+35` (지금 이 빌드)
 
-Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 뒤 아래만 실행한다. `pubspec.yaml`은 이미 `1.0.5+35`.
+**이미 올림.** iOS `1.0.5` 빌드 35는 심사 대기. 코드 바꾸기 전에는 다시 빌드하지 않는다. Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.5+35`.
 
 포함 내용: 고객 리뷰는 DB/API만 (목업 없음) · 홈 순서(가격표/가이드 → 주문 → 리뷰) · 배너 200 · 앱 가입 복구.
 
@@ -202,7 +202,7 @@ flutter build ipa --release --build-name=1.0.5 --build-number=35 \
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-심사 중이던 **1.0.5 / 34** 는 취소하고 **35**를 제출한다. Play Alpha **35** AAB는 업로드 준비. 스토어에 반영된 뒤에만 어드민 **앱 버전**을 `1.0.5+35`로 바꾼다.
+목업 폴백이 있던 **1.0.5 / 34** 는 취소하고 **35**를 제출함. iOS는 **심사 대기**. Play Alpha **35** AAB는 로컬 백업만. 스토어에 `1.0.5`가 나온 뒤에만 어드민 **앱 버전**을 `1.0.5+35`로 바꾼다.
 
 ### Android (Play)
 
@@ -244,7 +244,7 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.4` 판매 중**. **`1.0.5 (35)`** 제출 |
+| 최신 업로드 | **`1.0.4` 판매 중**. **`1.0.5 (35)`** 심사 대기 |
 | App Store | **판매 중 `1.0.4`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 | 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |
