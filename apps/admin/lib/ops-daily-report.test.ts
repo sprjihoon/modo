@@ -178,8 +178,20 @@ const atKst9 = new Date("2026-08-28T00:00:00.000Z");
 assert(kstTimeParts(atKst9).hour === 9 && kstTimeParts(atKst9).minute === 0, "UTC 0시는 KST 9시");
 assert(shouldSendOpsReportNow({ enabled: true, sendHour: 9, sendMinute: 0 }, atKst9), "09:00에 발송");
 assert(
-  !shouldSendOpsReportNow({ enabled: true, sendHour: 9, sendMinute: 0 }, new Date("2026-08-28T01:00:00.000Z")),
-  "10시에는 안 보냄"
+  shouldSendOpsReportNow({ enabled: true, sendHour: 9, sendMinute: 0 }, new Date("2026-08-28T01:00:00.000Z")),
+  "10시에도 아직 안 보냈으면 발송"
+);
+assert(
+  !shouldSendOpsReportNow({ enabled: true, sendHour: 9, sendMinute: 0 }, new Date("2026-08-28T23:50:00.000Z")),
+  "08:50은 아직"
+);
+assert(
+  shouldSendOpsReportNow({ enabled: true, sendHour: 9, sendMinute: 0 }, new Date("2026-08-29T00:00:00.000Z")),
+  "토요일 09:00에도 발송"
+);
+assert(
+  shouldSendOpsReportNow({ enabled: true, sendHour: 9, sendMinute: 0 }, new Date("2026-08-30T00:00:00.000Z")),
+  "일요일 09:00에도 발송"
 );
 assert(!shouldSendOpsReportNow({ enabled: false, sendHour: 9, sendMinute: 0 }, atKst9), "끄면 안 보냄");
 assert(

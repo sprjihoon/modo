@@ -196,7 +196,7 @@ export default function OpsReportsPage() {
       setScheduleEnabled(next.enabled);
       setNotice(
         next.enabled
-          ? `매일 ${formatOpsReportTime(next.sendHour, next.sendMinute)}에 전날 데이터를 그때 기준으로 집계해 메일로 보냅니다`
+          ? `주말 포함 매일 ${formatOpsReportTime(next.sendHour, next.sendMinute)}에 전날 데이터를 그때 기준으로 집계해 메일로 보냅니다`
           : "자동 발송을 껐습니다"
       );
     } catch (err) {
@@ -318,7 +318,7 @@ export default function OpsReportsPage() {
           <h2 className="text-3xl font-bold tracking-tight">운영 리포트</h2>
           <p className="text-muted-foreground mt-1">
             {schedule.enabled
-              ? `매일 ${formatOpsReportTime(schedule.sendHour, schedule.sendMinute)}에 전날 데이터를 그 시각 기준으로 다시 집계해 메일로 보냅니다.`
+              ? `주말 포함 매일 ${formatOpsReportTime(schedule.sendHour, schedule.sendMinute)}에 전날 데이터를 그 시각 기준으로 다시 집계해 메일로 보냅니다.`
               : "자동 발송이 꺼져 있습니다. 아래에서 시각을 정할 수 있습니다."}{" "}
             추이에서 칸을 누르면 그날로 내려갑니다.
           </p>

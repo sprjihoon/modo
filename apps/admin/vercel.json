@@ -8,6 +8,10 @@
   "crons": [
     {
       "path": "/api/admin/ops-reports/generate",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/admin/ops-reports/generate",
       "schedule": "0 * * * *"
     }
   ]

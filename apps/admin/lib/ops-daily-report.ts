@@ -359,19 +359,20 @@ export function kstTimeParts(now = new Date()): { date: string; hour: number; mi
   };
 }
 
-/** 설정한 KST 시각부터 windowMinutes 안에 있으면 아침 메일 시각 */
+/**
+ * 설정한 KST 시각 이후, 그날 자정 전까지 발송 대상.
+ * 주말·공휴일도 같다. 같은 날 이미 보낸 메일은 sentOnKstDate 로 막는다.
+ * (예전 20분 창은 Vercel 크론이 몇 분만 늦어도 하루를 건너뛰었다.)
+ */
 export function shouldSendOpsReportNow(
   settings: OpsReportScheduleSettings,
-  now = new Date(),
-  windowMinutes = 20
+  now = new Date()
 ): boolean {
   if (!settings.enabled) return false;
   const kst = kstTimeParts(now);
   const scheduled = settings.sendHour * 60 + settings.sendMinute;
   const current = kst.hour * 60 + kst.minute;
-  let elapsed = current - scheduled;
-  if (elapsed < 0) elapsed += 24 * 60;
-  return elapsed < windowMinutes;
+  return current >= scheduled;
 }
 
 export function sentOnKstDate(emailSentAt: string | null | undefined, kstDate: string): boolean {
