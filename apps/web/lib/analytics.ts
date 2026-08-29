@@ -92,4 +92,15 @@ export const Analytics = {
 
   search: (query: string, resultCount?: number) =>
     trackEvent({ eventType: "SEARCH", metadata: { query, result_count: resultCount } }),
+
+  reviewStart: (orderId: string) =>
+    trackEvent({ eventType: "REVIEW_START", targetId: orderId, targetType: "order" }),
+
+  reviewSubmit: (orderId: string, rating: number, hasPhoto: boolean) =>
+    trackEvent({
+      eventType: "REVIEW_SUBMIT",
+      targetId: orderId,
+      targetType: "order",
+      metadata: { rating, has_photo: hasPhoto },
+    }),
 };

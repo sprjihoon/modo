@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   User, MapPin, Receipt, Gift, Megaphone,
   HeadphonesIcon, Settings, LogOut, ChevronRight,
-  Coins,
+  Coins, Star,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
@@ -183,6 +183,12 @@ export function ProfilePageClient() {
           icon={<Coins className="w-5 h-5" />}
           title="포인트 내역"
           href="/profile/points"
+        />
+        <MenuItem
+          icon={<Star className="w-5 h-5" />}
+          title="내 리뷰"
+          subtitle="작성한 리뷰 수정·삭제"
+          href="/profile/reviews"
         />
       </MenuSection>
 

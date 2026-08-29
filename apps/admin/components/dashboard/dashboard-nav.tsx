@@ -123,6 +123,7 @@ const navGroups: NavGroup[] = [
       { title: "배너 관리", href: "/dashboard/banners", icon: Image },
       { title: "팝업 관리", href: "/dashboard/popups", icon: Megaphone },
       { title: "FAQ 관리", href: "/dashboard/faqs", icon: HelpCircle },
+      { title: "리뷰 관리", href: "/dashboard/reviews", icon: Star },
       { title: "콘텐츠 관리", href: "/dashboard/settings/contents", icon: FileText },
     ],
   },

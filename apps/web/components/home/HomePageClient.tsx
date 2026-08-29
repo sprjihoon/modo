@@ -10,6 +10,7 @@ import { RecentOrderCard } from "./RecentOrderCard";
 import { OrderStartDialog } from "./OrderStartDialog";
 import { LaunchAnnouncementPopup } from "./LaunchAnnouncementPopup";
 import { AppDownloadLinks } from "./AppDownloadLinks";
+import { HomeReviewsPreview } from "@/components/reviews/HomeReviewsPreview";
 
 interface UserProfile {
   name?: string;
@@ -211,8 +212,10 @@ export function HomePageClient() {
           </div>
         )}
 
+        <HomeReviewsPreview />
+
         {/* 앱 다운로드 섹션 (데스크톱용) */}
-        <div id="app-download-section" className="mt-8 mx-4 mb-6 p-6 bg-[#00C896]/5 border border-[#00C896]/20 rounded-2xl text-center">
+        <div id="app-download-section" className="mt-5 mx-4 mb-6 p-6 bg-[#00C896]/5 border border-[#00C896]/20 rounded-2xl text-center">
           <p className="text-2xl mb-2">📱</p>
           <p className="text-sm font-bold text-gray-800 mb-1">
             모두의수선 앱으로 더 편리하게

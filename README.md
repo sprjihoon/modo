@@ -229,7 +229,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | 경로 | 설명 |
 |---|---|
 | `/signup` | 웹 가입. 「초대 코드 (선택)」·`?invite=CODE` 프리필·간편가입 |
-| `/login` | 웹 로그인. 초대 코드는 가입·간편가입 시 스태시 |
+| `/login` | 웹 로그인. 초대 코드 입력란은 없음 (`?invite=`는 가입 페이지로 유지) |
 | `/download?joined=1` | 가입 완료 후 앱 설치 유도 |
 | `/profile/invite` | 가입 후 미적용 계정이면 「초대 코드 입력」 |
 | 앱 `/signup` | 웹 가입 페이지를 연다 |
@@ -255,6 +255,25 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 - 선행 이슈: 프로덕션 `point_transactions.customer_email` 미적용으로 적립 실패 → 컬럼·함수 수정 후 통과
 
 관련 코드: `InviteClient`, `SignupPageClient`, `SocialAuthButtons`, `DownloadPageClient`, `InviteBootstrap`, `apps/web/app/api/invite/*`, 앱 `signup_page.dart`
+
+---
+
+## 고객 리뷰
+
+배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **1차 웹 + 어드민**. 앱 이식은 이후.
+
+| 항목 | 내용 |
+|---|---|
+| 작성 | `/orders/[id]/review`. 별점 정수 1~5(기본 5), 글 + 사진(최대 5장). 주문당 1개 |
+| 공개 | 작성 직후 `pending`. 작성자는 즉시 조회. 타인에게는 어드민 승인 후만 공개 |
+| 이름 | 실명 마스킹 `장**`. 닉네임 없음 |
+| 포인트 | 글 200P / 포토 500P (어드민 변경). 제출 시 지급. 숨김·삭제해도 회수 없음. 같은 주문 재작성 시 재지급 없음 |
+| 홈 | 관리자가 고른 리뷰·순서(`is_featured`, `display_order`). 사진 2 + 글 2, 사진 없으면 글 4. 미지정 시 공개 리뷰 자동 |
+| 전체 | `/reviews` 별점순·최신순·포토리뷰. 로그인 시 맨 위 **내 리뷰**(검수 중·비공개·홈 미노출 포함) |
+| 내 리뷰 | `/profile/reviews`에서 수정·삭제. 수정 시 다시 검수 대기 |
+| 어드민 | `/dashboard/reviews` 승인·숨김·삭제·홈 노출 순서. 적립은 `/dashboard/points?tab=reviews` |
+
+SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_home_featured.sql` (운영 DB 반영). 버킷 `review-images`.
 
 ---
 
@@ -496,6 +515,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-30 | 고객 리뷰 | 웹 작성·홈 미리보기·전체/내 리뷰. 어드민 검수·홈 노출 순서·삭제. 로그인 화면 초대 코드 입력 제거(가입에만). 앱 이식은 이후 |
 | 2026-08-29 | 전체공지 게시 | 어드민 발송이 Edge Function 직접 호출이라 공지가 `draft`에 남고 앱·웹에 안 보임. `/api/admin/announcements/send`로 게시(`sent`)와 푸시를 분리. `send-announcement-push` 운영 배포. 클릭 시 없던 `/announcements/:id` 상세 추가. 웹 공지는 읽어도 목록 유지. **앱 상세 클릭은 `1.0.4+33`** |
 | 2026-08-28 | 결제 전 수치 · 이전 | 결제/수거 화면에 입력 수치 표시. 수치 「이전」은 건너뛴 수선항목 그리드 대신 사진·핀으로. 스토어 `1.0.4+32` |
 | 2026-08-28 | 카톡 OG 이미지 | `og.png`(725KB)는 제목만 나오고 그림이 비었다. `og.jpg`(62KB, 2:1)로 교체. 라이브 `https://modo.io.kr/og.jpg`. 이미 보낸 카톡은 캐시라 새 메시지로 확인 |

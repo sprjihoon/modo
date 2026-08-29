@@ -35,10 +35,12 @@ import {
   CheckCircle,
   Clock,
   Loader2,
-  Calendar
+  Calendar,
+  Star
 } from "lucide-react";
 import PointSettingDialog from "@/components/settings/PointSettingDialog";
 import SignupInvitePointSettings from "@/components/settings/SignupInvitePointSettings";
+import ReviewPointSettings from "@/components/settings/ReviewPointSettings";
 
 interface PointSetting {
   id: string;
@@ -90,9 +92,19 @@ const getDaysAgo = (days: number) => {
 export default function PointsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState(
-    searchParams.get("tab") === "settings" ? "settings" : "history"
+    initialTab === "settings" || initialTab === "reviews" ? initialTab : "history"
   );
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "history") params.delete("tab");
+    else params.set("tab", value);
+    const query = params.toString();
+    router.replace(query ? `/dashboard/points?${query}` : "/dashboard/points", { scroll: false });
+  };
   
   // 포인트 설정 관련 상태
   const [settings, setSettings] = useState<PointSetting[]>([]);
@@ -613,17 +625,25 @@ export default function PointsPage() {
       </Card>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList>
           <TabsTrigger value="settings">
             <Settings className="h-4 w-4 mr-2" />
             포인트 설정
+          </TabsTrigger>
+          <TabsTrigger value="reviews">
+            <Star className="h-4 w-4 mr-2" />
+            리뷰 적립
           </TabsTrigger>
           <TabsTrigger value="history">
             <TrendingUp className="h-4 w-4 mr-2" />
             포인트 내역
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="reviews" className="space-y-4">
+          <ReviewPointSettings />
+        </TabsContent>
 
         {/* 포인트 설정 탭 */}
         <TabsContent value="settings" className="space-y-4">

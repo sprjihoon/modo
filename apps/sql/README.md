@@ -12,6 +12,7 @@ Supabase Postgres 데이터베이스 스키마 및 마이그레이션
 4. **payments** - 결제 정보
 5. **videos** - 입출고 영상
 6. **notifications** - 알림
+7. **reviews** / **review_settings** - 고객 리뷰·적립 (`schema/19_reviews.sql`)
 
 ## 🗂️ 스키마 구조
 

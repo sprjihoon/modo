@@ -7,7 +7,7 @@ import {
   Truck, Package, CheckCircle, Clock, XCircle, CreditCard,
   MapPin, ChevronRight, RefreshCw, Scissors, MessageCircle,
   ReceiptText, Copy, Check, X, AlertTriangle,
-  ArrowRight, RotateCcw, Pencil,
+  ArrowRight, RotateCcw, Pencil, Star,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice, ORDER_STATUS_MAP } from "@/lib/utils";
@@ -143,6 +143,10 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [isCancelItemsDialogOpen, setIsCancelItemsDialogOpen] = useState(false);
   const [selectedCancelItems, setSelectedCancelItems] = useState<Set<number>>(new Set());
   const [isCancellingItems, setIsCancellingItems] = useState(false);
+
+  // 수선 전/후 사진
+  const [myReview, setMyReview] = useState<{ id: string; status: string } | null>(null);
+  const [reviewLoaded, setReviewLoaded] = useState(false);
 
   // 수선 전/후 사진
   const [repairPhotoItems, setRepairPhotoItems] = useState<
@@ -334,6 +338,19 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           .order("created_at", { ascending: false });
         setCsEvents(evErr || !ev ? [] : (ev as typeof csEvents));
         await loadVideoUrls(s, data);
+        if (data.status === "DELIVERED") {
+          try {
+            const reviewRes = await fetch(`/api/orders/${orderId}/review`);
+            if (reviewRes.ok) {
+              const reviewJson = await reviewRes.json();
+              setMyReview(reviewJson.review ? { id: reviewJson.review.id, status: reviewJson.review.status } : null);
+            }
+          } catch { /* ignore */ }
+          setReviewLoaded(true);
+        } else {
+          setMyReview(null);
+          setReviewLoaded(false);
+        }
       }
     } catch { /* ignore */ } finally {
       setIsLoading(false);
@@ -860,6 +877,20 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           <p className="text-xs text-gray-400 mt-2">
             주문일시: {formatDate(order.created_at)}
           </p>
+        )}
+        {order.status === "DELIVERED" && reviewLoaded && (
+          <Link
+            href={myReview ? "/profile/reviews" : `/orders/${orderId}/review`}
+            className="mt-4 flex items-center justify-between p-3 rounded-xl bg-[#00C896]/5 border border-[#00C896]/20 active:bg-[#00C896]/10"
+          >
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 fill-[#FFB800] text-[#FFB800]" />
+              <p className="text-sm font-bold text-gray-800">
+                {myReview ? "내 리뷰 보기 · 수정" : "리뷰 작성하고 포인트 받기"}
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[#00C896]" />
+          </Link>
         )}
       </div>
 

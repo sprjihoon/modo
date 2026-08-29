@@ -1760,6 +1760,111 @@ export type Database = {
         }
         Relationships: []
       }
+      review_settings: {
+        Row: {
+          id: number
+          is_active: boolean
+          min_content_length: number
+          photo_review_points: number
+          text_review_points: number
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          is_active?: boolean
+          min_content_length?: number
+          photo_review_points?: number
+          text_review_points?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          is_active?: boolean
+          min_content_length?: number
+          photo_review_points?: number
+          text_review_points?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reviews: {
+        Row: {
+          content: string
+          created_at: string
+          display_name: string
+          display_order: number
+          id: string
+          is_featured: boolean
+          moderated_at: string | null
+          moderated_by: string | null
+          order_id: string
+          photo_urls: string[]
+          points_awarded: number
+          points_type: string | null
+          rating: number
+          repair_summary: string | null
+          reviewed_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          display_name: string
+          display_order?: number
+          id?: string
+          is_featured?: boolean
+          moderated_at?: string | null
+          moderated_by?: string | null
+          order_id: string
+          photo_urls?: string[]
+          points_awarded?: number
+          points_type?: string | null
+          rating: number
+          repair_summary?: string | null
+          reviewed_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          display_name?: string
+          display_order?: number
+          id?: string
+          is_featured?: boolean
+          moderated_at?: string | null
+          moderated_by?: string | null
+          order_id?: string
+          photo_urls?: string[]
+          points_awarded?: number
+          points_type?: string | null
+          rating?: number
+          repair_summary?: string | null
+          reviewed_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repair_categories: {
         Row: {
           created_at: string

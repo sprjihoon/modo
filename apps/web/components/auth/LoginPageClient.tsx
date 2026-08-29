@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Mail, Lock, Ticket } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/utils";
 import {
@@ -25,7 +25,7 @@ export function LoginPageClient() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteFromUrl, setInviteFromUrl] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +36,7 @@ export function LoginPageClient() {
     if (invite) {
       const code = normalizeInviteCode(invite);
       stashInviteCode(code);
-      setInviteCode(code);
+      setInviteFromUrl(code);
     }
   }, [searchParams]);
 
@@ -97,7 +97,7 @@ export function LoginPageClient() {
       }
       localStorage.removeItem(LEGACY_CREDENTIALS_KEY);
 
-      const code = normalizeInviteCode(inviteCode);
+      const code = normalizeInviteCode(inviteFromUrl);
       if (code) stashInviteCode(code);
       await applyStashedInviteCode();
 
@@ -125,7 +125,7 @@ export function LoginPageClient() {
     }
   }
 
-  const signupHref = signupHrefWithInvite(inviteCode);
+  const signupHref = signupHrefWithInvite(inviteFromUrl);
 
   return (
     <div className="px-5 py-8">
@@ -228,26 +228,8 @@ export function LoginPageClient() {
         <div className="flex-1 h-px bg-gray-100" />
       </div>
 
-      {/* 소셜 가입 시 초대 코드 */}
-      <div className="mb-3">
-        <div className="relative">
-          <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="초대 코드 (소셜 가입 시, 선택)"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-            className="w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm font-mono tracking-wide outline-none focus:border-[#00C896] transition-colors"
-            autoComplete="off"
-          />
-        </div>
-        <p className="mt-1.5 px-1 text-xs text-gray-400">
-          카카오·네이버 등으로 처음 가입할 때 적용됩니다
-        </p>
-      </div>
-
       <SocialAuthButtons
-        inviteCode={inviteCode}
+        inviteCode={inviteFromUrl}
         redirectTo={redirectTo}
         actionVerb="로그인"
       />
