@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.reviews (
     CHECK (status IN ('pending', 'approved', 'hidden')),
   display_name TEXT NOT NULL,
   repair_summary TEXT,
+  clothing_type TEXT,
   points_awarded INTEGER NOT NULL DEFAULT 0,
   points_type TEXT CHECK (points_type IN ('photo', 'text')),
   is_featured BOOLEAN NOT NULL DEFAULT FALSE,
@@ -51,6 +52,10 @@ CREATE INDEX IF NOT EXISTS idx_reviews_user_id
 CREATE INDEX IF NOT EXISTS idx_reviews_featured_order
   ON public.reviews (display_order ASC)
   WHERE is_featured AND status = 'approved';
+
+CREATE INDEX IF NOT EXISTS idx_reviews_approved_clothing
+  ON public.reviews (clothing_type)
+  WHERE status = 'approved';
 
 ALTER TABLE public.review_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
@@ -115,3 +120,4 @@ COMMENT ON COLUMN public.reviews.display_name IS '공개용 마스킹 이름 (�
 COMMENT ON COLUMN public.reviews.status IS 'pending=검수대기, approved=공개, hidden=비공개';
 COMMENT ON COLUMN public.reviews.is_featured IS '관리자가 홈 미리보기에 노출하도록 지정';
 COMMENT ON COLUMN public.reviews.display_order IS '홈 노출 순서 (작을수록 앞)';
+COMMENT ON COLUMN public.reviews.clothing_type IS '의류 종류(수선 신청 대분류). 전체 리뷰 필터';

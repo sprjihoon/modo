@@ -17,8 +17,6 @@ class HomeReviewsPreview extends StatefulWidget {
 class _HomeReviewsPreviewState extends State<HomeReviewsPreview> {
   final _service = ReviewService();
   List<PublicReview> _reviews = const [];
-  double _average = 0;
-  int _count = 0;
   bool _ready = false;
   int _photoOffset = 0;
   int _textOffset = 0;
@@ -43,16 +41,12 @@ class _HomeReviewsPreviewState extends State<HomeReviewsPreview> {
       if (!mounted) return;
       setState(() {
         _reviews = result.reviews;
-        _average = result.average;
-        _count = result.count;
         _ready = true;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _reviews = const [];
-        _average = 0;
-        _count = 0;
         _ready = true;
       });
     }
@@ -104,43 +98,15 @@ class _HomeReviewsPreviewState extends State<HomeReviewsPreview> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '고객 리뷰',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF111827),
-                          ),
-                        ),
-                        if (_ready && _count > 0) ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              StarRating(value: _average.round(), size: StarRatingSize.sm),
-                              const SizedBox(width: 6),
-                              Text(
-                                _average.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1F2937),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '($_count개)',
-                                style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
+                  const Expanded(
+                    child: Text(
+                      '고객 리뷰',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF111827),
+                      ),
                     ),
                   ),
                   GestureDetector(

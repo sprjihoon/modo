@@ -8,6 +8,7 @@ export interface PublicReview {
   photo_urls: string[];
   display_name: string;
   repair_summary: string | null;
+  clothing_type: string | null;
   points_type: ReviewPointsType | null;
   reviewed_at: string;
 }
@@ -28,6 +29,58 @@ export interface ReviewSettings {
 export const STAR_MIN = 1;
 export const STAR_MAX = 5;
 export const REVIEW_PHOTO_MAX = 5;
+
+/** 수선 신청 대분류와 다른 표기를 같은 필터로 묶는다. */
+export const CLOTHING_TYPE_ALIASES: Record<string, string> = {
+  점퍼: "아우터",
+  코트: "아우터",
+  패딩: "아우터",
+  자켓: "아우터",
+  재킷: "아우터",
+  스커트: "치마",
+  팬츠: "바지",
+};
+
+export const DEFAULT_REVIEW_CLOTHING_TYPES = [
+  "아우터",
+  "티셔츠/맨투맨",
+  "셔츠/블라우스",
+  "원피스",
+  "바지",
+  "청바지",
+  "치마",
+] as const;
+
+export function normalizeClothingType(raw: string | null | undefined): string | null {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return null;
+  return CLOTHING_TYPE_ALIASES[trimmed] ?? trimmed;
+}
+
+export function clothingTypeFromSummary(summary: string | null | undefined): string | null {
+  const first = (summary ?? "").split("·")[0]?.trim() ?? "";
+  return normalizeClothingType(first);
+}
+
+export function resolveClothingType(order: {
+  clothing_type?: string | null;
+  item_name?: string | null;
+}, summary?: string | null): string | null {
+  return (
+    normalizeClothingType(order.clothing_type) ??
+    clothingTypeFromSummary(summary) ??
+    clothingTypeFromSummary(order.item_name)
+  );
+}
+
+export function clothingFilterValues(selected: string): string[] {
+  const normalized = normalizeClothingType(selected) ?? selected.trim();
+  if (!normalized) return [];
+  const aliases = Object.entries(CLOTHING_TYPE_ALIASES)
+    .filter(([, canon]) => canon === normalized)
+    .map(([alias]) => alias);
+  return Array.from(new Set([normalized, selected.trim(), ...aliases].filter(Boolean)));
+}
 
 export function isWholeStarRating(value: unknown): value is number {
   return Number.isInteger(value) && (value as number) >= STAR_MIN && (value as number) <= STAR_MAX;
@@ -90,6 +143,7 @@ export function toPublicReview(row: {
   photo_urls: string[] | null;
   display_name: string;
   repair_summary: string | null;
+  clothing_type?: string | null;
   points_type: string | null;
   reviewed_at: string;
 }): PublicReview {
@@ -100,6 +154,7 @@ export function toPublicReview(row: {
     photo_urls: row.photo_urls ?? [],
     display_name: row.display_name,
     repair_summary: row.repair_summary,
+    clothing_type: row.clothing_type ?? clothingTypeFromSummary(row.repair_summary),
     points_type: row.points_type === "photo" || row.points_type === "text" ? row.points_type : null,
     reviewed_at: row.reviewed_at,
   };

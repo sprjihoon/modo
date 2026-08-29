@@ -41,6 +41,7 @@ class ReviewService {
     bool home = false,
     String sort = 'rating',
     bool photoOnly = false,
+    String clothing = '',
     int limit = 20,
   }) async {
     final params = <String, String>{
@@ -48,6 +49,7 @@ class ReviewService {
       'limit': '$limit',
       if (home) 'home': '1',
       if (photoOnly) 'photo': '1',
+      if (clothing.isNotEmpty) 'clothing': clothing,
     };
     final uri = Uri.parse('$apiBase/api/reviews').replace(queryParameters: params);
     final res = await http.get(uri, headers: await _headers());
@@ -65,6 +67,10 @@ class ReviewService {
       mine: mine,
       count: (json['count'] as num?)?.toInt() ?? reviews.length,
       average: (json['average'] as num?)?.toDouble() ?? 0,
+      categories: (json['categories'] as List? ?? [])
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
     );
   }
 

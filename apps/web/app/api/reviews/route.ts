@@ -3,8 +3,11 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getRequestAuthUser } from "@/lib/auth-user";
 import {
   buildRepairSummary,
+  clothingFilterValues,
+  DEFAULT_REVIEW_CLOTHING_TYPES,
   isWholeStarRating,
   maskDisplayName,
+  resolveClothingType,
   REVIEW_PHOTO_MAX,
   sanitizeReviewPhotoUrls,
   toMyReview,
@@ -15,10 +18,23 @@ import type { MyReview } from "@/lib/reviews";
 export const dynamic = "force-dynamic";
 
 const PUBLIC_COLS =
-  "id, rating, content, photo_urls, display_name, repair_summary, points_type, reviewed_at";
+  "id, rating, content, photo_urls, display_name, repair_summary, clothing_type, points_type, reviewed_at";
 
 const MINE_COLS =
-  "id, order_id, rating, content, photo_urls, display_name, repair_summary, points_type, reviewed_at, status, points_awarded";
+  "id, order_id, rating, content, photo_urls, display_name, repair_summary, clothing_type, points_type, reviewed_at, status, points_awarded";
+
+async function loadClothingTypes(
+  admin: ReturnType<typeof createServiceClient>
+): Promise<string[]> {
+  const { data } = await admin
+    .from("repair_categories")
+    .select("name, display_order")
+    .eq("is_active", true)
+    .is("parent_category_id", null)
+    .order("display_order", { ascending: true });
+  const names = (data ?? []).map((row) => String(row.name ?? "").trim()).filter(Boolean);
+  return names.length > 0 ? names : [...DEFAULT_REVIEW_CLOTHING_TYPES];
+}
 
 async function loadMineReviews(
   admin: ReturnType<typeof createServiceClient>,
@@ -50,13 +66,16 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get("sort") === "recent" ? "recent" : "rating";
     const photoOnly = searchParams.get("photo") === "1";
     const home = searchParams.get("home") === "1";
+    const clothingValues = clothingFilterValues(searchParams.get("clothing") ?? "");
     const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 20), 1), 50);
     const offset = Math.max(Number(searchParams.get("offset") ?? 0), 0);
+    const categories = home ? [] : await loadClothingTypes(admin);
 
-    const { data: stats } = await admin
-      .from("reviews")
-      .select("rating")
-      .eq("status", "approved");
+    let statsQuery = admin.from("reviews").select("rating").eq("status", "approved");
+    if (!home && clothingValues.length > 0) {
+      statsQuery = statsQuery.in("clothing_type", clothingValues);
+    }
+    const { data: stats } = await statsQuery;
 
     const ratings = (stats ?? []).map((r) => r.rating as number);
     const average =
@@ -95,6 +114,9 @@ export async function GET(request: NextRequest) {
     if (photoOnly) {
       query = query.eq("points_type", "photo");
     }
+    if (clothingValues.length > 0) {
+      query = query.in("clothing_type", clothingValues);
+    }
 
     if (sort === "recent") {
       query = query.order("reviewed_at", { ascending: false });
@@ -115,6 +137,7 @@ export async function GET(request: NextRequest) {
       count: count ?? approvedCount,
       average,
       curated: false,
+      categories,
     });
   } catch (e) {
     console.error("[reviews GET]", e);
@@ -215,10 +238,11 @@ export async function POST(request: NextRequest) {
         status: "pending",
         display_name: maskDisplayName(userRow.name),
         repair_summary: buildRepairSummary(order),
+        clothing_type: resolveClothingType(order),
         points_awarded: 0,
         points_type: pointsType,
       })
-      .select("id, order_id, rating, content, photo_urls, display_name, repair_summary, points_type, reviewed_at, status, points_awarded")
+      .select("id, order_id, rating, content, photo_urls, display_name, repair_summary, clothing_type, points_type, reviewed_at, status, points_awarded")
       .single();
 
     if (insertError || !review) {

@@ -4,11 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { PublicReview } from "@/lib/reviews";
-import {
-  PREVIEW_AVERAGE,
-  PREVIEW_COUNT,
-  PREVIEW_REVIEWS,
-} from "@/lib/review-preview";
+import { PREVIEW_REVIEWS } from "@/lib/review-preview";
 import { StarRating } from "./StarRating";
 
 const ROTATE_MS = 4500;
@@ -56,8 +52,6 @@ function TextTile({ review }: { review: PublicReview }) {
 
 export function HomeReviewsPreview({ preview = false }: { preview?: boolean }) {
   const [reviews, setReviews] = useState<PublicReview[]>(preview ? PREVIEW_REVIEWS : []);
-  const [average, setAverage] = useState(preview ? PREVIEW_AVERAGE : 0);
-  const [count, setCount] = useState(preview ? PREVIEW_COUNT : 0);
   const [ready, setReady] = useState(preview);
   const [photoOffset, setPhotoOffset] = useState(0);
   const [textOffset, setTextOffset] = useState(0);
@@ -66,8 +60,6 @@ export function HomeReviewsPreview({ preview = false }: { preview?: boolean }) {
   useEffect(() => {
     if (preview) {
       setReviews(PREVIEW_REVIEWS);
-      setAverage(PREVIEW_AVERAGE);
-      setCount(PREVIEW_COUNT);
       setReady(true);
       return;
     }
@@ -76,16 +68,11 @@ export function HomeReviewsPreview({ preview = false }: { preview?: boolean }) {
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (cancelled) return;
-        const list = json?.reviews ?? [];
-        setReviews(list);
-        setAverage(typeof json?.average === "number" ? json.average : 0);
-        setCount(typeof json?.count === "number" ? json.count : list.length);
+        setReviews(json?.reviews ?? []);
         setReady(true);
       })
       .catch(() => {
         setReviews([]);
-        setAverage(0);
-        setCount(0);
         setReady(true);
       });
     return () => {
@@ -124,16 +111,7 @@ export function HomeReviewsPreview({ preview = false }: { preview?: boolean }) {
   return (
     <section className="mt-8 bg-[#F7F8F8] pt-6 pb-3">
       <div className="flex items-center justify-between px-5 mb-3">
-        <div>
-          <h2 className="text-base font-bold text-gray-900">고객 리뷰</h2>
-          {ready && count > 0 && (
-            <div className="flex items-center gap-1.5 mt-1">
-              <StarRating value={Math.round(average)} size="sm" />
-              <span className="text-sm font-bold text-gray-800">{average.toFixed(1)}</span>
-              <span className="text-xs text-gray-400">({count}개)</span>
-            </div>
-          )}
-        </div>
+        <h2 className="text-base font-bold text-gray-900">고객 리뷰</h2>
         <Link
           href="/reviews"
           className="flex items-center gap-0.5 text-xs text-gray-400 active:opacity-60"

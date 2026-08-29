@@ -15,6 +15,7 @@ class PublicReview {
     required this.displayName,
     required this.reviewedAt,
     this.repairSummary,
+    this.clothingType,
     this.pointsType,
   });
 
@@ -24,6 +25,7 @@ class PublicReview {
   final List<String> photoUrls;
   final String displayName;
   final String? repairSummary;
+  final String? clothingType;
   final String? pointsType;
   final DateTime reviewedAt;
 
@@ -37,6 +39,7 @@ class PublicReview {
       photoUrls: (json['photo_urls'] as List?)?.map((e) => e.toString()).toList() ?? const [],
       displayName: json['display_name'] as String? ?? '고**',
       repairSummary: json['repair_summary'] as String?,
+      clothingType: json['clothing_type'] as String?,
       pointsType: json['points_type'] as String?,
       reviewedAt: DateTime.tryParse(json['reviewed_at'] as String? ?? '') ?? DateTime.now(),
     );
@@ -55,6 +58,7 @@ class MyReview extends PublicReview {
     required this.status,
     required this.pointsAwarded,
     super.repairSummary,
+    super.clothingType,
     super.pointsType,
   });
 
@@ -77,6 +81,7 @@ class MyReview extends PublicReview {
       photoUrls: (json['photo_urls'] as List?)?.map((e) => e.toString()).toList() ?? const [],
       displayName: json['display_name'] as String? ?? '고**',
       repairSummary: json['repair_summary'] as String?,
+      clothingType: json['clothing_type'] as String?,
       pointsType: json['points_type'] as String?,
       reviewedAt: DateTime.tryParse(json['reviewed_at'] as String? ?? '') ?? DateTime.now(),
       status: json['status'] as String? ?? 'pending',
@@ -115,12 +120,14 @@ class ReviewListResult {
     required this.mine,
     required this.count,
     required this.average,
+    this.categories = const [],
   });
 
   final List<PublicReview> reviews;
   final List<MyReview> mine;
   final int count;
   final double average;
+  final List<String> categories;
 }
 
 class OrderReviewInfo {

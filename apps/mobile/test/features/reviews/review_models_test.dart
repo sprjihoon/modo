@@ -12,6 +12,7 @@ void main() {
         'photo_urls': ['https://example.com/a.jpg'],
         'display_name': '장**',
         'repair_summary': '바지 · 기장수선',
+        'clothing_type': '바지',
         'points_type': 'photo',
         'reviewed_at': '2026-08-20T09:00:00.000Z',
       });
@@ -21,6 +22,7 @@ void main() {
       expect(review.isPhoto, isTrue);
       expect(review.displayName, '장**');
       expect(review.repairSummary, '바지 · 기장수선');
+      expect(review.clothingType, '바지');
       expect(review.reviewedAt.toUtc().toIso8601String().startsWith('2026-08-20'), isTrue);
     });
   });

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { MyReview, PublicReview } from "@/lib/reviews";
-import { StarRating } from "./StarRating";
 import { ReviewCard } from "./ReviewCard";
 
 type Sort = "rating" | "recent";
@@ -22,10 +21,10 @@ function applyListView(reviews: PublicReview[], sort: Sort, photoOnly: boolean) 
 export function ReviewsListClient() {
   const [reviews, setReviews] = useState<PublicReview[]>([]);
   const [mine, setMine] = useState<MyReview[]>([]);
-  const [average, setAverage] = useState(0);
-  const [count, setCount] = useState(0);
   const [sort, setSort] = useState<Sort>("rating");
   const [photoOnly, setPhotoOnly] = useState(false);
+  const [clothing, setClothing] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,6 +34,7 @@ export function ReviewsListClient() {
       sort,
       limit: "50",
       ...(photoOnly ? { photo: "1" } : {}),
+      ...(clothing ? { clothing } : {}),
     });
     fetch(`/api/reviews?${params}`)
       .then((res) => (res.ok ? res.json() : null))
@@ -45,15 +45,14 @@ export function ReviewsListClient() {
         setMine(myList);
         const mineIds = new Set(myList.map((review) => review.id));
         setReviews(applyListView(list.filter((review) => !mineIds.has(review.id)), sort, photoOnly));
-        setAverage(typeof json?.average === "number" ? json.average : 0);
-        setCount(typeof json?.count === "number" ? json.count : list.length);
+        if (Array.isArray(json?.categories)) {
+          setCategories((json.categories as unknown[]).filter((name): name is string => typeof name === "string" && name.trim().length > 0));
+        }
       })
       .catch(() => {
         if (cancelled) return;
         setReviews([]);
         setMine([]);
-        setAverage(0);
-        setCount(0);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -61,22 +60,10 @@ export function ReviewsListClient() {
     return () => {
       cancelled = true;
     };
-  }, [sort, photoOnly]);
+  }, [sort, photoOnly, clothing]);
 
   return (
     <div className="pb-10">
-      <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl">
-        <p className="text-sm text-gray-500">모두의수선 리뷰</p>
-        <div className="flex items-end gap-2 mt-1">
-          <p className="text-3xl font-extrabold text-gray-900">{average.toFixed(1)}</p>
-          <p className="text-sm text-gray-400 mb-1">/ 5</p>
-        </div>
-        <div className="flex items-center gap-2 mt-1">
-          <StarRating value={Math.round(average)} size="md" />
-          <span className="text-xs text-gray-400">공개 리뷰 {count}개</span>
-        </div>
-      </div>
-
       {mine.length > 0 && (
         <section className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2">
@@ -126,6 +113,35 @@ export function ReviewsListClient() {
         </button>
       </div>
 
+      {categories.length > 0 && (
+        <div className="mt-3">
+          <p className="px-4 text-[11px] font-semibold text-gray-400 mb-2">수선 종류</p>
+          <div className="flex items-center gap-2 px-4 overflow-x-auto no-scrollbar">
+            <button
+              type="button"
+              onClick={() => setClothing("")}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${
+                clothing === "" ? "bg-[#00C896] text-white" : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              전체
+            </button>
+            {categories.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setClothing(name)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${
+                  clothing === name ? "bg-[#00C896] text-white" : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="px-4 mt-4 space-y-3">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
@@ -134,7 +150,13 @@ export function ReviewsListClient() {
         ) : reviews.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-sm text-gray-500">
-              {photoOnly ? "포토리뷰가 없습니다." : "아직 공개된 리뷰가 없습니다."}
+              {clothing && photoOnly
+                ? "해당 수선 종류의 포토리뷰가 없습니다."
+                : clothing
+                  ? "해당 수선 종류의 리뷰가 없습니다."
+                  : photoOnly
+                    ? "포토리뷰가 없습니다."
+                    : "아직 공개된 리뷰가 없습니다."}
             </p>
           </div>
         ) : (

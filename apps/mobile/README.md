@@ -179,11 +179,11 @@ flutter test --coverage
 
 루트 [`README.md`](../../README.md)의 **앱스토어 / Play 출시 준비**가 최신 상태의 기준입니다.
 
-### 맥북에서 `1.0.5+35` (지금 이 빌드)
+### 맥북에서 `1.0.5+36` (지금 이 빌드)
 
-**이미 올림.** iOS `1.0.5` 빌드 35는 심사 대기. 코드 바꾸기 전에는 다시 빌드하지 않는다. Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.5+35`.
+Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.5+36`.
 
-포함 내용: 고객 리뷰는 DB/API만 (목업 없음) · 홈 순서(가격표/가이드 → 주문 → 리뷰) · 배너 200 · 앱 가입 복구.
+포함 내용: 전체 리뷰 수선 종류·포토 필터 · 홈·목록 총점·개수 제거 · 리뷰는 DB/API만.
 
 ```bash
 git checkout main
@@ -192,17 +192,17 @@ cd apps/mobile
 flutter pub get
 
 # Play AAB
-flutter build appbundle --release --build-name=1.0.5 --build-number=35
+flutter build appbundle --release --build-name=1.0.5 --build-number=36
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.5+35.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.5+36.aab
 
 # App Store / TestFlight IPA
-flutter build ipa --release --build-name=1.0.5 --build-number=35 \
+flutter build ipa --release --build-name=1.0.5 --build-number=36 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-목업 폴백이 있던 **1.0.5 / 34** 는 취소하고 **35**를 제출함. iOS는 **심사 대기**. Play Alpha **35** AAB는 로컬 백업만. 스토어에 `1.0.5`가 나온 뒤에만 어드민 **앱 버전**을 `1.0.5+35`로 바꾼다.
+심사 중이던 **1.0.5 / 35** 는 취소하고 **36**을 제출한다. Play Alpha **36** AAB는 로컬 백업만. 스토어에 `1.0.5`가 나온 뒤에만 어드민 **앱 버전**을 `1.0.5+36`로 바꾼다.
 
 ### Android (Play)
 
@@ -210,10 +210,10 @@ flutter build ipa --release --build-name=1.0.5 --build-number=35 \
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | 비공개 테스트(Alpha) — **`28 (1.0.3)` 테스터 제공** · **`35 (1.0.5)` AAB 준비** · 프로덕션 액세스는 신청 검토 중 (2026-08-28) |
-| 버전 | `pubspec.yaml` → `1.0.5+35` · Alpha 테스터는 아직 28 |
-| 최근 UX | 고객 리뷰 · 홈 순서(주문 후 리뷰) · 배너 200 · 앱 가입 복구 |
-| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.5+35.aab` |
+| 현재 트랙 | 비공개 테스트(Alpha) — **`28 (1.0.3)` 테스터 제공** · **`36 (1.0.5)` AAB 준비** · 프로덕션 액세스는 신청 검토 중 (2026-08-28) |
+| 버전 | `pubspec.yaml` → `1.0.5+36` · Alpha 테스터는 아직 28 |
+| 최근 UX | 수선 종류·포토 필터 · 홈·목록 총점 제거 · 리뷰 DB만 |
+| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.5+36.aab` |
 | targetSdk | **36** (Android 16) — `android/app/build.gradle.kts` 고정 · Play 2026-08-31 정책 |
 | ProGuard | `android/app/proguard-rules.pro` — Retrofit + `com.navercorp.nid` (릴리즈 minify 필수) |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
@@ -244,14 +244,14 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.4` 판매 중**. **`1.0.5 (35)`** 심사 대기 |
+| 최신 업로드 | **`1.0.4` 판매 중**. **`1.0.5 (36)`** 제출 |
 | App Store | **판매 중 `1.0.4`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 | 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |
 
 ```bash
 # App Store용 (수동 서명 — Xcode Accounts 없어도 Distribution 인증서+프로파일만 있으면 가능)
-flutter build ipa --release --build-name=1.0.5 --build-number=35 \
+flutter build ipa --release --build-name=1.0.5 --build-number=36 \
   --export-options-plist=ios/ExportOptions.plist
 
 # 업로드 (API Key: secrets/asc-api.json, 커밋 금지)

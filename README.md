@@ -260,7 +260,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ## 고객 리뷰
 
-배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.5+35`에 포함(스토어는 심사 통과 후).
+배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.5+36`에 포함(스토어는 심사 통과 후).
 
 | 항목 | 내용 |
 |---|---|
@@ -268,14 +268,14 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | 공개 | 작성 직후 `pending`. 작성자는 즉시 조회. 타인에게는 어드민 승인 후만 공개 |
 | 이름 | 실명 마스킹 `장**`. 닉네임 없음 |
 | 포인트 | 글 200P / 포토 500P (어드민 변경). 제출 시 지급. 숨김·삭제해도 회수 없음. 같은 주문 재작성 시 재지급 없음 |
-| 홈 | 웹·앱 모두 **가격표/쉬운가이드 → 내 주문 → 고객 리뷰**. 주문 없으면 「아직 주문 내역이 없어요」(비로그인: 「로그인하고 수선을 시작해 보세요」). 리뷰는 DB `reviews`만 (`/api/reviews?home=1`, 목업 없음). 관리자가 고른 순서(`is_featured`, `display_order`). 사진 2 + 글 2, 사진 없으면 글 4. 공개 리뷰 없으면 「아직 공개된 리뷰가 없습니다」. 운영에는 텍스트 4건이 들어가 있음 |
+| 홈 | 웹·앱 모두 **가격표/쉬운가이드 → 내 주문 → 고객 리뷰**. 주문 없으면 「아직 주문 내역이 없어요」(비로그인: 「로그인하고 수선을 시작해 보세요」). 리뷰는 DB `reviews`만 (`/api/reviews?home=1`, 목업 없음). 관리자가 고른 순서(`is_featured`, `display_order`). 사진 2 + 글 2, 사진 없으면 글 4. 홈·전체 목록에 **총점·공개 개수는 안 냄**. 공개 리뷰 없으면 「아직 공개된 리뷰가 없습니다」. 운영에는 텍스트 4건이 들어가 있음 |
 | 배너 | 웹·앱 홈 배너 높이 **200** |
-| 전체 | `/reviews` 별점순·최신순·포토리뷰. 로그인 시 맨 위 **내 리뷰**(검수 중·비공개·홈 미노출 포함) |
+| 전체 | `/reviews` 별점순·최신순·포토리뷰(`?photo=1`)·**수선 종류**(의류 대분류, `?clothing=바지`). 포토는 사진 리뷰가 있을 때만 목록에 나옴. 로그인 시 맨 위 **내 리뷰** |
 | 내 리뷰 | `/profile/reviews`에서 수정·삭제. 수정 시 다시 검수 대기 |
 | 어드민 | `/dashboard/reviews` 승인·숨김·삭제·홈 노출 순서. 적립은 `/dashboard/points?tab=reviews` |
 | 앱 API | 쿠키 또는 `Authorization: Bearer` (`apps/web/lib/auth-user.ts`). 앱은 `https://modo.io.kr/api/...` |
 
-SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_home_featured.sql`, `20260830010000_reviews_curated_and_seed.sql` (운영 DB 반영). 버킷 `review-images`. 샘플 문구는 `/reviews/design`·앱 단위 테스트에만.
+SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_home_featured.sql`, `20260830010000_reviews_curated_and_seed.sql`, `20260830020000_reviews_clothing_type.sql` (운영 DB 반영). 버킷 `review-images`. 샘플 문구는 `/reviews/design`·앱 단위 테스트에만.
 
 ---
 
@@ -299,21 +299,21 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.5+35`. iOS는 올렸으니 **애플 심사만 기다리면 된다**. 다시 빌드할 필요는 없다. 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `main`의 `1.0.5+36`. 심사 중이던 35는 취소하고 36을 제출한다. 명령은 `apps/mobile/README.md`에도 같다.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.5+35`** (iOS·Play 동일). `+34`는 목업 폴백이 있어 취소하고 35로 교체함 |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.5+36`** (iOS·Play 동일). `+35`는 수선 종류 필터 전에 올려 36으로 교체 |
 | App Store Connect App ID | `6759492888` |
-| iOS 스토어 | **판매 중 `1.0.4`**. **`1.0.5` 빌드 35 심사 대기** (`WAITING_FOR_REVIEW`) · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| iOS 스토어 | **판매 중 `1.0.4`**. **`1.0.5` 빌드 36 심사 대기** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | Alpha **`28 (1.0.3)` 테스터 제공** · **`35 (1.0.5)` AAB 준비** · 프로덕션 액세스 신청 검토 중 (2026-08-28, 보통 7일) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | Alpha **`28 (1.0.3)` 테스터 제공** · **`36 (1.0.5)` AAB 준비** · 프로덕션 액세스 신청 검토 중 (2026-08-28, 보통 7일) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `1.0.5+35` · 백업 `Documents/modo-android-signing/app-release-1.0.5+35.aab` |
+| Android AAB | `1.0.5+36` · 백업 `Documents/modo-android-signing/app-release-1.0.5+36.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -327,8 +327,8 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **`1.0.4`**. **`1.0.5` 빌드 35** 심사 대기. 추가 업로드 없음 |
-| 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`** (2026-08-25). 앱 「업데이트 확인」은 스토어가 아니라 이 값과 비교. 35를 스토어에 올린 뒤에만 `1.0.5+35` |
+| App Store 현재 빌드 | 판매 중 **`1.0.4`**. **`1.0.5` 빌드 36** 심사 대기 |
+| 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`** (2026-08-25). 앱 「업데이트 확인」은 스토어가 아니라 이 값과 비교. 36이 스토어에 나온 뒤에만 `1.0.5+36` |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
 ### 심사용 테스트 계정
@@ -357,23 +357,23 @@ flutter build apk --release
 # → build/app/outputs/flutter-apk/app-release.apk
 
 # iOS (App Store / TestFlight)
-flutter build ipa --release --build-name=1.0.5 --build-number=35 \
+flutter build ipa --release --build-name=1.0.5 --build-number=36 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 # 업로드: xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 #   --apiKey 5NS9QNDJUH --apiIssuer <issuerId>
 ```
 
-### 맥북에서 `1.0.5+35` (앱 리뷰 · DB만)
+### 맥북에서 `1.0.5+36` (수선 종류 필터)
 
-**이미 올림.** iOS `1.0.5` 빌드 35는 App Store Connect에 들어가 **심사 대기**. 코드 바꾸기 전에는 다시 빌드하지 않는다. Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.5+35`.
+Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.5+36`.
 
 이 빌드에 포함된 앱 수정:
-- 고객 리뷰는 목업 없이 `/api/reviews`·DB만 사용. 없으면 「아직 공개된 리뷰가 없습니다」.
-- 홈 순서 웹과 동일: 가격표/쉬운가이드 → 내 주문 → 고객 리뷰. 주문 없으면 「아직 주문 내역이 없어요」.
-- 홈 배너 높이 200. 앱 내 회원가입 복구.
+- 전체 리뷰에서 수선 종류(의류 대분류) 필터. 포토리뷰 필터는 사진 리뷰가 있을 때 목록에 나옴.
+- 홈·전체 목록에서 총점·공개 개수 제거.
+- 고객 리뷰는 목업 없이 `/api/reviews`·DB만 사용.
 
-`1.0.4`는 판매 중. 목업 폴백이 있던 **1.0.5 / 34** 는 취소하고 **35**로 교체해 제출함.
+`1.0.4`는 판매 중. 심사 중이던 **1.0.5 / 35** 는 취소하고 **36**으로 교체한다.
 
 ```bash
 git checkout main
@@ -382,17 +382,17 @@ cd apps/mobile
 flutter pub get
 
 # Play AAB
-flutter build appbundle --release --build-name=1.0.5 --build-number=35
+flutter build appbundle --release --build-name=1.0.5 --build-number=36
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.5+35.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.5+36.aab
 
 # App Store / TestFlight IPA
-flutter build ipa --release --build-name=1.0.5 --build-number=35 \
+flutter build ipa --release --build-name=1.0.5 --build-number=36 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS **1.0.5(35)** 심사 대기. Play Alpha **35** AAB는 로컬 백업만. 스토어에 `1.0.5`가 나온 뒤에만 어드민 **앱 버전** 최신을 `1.0.5+35`로 바꾼다.
+iOS **1.0.5(36)** 제출. Play Alpha **36** AAB는 로컬 백업만. 스토어에 `1.0.5`가 나온 뒤에만 어드민 **앱 버전** 최신을 `1.0.5+36`로 바꾼다.
 
 ### 체크리스트
 
@@ -422,7 +422,8 @@ iOS **1.0.5(35)** 심사 대기. Play Alpha **35** AAB는 로컬 백업만. 스�
 29. ~~`1.0.4+32` 결제 전 수치 · 수치 이전~~ → **`1.0.4+33`에 흡수**
 30. ~~`1.0.4+33` 공지 상세 라우트~~ → **`1.0.4` 판매 중**
 31. ~~`1.0.5+34` 앱 리뷰 · 홈 순서~~ → **`1.0.5+35`에 흡수** (목업 폴백 제거 · DB만)
-32. ~~`1.0.5+35` 리뷰 DB 전용~~ — 웹 라이브. iOS 35 **심사 대기**. 홈·목록은 `/api/reviews`만. 공개 리뷰 없으면 빈 상태
+32. ~~`1.0.5+35` 리뷰 DB 전용~~ → **`1.0.5+36`에 흡수**
+33. **`1.0.5+36` 수선 종류 필터** — 전체 리뷰 의류 대분류·포토 필터. 홈·목록 총점·개수 제거. iOS 36 제출
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 24. 프로덕션 액세스 신청 **검토 중** (2026-08-28 16:07). 승인 후 프로덕션에 28/29/30 출시 시작. `/download` Play URL은 프로덕션 나온 뒤에
 25. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
@@ -520,7 +521,8 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-30 | 리뷰 DB | 홈 리뷰 목업 제거. 운영 `reviews` 텍스트 4건 적재 후 API로만 표시. 웹 라이브. 앱 `1.0.5+35` iOS 심사 대기 |
+| 2026-08-30 | 리뷰 필터 | 전체 리뷰 수선 종류(의류 대분류) 필터. 홈·목록에서 총점·공개 개수 제거. 포토 필터는 데이터 생기면 노출. 앱 `1.0.5+36` |
+| 2026-08-30 | 리뷰 DB | 홈 리뷰 목업 제거. 운영 `reviews` 텍스트 4건 적재 후 API로만 표시. 웹 라이브. 앱 `1.0.5+35` |
 | 2026-08-30 | 앱 리뷰 · 홈 | 앱에 고객 리뷰 이식. 홈은 웹과 같이 가격표/가이드 → 주문(없으면 「아직 주문 내역이 없어요」) → 리뷰. 배너 200. 앱 가입 복구(간편가입 위). 리뷰 API Bearer. 스토어 `1.0.5+35` |
 | 2026-08-30 | 고객 리뷰 | 웹 작성·홈 미리보기·전체/내 리뷰. 어드민 검수·홈 노출 순서·삭제. 로그인 화면 초대 코드 입력 제거(가입에만). 앱은 `1.0.5+35` |
 | 2026-08-29 | 전체공지 게시 | 어드민 발송이 Edge Function 직접 호출이라 공지가 `draft`에 남고 앱·웹에 안 보임. `/api/admin/announcements/send`로 게시(`sent`)와 푸시를 분리. `send-announcement-push` 운영 배포. 클릭 시 없던 `/announcements/:id` 상세 추가. 웹 공지는 읽어도 목록 유지. **앱 상세 클릭은 `1.0.4+33`** |

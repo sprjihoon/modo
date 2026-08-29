@@ -5,7 +5,6 @@ import '../../../../core/widgets/modo_app_bar.dart';
 import '../../data/review_service.dart';
 import '../../domain/review_models.dart';
 import '../widgets/review_card.dart';
-import '../widgets/star_rating.dart';
 
 class ReviewsListPage extends StatefulWidget {
   const ReviewsListPage({super.key});
@@ -18,10 +17,10 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
   final _service = ReviewService();
   List<PublicReview> _reviews = const [];
   List<MyReview> _mine = const [];
-  double _average = 0;
-  int _count = 0;
   String _sort = 'rating';
   bool _photoOnly = false;
+  String _clothing = '';
+  List<String> _categories = const [];
   bool _loading = true;
 
   @override
@@ -36,6 +35,7 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
       final result = await _service.fetchReviews(
         sort: _sort,
         photoOnly: _photoOnly,
+        clothing: _clothing,
         limit: 50,
       );
       if (!mounted) return;
@@ -43,8 +43,7 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
       setState(() {
         _mine = result.mine;
         _reviews = result.reviews.where((r) => !mineIds.contains(r.id)).toList();
-        _average = result.average;
-        _count = result.count;
+        _categories = result.categories;
         _loading = false;
       });
     } catch (_) {
@@ -52,8 +51,6 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
       setState(() {
         _reviews = const [];
         _mine = const [];
-        _average = 0;
-        _count = 0;
         _loading = false;
       });
     }
@@ -70,50 +67,6 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 40),
           children: [
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFF3F4F6)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('모두의수선 리뷰', style: TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
-                  const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        _average.toStringAsFixed(1),
-                        style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF111827),
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 4, left: 6),
-                        child: Text('/ 5', style: TextStyle(fontSize: 14, color: Color(0xFF9CA3AF))),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      StarRating(value: _average.round(), size: StarRatingSize.md),
-                      const SizedBox(width: 8),
-                      Text(
-                        '공개 리뷰 $_count개',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
             if (_mine.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
@@ -182,6 +135,45 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
                 ],
               ),
             ),
+            if (_categories.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text(
+                  '수선 종류',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF9CA3AF)),
+                ),
+              ),
+              SizedBox(
+                height: 34,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    _Chip(
+                      label: '전체',
+                      selected: _clothing.isEmpty,
+                      onTap: () {
+                        setState(() => _clothing = '');
+                        _load();
+                      },
+                    ),
+                    ..._categories.map(
+                      (name) => Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: _Chip(
+                          label: name,
+                          selected: _clothing == name,
+                          onTap: () {
+                            setState(() => _clothing = name);
+                            _load();
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             if (_loading)
               ...List.generate(
@@ -199,7 +191,13 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 64),
                 child: Text(
-                  _photoOnly ? '포토리뷰가 없습니다.' : '아직 공개된 리뷰가 없습니다.',
+                  _clothing.isNotEmpty && _photoOnly
+                      ? '해당 수선 종류의 포토리뷰가 없습니다.'
+                      : _clothing.isNotEmpty
+                          ? '해당 수선 종류의 리뷰가 없습니다.'
+                          : _photoOnly
+                              ? '포토리뷰가 없습니다.'
+                              : '아직 공개된 리뷰가 없습니다.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
                 ),
