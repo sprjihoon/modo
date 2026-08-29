@@ -198,6 +198,8 @@ npm run start
 2. **환경변수** — 각 프로젝트 Settings → Environment Variables
 3. **푸시** — `main` → Production · PR → Preview
 
+운영 리포트 아침 메일: 어드민 `modo` 크론. **주말 포함 매일** UTC 0시(`0 0 * * *` = KST 09:00) + 매시 보정(`0 * * * *`). 설정 시각 이후 그날 자정까지 미발송이면 보냄. 수신은 `OPS_REPORT_EMAIL`.
+
 #### 수동 배포
 
 ```bash
