@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getRequestAuthUser } from "@/lib/auth-user";
 import {
   isWholeStarRating,
   reviewImageStoragePaths,
@@ -13,11 +13,8 @@ export const dynamic = "force-dynamic";
 const OWNER_COLS =
   "id, order_id, user_id, rating, content, photo_urls, display_name, repair_summary, points_type, reviewed_at, status, points_awarded";
 
-async function requireOwner(reviewId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function requireOwner(reviewId: string, request?: NextRequest) {
+  const user = await getRequestAuthUser(request);
   if (!user) {
     return { error: NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 }) };
   }
@@ -46,12 +43,12 @@ async function requireOwner(reviewId: string) {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const owner = await requireOwner(id);
+    const owner = await requireOwner(id, request);
     if (owner.error) return owner.error;
 
     const { data: order } = await owner.admin
@@ -88,7 +85,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const owner = await requireOwner(id);
+    const owner = await requireOwner(id, request);
     if (owner.error) return owner.error;
 
     const body = await request.json().catch(() => ({}));
@@ -140,12 +137,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const owner = await requireOwner(id);
+    const owner = await requireOwner(id, request);
     if (owner.error) return owner.error;
 
     const paths = reviewImageStoragePaths(owner.review.photo_urls ?? []);

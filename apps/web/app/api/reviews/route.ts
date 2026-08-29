@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getRequestAuthUser } from "@/lib/auth-user";
 import {
   buildRepairSummary,
   isWholeStarRating,
@@ -20,11 +20,11 @@ const PUBLIC_COLS =
 const MINE_COLS =
   "id, order_id, rating, content, photo_urls, display_name, repair_summary, points_type, reviewed_at, status, points_awarded";
 
-async function loadMineReviews(admin: ReturnType<typeof createServiceClient>): Promise<MyReview[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function loadMineReviews(
+  admin: ReturnType<typeof createServiceClient>,
+  request: NextRequest
+): Promise<MyReview[]> {
+  const user = await getRequestAuthUser(request);
   if (!user) return [];
 
   const { data: userRow } = await admin
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const mine = home ? [] : await loadMineReviews(admin);
+    const mine = home ? [] : await loadMineReviews(admin, request);
 
     return NextResponse.json({
       reviews: (data ?? []).map(toPublicReview),
@@ -124,10 +124,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getRequestAuthUser(request);
     if (!user) {
       return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
     }

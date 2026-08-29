@@ -18,6 +18,7 @@ void main() {
       expect(isPublicPath('/profile/settings'), isTrue);
       expect(isPublicPath('/terms'), isTrue);
       expect(isPublicPath('/privacy-policy'), isTrue);
+      expect(isPublicPath('/reviews'), isTrue);
     });
 
     test('계정 기능은 public이 아님', () {
@@ -25,6 +26,7 @@ void main() {
       expect(isPublicPath('/cart'), isFalse);
       expect(isPublicPath('/orders'), isFalse);
       expect(isPublicPath('/orders/abc'), isFalse);
+      expect(isPublicPath('/orders/abc/review'), isFalse);
       expect(isPublicPath('/pickup-request'), isFalse);
       expect(isPublicPath('/payment'), isFalse);
       expect(isPublicPath('/notifications'), isFalse);
@@ -32,6 +34,8 @@ void main() {
       expect(isPublicPath('/profile/account'), isFalse);
       expect(isPublicPath('/profile/addresses'), isFalse);
       expect(isPublicPath('/profile/payment-history'), isFalse);
+      expect(isPublicPath('/profile/reviews'), isFalse);
+      expect(isPublicPath('/profile/reviews/abc/edit'), isFalse);
     });
   });
 

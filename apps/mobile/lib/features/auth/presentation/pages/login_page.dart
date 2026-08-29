@@ -9,6 +9,7 @@ import '../../../../core/auth/guest_access.dart';
 import '../../../../core/widgets/company_footer.dart';
 import '../../../../services/invite_service.dart';
 import '../../../profile/domain/invite_share.dart';
+import '../../../profile/domain/invite_stash.dart';
 import '../../data/providers/auth_provider.dart';
 
 /// 로그인 화면
@@ -54,6 +55,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
       if (Supabase.instance.client.auth.currentSession == null && mounted) {
         setState(() => _isSocialLoginInProgress = false);
       }
+      if (mounted) {
+        stashInviteCode(_inviteFromRoute());
+      }
     });
 
     // 소셜 로그인 완료 감지
@@ -62,10 +66,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
       if (!mounted) return;
 
       if (data.event == AuthChangeEvent.signedIn) {
-        setState(() {
-          _isSocialLoginInProgress = true;
-          _pendingSocialProvider = null;
-        });
+        _finishSocialLogin();
       } else if (data.event == AuthChangeEvent.signedOut) {
         setState(() {
           _isSocialLoginInProgress = false;
@@ -81,7 +82,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
     if (state != AppLifecycleState.resumed || !mounted) return;
 
     // 브라우저 OAuth 취소 복귀 시 세션 없으면 로딩 해제.
-    // 네이버는 네이티브. Apple은 네이티브 성공 시 이미 이동하고, Safari 폴백은 여기서 해제.
+    // 세션이 있으면 로딩만 멈추지 말고 홈/추가정보로 보낸다.
     final provider = _pendingSocialProvider;
     final isNative = provider == 'naver';
     if (_isSocialLoginInProgress &&
@@ -89,14 +90,35 @@ class _LoginPageState extends ConsumerState<LoginPage>
         !isNative) {
       Future.delayed(const Duration(milliseconds: 800), () {
         if (!mounted) return;
-        if (_isSocialLoginInProgress &&
-            Supabase.instance.client.auth.currentSession == null) {
-          setState(() {
-            _isSocialLoginInProgress = false;
-            _pendingSocialProvider = null;
-          });
+        if (!_isSocialLoginInProgress) return;
+        if (Supabase.instance.client.auth.currentSession != null) {
+          _finishSocialLogin();
+          return;
         }
+        setState(() {
+          _isSocialLoginInProgress = false;
+          _pendingSocialProvider = null;
+        });
       });
+    }
+  }
+
+  bool _finishingSocialLogin = false;
+
+  Future<void> _finishSocialLogin() async {
+    if (!mounted || _finishingSocialLogin) return;
+    if (Supabase.instance.client.auth.currentSession == null) return;
+    _finishingSocialLogin = true;
+    try {
+      final route = await _routeAfterAuth();
+      if (!mounted) return;
+      setState(() {
+        _isSocialLoginInProgress = false;
+        _pendingSocialProvider = null;
+      });
+      context.go(route);
+    } finally {
+      _finishingSocialLogin = false;
     }
   }
 
@@ -243,6 +265,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
     });
 
     try {
+      await stashInviteCode(_inviteFromRoute());
       final authService = ref.read(authServiceProvider);
       bool success = false;
 
@@ -261,16 +284,11 @@ class _LoginPageState extends ConsumerState<LoginPage>
           break;
       }
 
-      // 세션이 있으면 네이티브 완료. 없으면 브라우저 OAuth 대기.
+      // 세션이 있으면 완료. 없으면 브라우저 OAuth 대기.
       if (success &&
           Supabase.instance.client.auth.currentSession != null &&
           mounted) {
-        setState(() {
-          _isSocialLoginInProgress = false;
-          _pendingSocialProvider = null;
-        });
-        final route = await _routeAfterAuth();
-        if (mounted) context.go(route);
+        await _finishSocialLogin();
       }
 
       if (!success && mounted) {
@@ -684,7 +702,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                   );
                                 },
                                 child: const Text(
-                                  '웹에서 가입',
+                                  '회원가입',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,

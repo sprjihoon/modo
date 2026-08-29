@@ -251,39 +251,11 @@ class AuthService {
   }
 
   /// 소셜 로그인 (Google)
-  /// Supabase OAuth를 통한 구글 로그인
   Future<bool> signInWithGoogle() async {
-    try {
-      print('🔐 구글 로그인 시작');
-
-      // Supabase OAuth를 통한 구글 로그인
-      final response = await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'modorepair://login-callback',
-        authScreenLaunchMode: LaunchMode.inAppBrowserView,
-      );
-
-      if (!response) {
-        print('⚠️ 구글 로그인 시작 실패');
-        return false;
-      }
-
-      print('✅ 구글 OAuth 시작됨 - 브라우저로 이동');
-
-      // 📊 로그인 액션 로그 기록
-      await _logService.log(
-        actionType: ActionType.LOGIN,
-        metadata: {
-          'provider': 'google',
-          'loginTime': DateTime.now().toIso8601String(),
-        },
-      );
-
-      return true;
-    } catch (e) {
-      print('❌ 구글 로그인 실패: $e');
-      throw Exception('구글 로그인 실패: $e');
-    }
+    return _signInWithOAuthWebSession(
+      provider: OAuthProvider.google,
+      label: 'Google',
+    );
   }
 
   /// 소셜 로그인 (Naver)
@@ -431,39 +403,61 @@ class AuthService {
   }
 
   /// 소셜 로그인 (Kakao)
-  /// Supabase OAuth를 통한 카카오 로그인
   Future<bool> signInWithKakao() async {
-    try {
-      print('🔐 카카오 로그인 시작');
+    return _signInWithOAuthWebSession(
+      provider: OAuthProvider.kakao,
+      label: '카카오',
+    );
+  }
 
-      // Supabase OAuth를 통한 카카오 로그인
-      // 비즈 앱 전환 완료 - account_email 포함 모든 동의항목 요청 가능
-      final response = await _supabase.auth.signInWithOAuth(
-        OAuthProvider.kakao,
-        redirectTo: 'modorepair://login-callback',
-        authScreenLaunchMode: LaunchMode.inAppBrowserView,
+  /// Kakao/Google: 인증 시트가 콜백을 받을 때까지 기다린 뒤 세션을 만든다.
+  /// `signInWithOAuth`는 브라우저만 열고 바로 true를 줘서 로딩이 멈추지 않았다.
+  Future<bool> _signInWithOAuthWebSession({
+    required OAuthProvider provider,
+    required String label,
+  }) async {
+    try {
+      print('🔐 $label 로그인 시작');
+      const redirect = 'modorepair://login-callback';
+      final oauth = await _supabase.auth.getOAuthSignInUrl(
+        provider: provider,
+        redirectTo: redirect,
       );
 
-      if (!response) {
-        print('⚠️ 카카오 로그인 시작 실패');
+      final result = await FlutterWebAuth2.authenticate(
+        url: oauth.url,
+        callbackUrlScheme: 'modorepair',
+      );
+
+      await _supabase.auth.getSessionFromUrl(Uri.parse(result));
+
+      if (currentSession == null) {
+        print('⚠️ $label 웹 세션 없음');
         return false;
       }
 
-      print('✅ 카카오 OAuth 시작됨 - 브라우저로 이동');
-
-      // 📊 로그인 액션 로그 기록
       await _logService.log(
         actionType: ActionType.LOGIN,
         metadata: {
-          'provider': 'kakao',
+          'provider': provider.name,
+          'method': 'web_session',
           'loginTime': DateTime.now().toIso8601String(),
         },
       );
 
+      print('✅ $label 로그인 성공: ${currentUser?.email ?? currentUser?.id}');
       return true;
+    } on PlatformException catch (e) {
+      final code = e.code.toLowerCase();
+      if (code.contains('cancel') || code.contains('canceled')) {
+        print('ℹ️ $label 로그인 취소');
+        return false;
+      }
+      print('❌ $label 웹 세션 실패: $e');
+      throw Exception('$label 로그인을 완료하지 못했습니다');
     } catch (e) {
-      print('❌ 카카오 로그인 실패: $e');
-      throw Exception('카카오 로그인 실패: $e');
+      print('❌ $label 로그인 실패: $e');
+      throw Exception('$label 로그인 실패: $e');
     }
   }
 

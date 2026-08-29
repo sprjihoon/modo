@@ -20,6 +20,8 @@ import '../../providers/extra_charge_provider.dart';
 import '../../domain/models/extra_charge_data.dart';
 import '../../domain/repair_item_payload.dart';
 import '../../../profile/presentation/widgets/daum_postcode_widget.dart';
+import '../../../reviews/data/review_service.dart';
+import '../../../reviews/domain/review_models.dart';
 
 /// 주문 상세 화면
 class OrderDetailPage extends ConsumerStatefulWidget {
@@ -77,6 +79,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   // 주기적 새로고침을 위한 타이머
   // 네트워크 에러 메시지 (UI에 배너로 표시)
   String? _networkErrorMessage;
+
+  bool _reviewLoaded = false;
+  MyReview? _myReview;
 
   @override
   void initState() {
@@ -227,6 +232,15 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       
       debugPrint('🔘 취소 가능 여부: $_isPickupCancellable (treatStusCd: $_pickupTreatStusCd)');
 
+      if (newStatus == 'DELIVERED') {
+        _loadReviewInfo();
+      } else if (mounted) {
+        setState(() {
+          _reviewLoaded = true;
+          _myReview = null;
+        });
+      }
+
       // 상태 변경 알림 (배송완료 등) — 실시간/폴링으로 바뀐 경우만
       if (statusChanged && mounted) {
         if (newStatus == 'DELIVERED') {
@@ -354,6 +368,65 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     }
   }
 
+  Future<void> _loadReviewInfo() async {
+    try {
+      final info = await ReviewService().fetchOrderReview(widget.orderId);
+      if (!mounted) return;
+      setState(() {
+        _myReview = info.review;
+        _reviewLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _reviewLoaded = true);
+    }
+  }
+
+  Widget _buildReviewCta(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Material(
+        color: const Color(0x0D00C896),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () async {
+            if (_myReview != null) {
+              await context.push('/profile/reviews');
+            } else {
+              await context.push('/orders/${widget.orderId}/review');
+            }
+            if (mounted) _loadReviewInfo();
+          },
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0x3300C896)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.star_rounded, size: 18, color: Color(0xFFFFB800)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _myReview != null ? '내 리뷰 보기 · 수정' : '리뷰 작성하고 포인트 받기',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1F2937),
+                    ),
+                  ),
+                ),
+                const Icon(Icons.chevron_right, size: 18, color: Color(0xFF00C896)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -409,6 +482,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
           children: [
             // 상태 배너
             _buildStatusBanner(context),
+            if (_currentStatus == 'DELIVERED' && _reviewLoaded)
+              _buildReviewCta(context),
             _buildCsBanner(context),
 
             // 🆕 추가 결제 요청 카드 (PENDING_CUSTOMER 상태일 때만 표시)

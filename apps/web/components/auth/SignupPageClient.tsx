@@ -164,6 +164,25 @@ export function SignupPageClient() {
 
   return (
     <div className="px-5 py-6">
+      <p className="text-sm font-bold text-gray-900 text-center mb-1">간편가입하기</p>
+      <p className="text-xs text-gray-400 text-center mb-4">
+        {form.inviteCode
+          ? `초대 코드 ${form.inviteCode}가 간편가입에도 적용됩니다`
+          : "카카오·네이버 등으로 바로 가입할 수 있습니다"}
+      </p>
+
+      <SocialAuthButtons
+        inviteCode={form.inviteCode}
+        actionVerb="가입"
+        redirectTo={SIGNUP_COMPLETE_PATH}
+      />
+
+      <div className="flex items-center gap-3 my-6">
+        <div className="flex-1 h-px bg-gray-100" />
+        <span className="text-xs text-gray-300">또는 이메일로 가입</span>
+        <div className="flex-1 h-px bg-gray-100" />
+      </div>
+
       <form onSubmit={handleSignup} className="space-y-3">
         <div className="relative">
           <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -303,24 +322,6 @@ export function SignupPageClient() {
           {isLoading ? "처리 중..." : "회원가입"}
         </button>
       </form>
-
-      <div className="flex items-center gap-3 my-6">
-        <div className="flex-1 h-px bg-gray-100" />
-        <span className="text-xs text-gray-300">또는</span>
-        <div className="flex-1 h-px bg-gray-100" />
-      </div>
-
-      <p className="text-xs text-gray-400 text-center mb-3">
-        {form.inviteCode
-          ? `초대 코드 ${form.inviteCode}가 간편가입에도 적용됩니다`
-          : "카카오·네이버 등으로 간편가입할 수 있습니다"}
-      </p>
-
-      <SocialAuthButtons
-        inviteCode={form.inviteCode}
-        actionVerb="가입"
-        redirectTo={SIGNUP_COMPLETE_PATH}
-      />
 
       <p className="text-center text-xs text-gray-400 mt-4">
         이미 회원이신가요?{" "}

@@ -18,6 +18,7 @@ import '../widgets/launch_announcement_popup.dart';
 import '../../../orders/presentation/widgets/order_limit_dialog.dart';
 import '../../../app_update/app_update_dialog.dart';
 import '../../../notifications/presentation/widgets/notification_permission_prompt.dart';
+import '../../../reviews/presentation/widgets/home_reviews_preview.dart';
 
 /// 배너 인덱스 관리를 위한 ValueNotifier
 final bannerIndexProvider =
@@ -318,9 +319,11 @@ class _HomePageState extends ConsumerState<HomePage>
             _buildActionButtons(context),
             const SizedBox(height: 24),
 
-            // 내 주문 섹션
+            // 내 주문 섹션 (웹과 동일: 가이드 바로 아래)
             _buildMyOrdersSection(context),
-            const SizedBox(height: 24),
+
+            // 고객 리뷰 (주문 아래)
+            const HomeReviewsPreview(),
           ],
         ),
       ),
@@ -761,7 +764,7 @@ class _HomePageState extends ConsumerState<HomePage>
             // 배너 데이터 로드 중
             if (bannerSnapshot.connectionState == ConnectionState.waiting) {
               return const SizedBox(
-                height: 320,
+                height: 200,
                 child: Center(child: CircularProgressIndicator()),
               );
             }
@@ -810,7 +813,7 @@ class _HomePageState extends ConsumerState<HomePage>
             return Column(
               children: [
                 SizedBox(
-                  height: 320,
+                  height: 200,
                   child: PageView.builder(
                     controller: _bannerController,
                     physics: const PageScrollPhysics(), // 페이지 스크롤 활성화
@@ -836,7 +839,7 @@ class _HomePageState extends ConsumerState<HomePage>
                           banner['background_image_url'] as String?;
 
                       return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 20),
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
                           color: backgroundColor,
                           image: backgroundImageUrl != null
@@ -851,11 +854,11 @@ class _HomePageState extends ConsumerState<HomePage>
                           children: [
                             // 배경 패턴
                             Positioned(
-                              right: -30,
-                              top: -30,
+                              right: -32,
+                              top: -32,
                               child: Container(
-                                width: 150,
-                                height: 150,
+                                width: 144,
+                                height: 144,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: Colors.white.withOpacity(0.1),
@@ -866,8 +869,8 @@ class _HomePageState extends ConsumerState<HomePage>
                               right: 40,
                               bottom: -40,
                               child: Container(
-                                width: 120,
-                                height: 120,
+                                width: 112,
+                                height: 112,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: Colors.white.withOpacity(0.1),
@@ -876,14 +879,14 @@ class _HomePageState extends ConsumerState<HomePage>
                             ),
                             // 컨텐츠
                             Padding(
-                              padding: const EdgeInsets.all(28),
+                              padding: const EdgeInsets.all(24),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
-                                      vertical: 6,
+                                      vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Colors.white.withOpacity(0.2),
@@ -902,13 +905,13 @@ class _HomePageState extends ConsumerState<HomePage>
                                   Text(
                                     banner['title'] as String? ?? '',
                                     style: const TextStyle(
-                                      fontSize: 26,
+                                      fontSize: 24,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
-                                      height: 1.3,
+                                      height: 1.2,
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  const SizedBox(height: 16),
                                   ElevatedButton(
                                     onPressed: _isCheckingOrderLimit
                                         ? null
@@ -917,9 +920,12 @@ class _HomePageState extends ConsumerState<HomePage>
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF00C896),
                                       foregroundColor: Colors.white,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 28,
-                                        vertical: 14,
+                                        horizontal: 24,
+                                        vertical: 12,
                                       ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(25),
@@ -944,7 +950,7 @@ class _HomePageState extends ConsumerState<HomePage>
                     },
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 // 인디케이터
                 Consumer(
                   builder: (context, ref, child) {
@@ -1049,7 +1055,7 @@ class _HomePageState extends ConsumerState<HomePage>
     );
   }
 
-  /// 내 주문 섹션 (주문이 없으면 섹션 전체 숨김)
+  /// 내 주문 섹션 (주문이 없으면 웹과 같은 빈 상태 문구)
   Widget _buildMyOrdersSection(BuildContext context) {
     // 네트워크 재연결 이벤트 감지
     ref.listen<int>(networkReconnectProvider, (previous, next) {
@@ -1058,6 +1064,12 @@ class _HomePageState extends ConsumerState<HomePage>
         _refreshData();
       }
     });
+
+    final isLoggedIn = ref.watch(isLoggedInProvider);
+
+    if (!isLoggedIn) {
+      return _buildOrdersEmptyState(isLoggedIn: false);
+    }
 
     // 에러 상태면 에러 섹션 표시
     if (_orderError != null && !_isRetrying) {
@@ -1076,21 +1088,62 @@ class _HomePageState extends ConsumerState<HomePage>
           if (_orderError != null) {
             return _buildErrorSection(context);
           }
-          // 빈 목록
           if ((snapshot.data ?? []).isEmpty) {
-            return const SizedBox.shrink();
+            return _buildOrdersEmptyState(isLoggedIn: true);
           }
           return _buildOrdersContent(snapshot.data!);
         },
       );
     }
 
-    // 캐시된 데이터 사용
     if (_cachedOrders == null || _cachedOrders!.isEmpty) {
-      return const SizedBox.shrink();
+      return _buildOrdersEmptyState(isLoggedIn: true);
     }
 
     return _buildOrdersContent(_cachedOrders!);
+  }
+
+  /// 웹 홈과 동일한 주문 빈 상태
+  Widget _buildOrdersEmptyState({required bool isLoggedIn}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Text(
+              isLoggedIn ? '아직 주문 내역이 없어요' : '로그인하고 수선을 시작해 보세요',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+            ),
+            if (!isLoggedIn) ...[
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => context.push('/login'),
+                child: const Text(
+                  '로그인하기',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF00C896),
+                    decoration: TextDecoration.underline,
+                    decorationColor: Color(0xFF00C896),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   /// 주문 목록 컨텐츠 빌드

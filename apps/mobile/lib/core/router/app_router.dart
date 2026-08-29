@@ -47,6 +47,9 @@ import '../../features/profile/presentation/pages/app_settings_page.dart';
 import '../../features/video/presentation/pages/comparison_video_player_page.dart';
 import '../../features/notifications/presentation/pages/notifications_page.dart';
 import '../../features/home/presentation/pages/price_guide_page.dart';
+import '../../features/reviews/presentation/pages/reviews_list_page.dart';
+import '../../features/reviews/presentation/pages/review_write_page.dart';
+import '../../features/reviews/presentation/pages/my_reviews_page.dart';
 
 /// GoRouter 프로바이더
 /// 참고: OAuth 딥링크(modorepair://)는 GoRouter가 파싱하다 에러가 발생하지만,
@@ -164,6 +167,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'price-guide',
         builder: (context, state) => const PriceGuidePage(),
       ),
+
+      GoRoute(
+        path: '/reviews',
+        name: 'reviews',
+        builder: (context, state) => const ReviewsListPage(),
+      ),
       
       // Orders
       GoRoute(
@@ -179,6 +188,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               return OrderDetailPage(orderId: orderId);
             },
             routes: [
+              GoRoute(
+                path: 'review',
+                name: 'order-review',
+                builder: (context, state) {
+                  final orderId = state.pathParameters['orderId']!;
+                  return ReviewWritePage(orderId: orderId);
+                },
+              ),
               GoRoute(
                 path: 'tracking/:trackingNo',
                 name: 'tracking',
@@ -502,6 +519,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'points-history',
             name: 'profile-points-history',
             builder: (context, state) => const PointsHistoryPage(),
+          ),
+          GoRoute(
+            path: 'reviews',
+            name: 'profile-reviews',
+            builder: (context, state) => const MyReviewsPage(),
+            routes: [
+              GoRoute(
+                path: ':reviewId/edit',
+                name: 'profile-review-edit',
+                builder: (context, state) {
+                  return ReviewWritePage(reviewId: state.pathParameters['reviewId']);
+                },
+              ),
+            ],
           ),
           // 친구초대
           GoRoute(

@@ -181,7 +181,8 @@ class _ModoRepairAppState extends ConsumerState<ModoRepairApp>
         if (currentPath == '/login' ||
             currentPath == '/signup' ||
             currentPath == '/' ||
-            currentPath == '/splash') {
+            currentPath == '/splash' ||
+            currentPath.contains('login-callback')) {
           final dest = resolvePostAuthRoute(
             profileCompleted: targetRoute != '/complete-profile',
             from: currentUri.queryParameters['from'],

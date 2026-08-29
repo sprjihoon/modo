@@ -260,18 +260,20 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ## 고객 리뷰
 
-배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **1차 웹 + 어드민**. 앱 이식은 이후.
+배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹 + 어드민 + 앱** (`1.0.4+34`).
 
 | 항목 | 내용 |
 |---|---|
-| 작성 | `/orders/[id]/review`. 별점 정수 1~5(기본 5), 글 + 사진(최대 5장). 주문당 1개 |
+| 작성 | 웹 `/orders/[id]/review` · 앱 `/orders/:orderId/review`. 별점 정수 1~5(기본 5), 글 + 사진(최대 5장). 주문당 1개 |
 | 공개 | 작성 직후 `pending`. 작성자는 즉시 조회. 타인에게는 어드민 승인 후만 공개 |
 | 이름 | 실명 마스킹 `장**`. 닉네임 없음 |
 | 포인트 | 글 200P / 포토 500P (어드민 변경). 제출 시 지급. 숨김·삭제해도 회수 없음. 같은 주문 재작성 시 재지급 없음 |
-| 홈 | 관리자가 고른 리뷰·순서(`is_featured`, `display_order`). 사진 2 + 글 2, 사진 없으면 글 4. 미지정 시 공개 리뷰 자동 |
+| 홈 | 웹·앱 모두 **가격표/쉬운가이드 → 내 주문 → 고객 리뷰**. 주문 없으면 「아직 주문 내역이 없어요」(비로그인: 「로그인하고 수선을 시작해 보세요」). 리뷰는 관리자가 고른 순서(`is_featured`, `display_order`). 사진 2 + 글 2, 사진 없으면 글 4 |
+| 배너 | 웹·앱 홈 배너 높이 **200** |
 | 전체 | `/reviews` 별점순·최신순·포토리뷰. 로그인 시 맨 위 **내 리뷰**(검수 중·비공개·홈 미노출 포함) |
 | 내 리뷰 | `/profile/reviews`에서 수정·삭제. 수정 시 다시 검수 대기 |
 | 어드민 | `/dashboard/reviews` 승인·숨김·삭제·홈 노출 순서. 적립은 `/dashboard/points?tab=reviews` |
+| 앱 API | 쿠키 또는 `Authorization: Bearer` (`apps/web/lib/auth-user.ts`). 앱은 `https://modo.io.kr/api/...` |
 
 SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_home_featured.sql` (운영 DB 반영). 버킷 `review-images`.
 
@@ -297,21 +299,21 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금 맥북:** `git pull` 후 아래 「맥북에서 `1.0.4+33`」만 실행하면 된다. 자세한 명령은 `apps/mobile/README.md`에도 같다.
+**지금 맥북:** `git pull` 후 아래 「맥북에서 `1.0.4+34`」만 실행하면 된다. 자세한 명령은 `apps/mobile/README.md`에도 같다.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.4+33`** (iOS·Play 동일). `+32`는 심사 취소 후 33으로 교체 |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.4+34`** (iOS·Play 동일). `+33`은 심사 취소 후 34로 교체 |
 | App Store Connect App ID | `6759492888` |
 | iOS 스토어 | **판매 중 `1.0.3`** (빌드 29, 2026-08-28) · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | Alpha **`28 (1.0.3)` 테스터 제공** · **`33 (1.0.4)` 검토 중** · 프로덕션 액세스 신청 검토 중 (2026-08-28, 보통 7일) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | Alpha **`28 (1.0.3)` 테스터 제공** · **`34 (1.0.4)` AAB 준비** · 프로덕션 액세스 신청 검토 중 (2026-08-28, 보통 7일) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `1.0.4+33` · 백업 `Documents/modo-android-signing/app-release-1.0.4+33.aab` |
+| Android AAB | `1.0.4+34` · 백업 `Documents/modo-android-signing/app-release-1.0.4+34.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -325,8 +327,8 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **29** (`1.0.3`). **`1.0.4` 빌드 33** 심사 대기 (`WAITING_FOR_REVIEW`) |
-| 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`** (2026-08-25). 앱 「업데이트 확인」은 스토어가 아니라 이 값과 비교. Alpha 28을 안내하려면 Android 최신을 `1.0.3+28`로 바꾼다. 33을 스토어에 올린 뒤에만 `1.0.4+33` |
+| App Store 현재 빌드 | 판매 중 **29** (`1.0.3`). **`1.0.4` 빌드 34** 제출 |
+| 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`** (2026-08-25). 앱 「업데이트 확인」은 스토어가 아니라 이 값과 비교. Alpha 28을 안내하려면 Android 최신을 `1.0.3+28`로 바꾼다. 34를 스토어에 올린 뒤에만 `1.0.4+34` |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
 ### 심사용 테스트 계정
@@ -355,22 +357,24 @@ flutter build apk --release
 # → build/app/outputs/flutter-apk/app-release.apk
 
 # iOS (App Store / TestFlight)
-flutter build ipa --release --build-name=1.0.4 --build-number=<N> \
+flutter build ipa --release --build-name=1.0.4 --build-number=34 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 # 업로드: xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 #   --apiKey 5NS9QNDJUH --apiIssuer <issuerId>
 ```
 
-### 맥북에서 `1.0.4+33` (공지 상세 라우트)
+### 맥북에서 `1.0.4+34` (앱 리뷰 · 홈 순서)
 
-Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 뒤 아래만 실행하면 된다. `pubspec.yaml`은 이미 `1.0.4+33`.
+Windows에서는 IPA/AAB를 만들지 않는다. 맥북에서 `main`을 받은 뒤 아래만 실행하면 된다. `pubspec.yaml`은 이미 `1.0.4+34`.
 
 이 빌드에 포함된 앱 수정:
-- 알림 탭에서 공지를 누르면 `/announcements/:id`로 연다. 예전 빌드는 이 경로가 없어 404였다.
-- `1.0.4+32`의 결제 전 수치·수치 이전, `+31`의 웹 가입·초대는 그대로 포함한다.
+- 고객 리뷰(홈 미리보기 · 전체 · 작성 · 내 리뷰 수정/삭제). 웹 API는 쿠키 또는 Bearer.
+- 홈 순서 웹과 동일: 가격표/쉬운가이드 → 내 주문 → 고객 리뷰. 주문 없으면 「아직 주문 내역이 없어요」.
+- 홈 배너 높이 200(웹과 동일). 앱 내 회원가입 복구(간편가입 위, 이메일 아래).
+- `1.0.4+33`의 공지 상세, `+32`의 결제 전 수치·수치 이전은 그대로 포함한다.
 
-`1.0.3` 빌드 29는 판매 중이다. 심사 중이던 **1.0.4 / 32** 는 취소하고 **33**으로 교체한다.
+`1.0.3` 빌드 29는 판매 중이다. 심사 중이던 **1.0.4 / 33** 는 취소하고 **34**로 교체한다.
 
 ```bash
 git checkout main
@@ -379,17 +383,17 @@ cd apps/mobile
 flutter pub get
 
 # Play AAB
-flutter build appbundle --release --build-name=1.0.4 --build-number=33
+flutter build appbundle --release --build-name=1.0.4 --build-number=34
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.4+33.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.4+34.aab
 
 # App Store / TestFlight IPA
-flutter build ipa --release --build-name=1.0.4 --build-number=33 \
+flutter build ipa --release --build-name=1.0.4 --build-number=34 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS **1.0.4(33)** 심사 대기. Play Alpha **33** 검토 중. 스토어에 반영된 뒤에만 어드민 **앱 버전** 최신을 `1.0.4+33`로 바꾼다.
+iOS **1.0.4(34)** 제출. Play Alpha **34** AAB 준비. 스토어에 반영된 뒤에만 어드민 **앱 버전** 최신을 `1.0.4+34`로 바꾼다.
 
 ### 체크리스트
 
@@ -417,7 +421,8 @@ iOS **1.0.4(33)** 심사 대기. Play Alpha **33** 검토 중. 스토어에 반�
 22. ~~`1.0.3+30` 가격안내 순서~~ → **`1.0.4+31`에 흡수** (장바구니 담기 + 3단계 담기 제거 + 포인트 intent 숨김)
 28. ~~`1.0.4+31` 웹 가입·초대~~ → **`1.0.4+32`에 흡수**
 29. ~~`1.0.4+32` 결제 전 수치 · 수치 이전~~ → **`1.0.4+33`에 흡수**
-30. **`1.0.4+33` 공지 상세 라우트** (알림 탭 → `/announcements/:id`)
+30. ~~`1.0.4+33` 공지 상세 라우트~~ → **`1.0.4+34`에 흡수**
+31. **`1.0.4+34` 앱 리뷰 · 홈 순서** (가격표/가이드 → 주문 → 리뷰 · 배너 200 · 앱 가입 복구)
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 24. 프로덕션 액세스 신청 **검토 중** (2026-08-28 16:07). 승인 후 프로덕션에 28/29/30 출시 시작. `/download` Play URL은 프로덕션 나온 뒤에
 25. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
@@ -515,7 +520,8 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-30 | 고객 리뷰 | 웹 작성·홈 미리보기·전체/내 리뷰. 어드민 검수·홈 노출 순서·삭제. 로그인 화면 초대 코드 입력 제거(가입에만). 앱 이식은 이후 |
+| 2026-08-30 | 앱 리뷰 · 홈 | 앱에 고객 리뷰 이식. 홈은 웹과 같이 가격표/가이드 → 주문(없으면 「아직 주문 내역이 없어요」) → 리뷰. 배너 200. 앱 가입 복구(간편가입 위). 리뷰 API Bearer. 스토어 `1.0.4+34` |
+| 2026-08-30 | 고객 리뷰 | 웹 작성·홈 미리보기·전체/내 리뷰. 어드민 검수·홈 노출 순서·삭제. 로그인 화면 초대 코드 입력 제거(가입에만). 앱은 `1.0.4+34` |
 | 2026-08-29 | 전체공지 게시 | 어드민 발송이 Edge Function 직접 호출이라 공지가 `draft`에 남고 앱·웹에 안 보임. `/api/admin/announcements/send`로 게시(`sent`)와 푸시를 분리. `send-announcement-push` 운영 배포. 클릭 시 없던 `/announcements/:id` 상세 추가. 웹 공지는 읽어도 목록 유지. **앱 상세 클릭은 `1.0.4+33`** |
 | 2026-08-28 | 결제 전 수치 · 이전 | 결제/수거 화면에 입력 수치 표시. 수치 「이전」은 건너뛴 수선항목 그리드 대신 사진·핀으로. 스토어 `1.0.4+32` |
 | 2026-08-28 | 카톡 OG 이미지 | `og.png`(725KB)는 제목만 나오고 그림이 비었다. `og.jpg`(62KB, 2:1)로 교체. 라이브 `https://modo.io.kr/og.jpg`. 이미 보낸 카톡은 캐시라 새 메시지로 확인 |

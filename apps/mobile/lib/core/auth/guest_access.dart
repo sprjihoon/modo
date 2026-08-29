@@ -10,6 +10,7 @@ const publicExactPaths = {
   '/privacy-policy',
   '/permission-onboarding',
   '/home',
+  '/reviews',
   '/price-guide',
   '/easy-guide',
   '/content-view',

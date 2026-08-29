@@ -67,6 +67,12 @@ class ProfilePage extends ConsumerWidget {
                     title: '포인트 내역',
                     onTap: () => context.push('/profile/points-history'),
                   ),
+                  _MenuItem(
+                    icon: Icons.rate_review_outlined,
+                    title: '내 리뷰',
+                    subtitle: '작성한 리뷰 수정·삭제',
+                    onTap: () => context.push('/profile/reviews'),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
