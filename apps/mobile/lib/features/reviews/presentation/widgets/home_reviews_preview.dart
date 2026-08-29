@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../data/review_samples.dart';
 import '../../data/review_service.dart';
 import '../../domain/review_models.dart';
 import 'star_rating.dart';
@@ -42,29 +41,18 @@ class _HomeReviewsPreviewState extends State<HomeReviewsPreview> {
     try {
       final result = await _service.fetchReviews(home: true, limit: 20);
       if (!mounted) return;
-      if (result.reviews.isNotEmpty) {
-        setState(() {
-          _reviews = result.reviews;
-          _average = result.average;
-          _count = result.count;
-          _ready = true;
-        });
-      } else {
-        final sample = withSampleReviews(const []);
-        setState(() {
-          _reviews = sample.reviews;
-          _average = sample.average;
-          _count = sample.count;
-          _ready = true;
-        });
-      }
+      setState(() {
+        _reviews = result.reviews;
+        _average = result.average;
+        _count = result.count;
+        _ready = true;
+      });
     } catch (_) {
       if (!mounted) return;
-      final sample = withSampleReviews(const []);
       setState(() {
-        _reviews = sample.reviews;
-        _average = sample.average;
-        _count = sample.count;
+        _reviews = const [];
+        _average = 0;
+        _count = 0;
         _ready = true;
       });
     }

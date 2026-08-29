@@ -8,7 +8,6 @@ import {
   PREVIEW_AVERAGE,
   PREVIEW_COUNT,
   PREVIEW_REVIEWS,
-  withSampleReviews,
 } from "@/lib/review-preview";
 import { StarRating } from "./StarRating";
 
@@ -78,25 +77,16 @@ export function HomeReviewsPreview({ preview = false }: { preview?: boolean }) {
       .then((json) => {
         if (cancelled) return;
         const list = json?.reviews ?? [];
-        if (list.length > 0) {
-          setReviews(list);
-          setAverage(typeof json?.average === "number" ? json.average : 0);
-          setCount(typeof json?.count === "number" ? json.count : list.length);
-          return;
-        }
-        const next = withSampleReviews([]);
-        setReviews(next.reviews);
-        setAverage(next.average);
-        setCount(next.count);
+        setReviews(list);
+        setAverage(typeof json?.average === "number" ? json.average : 0);
+        setCount(typeof json?.count === "number" ? json.count : list.length);
+        setReady(true);
       })
       .catch(() => {
-        const next = withSampleReviews([]);
-        setReviews(next.reviews);
-        setAverage(next.average);
-        setCount(next.count);
-      })
-      .finally(() => {
-        if (!cancelled) setReady(true);
+        setReviews([]);
+        setAverage(0);
+        setCount(0);
+        setReady(true);
       });
     return () => {
       cancelled = true;
@@ -155,16 +145,12 @@ export function HomeReviewsPreview({ preview = false }: { preview?: boolean }) {
 
       <div className={`px-4 space-y-2.5 transition-opacity duration-300 ${fading ? "opacity-0" : "opacity-100"}`}>
         {!ready ? (
-          <>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="rounded-2xl bg-white animate-pulse aspect-[4/3]" />
-              <div className="rounded-2xl bg-white animate-pulse aspect-[4/3]" />
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="rounded-2xl bg-white animate-pulse h-[92px]" />
-              <div className="rounded-2xl bg-white animate-pulse h-[92px]" />
-            </div>
-          </>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-2xl bg-white animate-pulse h-[92px]" />
+            <div className="rounded-2xl bg-white animate-pulse h-[92px]" />
+            <div className="rounded-2xl bg-white animate-pulse h-[92px]" />
+            <div className="rounded-2xl bg-white animate-pulse h-[92px]" />
+          </div>
         ) : reviews.length === 0 ? (
           <div className="p-5 bg-white rounded-2xl text-center">
             <p className="text-sm text-gray-500">아직 공개된 리뷰가 없습니다</p>

@@ -1,7 +1,9 @@
 import '../domain/review_models.dart';
 
+/// 테스트·디자인 확인용. 홈·목록은 이 파일을 쓰지 않고 API/DB만 사용한다.
+
 const previewAverage = 5.0;
-const previewCount = 5;
+const previewCount = 4;
 
 final previewReviews = <PublicReview>[
   PublicReview(
@@ -17,14 +19,11 @@ final previewReviews = <PublicReview>[
   PublicReview(
     id: 'preview-2',
     rating: 5,
-    content: '지퍼 교체했는데 새 옷처럼 됐습니다. 사진처럼 꼼꼼하게 해주셨어요.',
-    photoUrls: const [
-      'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=400&h=400&q=80',
-      'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=400&h=400&q=80',
-    ],
+    content: '지퍼 교체했는데 새 옷처럼 됐습니다. 마감이 꼼꼼합니다.',
+    photoUrls: const [],
     displayName: '이**',
     repairSummary: '점퍼 · 지퍼수선',
-    pointsType: 'photo',
+    pointsType: 'text',
     reviewedAt: DateTime.utc(2026, 8, 18, 9),
   ),
   PublicReview(
@@ -39,20 +38,6 @@ final previewReviews = <PublicReview>[
   ),
   PublicReview(
     id: 'preview-4',
-    rating: 5,
-    content: '소매 기장 줄였는데 비율이 잘 맞아요. 배송도 빠르고 포장도 정성스러웠습니다.',
-    photoUrls: const [
-      'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=400&h=400&q=80',
-      'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=400&h=400&q=80',
-      'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=400&h=400&q=80',
-    ],
-    displayName: '최**',
-    repairSummary: '셔츠 · 소매기장',
-    pointsType: 'photo',
-    reviewedAt: DateTime.utc(2026, 8, 10, 9),
-  ),
-  PublicReview(
-    id: 'preview-5',
     rating: 5,
     content: '코트 단추와 안감까지 신경 써 주셨어요. 다음에도 여기로 맡기려고요.',
     photoUrls: const [],
