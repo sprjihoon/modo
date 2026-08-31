@@ -189,17 +189,6 @@ class _HomePageState extends ConsumerState<HomePage>
           ),
         ),
         actions: [
-          if (!ref.watch(isLoggedInProvider))
-            TextButton(
-              onPressed: () => context.push('/login'),
-              child: const Text(
-                '로그인',
-                style: TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
           // 🆕 알림 아이콘
           FutureBuilder<int>(
             future: _getUnreadNotificationsCount(),
@@ -338,12 +327,34 @@ class _HomePageState extends ConsumerState<HomePage>
                   : snapshot.hasData && (snapshot.data?.isNotEmpty ?? false);
           final buttonText = hasOrders ? '수거신청 하기' : '첫 수거신청 하기';
 
-          return FloatingActionButton.extended(
-            onPressed: () => _showPreparationDialog(context),
-            backgroundColor: const Color(0xFF00C896),
-            icon: const Icon(Icons.add),
-            label: Text(buttonText),
-            elevation: 4,
+          return Material(
+            color: const Color(0xFF00C896),
+            elevation: 6,
+            shadowColor: const Color(0x4D00C896),
+            borderRadius: BorderRadius.circular(999),
+            child: InkWell(
+              onTap: () => _showPreparationDialog(context),
+              borderRadius: BorderRadius.circular(999),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add, color: Colors.white, size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      buttonText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           );
         },
       ),

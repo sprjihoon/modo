@@ -30,11 +30,15 @@ class ScaffoldWithFooter extends StatelessWidget {
         child: Column(
           children: [
             Expanded(child: body),
+            if (floatingActionButton != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+                child: Center(child: floatingActionButton),
+              ),
             const CompanyFooter(),
           ],
         ),
       ),
-      floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
     );
   }

@@ -305,21 +305,21 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.6+38`. iOS는 `1.0.6` 빌드 37 심사 중. Play 프로덕션은 **게시됨**(대한민국). 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `main`의 `1.0.6+39`. iOS는 `1.0.6` 빌드 39로 심사 교체. Play 프로덕션은 **38 게시됨**, 업로드용 AAB는 **39**. 명령은 `apps/mobile/README.md`에도 같다.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.6+38`**. iOS 심사는 37 · Play는 38 (READ_MEDIA 제거) |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.6+39`**. iOS 심사 39 · Play 업로드용 39 (홈 수거신청 버튼·상단 로그인 제거) |
 | App Store Connect App ID | `6759492888` |
-| iOS 스토어 | **판매 중 `1.0.5`**. **`1.0.6` 빌드 37 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| iOS 스토어 | **판매 중 `1.0.5`**. **`1.0.6` 빌드 39 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
 | Play 상태 | **프로덕션 게시됨** `1.0.6 (38)` · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `1.0.6+38` · 백업 `Documents/modo-android-signing/app-release-1.0.6+38.aab` |
+| Android AAB | `1.0.6+39` · 백업 `Documents/modo-android-signing/app-release-1.0.6+39.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -333,7 +333,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **`1.0.5`**. **`1.0.6` 빌드 37** 제출 |
+| App Store 현재 빌드 | 판매 중 **`1.0.5`**. **`1.0.6` 빌드 39** 제출 |
 | 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`**. 「업데이트 확인」은 이 값과 비교. iOS `1.0.6`이 앱스토어에 나온 뒤에만 어드민 최신을 올린다. Play만 먼저 올리면 아이폰이 아직 없는 업데이트를 안내함 |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
@@ -609,6 +609,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-31 | 앱 홈 버튼 | 수거신청을 푸터 위 가운데 캡슐로. 상단 로그인 버튼 제거. 스토어 `1.0.6+39` |
 | 2026-08-31 | 고객 목록 OS | 어드민 고객 목록·상세에 최근 접속 OS(iOS/Android/웹) 표시. `customer_events.device_os` 기준. 앱 재빌드 없음 |
 | 2026-08-31 | 그랜드 오픈 팝업 | 홈 팝업을 그랜드 오픈으로 교체. 웹은 확인 버튼 없음. 앱 버튼은 스토어 빌드 없이 제거 불가라 유지. 웹·앱 공통(`popups`) |
 | 2026-08-31 | Play 프로덕션 | `1.0.6 (38)` 대한민국 게시. `/download` Play 링크 연결. iOS `1.0.6`은 심사 중이라 `app_versions`는 아직 유지 |

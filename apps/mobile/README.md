@@ -179,11 +179,11 @@ flutter test --coverage
 
 루트 [`README.md`](../../README.md)의 **앱스토어 / Play 출시 준비**가 최신 상태의 기준입니다.
 
-### 맥북에서 `1.0.6+38` (지금 이 빌드)
+### 맥북에서 `1.0.6+39` (지금 이 빌드)
 
-Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.6+38`.
+Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.6+39`.
 
-포함 내용: 네이티브 치수 가이드 · 세부부위 즉시 다음 · Play `READ_MEDIA_*` 제거(시스템 사진 선택 도구).
+포함 내용: 홈 수거신청 버튼을 푸터 위 가운데 캡슐로 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
 
 ```bash
 git checkout main
@@ -192,17 +192,17 @@ cd apps/mobile
 flutter pub get
 
 # Play AAB
-flutter build appbundle --release --build-name=1.0.6 --build-number=38
+flutter build appbundle --release --build-name=1.0.6 --build-number=39
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.6+38.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.6+39.aab
 
 # App Store / TestFlight IPA
-flutter build ipa --release --build-name=1.0.6 --build-number=37 \
+flutter build ipa --release --build-name=1.0.6 --build-number=39 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS는 **1.0.6 / 37** 심사 중. Play는 사진 권한 정책 때문에 **38** AAB를 올린다. 스토어에 `1.0.6`이 나온 뒤에만 어드민 **앱 버전**을 바꾼다.
+iOS는 **1.0.6 / 39** 심사. Play 업로드용 AAB는 **39**. 스토어에 `1.0.6`이 나온 뒤에만 어드민 **앱 버전**을 바꾼다.
 
 Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`10:90:55…`). Windows `AE:84:3D…` 키로 만든 AAB는 올리지 않는다.
 
