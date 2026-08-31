@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { APP_DOWNLOAD_PATH } from "@/lib/app-stores";
 
 interface PopupItem {
   title: string;
@@ -51,6 +53,7 @@ function renderTitle(title: string, highlight: string | null) {
 }
 
 export function LaunchAnnouncementPopup() {
+  const router = useRouter();
   const [popup, setPopup] = useState<Popup | null>(null);
   const [open, setOpen] = useState(false);
   const [hideToday, setHideToday] = useState(false);
@@ -100,6 +103,14 @@ export function LaunchAnnouncementPopup() {
       localStorage.setItem(storageKey(popup.id), String(endOfTodayMs()));
     }
     setOpen(false);
+  }
+
+  function handleCta() {
+    const cta = popup?.cta_text || "";
+    dismiss();
+    if (cta.includes("앱")) {
+      router.push(APP_DOWNLOAD_PATH);
+    }
   }
 
   if (!open || !popup) return null;
@@ -160,7 +171,7 @@ export function LaunchAnnouncementPopup() {
           <span className="text-sm text-gray-500">{dismissLabel}</span>
         </label>
 
-        <button onClick={dismiss} className="btn-brand w-full text-base py-3.5">
+        <button onClick={handleCta} className="btn-brand w-full text-base py-3.5">
           {popup.cta_text || "확인"}
         </button>
       </div>
