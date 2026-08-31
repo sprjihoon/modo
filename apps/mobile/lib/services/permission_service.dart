@@ -37,35 +37,10 @@ class PermissionService {
     return false;
   }
   
-  /// 갤러리(사진) 권한 요청
+  /// 갤러리는 시스템 사진 선택 도구를 쓰므로 광범위 미디어 권한을 요청하지 않는다.
   static Future<bool> requestPhotosPermission(BuildContext context) async {
-    final status = await Permission.photos.status;
-    
-    if (status.isGranted) {
-      return true;
-    }
-    
-    if (status.isDenied) {
-      await _showPermissionDialog(
-        context,
-        title: '사진 접근 권한 필요',
-        message: '수선할 의류 사진을 선택하려면 갤러리 접근 권한이 필요합니다.',
-        icon: Icons.photo_library_outlined,
-      );
-      final result = await Permission.photos.request();
-      return result.isGranted;
-    }
-    
-    if (status.isPermanentlyDenied) {
-      await _showSettingsDialog(
-        context,
-        title: '사진 접근 권한 필요',
-        message: '사진 접근 권한이 거부되어 있습니다.\n설정에서 권한을 허용해주세요.',
-      );
-      return false;
-    }
-    
-    return false;
+    if (!context.mounted) return true;
+    return true;
   }
   
   /// 알림 권한 요청
@@ -99,43 +74,9 @@ class PermissionService {
     return false;
   }
   
-  /// 카메라 + 갤러리 권한 동시 요청 (이미지 선택 시)
+  /// 카메라 권한만 요청. 갤러리는 시스템 사진 선택 도구를 사용한다.
   static Future<bool> requestImagePermissions(BuildContext context) async {
-    final cameraStatus = await Permission.camera.status;
-    final photosStatus = await Permission.photos.status;
-    
-    // 둘 다 허용되어 있으면 바로 true
-    if (cameraStatus.isGranted && photosStatus.isGranted) {
-      return true;
-    }
-    
-    // 사전 안내 후 항상 시스템 권한 요청
-    await _showPermissionDialog(
-      context,
-      title: '사진 및 카메라 권한 필요',
-      message: '수선 요청을 위해 사진 촬영 및 갤러리 접근 권한이 필요합니다.',
-      icon: Icons.add_a_photo_outlined,
-    );
-
-    final results = await [
-      Permission.camera,
-      Permission.photos,
-    ].request();
-    
-    final cameraGranted = results[Permission.camera]?.isGranted ?? false;
-    final photosGranted = results[Permission.photos]?.isGranted ?? false;
-    
-    // 하나라도 영구 거부면 설정으로 안내
-    if (results[Permission.camera]?.isPermanentlyDenied == true ||
-        results[Permission.photos]?.isPermanentlyDenied == true) {
-      await _showSettingsDialog(
-        context,
-        title: '권한 설정 필요',
-        message: '일부 권한이 거부되어 있습니다.\n설정에서 권한을 허용해주세요.',
-      );
-    }
-    
-    return cameraGranted || photosGranted;
+    return requestCameraPermission(context);
   }
   
   /// 앱 시작 시 필수 권한 요청

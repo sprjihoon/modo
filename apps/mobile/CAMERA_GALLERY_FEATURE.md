@@ -78,7 +78,7 @@ await imageService.deleteImage(
 - `CAMERA`: 카메라 촬영
 - `READ_EXTERNAL_STORAGE`: 갤러리 읽기 (Android 12 이하)
 - `WRITE_EXTERNAL_STORAGE`: 저장소 쓰기 (Android 10 이하)
-- `READ_MEDIA_IMAGES`: 미디어 읽기 (Android 13+)
+- Android 13+: `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` 없음. 시스템 사진 선택 도구 사용
 
 ### iOS (Info.plist에 추가됨)
 - `NSCameraUsageDescription`: 카메라 권한 설명

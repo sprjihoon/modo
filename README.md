@@ -266,7 +266,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ## 고객 리뷰
 
-배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.5+36`에 포함(스토어는 심사 통과 후).
+배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.5` 판매 중 · `1.0.6+37`에 가이드·세부항목 포함(스토어는 심사 통과 후).
 
 | 항목 | 내용 |
 |---|---|
@@ -305,21 +305,21 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.5+36`. 심사 중이던 35는 취소하고 36을 제출한다. 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `main`의 `1.0.6+38`. iOS는 `1.0.6` 빌드 37 심사 중. Play 프로덕션은 **게시됨**(대한민국). 명령은 `apps/mobile/README.md`에도 같다.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.5+36`** (iOS·Play 동일). `+35`는 수선 종류 필터 전에 올려 36으로 교체 |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.6+38`**. iOS 심사는 37 · Play는 38 (READ_MEDIA 제거) |
 | App Store Connect App ID | `6759492888` |
-| iOS 스토어 | **판매 중 `1.0.4`**. **`1.0.5` 빌드 36 심사 대기** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| iOS 스토어 | **판매 중 `1.0.5`**. **`1.0.6` 빌드 37 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | Alpha **`28 (1.0.3)` 테스터 제공** · **`36 (1.0.5)` AAB 준비** · 프로덕션 액세스 신청 검토 중 (2026-08-28, 보통 7일) · opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | **프로덕션 게시됨** `1.0.6 (38)` · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `1.0.5+36` · 백업 `Documents/modo-android-signing/app-release-1.0.5+36.aab` |
+| Android AAB | `1.0.6+38` · 백업 `Documents/modo-android-signing/app-release-1.0.6+38.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -327,14 +327,14 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | 계정 삭제(Data safety) | https://modo.io.kr/profile/account |
 | 이용약관 | https://modo.io.kr/terms (`app_contents.terms_of_service`) |
 | 결제·취소·환불 정책 | https://modo.io.kr/refund-policy (`app_contents.refund_policy`) |
-| 앱 다운로드 안내 | https://modo.io.kr/download (iOS 앱스토어 · Play는 프로덕션 출시 전이므로 준비 중) |
+| 앱 다운로드 안내 | https://modo.io.kr/download (iOS 앱스토어 · Play 프로덕션) |
 | Apple Team | `6R7TSV8PV4` |
 | iOS 수출규정 | `ITSAppUsesNonExemptEncryption = false` (표준 HTTPS만 사용) |
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **`1.0.4`**. **`1.0.5` 빌드 36** 심사 대기 |
-| 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`** (2026-08-25). 앱 「업데이트 확인」은 스토어가 아니라 이 값과 비교. 36이 스토어에 나온 뒤에만 `1.0.5+36` |
+| App Store 현재 빌드 | 판매 중 **`1.0.5`**. **`1.0.6` 빌드 37** 제출 |
+| 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`**. 「업데이트 확인」은 이 값과 비교. iOS `1.0.6`이 앱스토어에 나온 뒤에만 어드민 최신을 올린다. Play만 먼저 올리면 아이폰이 아직 없는 업데이트를 안내함 |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
 ### 심사용 테스트 계정
@@ -363,23 +363,30 @@ flutter build apk --release
 # → build/app/outputs/flutter-apk/app-release.apk
 
 # iOS (App Store / TestFlight)
-flutter build ipa --release --build-name=1.0.5 --build-number=36 \
+flutter build ipa --release --build-name=1.0.6 --build-number=37 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 # 업로드: xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 #   --apiKey 5NS9QNDJUH --apiIssuer <issuerId>
 ```
 
-### 맥북에서 `1.0.5+36` (수선 종류 필터)
+### 맥북에서 `1.0.6+38` (치수 가이드 · Play 사진 권한)
 
-Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.5+36`.
+Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.6+38`.
 
 이 빌드에 포함된 앱 수정:
-- 전체 리뷰에서 수선 종류(의류 대분류) 필터. 포토리뷰 필터는 사진 리뷰가 있을 때 목록에 나옴.
-- 홈·전체 목록에서 총점·공개 개수 제거.
-- 고객 리뷰는 목업 없이 `/api/reviews`·DB만 사용.
+- 치수 재는 방법이 웹과 같이 **일상적인 방법 / 잘맞는 옷과 비교 방법** 탭
+- WebView 대신 네이티브 위젯. 바깥 화면과 같이 스크롤되어 아래가 잘리지 않음
+- 선택한 수선 항목의 안내만 표시
+- **항목·의류에 맞는 가이드.** 바지·청바지·치마 기장에 상의 가이드가 나오던 문제. 소매/어깨/품/허리/통/밑위/기장+밑통도 이름 기준으로 맞춤
+- 단일 선택 세부부위는 탭하면 바로 치수 입력(또는 담기)
+- 부속품처럼 카드가 많은 항목도 확인/다음 버튼이 화면에 남음
+- 수선항목이 1개면 선택 완료 후 웹과 같이 자동 다음
+- 치수 화면이 세부부위 뒤에 가려지지 않음
+- **전체** 선택 시에만 전체 옵션 가격 표시
+- 홈 내 주문과 고객 리뷰 사이 여백
 
-`1.0.4`는 판매 중. 심사 중이던 **1.0.5 / 35** 는 취소하고 **36**으로 교체한다.
+`1.0.5`는 판매 중. 같은 버전 트레인에 올릴 수 없어 **1.0.6 / 37**으로 제출한다.
 
 ```bash
 git checkout main
@@ -388,73 +395,17 @@ cd apps/mobile
 flutter pub get
 
 # Play AAB
-flutter build appbundle --release --build-name=1.0.5 --build-number=36
+flutter build appbundle --release --build-name=1.0.6 --build-number=38
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.5+36.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.6+38.aab
 
 # App Store / TestFlight IPA
-flutter build ipa --release --build-name=1.0.5 --build-number=36 \
+flutter build ipa --release --build-name=1.0.6 --build-number=37 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS **1.0.5(36)** 제출. Play Alpha **36** AAB는 로컬 백업만. 스토어에 `1.0.5`가 나온 뒤에만 어드민 **앱 버전** 최신을 `1.0.5+36`로 바꾼다.
-
-### 맥북에서 다음 앱 빌드 (치수 가이드 네이티브)
-
-Windows에서는 IPA/AAB를 만들지 않는다. 버전은 맥북에서 `apps/mobile/pubspec.yaml`을 올린다.
-
-이 빌드에 포함할 앱 수정:
-- 치수 재는 방법이 웹과 같이 **일상적인 방법 / 잘맞는 옷과 비교 방법** 탭
-- WebView 대신 네이티브 위젯. 바깥 화면과 같이 스크롤되어 아래가 잘리지 않음
-- 선택한 수선 항목의 안내만 표시
-- **항목·의류에 맞는 가이드.** 바지·청바지·치마 기장에 상의 가이드가 나오던 문제. 소매/어깨/품/허리/통/밑위/기장+밑통도 이름 기준으로 맞춤
-
-```bash
-git checkout main
-git pull
-cd apps/mobile
-flutter pub get
-
-# 버전은 맥북의 pubspec.yaml 확인 후 --build-name / --build-number 지정
-flutter build appbundle --release
-# → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/
-
-flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
-# → build/ios/ipa/모두의수선.ipa
-```
-
-웹 가이드는 `main` push로 `modo-web`(modo.io.kr)에 자동 배포된다.
-
-### 맥북에서 다음 앱 빌드 (수선 세부항목 다음 단계)
-
-웹 수정은 `main` push로 `modo-web`에 자동 배포된다. **앱 IPA/AAB는 Windows에서 만들지 말고 맥북에서 빌드한다.**
-
-이 빌드에 포함할 앱 수정:
-- 단일 선택 세부부위는 탭하면 바로 치수 입력(또는 담기)
-- 부속품처럼 카드가 많은 항목도 확인/다음 버튼이 화면에 남음
-- 수선항목이 1개면 선택 완료 후 웹과 같이 자동 다음
-- 치수 화면이 세부부위 뒤에 가려지지 않음
-- **전체** 선택 시에만 전체 옵션 가격 표시
-- 홈 내 주문과 고객 리뷰 사이 여백
-
-버전은 맥북에서 올릴 때 `apps/mobile/pubspec.yaml`을 올린다. Windows에서는 versionCode를 올리지 않는다.
-
-```bash
-git checkout main
-git pull
-cd apps/mobile
-flutter pub get
-
-# 버전은 맥북의 pubspec.yaml 확인 후 --build-name / --build-number 지정
-flutter build appbundle --release
-# → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/
-
-flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
-# → build/ios/ipa/모두의수선.ipa
-```
+iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토어에 `1.0.6`이 나온 뒤에만 어드민 **앱 버전** 최신을 바꾼다.
 
 서명 키는 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (Play 업로드 SHA1 `10:90:55…`). Windows PC의 8/3 키(`AE:84:3D…`)로 만든 AAB는 Play에 올리지 않는다.
 
@@ -487,9 +438,11 @@ flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
 30. ~~`1.0.4+33` 공지 상세 라우트~~ → **`1.0.4` 판매 중**
 31. ~~`1.0.5+34` 앱 리뷰 · 홈 순서~~ → **`1.0.5+35`에 흡수** (목업 폴백 제거 · DB만)
 32. ~~`1.0.5+35` 리뷰 DB 전용~~ → **`1.0.5+36`에 흡수**
-33. **`1.0.5+36` 수선 종류 필터** — 전체 리뷰 의류 대분류·포토 필터. 홈·목록 총점·개수 제거. iOS 36 제출
+33. ~~`1.0.5+36` 수선 종류 필터~~ — **`1.0.5` 판매 중**
+34. **`1.0.6+37` 치수 가이드 · 세부항목** — 네이티브 치수 가이드 · 세부부위 즉시 다음. iOS 37 심사 중
+35. ~~`1.0.6+38` Play 사진 권한~~ — `READ_MEDIA_*` 제거. **Play 프로덕션 게시**(2026-08-31, 대한민국)
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
-24. 프로덕션 액세스 신청 **검토 중** (2026-08-28 16:07). 승인 후 프로덕션에 28/29/30 출시 시작. `/download` Play URL은 프로덕션 나온 뒤에
+24. ~~Play 프로덕션 액세스~~ — **게시됨** (2026-08-31). `/download` Play URL 연결
 25. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
 26. ~~Google Search Console~~ (소유확인 · 사이트맵 제출, 2026-08-18)
 27. ~~의류 전손·분실 보상 기준~~ (`app_contents` 제15조·환불정책 제6·7조, 2026-08-19)
@@ -518,6 +471,20 @@ flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
 **전손·분실 보상 (회사 귀책만):** `min(잔존가치, 해당 주문 수선비×5, 20만 원)`. 20만 원은 1건당 한도(정액 지급 아님). 수선 실패(재작업 가능)는 재작업 또는 수선비 환불. 리셀 시세·희소성 제외. 신청 시 가치 신고 절차 없음.
 
 SQL: `apps/sql/migrations/20260819_update_damage_compensation.sql` (라이브 반영됨)
+
+### 홈 팝업 (`popups`)
+
+웹·앱 홈이 같은 `popups` 행을 읽는다. 어드민 **콘텐츠 → 팝업 관리**. 활성 1건(`display_priority` 내림차순). 「오늘 그만보기」는 로컬 자정까지.
+
+**지금 (2026-08-31):** 그랜드 오픈. 웹 CTA「수선 맡기러 가기」→ `/order/new`. iOS는 항목에 `Android`가 있으면 숨김(2.3.10).
+
+| 항목 | 문구 |
+|---|---|
+| 상단 | `GRAND OPENING` |
+| 제목 | 모두의수선 그랜드 오픈 (`그랜드 오픈` 강조) |
+| 1 | 모든 서비스 정상 가동 — 접수부터 결제, 수거, 배송까지 웹과 앱에서 지금 바로 이용하세요. |
+| 2 | 문 앞에 두기만 하면 됩니다 — 원하는 날에 우체국택배가 방문 수거하고, 수선이 끝나면 다시 집으로 보내드려요. |
+| 버튼 | 수선 맡기러 가기 |
 
 ---
 
@@ -642,11 +609,14 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-31 | 치수 가이드 항목 매칭 | 바지·청바지·치마 기장에 상의 가이드가 나오던 문제. 항목 이름 우선(소매/어깨/품/허리/통/밑위/기장). 정장/수트는 총기장·소매는 상의, 기장 줄임은 하의. 웹 `modo.io.kr` 자동 배포. 앱은 맥북에서 스토어 빌드 |
-| 2026-08-31 | 앱 치수 가이드 웹과 동일 | 일상/비교 탭을 웹과 같이 앱에 네이티브로 구현. WebView 잘림 제거. 항목별 일상 안내만 표시. Windows 빌드 없이 맥북에서 스토어 빌드 |
+| 2026-08-31 | 그랜드 오픈 팝업 | 홈 팝업을 그랜드 오픈으로 교체. 모든 서비스 정상 가동 · 문 앞 우체국 수거. CTA「수선 맡기러 가기」→ `/order/new`. 웹·앱 공통(`popups`) |
+| 2026-08-31 | Play 프로덕션 | `1.0.6 (38)` 대한민국 게시. `/download` Play 링크 연결. iOS `1.0.6`은 심사 중이라 `app_versions`는 아직 유지 |
+| 2026-08-31 | Play 사진 권한 | Android 13+ `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO` 제거. 갤러리는 시스템 사진 선택 도구. Play `1.0.6+38` |
+| 2026-08-31 | 치수 가이드 항목 매칭 | 바지·청바지·치마 기장에 상의 가이드가 나오던 문제. 항목 이름 우선(소매/어깨/품/허리/통/밑위/기장). 정장/수트는 총기장·소매는 상의, 기장 줄임은 하의. 웹 `modo.io.kr` 자동 배포. 앱 `1.0.6+37` |
+| 2026-08-31 | 앱 치수 가이드 웹과 동일 | 일상/비교 탭을 웹과 같이 앱에 네이티브로 구현. WebView 잘림 제거. 항목별 일상 안내만 표시. 앱 `1.0.6+37` |
 | 2026-08-31 | 센터 입고·출고 촬영 | 입고·출고를 한 화면으로 맞춤. 수선 전/후 사진 후 내품 스캔, 송장 재스캔으로 촬영 종료. 영상은 `inbound_video`/`outbound_video`. 관리자 주문 상세 HLS 재생. Windows 로컬 빌드 없이 맥북에서 이어감 |
 | 2026-08-31 | 출고 송장 재출력 레이아웃 | 서류 재출력(`/ops/reprint`)이 저장된 송장 레이아웃을 무시하고 기본 양식으로 찍히던 문제. 입고·주문 상세와 같이 `label_layout_config` 사용. 어드민 `admin.modo.mom` |
-| 2026-08-31 | 수선 세부항목 · 전체 가격 | 전체 옵션 없는 항목에서 다음이 안 되던 문제 + 앱에서 치수 화면이 세부부위 뒤에 가려지던 문제. **전체** 선택 시에만 가격 표시. 홈 주문/리뷰 여백. **웹 `modo.io.kr` 라이브(`4eb7e9c`). 앱은 맥북에서 스토어 빌드** |
+| 2026-08-31 | 수선 세부항목 · 전체 가격 | 전체 옵션 없는 항목에서 다음이 안 되던 문제 + 앱에서 치수 화면이 세부부위 뒤에 가려지던 문제. **전체** 선택 시에만 가격 표시. 홈 주문/리뷰 여백. **웹 `modo.io.kr` 라이브(`4eb7e9c`). 앱 `1.0.6+37`** |
 | 2026-08-31 | 운영 리포트 크론 SSO | 미들웨어 통과 후에도 `*.vercel.app` 이 Vercel Authentication(SSO) 302. 프로덕션 보호를 Preview만으로 바꿔 크론이 JSON까지 도달. GitHub `ops-report-cron` 이 09:05 KST에 `admin.modo.mom` 으로 재시도 |
 | 2026-08-30 | 리뷰 필터 | 전체 리뷰 수선 종류(의류 대분류) 필터. 홈·목록에서 총점·공개 개수 제거. 포토 필터는 데이터 생기면 노출. 앱 `1.0.5+36` |
 | 2026-08-30 | 리뷰 DB | 홈 리뷰 목업 제거. 운영 `reviews` 텍스트 4건 적재 후 API로만 표시. 웹 라이브. 앱 `1.0.5+35` |
@@ -671,7 +641,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 | 2026-08-20 | 어드민 CS 처리 | 주문 상세에서 재작업·수선비 환불·전손·분실 보상. `order_cs_events` 이력. 고객 웹·앱에 회차/배너·푸시 |
 | 2026-08-19 | 전손·분실 보상 | 이용약관 제15조·환불정책 제6·7조: `min(잔존가치, 수선비×5, 20만 원)`. 수선 실패는 재작업/수선비 환불. 가치 신고 없음. SQL `20260819_update_damage_compensation.sql` |
 | 2026-08-19 | 수선명 오타 | `repair_types.name` 「기잘 줄임」→「기장 줄임」(바지/청바지/치마). 앱 재빌드 불필요 |
-| 2026-08-18 | `/download` | 앱 받기 안내. iOS→앱스토어(`NEXT_PUBLIC_IOS_APP_URL`). Android는 Play 프로덕션 전이라 준비 중 |
+| 2026-08-18 | `/download` | 앱 받기 안내. iOS→앱스토어. Android는 2026-08-31 Play 프로덕션 후 스토어 링크 |
 | 2026-08-18 | Google 검색 | Search Console 소유확인(HTML 메타 `google-site-verification`) · 사이트맵 제출. 계정 `vovok112@gmail.com` |
 | 2026-08-18 | 네이버 검색 | 서치어드바이저 소유확인(HTML 메타) · 사이트맵 `https://modo.io.kr/sitemap.xml` 제출 · 홈(`/`) 수집 요청. 노출은 보통 1~2주, 보장 없음 |
 | 2026-08-17 | App Store 출시 | 빌드 **21** (`1.0`) `READY_FOR_SALE`. https://apps.apple.com/kr/app/모두의수선/id6759492888 |
