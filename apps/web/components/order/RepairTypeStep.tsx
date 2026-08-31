@@ -13,6 +13,7 @@ import {
   canConfirmSubParts,
   mapApiSubParts,
   normalizeId,
+  resolveAllOptionDisplayPrice,
   resolveSubPartsConfirm,
   shouldAutoConfirmOnSubPartTap,
   shouldAutoProceedRepair,
@@ -488,6 +489,11 @@ export function RepairTypeStep({
     const selectionLabel =
       repairType.sub_parts_title || "세부 부위를 선택해주세요";
     const canConfirm = canConfirmSubParts(selectedMode, selectedIds.size);
+    const allOptionDisplayPrice = resolveAllOptionDisplayPrice({
+      selectedMode,
+      allOptionPrice: repairType.all_option_price,
+      typePrice: repairType.price,
+    });
 
     return (
       <div className="flex flex-col flex-1 h-full min-h-0">
@@ -560,7 +566,12 @@ export function RepairTypeStep({
                       <div className="w-2 h-2 rounded-full bg-[#00C896]" />
                     )}
                   </div>
-                  전체
+                  <span>전체</span>
+                  {allOptionDisplayPrice != null && (
+                    <span className="ml-auto text-xs font-semibold tabular-nums">
+                      {formatPrice(allOptionDisplayPrice)}
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={() =>

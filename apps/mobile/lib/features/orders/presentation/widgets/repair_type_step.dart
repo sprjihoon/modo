@@ -94,6 +94,17 @@ bool shouldAutoConfirmOnSubPartTap({required bool allowMultipleSubParts}) {
   return !allowMultipleSubParts;
 }
 
+/// 전체 라디오가 선택된 경우에만 표시할 전체 옵션 가격
+int? resolveAllOptionDisplayPrice({
+  required String selectedMode,
+  int? allOptionPrice,
+  required int typePrice,
+}) {
+  if (selectedMode != 'all') return null;
+  final price = allOptionPrice ?? typePrice;
+  return price > 0 ? price : null;
+}
+
 /// 웹 RepairTypeStep과 동일: 수선항목이 1개면 선택 완료 후 자동 다음.
 bool shouldAutoProceedAfterRepairSelection({
   required int repairTypeCount,
@@ -105,6 +116,19 @@ bool shouldAutoProceedAfterRepairSelection({
       selectedCount > 0 &&
       !hasSubPartsView &&
       !hasMeasureView;
+}
+
+/// 치수 화면이 열려 있으면 세부부위보다 먼저 보여 준다.
+/// 세부부위를 유지한 채 치수를 열면(이전으로 복귀용) 이 순서가 맞다.
+enum RepairTypeStepLayer { grid, subParts, measure }
+
+RepairTypeStepLayer resolveRepairTypeStepLayer({
+  required bool hasMeasureView,
+  required bool hasSubPartsView,
+}) {
+  if (hasMeasureView) return RepairTypeStepLayer.measure;
+  if (hasSubPartsView) return RepairTypeStepLayer.subParts;
+  return RepairTypeStepLayer.grid;
 }
 
 class RepairTypeStepWidget extends StatefulWidget {
@@ -448,12 +472,17 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Sub-parts view
-    if (_subPartsRepairType != null) return _buildSubPartsView();
-    // Measurement view
-    if (_measureRepairType != null) return _buildMeasureView();
-    // Main grid
-    return _buildMainGrid();
+    switch (resolveRepairTypeStepLayer(
+      hasMeasureView: _measureRepairType != null,
+      hasSubPartsView: _subPartsRepairType != null,
+    )) {
+      case RepairTypeStepLayer.measure:
+        return _buildMeasureView();
+      case RepairTypeStepLayer.subParts:
+        return _buildSubPartsView();
+      case RepairTypeStepLayer.grid:
+        return _buildMainGrid();
+    }
   }
 
   // ── Sub-parts inline view ────────────────────────────────────────────
@@ -512,7 +541,15 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    _buildRadioButton('전체', 'all'),
+                    _buildRadioButton(
+                      '전체',
+                      'all',
+                      price: resolveAllOptionDisplayPrice(
+                        selectedMode: _subPartsMode,
+                        allOptionPrice: type.allOptionPrice,
+                        typePrice: type.price,
+                      ),
+                    ),
                     const SizedBox(width: 12),
                     _buildRadioButton('특정 부위 선택', 'specific'),
                   ],
@@ -666,7 +703,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
     );
   }
 
-  Widget _buildRadioButton(String label, String value) {
+  Widget _buildRadioButton(String label, String value, {int? price}) {
     final isSelected = _subPartsMode == value;
     return Expanded(
       child: InkWell(
@@ -696,7 +733,23 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                     : null,
               ),
               const SizedBox(width: 8),
-              Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isSelected ? _brandColor : Colors.grey.shade600)),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isSelected ? _brandColor : Colors.grey.shade600),
+                ),
+              ),
+              if (price != null) ...[
+                const SizedBox(width: 6),
+                Text(
+                  _formatPrice(price),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? _brandColor : Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

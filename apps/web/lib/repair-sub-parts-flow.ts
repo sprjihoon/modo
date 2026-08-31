@@ -38,6 +38,17 @@ export function canConfirmSubParts(mode: SubPartMode, selectedCount: number): bo
   return mode === "all" || selectedCount > 0;
 }
 
+/** 전체 라디오가 선택된 경우에만 표시할 전체 옵션 가격 */
+export function resolveAllOptionDisplayPrice(opts: {
+  selectedMode: SubPartMode;
+  allOptionPrice?: number | null;
+  typePrice: number;
+}): number | null {
+  if (opts.selectedMode !== "all") return null;
+  const price = opts.allOptionPrice ?? opts.typePrice;
+  return price > 0 ? price : null;
+}
+
 /** 단일 선택 항목은 세부부위 탭 즉시 다음 단계로 */
 export function shouldAutoConfirmOnSubPartTap(allowMultiple: boolean): boolean {
   return !allowMultiple;

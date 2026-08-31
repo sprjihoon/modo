@@ -322,7 +322,8 @@ class _HomePageState extends ConsumerState<HomePage>
             // 내 주문 섹션 (웹과 동일: 가이드 바로 아래)
             _buildMyOrdersSection(context),
 
-            // 고객 리뷰 (주문 아래)
+            // 고객 리뷰 (주문 아래) — 두 영역이 붙지 않도록 여백
+            const SizedBox(height: 24),
             const HomeReviewsPreview(),
           ],
         ),

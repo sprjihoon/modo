@@ -43,6 +43,65 @@ void main() {
     );
   });
 
+  test('전체 선택일 때만 전체 옵션 가격을 보여준다', () {
+    expect(
+      resolveAllOptionDisplayPrice(
+        selectedMode: 'all',
+        allOptionPrice: 15000,
+        typePrice: 8000,
+      ),
+      15000,
+    );
+    expect(
+      resolveAllOptionDisplayPrice(
+        selectedMode: 'specific',
+        allOptionPrice: 15000,
+        typePrice: 8000,
+      ),
+      isNull,
+    );
+    expect(
+      resolveAllOptionDisplayPrice(
+        selectedMode: 'all',
+        allOptionPrice: null,
+        typePrice: 8000,
+      ),
+      8000,
+    );
+    expect(
+      resolveAllOptionDisplayPrice(
+        selectedMode: 'all',
+        allOptionPrice: 0,
+        typePrice: 0,
+      ),
+      isNull,
+    );
+  });
+
+  test('치수 화면이 열려 있으면 세부부위보다 먼저 보여 준다', () {
+    expect(
+      resolveRepairTypeStepLayer(
+        hasMeasureView: true,
+        hasSubPartsView: true,
+      ),
+      RepairTypeStepLayer.measure,
+    );
+    expect(
+      resolveRepairTypeStepLayer(
+        hasMeasureView: false,
+        hasSubPartsView: true,
+      ),
+      RepairTypeStepLayer.subParts,
+    );
+    expect(
+      resolveRepairTypeStepLayer(
+        hasMeasureView: false,
+        hasSubPartsView: false,
+      ),
+      RepairTypeStepLayer.grid,
+    );
+  });
+
   test('수선항목 1개면 선택 완료 후 자동 다음', () {
     expect(
       shouldAutoProceedAfterRepairSelection(

@@ -1,6 +1,7 @@
 import {
   canConfirmSubParts,
   mapApiSubParts,
+  resolveAllOptionDisplayPrice,
   resolveSubPartsConfirm,
   shouldAutoConfirmOnSubPartTap,
   shouldAutoProceedRepair,
@@ -27,6 +28,39 @@ assert(
 assert(canConfirmSubParts("all", 0) === true, "전체 모드는 바로 확인 가능");
 assert(canConfirmSubParts("specific", 0) === false, "특정 부위 미선택이면 확인 불가");
 assert(canConfirmSubParts("specific", 1) === true, "특정 부위 선택 후 확인 가능");
+
+assert(
+  resolveAllOptionDisplayPrice({
+    selectedMode: "all",
+    allOptionPrice: 15000,
+    typePrice: 8000,
+  }) === 15000,
+  "전체 선택 시 전체 옵션 가격 표시"
+);
+assert(
+  resolveAllOptionDisplayPrice({
+    selectedMode: "specific",
+    allOptionPrice: 15000,
+    typePrice: 8000,
+  }) === null,
+  "특정 부위 선택 시 전체 가격 숨김"
+);
+assert(
+  resolveAllOptionDisplayPrice({
+    selectedMode: "all",
+    allOptionPrice: null,
+    typePrice: 8000,
+  }) === 8000,
+  "전체 옵션 가격이 없으면 항목 가격 사용"
+);
+assert(
+  resolveAllOptionDisplayPrice({
+    selectedMode: "all",
+    allOptionPrice: 0,
+    typePrice: 0,
+  }) === null,
+  "가격이 없으면 표시하지 않음"
+);
 
 const noop = resolveSubPartsConfirm({
   mode: "specific",
