@@ -317,6 +317,16 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
     );
   }
 
+  void _handleHomeNavigation() {
+    if (_draft.items.isEmpty &&
+        _currentMode == _FlowMode.addClothing &&
+        _modeHistory.isEmpty) {
+      context.go('/home');
+      return;
+    }
+    _showExitDialog();
+  }
+
   bool _handleBackNavigation() {
     if (_modeHistory.isNotEmpty) {
       _popMode();
@@ -350,7 +360,6 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
       child: Scaffold(
         appBar: ModoAppBar(
           title: const Text('수거신청'),
-          showHome: false,
           onBack: () {
             final shouldPop = _handleBackNavigation();
             if (shouldPop) {
@@ -361,6 +370,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
               }
             }
           },
+          onHome: _handleHomeNavigation,
         ),
         body: SafeArea(
           top: false,
