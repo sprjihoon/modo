@@ -46,10 +46,10 @@
 ### 관련 (앱)
 - 네이버 SDK 상세: [`apps/mobile/NAVER_LOGIN_SETUP.md`](../apps/mobile/NAVER_LOGIN_SETUP.md)
 - 홈 팝업: 어드민 **콘텐츠 → 팝업 관리** (`popups`) · 웹·앱 홈 공통. 지금 **그랜드 오픈**. 웹은 확인 버튼 없음. 문구는 루트 README 「홈 팝업」
-- 스토어 버전/출시 상태: 루트 [`README.md`](../README.md) 「앱스토어 / Play 출시 준비」 (`1.0.6+42`, iOS `1.0.5` 판매 중 · `1.0.6` 42 심사 대기 · Play 38 게시 · 42 검토 대기, MinOS 15). **스토어 빌드는 하루 1회 · 맥북에서만**. 지금은 안 하고, 오늘 몇 시간 뒤 예정
+- 스토어 버전/출시 상태: 루트 [`README.md`](../README.md) 「앱스토어 / Play 출시 준비」 (`1.0.6+42`, iOS `1.0.5` 판매 중 · `1.0.6` 42 심사 대기 · Play 38 게시 · 42 검토 대기, MinOS 15). **웹은 `main` 즉시 배포**. 스토어 빌드는 하루 1회 · 맥북에서만 · 오늘은 몇 시간 뒤
 - 앱 업데이트 안내: `app_versions` 최신·최소는 iOS/Android 모두 **`1.0.5`** · 어드민 설정 → 앱 버전
-- 수선 요청 메모: `orders.customer_memo` · 핀 메모·배송 요청(`notes`)과 별도 · 작업지시서·어드민 주문상세 공통
-- 출고송장 배송요청사항: 해당 주문의 `orders.notes`만 송장·우체국 `delivMsg`에 출력. 레이아웃 필드 `delivery_request`
+- 수선 요청 메모: `orders.customer_memo` · 핀 메모·배송 요청(`notes`)과 별도 · **웹 `modo.io.kr` 라이브** · 작업지시서·어드민 주문상세 공통
+- 출고송장 배송요청사항: 해당 주문의 `orders.notes`만 송장·우체국 `delivMsg`에 출력. 레이아웃 필드 `delivery_request`. Edge `shipments-create-outbound` 배포됨
 - 어드민 CS: 주문 상세에서 재작업·수선비 환불·전손 보상 (`order_cs_events`)
 - 배포 절차 상세: [`deployment.md`](deployment.md)
 

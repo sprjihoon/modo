@@ -353,6 +353,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
 | App Store 현재 빌드 | 판매 중 **`1.0.5`**. **`1.0.6` 빌드 42** 제출 |
+| 웹 배포 | `main` push 즉시 `modo-web` (modo.io.kr). 수선 요청 메모 **라이브**. 스토어 빌드와 무관 |
 | 앱 업데이트 안내 | `app_versions`. 지금 최신·최소는 iOS/Android 모두 **`1.0.5`** (강제 업데이트 끔). 「업데이트 확인」은 이 값과 비교. iOS·Play에 `1.0.6`이 둘 다 나온 뒤에만 어드민 최신을 올린다. Play만 먼저 올리면 아이폰이 아직 없는 업데이트를 안내함 |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
@@ -662,7 +663,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-09-01 | 출고송장 배송요청사항 | 고객 `orders.notes`를 그 주문 출고송장(`delivery_request`)·우체국 `delivMsg`에 출력. 수선 메모와 분리. 레이아웃 에디터에서 위치 저장. 어드민 `main` 배포 |
+| 2026-09-01 | 출고송장 배송요청사항 | 고객 `orders.notes`를 그 주문 출고송장(`delivery_request`)·우체국 `delivMsg`에 출력. 수선 메모와 분리. 레이아웃 에디터에서 위치 저장. 어드민 라이브 · Edge `shipments-create-outbound` 배포 |
 | 2026-09-01 | 스토어 빌드 규칙 | IPA/AAB는 **하루에 한 번만**. 웹은 바로 적용(`modo.io.kr` 라이브). 앱은 오늘 몇 시간 뒤 1회 |
 | 2026-09-01 | 수선 요청 메모 | 수거정보에 핀 메모·배송 요청과 별도 칸. `orders.customer_memo`. **웹 `modo.io.kr` 라이브**(컬럼·결제 Edge 포함). 앱은 오늘 하루 1회 빌드에 포함 |
 | 2026-08-31 | 앱 버전 안내 | 어드민 `app_versions` iOS/Android 최신·최소를 **`1.0.5`**로 저장(강제 끔). 스토어 `1.0.6`이 양쪽 나온 뒤에만 올린다 |
