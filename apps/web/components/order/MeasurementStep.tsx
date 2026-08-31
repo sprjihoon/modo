@@ -48,10 +48,13 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
     ? config.notes.split("\n").map((l) => l.trim()).filter(Boolean)
     : [];
 
-  const guideTypeId = resolveMeasureGuideId(itemName, {
-    measureGuideKey: config.measureGuideKey,
-    clothingHint: config.clothingHint,
-  });
+  const guideTypeId = resolveMeasureGuideId(
+    [config.clothingHint, itemName, subType].filter(Boolean).join(" "),
+    {
+      measureGuideKey: config.measureGuideKey,
+      clothingHint: config.clothingHint,
+    }
+  );
 
   return (
     <div className="flex-1 flex flex-col min-h-0">

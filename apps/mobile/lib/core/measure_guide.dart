@@ -256,7 +256,23 @@ List<MeasureGuideType> allowedMeasureGuideTypes(String? guideId) {
 }
 
 String _normalize(String text) =>
-    text.toLowerCase().replaceAll(RegExp(r'\s+'), '').replaceAll(RegExp(r'[-_/]'), '');
+    text.toLowerCase().replaceAll(RegExp(r'\s+'), '').replaceAll(RegExp(r'[-_/()]'), '');
+
+const _topOnlyGuideIds = {
+  'sleeve-length',
+  'shoulder',
+  'width-top',
+  'total-length-top',
+  'arm-width',
+};
+
+const _bottomOnlyGuideIds = {
+  'total-length-bottom',
+  'waist-hip',
+  'leg-width',
+  'rise',
+  'length-leg-width',
+};
 
 bool _clothingHintIsBottom(String? hint) {
   if (hint == null || hint.isEmpty) return false;
@@ -265,6 +281,9 @@ bool _clothingHintIsBottom(String? hint) {
       n.contains('스커트') ||
       n.contains('치마') ||
       n.contains('하의') ||
+      n.contains('팬츠') ||
+      n.contains('슬랙스') ||
+      n.contains('레깅스') ||
       n.contains('bottom') ||
       n.contains('pants') ||
       n.contains('skirt') ||
@@ -286,6 +305,11 @@ bool _clothingHintIsTop(String? hint) {
       n.contains('티셔츠') ||
       n.contains('원피스') ||
       n.contains('아우터') ||
+      n.contains('맨투맨') ||
+      n.contains('후드') ||
+      n.contains('패딩') ||
+      n.contains('점퍼') ||
+      n.contains('가디건') ||
       n.contains('top') ||
       n.contains('jacket') ||
       n.contains('coat') ||
@@ -293,32 +317,39 @@ bool _clothingHintIsTop(String? hint) {
       n.contains('dress');
 }
 
-/// DB key 우선, 없으면 이름/의류 힌트로 추정.
-String? resolveMeasureGuideId(
-  String? itemName, {
-  String? measureGuideKey,
-  String? clothingHint,
-}) {
-  final key = measureGuideKey?.trim();
-  if (key != null && key.isNotEmpty && _validIds.contains(key)) {
-    return key;
-  }
-
+bool _clothingLooksBottom(String? itemName, String? clothingHint) {
   final hints = [itemName, clothingHint].whereType<String>().join(' ');
-  if (hints.trim().isEmpty) return null;
-
   final n = _normalize(hints);
-  final isBottom = _clothingHintIsBottom(clothingHint) ||
+  return _clothingHintIsBottom(clothingHint) ||
       _clothingHintIsBottom(itemName) ||
       n.contains('바지') ||
       n.contains('스커트') ||
       n.contains('치마') ||
-      n.contains('청바지');
-  final isTop = !isBottom &&
-      (_clothingHintIsTop(clothingHint) ||
-          _clothingHintIsTop(itemName) ||
-          n.contains('상의') ||
-          n.contains('원피스'));
+      n.contains('청바지') ||
+      n.contains('하의') ||
+      n.contains('팬츠') ||
+      n.contains('슬랙스') ||
+      n.contains('레깅스');
+}
+
+bool _clothingLooksTop(String? itemName, String? clothingHint) {
+  if (_clothingLooksBottom(itemName, clothingHint)) return false;
+  final hints = [itemName, clothingHint].whereType<String>().join(' ');
+  final n = _normalize(hints);
+  return _clothingHintIsTop(clothingHint) ||
+      _clothingHintIsTop(itemName) ||
+      n.contains('상의') ||
+      n.contains('원피스');
+}
+
+/// 웹 `inferMeasureGuideId`와 동일 규칙.
+String? inferMeasureGuideId(String? itemName, {String? clothingHint}) {
+  final hints = [itemName, clothingHint].whereType<String>().join(' ');
+  if (hints.trim().isEmpty) return null;
+
+  final n = _normalize(hints);
+  final isBottom = _clothingLooksBottom(itemName, clothingHint);
+  final isTop = _clothingLooksTop(itemName, clothingHint);
 
   if (n.contains('소매기장') || n.contains('소매길이') || n.contains('sleeve')) {
     return 'sleeve-length';
@@ -359,6 +390,7 @@ String? resolveMeasureGuideId(
       n.contains('통줄임') ||
       n.contains('바지통') ||
       n.contains('스커트통') ||
+      n.contains('밑통') ||
       (n.contains('통') && isBottom && !n.contains('팔통') && !n.contains('기장'))) {
     return 'leg-width';
   }
@@ -369,7 +401,39 @@ String? resolveMeasureGuideId(
       (n.contains('기장') && !n.contains('소매'))) {
     if (isBottom) return 'total-length-bottom';
     if (isTop) return 'total-length-top';
-    return isBottom ? 'total-length-bottom' : 'total-length-top';
+    return n.contains('총기장') ? 'total-length-top' : 'total-length-bottom';
+  }
+
+  return null;
+}
+
+String _remapStoredKeyToClothing(String stored, bool isBottom, bool isTop) {
+  if (isBottom && _topOnlyGuideIds.contains(stored)) {
+    return stored == 'width-top' ? 'waist-hip' : 'total-length-bottom';
+  }
+  if (isTop && _bottomOnlyGuideIds.contains(stored)) {
+    if (stored == 'waist-hip') return 'width-top';
+    return 'total-length-top';
+  }
+  return stored;
+}
+
+/// 웹 `resolveMeasureGuideId`와 동일 규칙.
+String? resolveMeasureGuideId(
+  String? itemName, {
+  String? measureGuideKey,
+  String? clothingHint,
+}) {
+  final inferred = inferMeasureGuideId(itemName, clothingHint: clothingHint);
+  if (inferred != null) return inferred;
+
+  final key = measureGuideKey?.trim();
+  if (key != null && key.isNotEmpty && _validIds.contains(key)) {
+    return _remapStoredKeyToClothing(
+      key,
+      _clothingLooksBottom(itemName, clothingHint),
+      _clothingLooksTop(itemName, clothingHint),
+    );
   }
 
   return null;

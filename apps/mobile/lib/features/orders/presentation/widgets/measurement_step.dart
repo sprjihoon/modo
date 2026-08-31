@@ -91,7 +91,11 @@ class _MeasurementStepState extends State<MeasurementStep> {
   }
 
   String? get _guideTypeId => resolveMeasureGuideId(
-        widget.config.itemName,
+        [
+          widget.config.clothingHint,
+          widget.config.itemName,
+          widget.config.subType,
+        ].whereType<String>().where((s) => s.isNotEmpty).join(' '),
         measureGuideKey: widget.config.measureGuideKey,
         clothingHint: widget.config.clothingHint,
       );

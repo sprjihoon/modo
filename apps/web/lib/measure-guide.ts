@@ -43,8 +43,24 @@ export function expandMeasureGuideTypeIds(guideId?: string | null): string[] {
 }
 
 function normalize(text: string) {
-  return text.toLowerCase().replace(/\s+/g, "").replace(/[-_/]/g, "");
+  return text.toLowerCase().replace(/\s+/g, "").replace(/[-_/()]/g, "");
 }
+
+const TOP_ONLY_GUIDE_IDS = new Set<MeasureGuideId>([
+  "sleeve-length",
+  "shoulder",
+  "width-top",
+  "total-length-top",
+  "arm-width",
+]);
+
+const BOTTOM_ONLY_GUIDE_IDS = new Set<MeasureGuideId>([
+  "total-length-bottom",
+  "waist-hip",
+  "leg-width",
+  "rise",
+  "length-leg-width",
+]);
 
 function clothingHintIsBottom(hint?: string | null) {
   if (!hint) return false;
@@ -54,6 +70,9 @@ function clothingHintIsBottom(hint?: string | null) {
     n.includes("스커트") ||
     n.includes("치마") ||
     n.includes("하의") ||
+    n.includes("팬츠") ||
+    n.includes("슬랙스") ||
+    n.includes("레깅스") ||
     n.includes("bottom") ||
     n.includes("pants") ||
     n.includes("skirt") ||
@@ -77,6 +96,11 @@ function clothingHintIsTop(hint?: string | null) {
     n.includes("티셔츠") ||
     n.includes("원피스") ||
     n.includes("아우터") ||
+    n.includes("맨투맨") ||
+    n.includes("후드") ||
+    n.includes("패딩") ||
+    n.includes("점퍼") ||
+    n.includes("가디건") ||
     n.includes("top") ||
     n.includes("jacket") ||
     n.includes("coat") ||
@@ -85,38 +109,45 @@ function clothingHintIsTop(hint?: string | null) {
   );
 }
 
-/**
- * DB에 저장된 key 우선, 없으면 이름/의류 힌트로 추정.
- */
-export function resolveMeasureGuideId(
-  itemName?: string | null,
-  options?: {
-    measureGuideKey?: string | null;
-    clothingHint?: string | null;
-  }
-): MeasureGuideId | null {
-  const key = options?.measureGuideKey?.trim();
-  if (key && VALID_IDS.has(key as MeasureGuideId)) {
-    return key as MeasureGuideId;
-  }
-
-  const hints = [itemName, options?.clothingHint].filter(Boolean).join(" ");
-  if (!hints.trim()) return null;
-
+function clothingLooksBottom(itemName?: string | null, clothingHint?: string | null) {
+  const hints = [itemName, clothingHint].filter(Boolean).join(" ");
   const n = normalize(hints);
-  const isBottom =
-    clothingHintIsBottom(options?.clothingHint) ||
+  return (
+    clothingHintIsBottom(clothingHint) ||
     clothingHintIsBottom(itemName) ||
     n.includes("바지") ||
     n.includes("스커트") ||
     n.includes("치마") ||
-    n.includes("청바지");
-  const isTop =
-    !isBottom &&
-    (clothingHintIsTop(options?.clothingHint) ||
-      clothingHintIsTop(itemName) ||
-      n.includes("상의") ||
-      n.includes("원피스"));
+    n.includes("청바지") ||
+    n.includes("하의") ||
+    n.includes("팬츠") ||
+    n.includes("슬랙스") ||
+    n.includes("레깅스")
+  );
+}
+
+function clothingLooksTop(itemName?: string | null, clothingHint?: string | null) {
+  if (clothingLooksBottom(itemName, clothingHint)) return false;
+  const hints = [itemName, clothingHint].filter(Boolean).join(" ");
+  const n = normalize(hints);
+  return (
+    clothingHintIsTop(clothingHint) ||
+    clothingHintIsTop(itemName) ||
+    n.includes("상의") ||
+    n.includes("원피스")
+  );
+}
+
+function inferMeasureGuideId(
+  itemName?: string | null,
+  clothingHint?: string | null
+): MeasureGuideId | null {
+  const hints = [itemName, clothingHint].filter(Boolean).join(" ");
+  if (!hints.trim()) return null;
+
+  const n = normalize(hints);
+  const isBottom = clothingLooksBottom(itemName, clothingHint);
+  const isTop = clothingLooksTop(itemName, clothingHint);
 
   // 구체적 키워드 우선
   if (n.includes("소매기장") || n.includes("소매길이") || n.includes("sleeve")) {
@@ -161,6 +192,7 @@ export function resolveMeasureGuideId(
     n.includes("통줄임") ||
     n.includes("바지통") ||
     n.includes("스커트통") ||
+    n.includes("밑통") ||
     (n.includes("통") && isBottom && !n.includes("팔통") && !n.includes("기장"))
   ) {
     return "leg-width";
@@ -173,7 +205,49 @@ export function resolveMeasureGuideId(
   ) {
     if (isBottom) return "total-length-bottom";
     if (isTop) return "total-length-top";
-    return isBottom ? "total-length-bottom" : "total-length-top";
+    // 총기장(상의·원피스·정장 자켓) vs 기장 줄임(하의가 기본)
+    return n.includes("총기장") ? "total-length-top" : "total-length-bottom";
+  }
+
+  return null;
+}
+
+function remapStoredKeyToClothing(
+  stored: MeasureGuideId,
+  isBottom: boolean,
+  isTop: boolean
+): MeasureGuideId {
+  if (isBottom && TOP_ONLY_GUIDE_IDS.has(stored)) {
+    return stored === "width-top" ? "waist-hip" : "total-length-bottom";
+  }
+  if (isTop && BOTTOM_ONLY_GUIDE_IDS.has(stored)) {
+    if (stored === "waist-hip") return "width-top";
+    return "total-length-top";
+  }
+  return stored;
+}
+
+/**
+ * 수선 항목 이름으로 가이드를 고른다. 카테고리에 잘못된 키가 있어도
+ * 소매·어깨·품·허리·통·밑위·기장이 서로 섞여 나오지 않게 한다.
+ */
+export function resolveMeasureGuideId(
+  itemName?: string | null,
+  options?: {
+    measureGuideKey?: string | null;
+    clothingHint?: string | null;
+  }
+): MeasureGuideId | null {
+  const inferred = inferMeasureGuideId(itemName, options?.clothingHint);
+  if (inferred) return inferred;
+
+  const key = options?.measureGuideKey?.trim();
+  if (key && VALID_IDS.has(key as MeasureGuideId)) {
+    return remapStoredKeyToClothing(
+      key as MeasureGuideId,
+      clothingLooksBottom(itemName, options?.clothingHint),
+      clothingLooksTop(itemName, options?.clothingHint)
+    );
   }
 
   return null;

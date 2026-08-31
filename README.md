@@ -164,11 +164,15 @@ PC(`lg`, 1024px 이상)에서만 중앙 앱(600px) **양옆 여백**에 사이�
 
 - DB 컬럼: `repair_categories.measure_guide_key`, `repair_types.measure_guide_key`
 - 어드민 **수선 메뉴** 편집에서 「치수 재는 방법 가이드」 선택
-- 키가 없으면 항목/의류 이름으로 자동 추정  
+- **항목 이름이 우선.** 카테고리에 상의 총기장·소매 키가 남아 있어도 허리/통/밑위/어깨 등이 그 가이드로 나오지 않음
+- 의류가 하의(바지·청바지·치마·스커트)이면 상의 기장 키를 하의 기장으로 바꿈. 상의·원피스·아우터 총기장은 상의 가이드
+- 정장/수트: 소매·어깨·품·총기장 → 상의, 기장 줄임·허리·통 → 하의
+- 웹·앱 동일 규칙  
   - 웹: `apps/web/lib/measure-guide.ts`  
   - 앱: `apps/mobile/lib/core/measure_guide.dart`
 - 단독/임베드 페이지: `/guide/measure`, `/guide/measure?embed=1` (앱바 없음). 앱은 더 이상 WebView로 이 페이지를 넣지 않음
 - 마이그레이션: `apps/sql/migrations/add_measure_guide_key.sql`, `add_length_leg_width_guide.sql`
+- 검증: `cd apps/web && npx tsx lib/measure-guide.test.ts` · `cd apps/mobile && flutter test test/measure_guide_test.dart`
 
 ### 가이드 ID
 
@@ -404,6 +408,7 @@ Windows에서는 IPA/AAB를 만들지 않는다. 버전은 맥북에서 `apps/mo
 - 치수 재는 방법이 웹과 같이 **일상적인 방법 / 잘맞는 옷과 비교 방법** 탭
 - WebView 대신 네이티브 위젯. 바깥 화면과 같이 스크롤되어 아래가 잘리지 않음
 - 선택한 수선 항목의 안내만 표시
+- **항목·의류에 맞는 가이드.** 바지·청바지·치마 기장에 상의 가이드가 나오던 문제. 소매/어깨/품/허리/통/밑위/기장+밑통도 이름 기준으로 맞춤
 
 ```bash
 git checkout main
@@ -637,6 +642,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-31 | 치수 가이드 항목 매칭 | 바지·청바지·치마 기장에 상의 가이드가 나오던 문제. 항목 이름 우선(소매/어깨/품/허리/통/밑위/기장). 정장/수트는 총기장·소매는 상의, 기장 줄임은 하의. 웹 `modo.io.kr` 자동 배포. 앱은 맥북에서 스토어 빌드 |
 | 2026-08-31 | 앱 치수 가이드 웹과 동일 | 일상/비교 탭을 웹과 같이 앱에 네이티브로 구현. WebView 잘림 제거. 항목별 일상 안내만 표시. Windows 빌드 없이 맥북에서 스토어 빌드 |
 | 2026-08-31 | 센터 입고·출고 촬영 | 입고·출고를 한 화면으로 맞춤. 수선 전/후 사진 후 내품 스캔, 송장 재스캔으로 촬영 종료. 영상은 `inbound_video`/`outbound_video`. 관리자 주문 상세 HLS 재생. Windows 로컬 빌드 없이 맥북에서 이어감 |
 | 2026-08-31 | 출고 송장 재출력 레이아웃 | 서류 재출력(`/ops/reprint`)이 저장된 송장 레이아웃을 무시하고 기본 양식으로 찍히던 문제. 입고·주문 상세와 같이 `label_layout_config` 사용. 어드민 `admin.modo.mom` |

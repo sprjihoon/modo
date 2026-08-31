@@ -24,6 +24,194 @@ void main() {
       );
     });
 
+    test('기장 줄임 + 바지 uses bottom guide', () {
+      expect(
+        resolveMeasureGuideId('기장 줄임', clothingHint: '바지'),
+        'total-length-bottom',
+      );
+    });
+
+    test('overrides stored top length when clothing is pants', () {
+      expect(
+        resolveMeasureGuideId(
+          '기장 줄임',
+          measureGuideKey: 'total-length-top',
+          clothingHint: '바지',
+        ),
+        'total-length-bottom',
+      );
+    });
+
+    test('청바지 uses bottom length guide', () {
+      expect(
+        resolveMeasureGuideId(
+          '기장 줄임',
+          measureGuideKey: 'total-length-top',
+          clothingHint: '청바지',
+        ),
+        'total-length-bottom',
+      );
+    });
+
+    test('치마 uses bottom length guide', () {
+      expect(
+        resolveMeasureGuideId(
+          '기장 줄임',
+          measureGuideKey: 'total-length-top',
+          clothingHint: '치마',
+        ),
+        'total-length-bottom',
+      );
+    });
+
+    test('스커트 uses bottom length guide', () {
+      expect(
+        resolveMeasureGuideId(
+          '기장 줄임',
+          measureGuideKey: 'total-length-top',
+          clothingHint: '스커트',
+        ),
+        'total-length-bottom',
+      );
+    });
+
+    test('overrides stored top length for 기장 줄임 일반형 + 바지', () {
+      expect(
+        resolveMeasureGuideId(
+          '기장 줄임 - 일반형',
+          measureGuideKey: 'total-length-top',
+          clothingHint: '바지',
+        ),
+        'total-length-bottom',
+      );
+    });
+
+    test('defaults 기장 줄임 to bottom when clothing is unknown', () {
+      expect(resolveMeasureGuideId('기장 줄임'), 'total-length-bottom');
+    });
+
+    test('keeps top length when clothing is a top', () {
+      expect(
+        resolveMeasureGuideId('총기장 줄임', clothingHint: '상의'),
+        'total-length-top',
+      );
+    });
+
+    test('overrides stored bottom length when clothing is a top', () {
+      expect(
+        resolveMeasureGuideId(
+          '총기장 줄임',
+          measureGuideKey: 'total-length-bottom',
+          clothingHint: '상의',
+        ),
+        'total-length-top',
+      );
+    });
+
+    test('name wins over a wrong category key', () {
+      expect(
+        resolveMeasureGuideId(
+          '어깨길이 줄임',
+          measureGuideKey: 'sleeve-length',
+          clothingHint: '티셔츠/맨투맨',
+        ),
+        'shoulder',
+      );
+      expect(
+        resolveMeasureGuideId(
+          '허리/밑 줄임',
+          measureGuideKey: 'total-length-bottom',
+          clothingHint: '바지',
+        ),
+        'waist-hip',
+      );
+      expect(
+        resolveMeasureGuideId(
+          '밑위(기장이) 줄임',
+          measureGuideKey: 'total-length-top',
+          clothingHint: '청바지',
+        ),
+        'rise',
+      );
+      expect(
+        resolveMeasureGuideId(
+          '밑통만 줄임',
+          measureGuideKey: 'total-length-top',
+          clothingHint: '바지',
+        ),
+        'leg-width',
+      );
+      expect(
+        resolveMeasureGuideId(
+          '기장+밑통 줄임',
+          measureGuideKey: 'total-length-top',
+          clothingHint: '바지',
+        ),
+        'length-leg-width',
+      );
+    });
+
+    test('top clothing items keep top guides', () {
+      for (final clothing in ['티셔츠/맨투맨', '셔츠/블라우스', '원피스', '아우터']) {
+        expect(
+          resolveMeasureGuideId('소매기장 줄임', clothingHint: clothing),
+          'sleeve-length',
+        );
+        expect(
+          resolveMeasureGuideId('전체팔통 줄임', clothingHint: clothing),
+          'arm-width',
+        );
+        expect(
+          resolveMeasureGuideId('어깨길이 줄임', clothingHint: clothing),
+          'shoulder',
+        );
+        expect(
+          resolveMeasureGuideId('전체품 줄임', clothingHint: clothing),
+          'width-top',
+        );
+        expect(
+          resolveMeasureGuideId('총기장 줄임', clothingHint: clothing),
+          'total-length-top',
+        );
+      }
+    });
+
+    test('bottom clothing items keep bottom guides', () {
+      for (final clothing in ['바지', '청바지', '치마']) {
+        expect(
+          resolveMeasureGuideId('허리/밑 줄임', clothingHint: clothing),
+          'waist-hip',
+        );
+        expect(
+          resolveMeasureGuideId('전체통 줄임', clothingHint: clothing),
+          'leg-width',
+        );
+        expect(
+          resolveMeasureGuideId('기장 줄임 - 일반형', clothingHint: clothing),
+          'total-length-bottom',
+        );
+      }
+    });
+
+    test('suit mixes jacket and pants guides', () {
+      expect(
+        resolveMeasureGuideId('총기장 줄임', clothingHint: '정장/수트'),
+        'total-length-top',
+      );
+      expect(
+        resolveMeasureGuideId('기장 줄임 - 일반형', clothingHint: '정장/수트'),
+        'total-length-bottom',
+      );
+      expect(
+        resolveMeasureGuideId('소매기장 줄임', clothingHint: '정장/수트'),
+        'sleeve-length',
+      );
+    });
+
+    test('defaults 총기장 to top when clothing is unknown', () {
+      expect(resolveMeasureGuideId('총기장 줄임'), 'total-length-top');
+    });
+
     test('builds embed url with type', () {
       final url = measureGuideEmbedUrl('shoulder');
       expect(url, contains('modo.io.kr/guide/measure'));
