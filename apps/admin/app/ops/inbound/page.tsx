@@ -7,7 +7,7 @@ import { customerRequestSummary, parseWorkOrderImages } from "@/lib/work-order-i
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
-import { getRepairItemCount } from "@/lib/barcode";
+import { buildBarcodeNo, canStartOutboundPackScan, getRepairItemCount } from "@/lib/barcode";
 import { getOrderSourceBadge } from "@/lib/order-source";
 import {
   Dialog,
@@ -37,6 +37,7 @@ type ShipmentData = {
   pickupAddress: string;
   deliveryAddress: string;
   orderId: string;
+  barcodePrefixes?: string[];
   itemName: string;
   repairParts?: string[]; // 수선 부위 목록
   images?: string[]; // 이미지 URL 배열
@@ -162,16 +163,27 @@ async function lookupShipment(trackingNo: string): Promise<ShipmentData | null> 
       }
     }
 
+    const barcodePrefixes = [
+      inboundTrackingNo,
+      shipment.tracking_no,
+      order.order_number,
+    ]
+      .map((v: unknown) => String(v || "").trim())
+      .filter(Boolean)
+      .filter((v: string, i: number, arr: string[]) => arr.indexOf(v) === i);
+
     console.log('📦 송장번호 매핑:', {
       inboundTrackingNo,
       outboundTrackingNo,
       delivery_tracking_no: shipment.delivery_tracking_no,
       delivery_info_regiNo: deliveryInfo?.regiNo,
+      barcodePrefixes,
     });
 
     return {
       trackingNo: inboundTrackingNo, // 입고송장번호
       outboundTrackingNo: outboundTrackingNo, // 출고송장번호
+      barcodePrefixes,
       customerName: order.customer_name || "고객명 없음",
       orderSource: order.order_source || null,
       customerPhone: order.customer_phone || undefined,
@@ -364,6 +376,13 @@ export default function InboundPage() {
   // 입고 처리 함수
   const handleInboundProcess = async () => {
     if (!result) return;
+
+    const itemCount = getRepairItemCount(result.repairParts);
+    const photoCount = Object.values(beforePhotos).filter((p) => p.before).length;
+    if (!canStartOutboundPackScan({ itemCount, photoDoneCount: photoCount })) {
+      alert(`수선 전 사진을 먼저 촬영하세요.\n현재 ${photoCount}/${itemCount}장입니다.`);
+      return;
+    }
 
     setIsProcessing(true);
     console.log("📦 입고 처리 시작:", result.trackingNo);
@@ -811,11 +830,23 @@ export default function InboundPage() {
           </button>
 
           {/* 입고 처리 */}
+          {(() => {
+            const itemCount = result ? getRepairItemCount(result.repairParts) : 0;
+            const photoCount = Object.values(beforePhotos).filter((p) => p.before).length;
+            const photosReady =
+              !result ||
+              canStartOutboundPackScan({ itemCount, photoDoneCount: photoCount });
+            const canInbound =
+              !!result &&
+              result.status !== "INBOUND" &&
+              !isProcessing &&
+              photosReady;
+            return (
           <button
-            disabled={!result || result.status === "INBOUND" || isProcessing}
+            disabled={!canInbound}
             onClick={handleInboundProcess}
             className={`w-full px-6 py-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
-              result && result.status !== "INBOUND" && !isProcessing
+              canInbound
                 ? "bg-green-600 text-white hover:bg-green-700"
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
@@ -832,6 +863,8 @@ export default function InboundPage() {
               </>
             )}
           </button>
+            );
+          })()}
 
           {/* 입고 취소(되돌리기) */}
           <button
@@ -859,7 +892,9 @@ export default function InboundPage() {
             ? "송장을 스캔하면 버튼이 활성화됩니다"
             : result.status === "INBOUND"
               ? "입고 취소(되돌리기)로 상태를 되돌릴 수 있습니다"
-              : "버튼을 클릭하여 입고 처리하세요"}
+              : Object.values(beforePhotos).filter((p) => p.before).length < getRepairItemCount(result.repairParts)
+                ? "수선 전 사진을 모두 촬영한 뒤 입고 처리하세요"
+                : "버튼을 클릭하여 입고 처리하세요"}
         </div>
       </div>
 
@@ -1276,9 +1311,11 @@ export default function InboundPage() {
       {/* 수선전 사진 촬영 모달 */}
       {showBeforePhoto && result && (() => {
         const itemCount = getRepairItemCount(result.repairParts);
+        const barcodePrefix = result.barcodePrefixes?.[0] || result.trackingNo || "";
         const repairItems: RepairItem[] = Array.from({ length: itemCount }, (_, i) => ({
           id: `item_${i + 1}`,
           repairPart: result.repairParts?.[i] || `${i + 1}번 아이템`,
+          barcodeNo: barcodePrefix ? buildBarcodeNo(barcodePrefix, i + 1) : undefined,
         }));
         return (
           <div className="fixed inset-0 bg-black z-50 flex flex-col">
@@ -1287,6 +1324,8 @@ export default function InboundPage() {
               repairItems={repairItems}
               photoType="before_photo"
               finalWaybillNo={result.trackingNo}
+              autoFinishOnAllPacked
+              barcodePrefixes={result.barcodePrefixes}
               initialPhotos={beforePhotos}
               onAllDone={(photos) => {
                 setBeforePhotos(photos);

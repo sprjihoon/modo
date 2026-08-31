@@ -1,5 +1,32 @@
 export type CameraFacing = "environment" | "user";
 
+/** 입고/출고 라이브 녹화 업로드 위치. sequence>=1 이어야 inbound_video / outbound_video 로 저장된다. */
+export function resolveOpsLiveVideoUpload(pathname: string): {
+  endpoint: string;
+  sequence: number;
+  videoType: "inbound_video" | "outbound_video" | "box_open_video";
+} {
+  if (pathname.includes("/ops/outbound")) {
+    return {
+      endpoint: "/api/ops/outbound/stream-upload",
+      sequence: 1,
+      videoType: "outbound_video",
+    };
+  }
+  if (pathname.includes("/ops/work")) {
+    return {
+      endpoint: "/api/ops/work/stream-upload",
+      sequence: 0,
+      videoType: "box_open_video",
+    };
+  }
+  return {
+    endpoint: "/api/ops/inbound/stream-upload",
+    sequence: 1,
+    videoType: "inbound_video",
+  };
+}
+
 /** 브라우저 Permissions-Policy가 이 문서에서 카메라를 허용하는지 */
 export function isCameraAllowedByPolicy(): boolean | null {
   if (typeof document === "undefined") return null;

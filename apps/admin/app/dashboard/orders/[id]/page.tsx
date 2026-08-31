@@ -15,6 +15,13 @@ import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
 import { OrderCsCard } from "@/components/orders/order-cs-card";
 import { formatOrderDate, isPastOrderDate, isPickupBookingLock, isRealTrackingNo, todayYmdKst } from "@/lib/missing-pickup";
+import { HLSVideoPlayer } from "@/components/video/hls-video-player";
+import {
+  adminMediaPlaybackUrl,
+  adminVideoTypeLabel,
+  cloudflareWatchUrl,
+  splitOrderVideosByType,
+} from "@/lib/admin-media";
 import { canShowReturnShipmentUi, getEffectiveOrderStatus } from "@/lib/order-return-flow";
 import { getOrderSourceBadge, getOrderSourceLabel } from "@/lib/order-source";
 import { parseRepairPart } from "@/lib/repair-parts";
@@ -337,27 +344,12 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
     }
   };
 
-  const getVideoUrl = (video: MediaVideo) => {
-    if (video.provider === 'cloudflare') {
-      // Cloudflare Stream HLS URL (모바일 앱과 동일하게)
-      return `https://customer-wn4smwc3lzqmm79i.cloudflarestream.com/${video.path}/manifest/video.m3u8`;
-    }
-    return video.path;
-  };
+  const getVideoUrl = (video: MediaVideo) =>
+    adminMediaPlaybackUrl({ provider: video.provider, path: video.path });
 
-  const getVideoTypeLabel = (type: string) => {
-    if (type === 'inbound_video') return '입고';
-    if (type === 'outbound_video') return '출고';
-    if (type === 'box_open_video') return '박스오픈';
-    if (type === 'packing_video') return '포장';
-    if (type === 'work_video') return '작업';
-    return type;
-  };
+  const getVideoTypeLabel = (type: string) => adminVideoTypeLabel(type);
 
-  // 영상 시청 링크 생성
-  const getVideoWatchUrl = (videoId: string) => {
-    return `https://iframe.videodelivery.net/${videoId}`;
-  };
+  const getVideoWatchUrl = (videoId: string) => cloudflareWatchUrl(videoId);
 
   // 영상 링크 복사 (카카오톡 상담에서 전달용)
   const handleCopyVideoLink = async (video: MediaVideo) => {
@@ -563,11 +555,12 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
     },
   ];
 
-  // Separate videos by type
-  const boxOpenVideos = videos.filter(v => v.type === 'box_open_video').sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-  const inboundVideos = videos.filter(v => v.type === 'inbound_video').sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-  const outboundVideos = videos.filter(v => v.type === 'outbound_video').sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-  const packingVideos = videos.filter(v => v.type === 'packing_video').sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  const {
+    inbound: inboundVideos,
+    outbound: outboundVideos,
+    boxOpen: boxOpenVideos,
+    packing: packingVideos,
+  } = splitOrderVideosByType(videos);
 
   // if (!order) {
   //   router.push('/dashboard/orders');
@@ -1618,14 +1611,11 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
             </div>
             <div className="p-4">
               <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                <video
+                <HLSVideoPlayer
                   src={getVideoUrl(selectedVideo)}
-                  controls
-                  autoPlay
+                  autoplay
                   className="w-full h-full"
-                >
-                  브라우저가 비디오를 지원하지 않습니다.
-                </video>
+                />
               </div>
               <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
                 <div>

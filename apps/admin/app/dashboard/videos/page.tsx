@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Search, Video, Play, Calendar, Package, Trash2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { HLSVideoPlayer } from "@/components/video/hls-video-player";
+import { ADMIN_VIDEO_TYPE_FILTERS, adminMediaPlaybackUrl, adminVideoFilterLabel } from "@/lib/admin-media";
 
 const getToday = () => new Date().toISOString().split("T")[0];
 const getDaysAgo = (days: number) => {
@@ -32,15 +33,7 @@ interface VideoItem {
   delivery_tracking_no?: string | null;
 }
 
-const VIDEO_TYPES = [
-  { value: "outbound_video", label: "출고 영상" },
-  { value: "inbound_video", label: "입고 영상 (구)" },
-  { value: "box_open_video", label: "박스오픈 (구)" },
-  { value: "packing_video", label: "포장 영상 (구)" },
-  { value: "merged_video", label: "병합 영상 (구)" },
-  { value: "work_video", label: "작업 영상 (구)" },
-  { value: "all", label: "전체" },
-];
+const VIDEO_TYPES = ADMIN_VIDEO_TYPE_FILTERS;
 
 const PAGE_SIZE = 24;
 
@@ -111,11 +104,8 @@ export default function VideosPage() {
 
   const handleSearch = () => loadVideos(true);
 
-  const getVideoUrl = (v: VideoItem) => {
-    if (v.path.startsWith("http")) return v.path;
-    if (v.provider === "cloudflare") return `https://videodelivery.net/${v.path}/manifest/video.m3u8`;
-    return v.path;
-  };
+  const getVideoUrl = (v: VideoItem) =>
+    adminMediaPlaybackUrl({ provider: v.provider, path: v.path });
 
   const getTypeBadgeClass = (type: string) => {
     if (type === "outbound_video") return "bg-blue-500 text-white";
@@ -126,7 +116,7 @@ export default function VideosPage() {
     return "bg-gray-300 text-gray-700";
   };
 
-  const getTypeLabel = (type: string) => VIDEO_TYPES.find((t) => t.value === type)?.label ?? type;
+  const getTypeLabel = (type: string) => adminVideoFilterLabel(type);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -160,7 +150,7 @@ export default function VideosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">영상 관리</h1>
-          <p className="text-muted-foreground">출고 영상을 조회하고 관리합니다</p>
+          <p className="text-muted-foreground">입고·출고 영상과 수선 전후 관련 영상을 조회합니다</p>
         </div>
         <Button onClick={() => loadVideos(true)} disabled={isLoading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -170,14 +160,21 @@ export default function VideosPage() {
 
       {/* 통계 카드 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card
+          className={`cursor-pointer transition-colors ${typeFilter === "all" && datePreset === "all" ? "ring-2 ring-purple-500" : "hover:bg-muted/50"}`}
+          onClick={() => {
+            setTypeFilter("all");
+            handleDatePreset("all");
+          }}
+        >
           <CardHeader className="pb-2">
-            <CardDescription>전체 영상</CardDescription>
+            <CardDescription>전체 영상 (누적)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {Object.values(typeCounts).reduce((a, b) => a + b, 0)}개
             </div>
+            <p className="text-xs text-muted-foreground mt-1">클릭하면 전체 기간·유형을 봅니다</p>
           </CardContent>
         </Card>
         <Card
@@ -198,7 +195,7 @@ export default function VideosPage() {
           onClick={() => setTypeFilter("inbound_video")}
         >
           <CardHeader className="pb-2">
-            <CardDescription>📥 입고 영상 (구)</CardDescription>
+            <CardDescription>📥 입고 영상 (현재)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-500">
@@ -307,8 +304,11 @@ export default function VideosPage() {
         </div>
       ) : videos.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            영상이 없습니다.
+          <CardContent className="py-12 text-center text-muted-foreground space-y-2">
+            <p>선택한 기간·유형에 영상이 없습니다.</p>
+            <p className="text-xs">
+              위 숫자는 전체 누적입니다. 기간을 「전체」로 바꾸거나 「전체 영상」을 누르면 됩니다.
+            </p>
           </CardContent>
         </Card>
       ) : (

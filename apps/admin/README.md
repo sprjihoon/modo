@@ -18,8 +18,14 @@
 
 ### 영상 관리
 - [x] 영상 업로드 UI
-- [ ] Cloudflare Stream 연동
-- [ ] 영상 미리보기
+- [x] Cloudflare Stream 연동 (입고 `inbound_video` · 출고 `outbound_video`)
+- [x] 주문 상세·영상 관리 미리보기 (HLS)
+
+### 센터 입고 · 출고
+- [x] `/ops/inbound` 수선 전 사진 + 입고영상
+- [x] `/ops/outbound` 수선 후 사진 + 출고영상
+- [x] 내품 바코드 스캔 후 송장 재스캔으로 촬영 종료
+- [x] 사진 없이 입고/출고완료 차단
 
 ### 고객 관리
 - [ ] 고객 목록
@@ -181,8 +187,20 @@ await supabase.auth.signOut()
 
 ## 🧪 테스트
 
+Windows에서는 `npm run build`를 돌리지 않는다. 맥북에서 `main` pull 후 타입체크·빌드를 이어간다.
+
 ```bash
-# 타입 체크
+# 입고·출고 스캔 / 관리자 미디어 조회
+npx tsx lib/barcode.test.ts
+npx tsx lib/ops-camera.test.ts
+npx tsx lib/admin-media.test.ts
+npx tsx lib/order-ops-journey.test.ts
+
+# DB 목업 1건 생성 → 검증 → 삭제
+npx tsx lib/admin-media.live.test.ts
+npx tsx lib/order-ops-journey.live.test.ts
+
+# 타입 체크 (맥북에서 이어서)
 npm run type-check
 
 # 린트

@@ -102,12 +102,14 @@ export type PackScanFailReason =
   | "EMPTY"
   | "PHOTOS_INCOMPLETE"
   | "WAYBILL"
+  | "NEED_PACK_ALL"
   | "UNKNOWN"
   | "ALREADY_PACKED"
   | "PHOTO_MISSING";
 
 export type PackScanDecision =
-  | { ok: true; seq: number }
+  | { ok: true; action: "PACK"; seq: number }
+  | { ok: true; action: "FINISH" }
   | { ok: false; reason: PackScanFailReason; seq?: number };
 
 /** 출고 내품 스캔 한 건의 허용/거절. 사진 미완이면 스캔 자체를 막는다. */
@@ -131,8 +133,17 @@ export function resolveOutboundPackScan(args: {
     return { ok: false, reason: "PHOTOS_INCOMPLETE" };
   }
 
+  const allPacked = shouldAutoFinishPacking({
+    itemCount: args.items.length,
+    sessionPackedSeqs: args.packedSeqs,
+    photosComplete: true,
+  });
+
   const matched = matchPackedItemSeq(q, args.items, args.prefixes ?? []);
-  if (matched === PACK_SCAN_WAYBILL) return { ok: false, reason: "WAYBILL" };
+  if (matched === PACK_SCAN_WAYBILL) {
+    if (allPacked) return { ok: true, action: "FINISH" };
+    return { ok: false, reason: "NEED_PACK_ALL" };
+  }
   if (matched == null) return { ok: false, reason: "UNKNOWN" };
   if (args.packedSeqs.includes(matched)) {
     return { ok: false, reason: "ALREADY_PACKED", seq: matched };
@@ -140,26 +151,32 @@ export function resolveOutboundPackScan(args: {
   if (!args.photoDoneSeqs.includes(matched)) {
     return { ok: false, reason: "PHOTO_MISSING", seq: matched };
   }
-  return { ok: true, seq: matched };
+  return { ok: true, action: "PACK", seq: matched };
 }
+
+export type PackScanMode = "inbound" | "outbound";
 
 export function packScanFailMessage(
   reason: PackScanFailReason,
-  extra?: { doneCount?: number; totalCount?: number; seq?: number },
+  extra?: { doneCount?: number; totalCount?: number; seq?: number; mode?: PackScanMode },
 ): string | null {
+  const photoLabel = extra?.mode === "inbound" ? "수선 전" : "수선 후";
+  const waybillLabel = extra?.mode === "inbound" ? "입고 송장" : "출고 송장";
   switch (reason) {
     case "EMPTY":
       return null;
     case "PHOTOS_INCOMPLETE":
-      return `수선 후 사진을 먼저 저장하세요 (${extra?.doneCount ?? 0}/${extra?.totalCount ?? 0})`;
+      return `${photoLabel} 사진을 먼저 저장하세요 (${extra?.doneCount ?? 0}/${extra?.totalCount ?? 0})`;
     case "WAYBILL":
       return "송장이 아니라 내품 바코드(-01)를 스캔하세요";
+    case "NEED_PACK_ALL":
+      return `내품을 모두 담은 뒤 ${waybillLabel}을 다시 스캔하세요`;
     case "UNKNOWN":
       return "이 주문 내품이 아닙니다";
     case "ALREADY_PACKED":
       return extra?.seq ? `#${extra.seq} 이미 담았습니다` : "이미 담았습니다";
     case "PHOTO_MISSING":
-      return extra?.seq ? `#${extra.seq} 수선 후 사진을 먼저 저장하세요` : "수선 후 사진을 먼저 저장하세요";
+      return extra?.seq ? `#${extra.seq} ${photoLabel} 사진을 먼저 저장하세요` : `${photoLabel} 사진을 먼저 저장하세요`;
   }
 }
 

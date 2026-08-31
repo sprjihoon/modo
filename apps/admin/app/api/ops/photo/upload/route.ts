@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireStaff } from "@/lib/ops-auth";
+import { collectMediaLookupKeys, groupRepairPhotos } from "@/lib/admin-media";
 
 export const dynamic = "force-dynamic";
 
@@ -174,13 +175,19 @@ export async function GET(request: NextRequest) {
       .select("pickup_tracking_no, tracking_no, delivery_tracking_no")
       .eq("order_id", orderId)
       .maybeSingle();
+    const { data: order } = await supabaseAdmin
+      .from("orders")
+      .select("tracking_no")
+      .eq("id", orderId)
+      .maybeSingle();
 
-    const candidates = [
-      shipment?.pickup_tracking_no,
-      shipment?.tracking_no,
-      shipment?.delivery_tracking_no,
+    const candidates = collectMediaLookupKeys({
       orderId,
-    ].filter(Boolean) as string[];
+      orderTrackingNo: order?.tracking_no,
+      pickupTrackingNo: shipment?.pickup_tracking_no,
+      deliveryTrackingNo: shipment?.delivery_tracking_no,
+      shipmentTrackingNo: shipment?.tracking_no,
+    });
 
     const { data: photos, error } = await supabaseAdmin
       .from("media")
@@ -191,25 +198,9 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    // 공개 URL 생성 및 sequence별 그룹화
-    const bySequence: Record<number, { before?: string; after?: string; beforeId?: string; afterId?: string }> = {};
-
-    for (const p of photos || []) {
-      const seq = p.sequence || 1;
-      if (!bySequence[seq]) bySequence[seq] = {};
-
-      const url = supabaseAdmin.storage
-        .from("repair-photos")
-        .getPublicUrl(p.path).data.publicUrl;
-
-      if (p.type === "before_photo") {
-        bySequence[seq].before = url;
-        bySequence[seq].beforeId = p.id;
-      } else if (p.type === "after_photo") {
-        bySequence[seq].after = url;
-        bySequence[seq].afterId = p.id;
-      }
-    }
+    const bySequence = groupRepairPhotos(photos || [], (path) =>
+      supabaseAdmin.storage.from("repair-photos").getPublicUrl(path).data.publicUrl,
+    );
 
     return NextResponse.json({ success: true, photos: bySequence, raw: photos });
   } catch (error: any) {

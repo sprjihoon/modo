@@ -543,6 +543,49 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 
 ---
 
+## 센터 입고 · 출고 촬영
+
+입고(`/ops/inbound`)와 출고(`/ops/outbound`)는 같은 촬영 화면이다. 왼쪽은 라이브 녹화, 오른쪽은 수선 항목 스크린샷이다.
+
+| 단계 | 입고 | 출고 |
+|---|---|---|
+| 송장 스캔 | 입고(수거) 송장 | 출고 송장 |
+| 항목 클릭 | 수선 전 사진 | 수선 후 사진 |
+| 내품 스캔 | `{송장}-01` | `{송장}-01` |
+| 촬영 종료 | 입고송장을 다시 스캔 | 출고송장을 다시 스캔 |
+| 저장 영상 | `inbound_video` | `outbound_video` |
+| 완료 버튼 | 수선 전 사진 필수 | 수선 후 사진 필수 |
+
+내품을 다 담아도 바로 종료하지 않는다. 송장을 한 번 더 스캔해야 녹화가 올라간다. 관리자 주문 상세·영상 관리에서 수선 전·후 사진과 입고·출고 영상을 본다. 주문 상세 재생은 HLS 플레이어를 쓴다.
+
+검증(Windows에서 `next build`는 하지 않음):
+
+```bash
+cd apps/admin
+npx tsx lib/barcode.test.ts
+npx tsx lib/ops-camera.test.ts
+npx tsx lib/admin-media.test.ts
+npx tsx lib/order-ops-journey.test.ts
+# DB 목업 1건 넣었다가 삭제
+npx tsx lib/admin-media.live.test.ts
+npx tsx lib/order-ops-journey.live.test.ts
+```
+
+### 맥북에서 어드민 빌드 이어가기
+
+이 작업은 Windows에서 로컬 빌드하지 않았다. 맥북에서 `main`을 받은 뒤 타입체크·빌드를 이어서 하면 된다. `main` push면 Vercel 프로젝트 **`modo`**(admin.modo.mom)에 자동 배포된다.
+
+```bash
+git checkout main
+git pull
+cd apps/admin
+npm install
+npx tsc --noEmit
+npm run build
+```
+
+---
+
 ## 직원 권한
 
 역할은 `users.role` / `staff.role` 기준이다. 로그인·메뉴·URL·직원 CRUD가 같은 규칙을 쓴다. 코드: `apps/admin/lib/staff-permissions.ts`
@@ -566,6 +609,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-31 | 센터 입고·출고 촬영 | 입고·출고를 한 화면으로 맞춤. 수선 전/후 사진 후 내품 스캔, 송장 재스캔으로 촬영 종료. 영상은 `inbound_video`/`outbound_video`. 관리자 주문 상세 HLS 재생. Windows 로컬 빌드 없이 맥북에서 이어감 |
 | 2026-08-31 | 출고 송장 재출력 레이아웃 | 서류 재출력(`/ops/reprint`)이 저장된 송장 레이아웃을 무시하고 기본 양식으로 찍히던 문제. 입고·주문 상세와 같이 `label_layout_config` 사용. 어드민 `admin.modo.mom` |
 | 2026-08-31 | 수선 세부항목 · 전체 가격 | 전체 옵션 없는 항목에서 다음이 안 되던 문제 + 앱에서 치수 화면이 세부부위 뒤에 가려지던 문제. **전체** 선택 시에만 가격 표시. 홈 주문/리뷰 여백. **웹 `modo.io.kr` 라이브(`4eb7e9c`). 앱은 맥북에서 스토어 빌드** |
 | 2026-08-31 | 운영 리포트 크론 SSO | 미들웨어 통과 후에도 `*.vercel.app` 이 Vercel Authentication(SSO) 302. 프로덕션 보호를 Preview만으로 바꿔 크론이 JSON까지 도달. GitHub `ops-report-cron` 이 09:05 KST에 `admin.modo.mom` 으로 재시도 |

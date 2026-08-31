@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { collectMediaLookupKeys, filterAdminOrderVideos } from '@/lib/admin-media';
 
 export async function GET(
   request: NextRequest,
@@ -65,13 +66,13 @@ export async function GET(
       .maybeSingle();
 
     // Get videos for this order
-    const trackingNumbers = [
-      order.id,
-      order.tracking_no,
-      shipment?.pickup_tracking_no,
-      shipment?.delivery_tracking_no,
-      shipment?.tracking_no,
-    ].filter(Boolean);
+    const trackingNumbers = collectMediaLookupKeys({
+      orderId: order.id,
+      orderTrackingNo: order.tracking_no,
+      pickupTrackingNo: shipment?.pickup_tracking_no,
+      deliveryTrackingNo: shipment?.delivery_tracking_no,
+      shipmentTrackingNo: shipment?.tracking_no,
+    });
 
     console.log('📹 [API] 영상 검색 키:', trackingNumbers);
 
@@ -90,18 +91,10 @@ export async function GET(
       if (videoError) {
         console.error('📹 [API] 영상 조회 실패:', videoError);
       } else {
-        const now = new Date();
-        // JavaScript에서 type 필터링 + 만료되지 않은 영상만
-        videos = (videoData || []).filter((v: any) => {
-          const isValidType = v.type === 'inbound_video' || v.type === 'outbound_video';
-          // expires_at이 없거나 만료되지 않은 경우만 포함
-          const isNotExpired = !v.expires_at || new Date(v.expires_at) > now;
-          return isValidType && isNotExpired;
-        });
-        
+        videos = filterAdminOrderVideos(videoData || []);
         const expiredCount = (videoData || []).length - videos.length;
         if (expiredCount > 0) {
-          console.log('📹 [API] 만료된 영상 제외:', expiredCount, '개');
+          console.log('📹 [API] 만료/제외 영상:', expiredCount, '개');
         }
         console.log('📹 [API] 찾은 영상:', videos.length, '개');
       }

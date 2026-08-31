@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Camera, Check, X, RefreshCw, Scan } from "lucide-react";
-import { formatCameraError, requestCameraStream } from "@/lib/ops-camera";
+import { formatCameraError, requestCameraStream, resolveOpsLiveVideoUpload } from "@/lib/ops-camera";
 import {
   canStartOutboundPackScan,
   packScanFailMessage,
@@ -44,7 +44,7 @@ interface Props {
   initialPhotos?: Record<number, { before?: string; after?: string }>;
   onAllDone?: (photos: Record<number, { before?: string; after?: string }>) => void;
   onClose: () => void;
-  /** 출고: 내품 스캔/클릭이 모두 끝나면 녹화 종료 */
+  /** 입고/출고: 항목 스캔 후 송장을 다시 스캔하면 녹화 종료 */
   autoFinishOnAllPacked?: boolean;
   barcodePrefixes?: string[];
 }
@@ -96,6 +96,8 @@ export default function PhotoCapture({
 
   const label = photoType === "before_photo" ? "수선 전" : "수선 후";
   const labelColor = photoType === "before_photo" ? "#F97316" : "#00C896";
+  const packMode = photoType === "before_photo" ? "inbound" : "outbound";
+  const waybillLabel = packMode === "inbound" ? "입고 송장" : "출고 송장";
 
   // ─── 카메라 + 녹화 시작 ────────────────────────────────────────────────────
 
@@ -277,22 +279,13 @@ export default function PhotoCapture({
   const uploadBoxOpenVideoInBackground = (blob: Blob, duration: number) => {
     const currentOrderId = orderId;
 
-    // 현재 페이지에 맞는 stream-upload 엔드포인트 선택
-    let endpoint = "/api/ops/inbound/stream-upload";
-    try {
-      if (typeof window !== "undefined") {
-        const path = window.location.pathname;
-        if (path.includes("/ops/outbound")) {
-          endpoint = "/api/ops/outbound/stream-upload";
-        } else if (path.includes("/ops/work")) {
-          endpoint = "/api/ops/work/stream-upload";
-        }
-      }
-    } catch {}
+    const path =
+      typeof window !== "undefined" ? window.location.pathname : "/ops/inbound";
+    const { endpoint, sequence } = resolveOpsLiveVideoUpload(path);
 
     (async () => {
       try {
-        console.log(`📹 오픈박스 영상 업로드 시작 (CS용, ${duration}초, ${(blob.size / 1024 / 1024).toFixed(1)}MB, endpoint: ${endpoint})`);
+        console.log(`📹 라이브 영상 업로드 시작 (${duration}초, ${(blob.size / 1024 / 1024).toFixed(1)}MB, endpoint: ${endpoint}, sequence: ${sequence})`);
 
         const arrayBuffer = await blob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
@@ -311,11 +304,11 @@ export default function PhotoCapture({
             orderId: currentOrderId,
             base64,
             mimeType: "video/webm",
-            sequence: 0, // box_open_video (CS용)
+            sequence,
             durationSeconds: duration,
           }),
         });
-        console.log("✅ 오픈박스 영상 업로드 완료 (CS용)");
+        console.log("✅ 라이브 영상 업로드 완료");
       } catch (e) {
         console.warn("⚠️ 오픈박스 영상 업로드 실패 (무시):", e);
       }
@@ -394,8 +387,15 @@ export default function PhotoCapture({
           doneCount,
           totalCount,
           seq: decision.seq,
+          mode: packMode,
         })
       );
+      return;
+    }
+
+    if (decision.action === "FINISH") {
+      setScanMessage(`${waybillLabel} 확인 — 촬영 종료`);
+      handleFinish();
       return;
     }
 
@@ -412,25 +412,18 @@ export default function PhotoCapture({
     focusScan();
   };
 
+  const allPacked =
+    autoFinishOnAllPacked &&
+    shouldAutoFinishPacking({
+      itemCount: repairItems.length,
+      sessionPackedSeqs: Object.keys(sessionPacked).map(Number),
+      photosComplete: packScanReady,
+    });
+
   useEffect(() => {
     if (!packScanReady || !cameraReady) return;
     focusScan();
-  }, [packScanReady, cameraReady]);
-
-  useEffect(() => {
-    if (!autoFinishOnAllPacked) return;
-    if (
-      shouldAutoFinishPacking({
-        itemCount: repairItems.length,
-        sessionPackedSeqs: Object.keys(sessionPacked).map(Number),
-        photosComplete: packScanReady,
-      })
-    ) {
-      handleFinish();
-    }
-    // handleFinish는 최신 photoStates를 읽는다
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionPacked, autoFinishOnAllPacked, repairItems.length]);
+  }, [packScanReady, cameraReady, allPacked]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -516,8 +509,10 @@ export default function PhotoCapture({
               <span className="px-3 py-1 bg-black/50 text-white text-xs rounded-full">
                 {autoFinishOnAllPacked
                   ? packScanReady
-                    ? "내품 바코드를 스캔하거나 항목을 클릭하면 담기가 완료됩니다"
-                    : "오른쪽 항목을 클릭해 수선 후 사진을 먼저 저장하세요"
+                    ? allPacked
+                      ? `${waybillLabel}을 다시 스캔하면 촬영이 종료됩니다`
+                      : "내품 바코드를 스캔하거나 항목을 클릭하면 담기가 완료됩니다"
+                    : `오른쪽 항목을 클릭해 ${label} 사진을 먼저 저장하세요`
                   : "오른쪽 제품명을 클릭하면 현재 화면이 저장됩니다"}
               </span>
             </div>
@@ -529,14 +524,18 @@ export default function PhotoCapture({
           <div className="px-3 py-2 bg-white border-b border-gray-200">
             {autoFinishOnAllPacked ? (
               <>
-                <p className="text-xs font-semibold text-gray-600">내품 리스트</p>
+                <p className="text-xs font-semibold text-gray-600">
+                  {packMode === "inbound" ? "수선 신청 항목" : "내품 리스트"}
+                </p>
                 <p className="text-xs text-gray-800 font-mono mt-0.5 truncate">
                   {barcodePrefixes[0] || finalWaybillNo || "송장 없음"}
                 </p>
                 <p className="text-xs font-medium mt-0.5 text-green-700">
                   {packScanReady
-                    ? "스캔 또는 클릭 → 담기 · 전부 담으면 촬영 종료"
-                    : `수선 후 사진 ${doneCount}/${totalCount}장 저장 후 출고 스캔`}
+                    ? allPacked
+                      ? `항목 완료 · ${waybillLabel}을 다시 스캔하면 촬영 종료`
+                      : `스캔 또는 클릭 → 담기 · 모두 담은 뒤 ${waybillLabel} 스캔`
+                    : `${label} 사진 ${doneCount}/${totalCount}장 저장 후 스캔`}
                 </p>
               </>
             ) : (
@@ -565,8 +564,10 @@ export default function PhotoCapture({
                   }}
                   placeholder={
                     packScanReady
-                      ? "내품 바코드 스캔"
-                      : "수선 후 사진 저장 후 스캔"
+                      ? allPacked
+                        ? `${waybillLabel} 다시 스캔 → 촬영 종료`
+                        : "내품 바코드 스캔"
+                      : `${label} 사진 저장 후 스캔`
                   }
                   disabled={!packScanReady}
                   className={`flex-1 border rounded-lg px-3 py-2 text-sm font-mono ${
@@ -577,7 +578,7 @@ export default function PhotoCapture({
               </div>
               {scanMessage && (
                 <p className={`text-xs mt-1.5 ${
-                  scanMessage.includes("완료")
+                  scanMessage.includes("완료") || scanMessage.includes("종료")
                     ? "text-green-700"
                     : "text-red-600"
                 }`}>
@@ -592,7 +593,9 @@ export default function PhotoCapture({
                   : "text-gray-500"
               }`}>
                 담기 {Object.keys(sessionPacked).length}/{repairItems.length}
-                {packScanReady && Object.keys(sessionPacked).length < repairItems.length
+                {allPacked
+                  ? ` · ${waybillLabel}을 다시 스캔하세요`
+                  : packScanReady && Object.keys(sessionPacked).length < repairItems.length
                   ? " · 스캔하면 초록 체크로 바뀝니다"
                   : ""}
               </p>
@@ -710,7 +713,7 @@ export default function PhotoCapture({
 
           {/* 완료 버튼 */}
           <div className="mt-auto p-3 border-t border-gray-200 bg-white">
-            {allDone ? (
+            {autoFinishOnAllPacked && allPacked ? (
               <button
                 onClick={handleFinish}
                 className="w-full py-3 rounded-xl font-bold text-white"
@@ -718,7 +721,18 @@ export default function PhotoCapture({
               >
                 <span className="flex items-center justify-center gap-2">
                   <Check className="w-5 h-5" />
-                  {autoFinishOnAllPacked ? "내품 담기 완료 — 촬영 종료" : "전체 완료 — 닫기"}
+                  {waybillLabel} 스캔하면 촬영 종료
+                </span>
+              </button>
+            ) : allDone && !autoFinishOnAllPacked ? (
+              <button
+                onClick={handleFinish}
+                className="w-full py-3 rounded-xl font-bold text-white"
+                style={{ backgroundColor: labelColor }}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <Check className="w-5 h-5" />
+                  전체 완료 — 닫기
                 </span>
               </button>
             ) : (
