@@ -1,7 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabase";
 
-const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-const CF_STREAM_TOKEN = process.env.CLOUDFLARE_STREAM_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
+const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+const CF_STREAM_TOKEN = (
+	process.env.CLOUDFLARE_STREAM_TOKEN || process.env.CLOUDFLARE_API_TOKEN || ""
+).trim();
 
 const DEFAULT_SIGN_TIMEOUT_MS = 15_000;
 const DEFAULT_UPLOAD_TIMEOUT_MS = 60_000;
@@ -75,7 +77,11 @@ export async function uploadToCloudflareStream(
 	const signRes = await withTimeout(signReq, DEFAULT_SIGN_TIMEOUT_MS, "Cloudflare sign request timed out");
 	if (!signRes.ok) {
 		const text = await signRes.text().catch(() => "");
-		throw new Error(`Cloudflare sign failed: ${signRes.status} ${text}`);
+		console.error("Cloudflare sign failed:", signRes.status, text);
+		if (signRes.status === 401 || signRes.status === 403) {
+			throw new Error("영상 업로드 인증에 실패했습니다. Cloudflare Stream 토큰을 확인해 주세요.");
+		}
+		throw new Error(`Cloudflare sign failed: ${signRes.status}`);
 	}
 	const signJson: any = await signRes.json();
 	const uploadURL: string | undefined = signJson?.result?.uploadURL;

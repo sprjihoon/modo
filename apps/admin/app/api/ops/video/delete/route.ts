@@ -53,8 +53,10 @@ export async function POST(request: NextRequest) {
     // 2. Cloudflare Stream 영상 삭제
     if (media.provider === "cloudflare" && media.path) {
       try {
-        const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-        const apiToken = process.env.CLOUDFLARE_STREAM_TOKEN;
+        const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+        const apiToken = (
+          process.env.CLOUDFLARE_STREAM_TOKEN || process.env.CLOUDFLARE_API_TOKEN || ""
+        ).trim();
 
         if (accountId && apiToken) {
           const deleteUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${media.path}`;
