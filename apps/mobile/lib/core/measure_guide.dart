@@ -13,6 +13,248 @@ const _validIds = {
   'length-leg-width',
 };
 
+const _compositeGuides = {
+  'length-leg-width': ['total-length-bottom', 'leg-width'],
+};
+
+class MeasureGuideDailyItem {
+  final String label;
+  final String desc;
+  final String image;
+
+  const MeasureGuideDailyItem({
+    required this.label,
+    required this.desc,
+    required this.image,
+  });
+}
+
+/// 웹 MeasureGuideClient TYPES와 동기화된 비교·일상 가이드.
+class MeasureGuideType {
+  final String id;
+  final String name;
+  final String clothing;
+  final String foldBaseline;
+  final String foldNote;
+  final String measurePart;
+  final String foldImage;
+  final String compareImage;
+  final List<MeasureGuideDailyItem> daily;
+  final List<String> notes;
+
+  const MeasureGuideType({
+    required this.id,
+    required this.name,
+    required this.clothing,
+    required this.foldBaseline,
+    required this.foldNote,
+    required this.measurePart,
+    required this.foldImage,
+    required this.compareImage,
+    this.daily = const [],
+    this.notes = const [],
+  });
+}
+
+const measureGuideAssetBase = 'https://modo.io.kr';
+
+String measureGuideAssetUrl(String path) {
+  final clean = path.startsWith('/') ? path : '/$path';
+  return '$measureGuideAssetBase$clean';
+}
+
+const measureGuideTypes = <MeasureGuideType>[
+  MeasureGuideType(
+    id: 'sleeve-length',
+    name: '소매기장 줄임',
+    clothing: 'top',
+    foldBaseline: '한 쪽 목선',
+    foldNote: '아우터, 상의, 원피스 공통',
+    measurePart: '소매기장',
+    foldImage: '/images/measure/guide/sleeve-length-fold.png',
+    compareImage: '/images/measure/guide/sleeve-length-compare.png',
+    daily: [
+      MeasureGuideDailyItem(
+        label: '소매 기장 측정',
+        desc: '소매 재단선부터 소매 끝 점까지의 길이를 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.',
+        image: '/images/measure/guide/sleeve-length-daily.png',
+      ),
+      MeasureGuideDailyItem(
+        label: '전체 팔통 측정',
+        desc: '겨드랑이 끝 점에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.',
+        image: '/images/measure/guide/arm-width-daily.png',
+      ),
+    ],
+    notes: ['어깨 길이를 줄이게 되면, 그만큼 소매 기장도 함께 줄어듭니다.'],
+  ),
+  MeasureGuideType(
+    id: 'shoulder',
+    name: '어깨길이 줄임',
+    clothing: 'top',
+    foldBaseline: '한 쪽 목선',
+    foldNote: '아우터, 상의, 원피스 공통',
+    measurePart: '어깨 길이',
+    foldImage: '/images/measure/guide/shoulder-fold.png',
+    compareImage: '/images/measure/guide/shoulder-compare.png',
+    daily: [
+      MeasureGuideDailyItem(
+        label: '어깨 길이 측정',
+        desc: '한쪽 목선에서부터 소매 재단선 까지의 길이를 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.',
+        image: '/images/measure/guide/shoulder-daily.png',
+      ),
+    ],
+    notes: ['어깨 길이를 줄이게 되면, 그만큼 소매 기장도 함께 줄어듭니다.'],
+  ),
+  MeasureGuideType(
+    id: 'width-top',
+    name: '전체 품 줄임 (상의, 원피스)',
+    clothing: 'top',
+    foldBaseline: '겨드랑이 선',
+    foldNote: '아우터, 상의, 원피스 공통',
+    measurePart: '전체 품',
+    foldImage: '/images/measure/guide/width-top-fold.png',
+    compareImage: '/images/measure/guide/width-top-compare.png',
+    daily: [
+      MeasureGuideDailyItem(
+        label: '전체 품 측정',
+        desc: '겨드랑이 선에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.',
+        image: '/images/measure/guide/width-top-daily.png',
+      ),
+    ],
+  ),
+  MeasureGuideType(
+    id: 'total-length-top',
+    name: '총 기장 줄임 (상의, 원피스)',
+    clothing: 'top',
+    foldBaseline: '어깨선',
+    foldNote: '아우터, 상의, 원피스 공통',
+    measurePart: '총 기장',
+    foldImage: '/images/measure/guide/total-length-top-fold.png',
+    compareImage: '/images/measure/guide/total-length-top-compare.png',
+    daily: [
+      MeasureGuideDailyItem(
+        label: '상의 총 기장 측정',
+        desc: '목선 끝에서부터 밑단 끝까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.',
+        image: '/images/measure/guide/total-length-top-daily.png',
+      ),
+    ],
+  ),
+  MeasureGuideType(
+    id: 'arm-width',
+    name: '전체팔통 줄임',
+    clothing: 'top',
+    foldBaseline: '겨드랑이 선',
+    foldNote: '아우터, 상의, 원피스 공통',
+    measurePart: '전체 팔통',
+    foldImage: '/images/measure/guide/arm-width-fold.png',
+    compareImage: '/images/measure/guide/arm-width-compare.png',
+    daily: [
+      MeasureGuideDailyItem(
+        label: '전체 팔통 측정',
+        desc: '겨드랑이 끝 점에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.',
+        image: '/images/measure/guide/arm-width-daily.png',
+      ),
+    ],
+  ),
+  MeasureGuideType(
+    id: 'total-length-bottom',
+    name: '총 기장 줄임 (바지, 스커트)',
+    clothing: 'bottom',
+    foldBaseline: '허리 끝선',
+    foldNote: '바지, 치마 공통',
+    measurePart: '총 기장',
+    foldImage: '/images/measure/guide/total-length-bottom-fold.png',
+    compareImage: '/images/measure/guide/total-length-bottom-compare.png',
+    daily: [
+      MeasureGuideDailyItem(
+        label: '하의 총 기장 측정',
+        desc: '벨트 선에서부터 밑단 끝 까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.',
+        image: '/images/measure/guide/bottom-length-daily.png',
+      ),
+    ],
+    notes: [
+      '밑위 길이가 같은 바지로 비교를 하셔야 합니다.',
+      '밑위가 다른 경우, 직접 입고 기장을 접어서 측정해야 정확한 측정이 가능합니다.',
+    ],
+  ),
+  MeasureGuideType(
+    id: 'waist-hip',
+    name: '허리/힙 줄임',
+    clothing: 'bottom',
+    foldBaseline: '허리 및 엉덩이 옆선',
+    foldNote: '바지, 치마 공통',
+    measurePart: '허리와 힙',
+    foldImage: '/images/measure/guide/waist-hip-fold.png',
+    compareImage: '/images/measure/guide/waist-hip-compare.png',
+    daily: [
+      MeasureGuideDailyItem(
+        label: '허리/힙 측정',
+        desc: '허리 및 엉덩이 옆 선에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.',
+        image: '/images/measure/guide/waist-hip-daily.png',
+      ),
+    ],
+    notes: ['허리, 힙 일부만 줄이실 경우 줄이고 싶은 부위의 cm 입력이 필요합니다.'],
+  ),
+  MeasureGuideType(
+    id: 'leg-width',
+    name: '전체 통 줄임 (바지, 스커트)',
+    clothing: 'bottom',
+    foldBaseline: '밑위 선',
+    foldNote: '바지, 치마 공통',
+    measurePart: '전체 통',
+    foldImage: '/images/measure/guide/leg-width-fold.png',
+    compareImage: '/images/measure/guide/leg-width-compare.png',
+    daily: [
+      MeasureGuideDailyItem(
+        label: '전체 통 측정',
+        desc: '허벅지 좌우 끝점까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.',
+        image: '/images/measure/guide/leg-width-daily.png',
+      ),
+    ],
+    notes: ['허벅지, 종아리, 발목(밑동)을 다르게 줄이실 경우 부위 별 cm 입력이 필요합니다.'],
+  ),
+  MeasureGuideType(
+    id: 'rise',
+    name: '밑위 줄임',
+    clothing: 'bottom',
+    foldBaseline: '허리 끝선',
+    foldNote: '바지, 치마 공통',
+    measurePart: '밑위',
+    foldImage: '/images/measure/guide/rise-fold.png',
+    compareImage: '/images/measure/guide/rise-compare.png',
+    daily: [
+      MeasureGuideDailyItem(
+        label: '밑위 측정',
+        desc: '지퍼 벨트 선에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.',
+        image: '/images/measure/guide/rise-daily.png',
+      ),
+    ],
+    notes: [
+      '밑위 길이가 같은 바지로 비교를 하셔야 합니다.',
+      '밑위가 다른 경우, 직접 입고 기장을 접어서 측정해야 정확한 측정이 가능합니다.',
+    ],
+  ),
+];
+
+List<String> expandMeasureGuideTypeIds(String? guideId) {
+  final key = guideId?.trim() ?? '';
+  if (key.isEmpty) return const [];
+  final composite = _compositeGuides[key];
+  if (composite != null) return List<String>.from(composite);
+  if (measureGuideTypes.any((t) => t.id == key)) return [key];
+  return const [];
+}
+
+List<MeasureGuideType> allowedMeasureGuideTypes(String? guideId) {
+  final ids = expandMeasureGuideTypeIds(guideId);
+  if (ids.isEmpty) return measureGuideTypes;
+  final filtered = [
+    for (final id in ids)
+      ...measureGuideTypes.where((t) => t.id == id),
+  ];
+  return filtered.isEmpty ? measureGuideTypes : filtered;
+}
+
 String _normalize(String text) =>
     text.toLowerCase().replaceAll(RegExp(r'\s+'), '').replaceAll(RegExp(r'[-_/]'), '');
 

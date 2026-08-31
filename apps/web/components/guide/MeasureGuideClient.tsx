@@ -46,17 +46,10 @@ interface MeasureConfig {
   smallCircle: { cx: number; cy: number };
 }
 
-// Daily illustration uses SVG coordinates
-// viewBox "0 0 290 200"
-// sweater img: x=70 y=12 w=118 h=152
-// pants  img: x=75 y=8  w=100 h=172
 interface DailyItem {
   label: string;
   desc: string;
-  img: ImgKey;
-  line: { x1: number; y1: number; x2: number; y2: number };
-  /** pre-made daily illustration image (takes priority when set) */
-  dailyImage?: string;
+  dailyImage: string;
 }
 
 interface MeasureType {
@@ -98,15 +91,11 @@ const TYPES: MeasureType[] = [
       {
         label: "소매 기장 측정",
         desc: "소매 재단선부터 소매 끝 점까지의 길이를 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "sweaterSide",
-        line: { x1: 178, y1: 72, x2: 190, y2: 130 },
         dailyImage: "/images/measure/guide/sleeve-length-daily.png",
       },
       {
         label: "전체 팔통 측정",
         desc: "겨드랑이 끝 점에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "sweaterFront",
-        line: { x1: 78, y1: 76, x2: 78, y2: 130 },
         dailyImage: "/images/measure/guide/arm-width-daily.png",
       },
     ],
@@ -135,8 +124,6 @@ const TYPES: MeasureType[] = [
       {
         label: "어깨 길이 측정",
         desc: "한쪽 목선에서부터 소매 재단선 까지의 길이를 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "sweaterFront",
-        line: { x1: 122, y1: 28, x2: 78, y2: 46 },
         dailyImage: "/images/measure/guide/shoulder-daily.png",
       },
     ],
@@ -165,8 +152,6 @@ const TYPES: MeasureType[] = [
       {
         label: "전체 품 측정",
         desc: "겨드랑이 선에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "sweaterFront",
-        line: { x1: 78, y1: 76, x2: 180, y2: 76 },
         dailyImage: "/images/measure/guide/width-top-daily.png",
       },
     ],
@@ -195,8 +180,6 @@ const TYPES: MeasureType[] = [
       {
         label: "상의 총 기장 측정",
         desc: "목선 끝에서부터 밑단 끝까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "sweaterFront",
-        line: { x1: 129, y1: 22, x2: 129, y2: 155 },
         dailyImage: "/images/measure/guide/total-length-top-daily.png",
       },
     ],
@@ -221,7 +204,13 @@ const TYPES: MeasureType[] = [
       blueDot: { cx: 22, cy: 72 },
       smallCircle: { cx: 24, cy: 124 },
     },
-    daily: [],
+    daily: [
+      {
+        label: "전체 팔통 측정",
+        desc: "겨드랑이 끝 점에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
+        dailyImage: "/images/measure/guide/arm-width-daily.png",
+      },
+    ],
     notes: [],
   },
   {
@@ -247,8 +236,6 @@ const TYPES: MeasureType[] = [
       {
         label: "하의 총 기장 측정",
         desc: "벨트 선에서부터 밑단 끝 까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "pantsFront",
-        line: { x1: 125, y1: 14, x2: 125, y2: 172 },
         dailyImage: "/images/measure/guide/bottom-length-daily.png",
       },
     ],
@@ -280,8 +267,6 @@ const TYPES: MeasureType[] = [
       {
         label: "허리/힙 측정",
         desc: "허리 및 엉덩이 옆 선에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "pantsFront",
-        line: { x1: 88, y1: 52, x2: 175, y2: 52 },
         dailyImage: "/images/measure/guide/waist-hip-daily.png",
       },
     ],
@@ -310,8 +295,6 @@ const TYPES: MeasureType[] = [
       {
         label: "전체 통 측정",
         desc: "허벅지 좌우 끝점까지 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "pantsFront",
-        line: { x1: 88, y1: 96, x2: 175, y2: 96 },
         dailyImage: "/images/measure/guide/leg-width-daily.png",
       },
     ],
@@ -340,8 +323,6 @@ const TYPES: MeasureType[] = [
       {
         label: "밑위 측정",
         desc: "지퍼 벨트 선에서부터 일직선으로 측정 후, 줄이고자 하는 길이를 입력해주세요.",
-        img: "pantsFront",
-        line: { x1: 125, y1: 14, x2: 125, y2: 96 },
         dailyImage: "/images/measure/guide/rise-daily.png",
       },
     ],
@@ -485,40 +466,34 @@ function MeasureIllustration({ type }: { type: MeasureType }) {
   );
 }
 
-// ─── Daily Illustration (SVG) ────────────────────────────────────────────────
-
 function DailyIllustration({ item }: { item: DailyItem }) {
-  const isBottom = item.img === "pantsFront";
-  const imgX = isBottom ? 75 : 70;
-  const imgY = isBottom ? 8 : 12;
-  const imgW = isBottom ? 100 : 118;
-  const imgH = isBottom ? 172 : 152;
-
-  const { line: l } = item;
-  const rulerX = Math.min(Math.max(l.x1, l.x2) + 10, 238);
-  const rulerY = (l.y1 + l.y2) / 2 - 8;
-
   return (
     <div className="bg-gray-50 rounded-2xl overflow-hidden">
-      {item.dailyImage ? (
-        <img src={item.dailyImage} alt={item.label} className="w-4/5 mx-auto block" />
-      ) : (
-        <svg viewBox="0 0 290 200" className="w-full">
-          <image href={IMG_SRC[item.img]} x={imgX} y={imgY} width={imgW} height={imgH} />
-          <line
-            x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-            stroke={BLUE} strokeWidth={2.5} strokeLinecap="round"
-          />
-          <circle cx={l.x1} cy={l.y1} r={6} fill={BLUE} />
-          <circle cx={l.x2} cy={l.y2} r={6} fill={RED} />
-          <image
-            href="/images/measure/ruler.png"
-            x={rulerX} y={Math.max(rulerY, 10)} width={46} height={16}
-          />
-        </svg>
-      )}
+      <img src={item.dailyImage} alt={item.label} className="w-4/5 mx-auto block" />
       <p className="text-sm font-semibold text-gray-700 text-center pb-1 px-3">{item.label}</p>
       <p className="text-xs text-gray-500 text-center pb-3 px-4 leading-relaxed">{item.desc}</p>
+    </div>
+  );
+}
+
+function DailyContent({ types }: { types: MeasureType[] }) {
+  const items = types.flatMap((type) => type.daily);
+  const allNotes = Array.from(new Set(types.flatMap((t) => t.notes)));
+  return (
+    <div className="space-y-6">
+      {items.map((item, i) => (
+        <DailyIllustration key={`${item.label}-${i}`} item={item} />
+      ))}
+      {allNotes.length > 0 && (
+        <ul className="space-y-1.5">
+          {allNotes.map((n, i) => (
+            <li key={i} className="flex items-start gap-1.5 text-sm text-gray-600 leading-relaxed">
+              <span className="shrink-0 mt-0.5">·</span>
+              <span>{n}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -583,33 +558,6 @@ function CompareContent({ type }: { type: MeasureType }) {
   );
 }
 
-// ─── Daily Method Content ────────────────────────────────────────────────────
-
-function DailyContent({ types }: { types: MeasureType[] }) {
-  const allNotes = Array.from(
-    new Set(types.flatMap((t) => t.notes))
-  );
-  return (
-    <div className="space-y-6">
-      {types.flatMap((type) =>
-        type.daily.map((item, i) => (
-          <DailyIllustration key={`${type.id}-${i}`} item={item} />
-        ))
-      )}
-      {allNotes.length > 0 && (
-        <ul className="space-y-1.5">
-          {allNotes.map((n, i) => (
-            <li key={i} className="flex items-start gap-1.5 text-sm text-gray-600 leading-relaxed">
-              <span className="shrink-0 mt-0.5">·</span>
-              <span>{n}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 interface MeasureGuideClientProps {
@@ -658,7 +606,6 @@ export function MeasureGuideClient({
 
   return (
     <div className="pb-10">
-      {/* Header */}
       <div className="px-4 pt-5 pb-4">
         <p className="text-lg font-bold text-gray-900 leading-snug">
           정확한 수선을 위해 수선 부위의
@@ -667,7 +614,6 @@ export function MeasureGuideClient({
         </p>
       </div>
 
-      {/* Tabs */}
       <div className="flex border-b border-gray-200">
         {(
           [
@@ -690,7 +636,6 @@ export function MeasureGuideClient({
       </div>
 
       <div className="px-4 pt-4 space-y-5">
-        {/* 준비물 */}
         <section>
           <p className="text-base font-bold text-gray-800 mb-2">준비물</p>
           <p className="text-sm text-gray-600 leading-relaxed mb-3">
@@ -701,7 +646,6 @@ export function MeasureGuideClient({
             <span className="text-red-500 font-medium">자</span>를 준비해주세요.
           </p>
           <div className="bg-gray-50 rounded-2xl p-4 flex items-start justify-around gap-2">
-            {/* 준비물 아이콘: 상의·하의 공통 (수선할=라임 / 잘맞는=흰색) */}
             {tab === "compare" && (
               <SupplyItem src={IMG_SRC.sweaterTilted} label="수선할 의류" />
             )}
@@ -718,21 +662,20 @@ export function MeasureGuideClient({
           )}
         </section>
 
-        {/* 치수 재는 방법 */}
         <section>
-          <p className="text-base font-bold text-gray-800 mb-1">치수 재는 방법</p>
+          <p className="text-base font-bold text-gray-800 mb-1">
+            {tab === "compare" ? "잘 맞는 옷과 비교하는 방법" : "치수 재는 방법"}
+          </p>
           <p className="text-xs text-gray-400 mb-3">
             아래 수선 부위별 치수 재는 안내를 차근차근 따라서 단면 치수를 측정해주세요.
           </p>
 
-          {/* 단일 가이드 잠금 */}
           {tab === "compare" && strictlyLocked && (
             <div className="mb-4 px-4 py-3 border border-[#00C896]/30 bg-[#00C896]/5 rounded-xl text-sm font-semibold text-[#00C896]">
               {current.name}
             </div>
           )}
 
-          {/* 드롭다운: 전체 목록 또는 복합 가이드(기장+밑통 등) 선택 */}
           {tab === "compare" && !strictlyLocked && (
             <div className="relative mb-4">
               {lockType && allowedTypes.length > 1 && (

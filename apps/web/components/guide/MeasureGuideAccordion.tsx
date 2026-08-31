@@ -73,7 +73,7 @@ export function MeasureGuideAccordion({
         aria-hidden={!open}
       >
         {hydrated && open && (
-          <div className="border-t border-gray-100 max-h-[55vh] overflow-y-auto overscroll-contain">
+          <div className="border-t border-gray-100 max-h-[70vh] overflow-y-auto overscroll-contain">
             <MeasureGuideClient
               key={initialTypeId || "default"}
               initialTypeId={initialTypeId}

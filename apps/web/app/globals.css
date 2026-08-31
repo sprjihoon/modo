@@ -106,3 +106,26 @@
     @apply text-[#00C896];
   }
 }
+
+/* 앱 WebView 임베드: 사이트 크롬(회색 배경, min-h-screen)을 걷어
+   웹 주문 화면의 가이드와 같은 본문만 보이게 한다. */
+html.measure-guide-embed-active,
+html.measure-guide-embed-active body {
+  background: #fff !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+html.measure-guide-embed-active .min-h-screen,
+html.measure-guide-embed-active .app-container {
+  min-height: 0 !important;
+  height: auto !important;
+  max-width: none !important;
+  box-shadow: none !important;
+  background: #fff !important;
+}
+
+html.measure-guide-embed-active [aria-label="이용 방법"] {
+  display: none !important;
+}

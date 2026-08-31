@@ -16,25 +16,25 @@ class FakeEl {
   }
 }
 
-const daily = new FakeEl(640, 640);
-const compare = new FakeEl(1180, 1180);
+const shortGuide = new FakeEl(640, 640);
+const tallGuide = new FakeEl(1180, 1180);
 
-const dailyDoc = {
-  getElementById: () => daily,
-  querySelector: () => daily,
+const shortDoc = {
+  getElementById: () => shortGuide,
+  querySelector: () => shortGuide,
 } as unknown as Document;
 
-const compareDoc = {
-  getElementById: () => compare,
-  querySelector: () => compare,
+const tallDoc = {
+  getElementById: () => tallGuide,
+  querySelector: () => tallGuide,
 } as unknown as Document;
 
-assert(measureGuideEmbedContentHeight(dailyDoc) === 640, "daily tab height");
-assert(measureGuideEmbedContentHeight(compareDoc) === 1180, "compare tab height");
+assert(measureGuideEmbedContentHeight(shortDoc) === 640, "short guide height");
+assert(measureGuideEmbedContentHeight(tallDoc) === 1180, "tall guide height");
 assert(
-  measureGuideEmbedContentHeight(dailyDoc) <
-    measureGuideEmbedContentHeight(compareDoc),
-  "tabs report their own height"
+  measureGuideEmbedContentHeight(shortDoc) <
+    measureGuideEmbedContentHeight(tallDoc),
+  "guides report their own height"
 );
 
 console.log("measure-guide-embed-height.test.ts ok");

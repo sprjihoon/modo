@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:modu_repair/core/measure_guide.dart';
+import 'package:modu_repair/features/orders/presentation/widgets/measure_guide_accordion.dart';
 import 'package:modu_repair/features/orders/presentation/widgets/measurement_step.dart';
 
 void main() {
@@ -28,6 +29,18 @@ void main() {
       expect(url, contains('modo.io.kr/guide/measure'));
       expect(url, contains('embed=1'));
       expect(url, contains('type=shoulder'));
+    });
+
+    test('expands composite guide ids', () {
+      expect(
+        expandMeasureGuideTypeIds('length-leg-width'),
+        ['total-length-bottom', 'leg-width'],
+      );
+    });
+
+    test('locks allowed types to the selected guide', () {
+      final allowed = allowedMeasureGuideTypes('sleeve-length');
+      expect(allowed.map((t) => t.id), ['sleeve-length']);
     });
   });
 
@@ -146,6 +159,50 @@ void main() {
         find.widgetWithText(ElevatedButton, '확인'),
       );
       expect(enabled.onPressed, isNotNull);
+    });
+  });
+
+  group('MeasureGuideAccordion', () {
+    testWidgets('shows compare method by default like the web', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: MeasureGuideAccordion(initialTypeId: 'sleeve-length'),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('치수 재는 방법'), findsOneWidget);
+      expect(find.text('잘맞는 옷과 비교 방법'), findsOneWidget);
+      expect(find.text('일상적인 방법'), findsOneWidget);
+      expect(find.text('잘 맞는 옷과 비교하는 방법'), findsOneWidget);
+      expect(find.text('준비물'), findsOneWidget);
+      expect(find.text('소매기장 줄임'), findsOneWidget);
+      expect(find.text('소매 기장 측정'), findsNothing);
+    });
+
+    testWidgets('daily tab shows type-specific everyday guide', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: MeasureGuideAccordion(initialTypeId: 'sleeve-length'),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('일상적인 방법'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('소매 기장 측정'), findsOneWidget);
+      expect(find.text('전체 팔통 측정'), findsOneWidget);
+      expect(find.text('어깨 길이 측정'), findsNothing);
+      expect(find.text('잘 맞는 옷과 비교하는 방법'), findsNothing);
     });
   });
 }

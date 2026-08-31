@@ -155,7 +155,9 @@ PC(`lg`, 1024px 이상)에서만 중앙 앱(600px) **양옆 여백**에 사이�
 
 모바일(`< lg`) · Flutter 앱:
 - 치수 입력 순서: 입력 필드 → **이전/확인** → **치수 재는 방법** 아코디언 (버튼이 가이드에 가려지지 않도록 가이드 **위**에 배치)
-- 웹: `MeasureGuideAccordion` / 앱: `MeasureGuideAccordion` (WebView로 `/guide/measure?embed=1&type=…` 로드)
+- 웹: `MeasureGuideAccordion` → `MeasureGuideClient` (일상적인 방법 / 잘맞는 옷과 비교 방법 탭)
+- 앱: 같은 `MeasureGuideAccordion`을 **네이티브**로 그림. WebView 임베드는 쓰지 않음 (높이 잘림 방지). 그림은 `https://modo.io.kr/images/measure/…`
+- 수선 항목이 정해지면 그 항목의 일상·비교 안내만 보임 (전 종류를 한 탭에 쌓지 않음)
 - 이용 방법 → `/guide/easy` 참고 (사이드 위젯 없음)
 
 ### 치수 가이드 매칭
@@ -165,7 +167,7 @@ PC(`lg`, 1024px 이상)에서만 중앙 앱(600px) **양옆 여백**에 사이�
 - 키가 없으면 항목/의류 이름으로 자동 추정  
   - 웹: `apps/web/lib/measure-guide.ts`  
   - 앱: `apps/mobile/lib/core/measure_guide.dart`
-- 임베드 페이지: `/guide/measure?embed=1` (앱 WebView용, 앱바 없음)
+- 단독/임베드 페이지: `/guide/measure`, `/guide/measure?embed=1` (앱바 없음). 앱은 더 이상 WebView로 이 페이지를 넣지 않음
 - 마이그레이션: `apps/sql/migrations/add_measure_guide_key.sql`, `add_length_leg_width_guide.sql`
 
 ### 가이드 ID
@@ -394,6 +396,32 @@ flutter build ipa --release --build-name=1.0.5 --build-number=36 \
 
 iOS **1.0.5(36)** 제출. Play Alpha **36** AAB는 로컬 백업만. 스토어에 `1.0.5`가 나온 뒤에만 어드민 **앱 버전** 최신을 `1.0.5+36`로 바꾼다.
 
+### 맥북에서 다음 앱 빌드 (치수 가이드 네이티브)
+
+Windows에서는 IPA/AAB를 만들지 않는다. 버전은 맥북에서 `apps/mobile/pubspec.yaml`을 올린다.
+
+이 빌드에 포함할 앱 수정:
+- 치수 재는 방법이 웹과 같이 **일상적인 방법 / 잘맞는 옷과 비교 방법** 탭
+- WebView 대신 네이티브 위젯. 바깥 화면과 같이 스크롤되어 아래가 잘리지 않음
+- 선택한 수선 항목의 안내만 표시
+
+```bash
+git checkout main
+git pull
+cd apps/mobile
+flutter pub get
+
+# 버전은 맥북의 pubspec.yaml 확인 후 --build-name / --build-number 지정
+flutter build appbundle --release
+# → build/app/outputs/bundle/release/app-release.aab
+# 백업: ~/Documents/modo-android-signing/
+
+flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+# → build/ios/ipa/모두의수선.ipa
+```
+
+웹 가이드는 `main` push로 `modo-web`(modo.io.kr)에 자동 배포된다.
+
 ### 맥북에서 다음 앱 빌드 (수선 세부항목 다음 단계)
 
 웹 수정은 `main` push로 `modo-web`에 자동 배포된다. **앱 IPA/AAB는 Windows에서 만들지 말고 맥북에서 빌드한다.**
@@ -609,6 +637,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-31 | 앱 치수 가이드 웹과 동일 | 일상/비교 탭을 웹과 같이 앱에 네이티브로 구현. WebView 잘림 제거. 항목별 일상 안내만 표시. Windows 빌드 없이 맥북에서 스토어 빌드 |
 | 2026-08-31 | 센터 입고·출고 촬영 | 입고·출고를 한 화면으로 맞춤. 수선 전/후 사진 후 내품 스캔, 송장 재스캔으로 촬영 종료. 영상은 `inbound_video`/`outbound_video`. 관리자 주문 상세 HLS 재생. Windows 로컬 빌드 없이 맥북에서 이어감 |
 | 2026-08-31 | 출고 송장 재출력 레이아웃 | 서류 재출력(`/ops/reprint`)이 저장된 송장 레이아웃을 무시하고 기본 양식으로 찍히던 문제. 입고·주문 상세와 같이 `label_layout_config` 사용. 어드민 `admin.modo.mom` |
 | 2026-08-31 | 수선 세부항목 · 전체 가격 | 전체 옵션 없는 항목에서 다음이 안 되던 문제 + 앱에서 치수 화면이 세부부위 뒤에 가려지던 문제. **전체** 선택 시에만 가격 표시. 홈 주문/리뷰 여백. **웹 `modo.io.kr` 라이브(`4eb7e9c`). 앱은 맥북에서 스토어 빌드** |

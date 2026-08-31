@@ -9,10 +9,11 @@ import {
 /**
  * Flutter WebView가 가이드 실제 높이를 알 수 있게 한다.
  * window.MeasureGuideHeight 는 앱 WebView JavaScriptChannel.
- * 일상적인 방법 / 비교 방법 탭이 바뀌면 그 탭 높이만 다시 보낸다.
+ * 가이드 종류가 바뀌면 그 높이만 다시 보낸다.
  */
 export function MeasureEmbedHeight() {
   useEffect(() => {
+    document.documentElement.classList.add("measure-guide-embed-active");
     const send = () => {
       const height = measureGuideEmbedContentHeight(document);
       if (height < 80) return;
@@ -49,6 +50,7 @@ export function MeasureEmbedHeight() {
     );
 
     return () => {
+      document.documentElement.classList.remove("measure-guide-embed-active");
       observer.disconnect();
       window.removeEventListener("load", sendAfterLayout);
       window.removeEventListener(MEASURE_GUIDE_LAYOUT_EVENT, sendAfterLayout);
