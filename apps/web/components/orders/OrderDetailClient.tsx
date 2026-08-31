@@ -13,6 +13,12 @@ import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatPrice, ORDER_STATUS_MAP } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { parseRepairPart } from "@/lib/repair-parts";
+import {
+  buildRepairPhotoItems,
+  collectCustomerPhotoLookupKeys,
+  type RepairPhotoItem,
+} from "@/lib/repair-photos";
+import { RepairPhotosCompare } from "@/components/orders/RepairPhotosCompare";
 
 interface RepairItem {
   name: string;
@@ -149,9 +155,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [reviewLoaded, setReviewLoaded] = useState(false);
 
   // 수선 전/후 사진
-  const [repairPhotoItems, setRepairPhotoItems] = useState<
-    Array<{ sequence: number; label: string; before?: string; after?: string }>
-  >([]);
+  const [repairPhotoItems, setRepairPhotoItems] = useState<RepairPhotoItem[]>([]);
   const [csEvents, setCsEvents] = useState<
     Array<{
       id: string;
@@ -232,19 +236,12 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
 
   const loadVideoUrls = useCallback(async (s: ShipmentData | null, orderData: OrderData) => {
     try {
-      const candidates = [
+      const uniqueCandidates = collectCustomerPhotoLookupKeys(
         s?.pickup_tracking_no,
         s?.delivery_tracking_no,
         s?.tracking_no,
         orderData.id,
-      ].filter((v): v is string => typeof v === "string" && v.length > 0);
-
-      const seen = new Set<string>();
-      const uniqueCandidates = candidates.filter((v) => {
-        if (seen.has(v)) return false;
-        seen.add(v);
-        return true;
-      });
+      );
       if (uniqueCandidates.length === 0) return;
 
       const supabase = createClient();
@@ -259,53 +256,13 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         .order("sequence", { ascending: true });
 
       if (photos && photos.length > 0) {
-        const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-        const buildPhotoUrl = (path: string, provider: string) => {
-          if (!path) return undefined;
-          if (path.startsWith("http")) return path;
-          if (provider === "supabase") {
-            return `${SUPABASE_URL}/storage/v1/object/public/repair-photos/${path}`;
-          }
-          return undefined;
-        };
-
-        // repair_parts 에서 항목 이름 추출
-        const repairParts: string[] = Array.isArray(orderData.repair_parts)
-          ? (orderData.repair_parts as unknown[]).map((p) => {
-              if (!p) return "";
-              if (typeof p === "string") {
-                const s = p.trim();
-                if (s.startsWith("{")) {
-                  try { return (JSON.parse(s) as { name?: string }).name ?? s; } catch { return s; }
-                }
-                return s;
-              }
-              if (typeof p === "object") return (p as { name?: string }).name ?? "";
-              return String(p);
-            }).filter(Boolean)
-          : [];
-
-        const bySeq: Record<number, { before?: string; after?: string }> = {};
-        for (const p of photos) {
-          const seq: number = p.sequence ?? 1;
-          const url = buildPhotoUrl(p.path ?? "", p.provider ?? "");
-          if (!url) continue;
-          bySeq[seq] = bySeq[seq] ?? {};
-          if (p.type === "before_photo") bySeq[seq].before = url;
-          else if (p.type === "after_photo") bySeq[seq].after = url;
-        }
-
-        const photoItemList = Object.keys(bySeq)
-          .map(Number)
-          .sort((a, b) => a - b)
-          .map((seq) => ({
-            sequence: seq,
-            label: repairParts[seq - 1] || `수선 항목 ${seq}`,
-            before: bySeq[seq].before,
-            after: bySeq[seq].after,
-          }));
-
-        setRepairPhotoItems(photoItemList);
+        setRepairPhotoItems(
+          buildRepairPhotoItems({
+            photos,
+            repairParts: orderData.repair_parts,
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+          }),
+        );
       }
     } catch { /* ignore */ }
   }, []);
@@ -1253,64 +1210,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
       )}
 
       {/* ── 수선 전/후 사진 비교 ── */}
-      {repairPhotoItems.length > 0 && (
-        <div className="mx-4 mt-3 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Scissors className="w-4 h-4 text-[#00C896]" />
-            <p className="text-sm font-bold text-gray-800">수선 전 · 후 사진</p>
-            <span className="ml-auto text-xs text-gray-400">{repairPhotoItems.length}개 항목</span>
-          </div>
-
-          <div className="space-y-4">
-            {repairPhotoItems.map((item) => (
-              <div key={item.sequence}>
-                <p className="text-xs font-medium text-gray-500 mb-2">
-                  #{item.sequence} {item.label}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {/* 수선 전 */}
-                  <div className="space-y-1">
-                    <p className="text-xs text-center font-medium text-orange-500">수선 전</p>
-                    <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-orange-100">
-                      {item.before ? (
-                        <img
-                          src={item.before}
-                          alt="수선 전"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-                          <Scissors className="w-6 h-6 text-gray-300" />
-                          <span className="text-xs text-gray-400">사진 없음</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {/* 수선 후 */}
-                  <div className="space-y-1">
-                    <p className="text-xs text-center font-medium text-[#00C896]">수선 후</p>
-                    <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-[#00C896]/20">
-                      {item.after ? (
-                        <img
-                          src={item.after}
-                          alt="수선 후"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-                          <Clock className="w-6 h-6 text-gray-300" />
-                          <span className="text-xs text-gray-400">수선 완료 후</span>
-                          <span className="text-xs text-gray-400">등록됩니다</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <RepairPhotosCompare items={repairPhotoItems} />
 
       {/* 영상(입고 오픈박스, 출고 패킹)은 CS 내부 전용 — 고객 요청 시에만 별도 공개 */}
 

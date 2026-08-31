@@ -54,6 +54,70 @@ interface RepairType {
   measure_guide_key?: string | null;
 }
 
+type SubPartDraft = {
+  id?: string;
+  name: string;
+  icon?: string;
+  price?: number;
+  inputCount?: number;
+  inputLabels?: string[];
+};
+
+function labelsFromSubPartForm(count: number, label1: string, label2: string): string[] | undefined {
+  const first = label1.trim();
+  const second = label2.trim();
+  if (count >= 2) return [first || "첫 번째 입력", second || "두 번째 입력"];
+  return first ? [first] : undefined;
+}
+
+function SubPartMeasureFields({
+  inputCount,
+  onInputCountChange,
+  label1,
+  label2,
+  onLabel1Change,
+  onLabel2Change,
+}: {
+  inputCount: number;
+  onInputCountChange: (count: number) => void;
+  label1: string;
+  label2: string;
+  onLabel1Change: (value: string) => void;
+  onLabel2Change: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2 pt-1">
+      <div className="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          checked={inputCount >= 2}
+          onChange={(e) => onInputCountChange(e.target.checked ? 2 : 1)}
+          className="h-4 w-4 rounded border-gray-300"
+        />
+        <Label className="text-sm font-normal cursor-pointer">입력값 2개 필요</Label>
+      </div>
+      <Input
+        placeholder={
+          inputCount >= 2
+            ? "첫 번째 라벨 (예: 허리 (cm))"
+            : "입력 라벨 (예: 허리 (cm), 비우면 상위 항목)"
+        }
+        value={label1}
+        onChange={(e) => onLabel1Change(e.target.value)}
+        className="h-9 text-sm"
+      />
+      {inputCount >= 2 && (
+        <Input
+          placeholder="두 번째 라벨 (예: 힙 (cm))"
+          value={label2}
+          onChange={(e) => onLabel2Change(e.target.value)}
+          className="h-9 text-sm"
+        />
+      )}
+    </div>
+  );
+}
+
 export default function RepairMenuPage() {
   const [mainCategories, setMainCategories] = useState<RepairCategory[]>([]);
   const [flatCategories, setFlatCategories] = useState<RepairCategory[]>([]);
@@ -1560,11 +1624,14 @@ function EditRepairTypeDialog({
   const [allOptionPrice, setAllOptionPrice] = useState(repairType.all_option_price != null ? String(repairType.all_option_price) : "");
   const [subPartsTitle, setSubPartsTitle] = useState(repairType.sub_parts_title || "");
   const [measureGuideKey, setMeasureGuideKey] = useState(repairType.measure_guide_key || "");
-  const [subParts, setSubParts] = useState<Array<{id?: string, name: string, icon?: string, price?: number}>>([]);
+  const [subParts, setSubParts] = useState<SubPartDraft[]>([]);
   const [editingSubPartIndex, setEditingSubPartIndex] = useState<number | null>(null);
   const [newSubPartName, setNewSubPartName] = useState("");
   const [newSubPartIcon, setNewSubPartIcon] = useState("");
   const [newSubPartPrice, setNewSubPartPrice] = useState("");
+  const [newSubPartInputCount, setNewSubPartInputCount] = useState(1);
+  const [newSubPartLabel1, setNewSubPartLabel1] = useState("");
+  const [newSubPartLabel2, setNewSubPartLabel2] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingSubParts, setIsLoadingSubParts] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -1661,7 +1728,9 @@ function EditRepairTypeDialog({
           id: part.id,
           name: part.name,
           icon: part.icon_name,
-          price: part.price
+          price: part.price,
+          inputCount: part.input_count ?? 1,
+          inputLabels: Array.isArray(part.input_labels) ? part.input_labels : undefined,
         })));
       }
     } catch (error) {
@@ -2058,6 +2127,14 @@ function EditRepairTypeDialog({
                         onChange={(e) => setNewSubPartPrice(e.target.value)}
                         className="h-9 text-sm"
                       />
+                      <SubPartMeasureFields
+                        inputCount={newSubPartInputCount}
+                        onInputCountChange={setNewSubPartInputCount}
+                        label1={newSubPartLabel1}
+                        label2={newSubPartLabel2}
+                        onLabel1Change={setNewSubPartLabel1}
+                        onLabel2Change={setNewSubPartLabel2}
+                      />
                     </div>
                     {editingSubPartIndex !== null ? (
                       <div className="flex gap-2">
@@ -2072,12 +2149,21 @@ function EditRepairTypeDialog({
                                 ...updated[editingSubPartIndex],
                                 name: newSubPartName.trim(),
                                 icon: newSubPartIcon.trim() || undefined,
-                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
+                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0,
+                                inputCount: newSubPartInputCount,
+                                inputLabels: labelsFromSubPartForm(
+                                  newSubPartInputCount,
+                                  newSubPartLabel1,
+                                  newSubPartLabel2,
+                                ),
                               };
                               setSubParts(updated);
                               setNewSubPartName("");
                               setNewSubPartIcon("");
                               setNewSubPartPrice("");
+                              setNewSubPartInputCount(1);
+                              setNewSubPartLabel1("");
+                              setNewSubPartLabel2("");
                               setEditingSubPartIndex(null);
                             }
                           }}
@@ -2092,6 +2178,9 @@ function EditRepairTypeDialog({
                             setNewSubPartName("");
                             setNewSubPartIcon("");
                             setNewSubPartPrice("");
+                            setNewSubPartInputCount(1);
+                            setNewSubPartLabel1("");
+                            setNewSubPartLabel2("");
                             setEditingSubPartIndex(null);
                           }}
                         >
@@ -2111,12 +2200,21 @@ function EditRepairTypeDialog({
                               {
                                 name: newSubPartName.trim(),
                                 icon: newSubPartIcon.trim() || undefined,
-                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
+                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0,
+                                inputCount: newSubPartInputCount,
+                                inputLabels: labelsFromSubPartForm(
+                                  newSubPartInputCount,
+                                  newSubPartLabel1,
+                                  newSubPartLabel2,
+                                ),
                               }
                             ]);
                             setNewSubPartName("");
                             setNewSubPartIcon("");
                             setNewSubPartPrice("");
+                            setNewSubPartInputCount(1);
+                            setNewSubPartLabel1("");
+                            setNewSubPartLabel2("");
                           }
                         }}
                       >
@@ -2162,6 +2260,12 @@ function EditRepairTypeDialog({
                                   상위 가격 사용
                                 </p>
                               )}
+                              {((part.inputCount ?? 1) >= 2 || (part.inputLabels && part.inputLabels.length > 0)) && (
+                                <p className="text-xs text-blue-600">
+                                  입력 {part.inputCount ?? part.inputLabels?.length ?? 1}개
+                                  {part.inputLabels?.length ? ` · ${part.inputLabels.join(", ")}` : ""}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-0.5 shrink-0">
@@ -2203,6 +2307,9 @@ function EditRepairTypeDialog({
                                 setNewSubPartName(part.name);
                                 setNewSubPartIcon(part.icon || "");
                                 setNewSubPartPrice(part.price ? String(part.price) : "");
+                                setNewSubPartInputCount(part.inputCount ?? 1);
+                                setNewSubPartLabel1(part.inputLabels?.[0] || "");
+                                setNewSubPartLabel2(part.inputLabels?.[1] || "");
                                 setEditingSubPartIndex(index);
                               }}
                               className="h-7 w-7 p-0"
@@ -2220,6 +2327,9 @@ function EditRepairTypeDialog({
                                   setNewSubPartName("");
                                   setNewSubPartIcon("");
                                   setNewSubPartPrice("");
+                                  setNewSubPartInputCount(1);
+                                  setNewSubPartLabel1("");
+                                  setNewSubPartLabel2("");
                                 }
                                 setSubParts(subParts.filter((_, i) => i !== index));
                               }}
@@ -2280,11 +2390,14 @@ function AddRepairTypeDialog({
   const [allOptionPrice, setAllOptionPrice] = useState("");
   const [subPartsTitle, setSubPartsTitle] = useState("");
   const [measureGuideKey, setMeasureGuideKey] = useState("");
-  const [subParts, setSubParts] = useState<Array<{name: string, icon?: string, price?: number}>>([]);
+  const [subParts, setSubParts] = useState<SubPartDraft[]>([]);
   const [editingSubPartIndex, setEditingSubPartIndex] = useState<number | null>(null);
   const [newSubPartName, setNewSubPartName] = useState("");
   const [newSubPartIcon, setNewSubPartIcon] = useState("");
   const [newSubPartPrice, setNewSubPartPrice] = useState("");
+  const [newSubPartInputCount, setNewSubPartInputCount] = useState(1);
+  const [newSubPartLabel1, setNewSubPartLabel1] = useState("");
+  const [newSubPartLabel2, setNewSubPartLabel2] = useState("");
   
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -2420,6 +2533,9 @@ function AddRepairTypeDialog({
       setNewSubPartName("");
       setNewSubPartIcon("");
       setNewSubPartPrice("");
+      setNewSubPartInputCount(1);
+      setNewSubPartLabel1("");
+      setNewSubPartLabel2("");
       onAdded();
     } catch (error: any) {
       console.error('Add repair type error:', error);
@@ -2784,6 +2900,14 @@ function AddRepairTypeDialog({
                       onChange={(e) => setNewSubPartPrice(e.target.value)}
                       className="h-9 text-sm"
                     />
+                    <SubPartMeasureFields
+                      inputCount={newSubPartInputCount}
+                      onInputCountChange={setNewSubPartInputCount}
+                      label1={newSubPartLabel1}
+                      label2={newSubPartLabel2}
+                      onLabel1Change={setNewSubPartLabel1}
+                      onLabel2Change={setNewSubPartLabel2}
+                    />
                     {editingSubPartIndex !== null ? (
                       <div className="flex gap-2">
                         <Button
@@ -2796,12 +2920,21 @@ function AddRepairTypeDialog({
                               updated[editingSubPartIndex] = {
                                 name: newSubPartName.trim(),
                                 icon: newSubPartIcon.trim() || undefined,
-                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
+                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0,
+                                inputCount: newSubPartInputCount,
+                                inputLabels: labelsFromSubPartForm(
+                                  newSubPartInputCount,
+                                  newSubPartLabel1,
+                                  newSubPartLabel2,
+                                ),
                               };
                               setSubParts(updated);
                               setNewSubPartName("");
                               setNewSubPartIcon("");
                               setNewSubPartPrice("");
+                              setNewSubPartInputCount(1);
+                              setNewSubPartLabel1("");
+                              setNewSubPartLabel2("");
                               setEditingSubPartIndex(null);
                             }
                           }}
@@ -2816,6 +2949,9 @@ function AddRepairTypeDialog({
                             setNewSubPartName("");
                             setNewSubPartIcon("");
                             setNewSubPartPrice("");
+                            setNewSubPartInputCount(1);
+                            setNewSubPartLabel1("");
+                            setNewSubPartLabel2("");
                             setEditingSubPartIndex(null);
                           }}
                         >
@@ -2835,12 +2971,21 @@ function AddRepairTypeDialog({
                               { 
                                 name: newSubPartName.trim(),
                                 icon: newSubPartIcon.trim() || undefined,
-                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0
+                                price: newSubPartPrice ? parseInt(newSubPartPrice) : 0,
+                                inputCount: newSubPartInputCount,
+                                inputLabels: labelsFromSubPartForm(
+                                  newSubPartInputCount,
+                                  newSubPartLabel1,
+                                  newSubPartLabel2,
+                                ),
                               }
                             ]);
                             setNewSubPartName("");
                             setNewSubPartIcon("");
                             setNewSubPartPrice("");
+                            setNewSubPartInputCount(1);
+                            setNewSubPartLabel1("");
+                            setNewSubPartLabel2("");
                           }
                         }}
                       >
@@ -2886,6 +3031,12 @@ function AddRepairTypeDialog({
                                   상위 가격 사용
                                 </p>
                               )}
+                              {((part.inputCount ?? 1) >= 2 || (part.inputLabels && part.inputLabels.length > 0)) && (
+                                <p className="text-xs text-blue-600">
+                                  입력 {part.inputCount ?? part.inputLabels?.length ?? 1}개
+                                  {part.inputLabels?.length ? ` · ${part.inputLabels.join(", ")}` : ""}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-0.5 shrink-0">
@@ -2927,6 +3078,9 @@ function AddRepairTypeDialog({
                                 setNewSubPartName(part.name);
                                 setNewSubPartIcon(part.icon || "");
                                 setNewSubPartPrice(part.price ? String(part.price) : "");
+                                setNewSubPartInputCount(part.inputCount ?? 1);
+                                setNewSubPartLabel1(part.inputLabels?.[0] || "");
+                                setNewSubPartLabel2(part.inputLabels?.[1] || "");
                                 setEditingSubPartIndex(index);
                               }}
                               className="h-7 w-7 p-0"
@@ -2944,6 +3098,9 @@ function AddRepairTypeDialog({
                                   setNewSubPartName("");
                                   setNewSubPartIcon("");
                                   setNewSubPartPrice("");
+                                  setNewSubPartInputCount(1);
+                                  setNewSubPartLabel1("");
+                                  setNewSubPartLabel2("");
                                 }
                                 setSubParts(subParts.filter((_, i) => i !== index));
                               }}

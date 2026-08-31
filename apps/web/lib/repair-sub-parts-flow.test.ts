@@ -1,11 +1,16 @@
 import {
+  buildMeasureFieldGroups,
   canConfirmSubParts,
+  detailFromMeasureGroup,
   mapApiSubParts,
+  measureFieldCount,
   resolveAllOptionDisplayPrice,
+  resolvePartInputLabels,
   resolveSubPartsConfirm,
   shouldAutoConfirmOnSubPartTap,
   shouldAutoProceedRepair,
 } from "./repair-sub-parts-flow";
+import { MOCK_PARENT_LABELS, MOCK_WAIST_HIP_PARTS } from "./repair-measure-mock";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
@@ -135,5 +140,45 @@ assert(
   }) === false,
   "세부부위 화면에서는 자동 다음 금지"
 );
+
+const parentLabels = ["줄일 길이 (cm)"];
+assert(
+  resolvePartInputLabels({ input_count: 1, input_labels: null }, parentLabels).join() ===
+    "줄일 길이 (cm)",
+  "부위 라벨이 없으면 상위 항목을 따른다",
+);
+assert(
+  resolvePartInputLabels(
+    { input_count: 2, input_labels: ["허리 (cm)", "힙 (cm)"] },
+    parentLabels,
+  ).join("|") === "허리 (cm)|힙 (cm)",
+  "허리+힙은 부위 라벨 2개",
+);
+
+const groups = buildMeasureFieldGroups({
+  fallbackLabels: parentLabels,
+  parts: [
+    { id: "combo", name: "허리+힙", input_count: 2, input_labels: ["허리 (cm)", "힙 (cm)"] },
+    { id: "waist", name: "허리", input_count: 1, input_labels: null },
+  ],
+});
+assert(groups.length === 2, "선택한 부위만큼 그룹");
+assert(groups[0].labels.length === 2 && groups[1].labels.length === 1, "부위마다 칸 수가 다르다");
+assert(measureFieldCount(groups) === 3, "전체 입력 칸은 3개");
+assert(
+  detailFromMeasureGroup(groups[0], ["3", "2", "1"], 0) === "허리 (cm): 3, 힙 (cm): 2",
+  "콤보 상세는 두 값을 이어 붙인다",
+);
+
+const comboOnly = buildMeasureFieldGroups({
+  fallbackLabels: MOCK_PARENT_LABELS,
+  parts: MOCK_WAIST_HIP_PARTS.filter((part) => part.id === "combo"),
+});
+assert(comboOnly[0].labels.join("|") === "허리 (cm)|힙 (cm)", "목업 허리+힙 2칸");
+const waistOnly = buildMeasureFieldGroups({
+  fallbackLabels: MOCK_PARENT_LABELS,
+  parts: MOCK_WAIST_HIP_PARTS.filter((part) => part.id === "waist"),
+});
+assert(waistOnly[0].labels.join() === "줄일 길이 (cm)", "목업 허리는 상위 라벨 1칸");
 
 console.log("web repair-sub-parts-flow.test.ts: ok");

@@ -57,8 +57,25 @@ class _SubPart {
   final String name;
   final int price;
   final String? iconName;
+  final int inputCount;
+  final List<String> inputLabels;
 
-  _SubPart({required this.id, required this.name, required this.price, this.iconName});
+  _SubPart({
+    required this.id,
+    required this.name,
+    required this.price,
+    this.iconName,
+    this.inputCount = 1,
+    this.inputLabels = const [],
+  });
+
+  List<String> labelsFor(List<String> fallback) {
+    return sub_cat.resolvePartInputLabels(
+      inputCount: inputCount,
+      inputLabels: inputLabels,
+      fallback: fallback,
+    );
+  }
 }
 
 class _SelectedItem {
@@ -320,11 +337,20 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
   Future<void> _openSubPartsView(_RepairType type) async {
     setState(() => _subPartsLoading = true);
     try {
-      final response = await Supabase.instance.client
-          .from('repair_sub_parts')
-          .select('id, name, price, icon_name, display_order, part_type')
-          .eq('repair_type_id', type.id)
-          .order('display_order', ascending: true);
+      dynamic response;
+      try {
+        response = await Supabase.instance.client
+            .from('repair_sub_parts')
+            .select('id, name, price, icon_name, display_order, part_type, input_count, input_labels')
+            .eq('repair_type_id', type.id)
+            .order('display_order', ascending: true);
+      } catch (_) {
+        response = await Supabase.instance.client
+            .from('repair_sub_parts')
+            .select('id, name, price, icon_name, display_order, part_type')
+            .eq('repair_type_id', type.id)
+            .order('display_order', ascending: true);
+      }
 
       final parts = (response as List)
           .map((sp) => Map<String, dynamic>.from(sp as Map))
@@ -332,12 +358,20 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
             final partType = m['part_type'];
             return partType == null || partType == 'sub_part';
           })
-          .map((m) => _SubPart(
-                id: m['id'].toString(),
-                name: (m['name'] as String?) ?? '',
-                price: (m['price'] as num?)?.toInt() ?? 0,
-                iconName: m['icon_name'] as String?,
-              ))
+          .map((m) {
+            final rawLabels = m['input_labels'];
+            final count = (m['input_count'] as num?)?.toInt() ?? 1;
+            return _SubPart(
+              id: m['id'].toString(),
+              name: (m['name'] as String?) ?? '',
+              price: (m['price'] as num?)?.toInt() ?? 0,
+              iconName: m['icon_name'] as String?,
+              inputCount: count,
+              inputLabels: rawLabels is List && rawLabels.isNotEmpty
+                  ? sub_cat.normalizeInputLabels(rawLabels, inputCount: count)
+                  : const [],
+            );
+          })
           .toList();
 
       if (parts.isEmpty) {
@@ -377,13 +411,21 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
     if (leave) widget.onBack?.call();
   }
 
+  List<List<String>> _measureGroupsFor(_RepairType type, List<_SubPart>? chosenParts) {
+    if (chosenParts == null || chosenParts.isEmpty) {
+      return [type.inputLabels];
+    }
+    return chosenParts.map((part) => part.labelsFor(type.inputLabels)).toList();
+  }
+
   void _openMeasureView(_RepairType type, {List<_SubPart>? chosenParts, int? overridePrice}) {
-    final groups = (chosenParts != null && chosenParts.isNotEmpty) ? chosenParts.length : 1;
+    final groups = _measureGroupsFor(type, chosenParts);
+    final fieldCount = groups.fold<int>(0, (sum, labels) => sum + labels.length);
     setState(() {
       _measureRepairType = type;
       _measureChosenParts = chosenParts;
       _measureOverridePrice = overridePrice;
-      _measureValues = List.filled(type.inputLabels.length * groups, '');
+      _measureValues = List.filled(fieldCount, '');
     });
   }
 
@@ -429,20 +471,24 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
   void _confirmMeasurement() {
     if (_measureRepairType == null) return;
     final type = _measureRepairType!;
-    final labels = type.inputLabels;
     final chosenParts = _measureChosenParts;
     final overridePrice = _measureOverridePrice;
+    final groups = _measureGroupsFor(type, chosenParts);
 
     if (chosenParts == null || chosenParts.isEmpty) {
+      final labels = groups.first;
       final detail = labels.asMap().entries.map((e) => '${e.value}: ${_measureValues[e.key].isEmpty ? '-' : _measureValues[e.key]}').join(', ');
       _addSimpleItem(type, detail: detail, overridePrice: overridePrice);
     } else {
+      var offset = 0;
       for (int pIdx = 0; pIdx < chosenParts.length; pIdx++) {
         final part = chosenParts[pIdx];
+        final labels = groups[pIdx];
         final detail = labels.asMap().entries.map((e) {
-          final v = _measureValues[pIdx * labels.length + e.key];
+          final v = _measureValues[offset + e.key];
           return '${e.value}: ${v.isEmpty ? '-' : v}';
         }).join(', ');
+        offset += labels.length;
         setState(() {
           _selectedItems.add(_SelectedItem(
             id: '${type.id}_${part.id}',
@@ -760,7 +806,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
   // ── Measurement inline view ──────────────────────────────────────────
   Widget _buildMeasureView() {
     final type = _measureRepairType!;
-    final labels = type.inputLabels;
+    final labelGroups = _measureGroupsFor(type, _measureChosenParts);
     final groups = (_measureChosenParts != null && _measureChosenParts!.isNotEmpty)
         ? _measureChosenParts!.map((p) => p.name).toList()
         : <String>[];
@@ -845,9 +891,13 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
               ),
               const SizedBox(height: 20),
               if (groups.isEmpty)
-                ...labels.asMap().entries.map((e) => _buildInputField(e.value, e.key))
+                ...labelGroups.first.asMap().entries.map((e) => _buildInputField(e.value, e.key))
               else
                 ...groups.asMap().entries.expand((gEntry) {
+                  final offset = labelGroups
+                      .take(gEntry.key)
+                      .fold<int>(0, (sum, labels) => sum + labels.length);
+                  final labels = labelGroups[gEntry.key];
                   return [
                     if (gEntry.key > 0) const SizedBox(height: 16),
                     Text(
@@ -862,7 +912,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                     ...labels.asMap().entries.map(
                           (lEntry) => _buildInputField(
                             lEntry.value,
-                            gEntry.key * labels.length + lEntry.key,
+                            offset + lEntry.key,
                           ),
                         ),
                   ];

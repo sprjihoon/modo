@@ -10,9 +10,13 @@ import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion"
 import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
 import {
+  buildMeasureFieldGroups,
   canConfirmSubParts,
+  detailFromMeasureGroup,
   mapApiSubParts,
+  measureFieldCount,
   normalizeId,
+  normalizeInputLabels,
   resolveAllOptionDisplayPrice,
   resolveSubPartsConfirm,
   shouldAutoConfirmOnSubPartTap,
@@ -47,6 +51,8 @@ interface SubPart {
   name: string;
   price: number;
   icon_name?: string;
+  input_count?: number | null;
+  input_labels?: string[] | null;
 }
 
 interface SelectedItem {
@@ -112,9 +118,11 @@ export function RepairTypeStep({
   const [measureValues, setMeasureValues] = useState<string[]>([]);
 
   function openMeasureView(repairType: RepairType, chosenParts?: SubPart[], overridePrice?: number) {
-    const labels = getInputLabels(repairType);
-    const groups = chosenParts && chosenParts.length > 0 ? chosenParts.length : 1;
-    setMeasureValues(Array.from({ length: labels.length * groups }, () => ""));
+    const groups = buildMeasureFieldGroups({
+      fallbackLabels: getInputLabels(repairType),
+      parts: chosenParts,
+    });
+    setMeasureValues(Array.from({ length: measureFieldCount(groups) }, () => ""));
     setMeasureView({ repairType, chosenParts, overridePrice });
   }
 
@@ -270,17 +278,8 @@ export function RepairTypeStep({
     }
   }
 
-  // input_labels를 string[] 로 정규화
   function getInputLabels(type: RepairType): string[] {
-    const count = type.input_count ?? 1;
-    if (Array.isArray(type.input_labels)) return type.input_labels;
-    if (typeof type.input_labels === "string" && type.input_labels) {
-      if (count <= 1) return [type.input_labels];
-      const parts = type.input_labels.split(/(?<=\))\s+(?=\S)/);
-      if (parts.length >= count) return parts.slice(0, count);
-      return Array.from({ length: count }, (_, i) => `치수 ${i + 1} (cm)`);
-    }
-    return Array.from({ length: count }, () => "치수 (cm)");
+    return normalizeInputLabels(type.input_labels, type.input_count ?? 1);
   }
 
   // 항목 탭 → 분기 처리
@@ -425,25 +424,27 @@ export function RepairTypeStep({
   function confirmMeasurement(values: string[]) {
     if (!measureView) return;
     const { repairType, chosenParts, overridePrice } = measureView;
-    const labels = getInputLabels(repairType);
+    const groups = buildMeasureFieldGroups({
+      fallbackLabels: getInputLabels(repairType),
+      parts: chosenParts,
+    });
 
     if (!chosenParts || chosenParts.length === 0) {
-      const detail = labels
-        .map((label, i) => `${label}: ${values[i] || "-"}`)
-        .join(", ");
-      addSimpleItem(repairType, detail, overridePrice);
+      addSimpleItem(
+        repairType,
+        detailFromMeasureGroup(groups[0], values, 0),
+        overridePrice,
+      );
       setMeasureView(null);
       setSubPartsView(null);
       return;
     }
 
+    let offset = 0;
     const newItems: SelectedItem[] = chosenParts.map((part, partIdx) => {
-      const detail = labels
-        .map((label, i) => {
-          const v = values[partIdx * labels.length + i];
-          return `${label}: ${v || "-"}`;
-        })
-        .join(", ");
+      const group = groups[partIdx];
+      const detail = detailFromMeasureGroup(group, values, offset);
+      offset += group.labels.length;
       return {
         id: `${repairType.id}_${part.id}`,
         name: `${repairType.name} - ${part.name}`,
@@ -716,10 +717,10 @@ export function RepairTypeStep({
   // ── 치수 입력 인라인 뷰 ───────────────────────────────────────────────────
   if (measureView) {
     const { repairType, chosenParts } = measureView;
-    const labels = getInputLabels(repairType);
-    const effectiveGroups = chosenParts && chosenParts.length > 0
-      ? chosenParts.map((p) => ({ key: p.id, title: p.name }))
-      : [{ key: "_single", title: "" }];
+    const effectiveGroups = buildMeasureFieldGroups({
+      fallbackLabels: getInputLabels(repairType),
+      parts: chosenParts,
+    });
     const hasAnyValue = measureValues.some((v) => v.trim() !== "");
     const guideTypeId = resolveMeasureGuideId(
       [
@@ -783,13 +784,17 @@ export function RepairTypeStep({
           </div>
 
           {/* 입력 필드 */}
-          {effectiveGroups.map((group, gIdx) => (
+          {effectiveGroups.map((group, gIdx) => {
+            const offset = effectiveGroups
+              .slice(0, gIdx)
+              .reduce((sum, item) => sum + item.labels.length, 0);
+            return (
             <div key={group.key} className="space-y-3">
               {group.title && (
                 <p className="text-xs font-bold text-[#00C896]">{group.title}</p>
               )}
-              {labels.map((label, lIdx) => {
-                const idx = gIdx * labels.length + lIdx;
+              {group.labels.map((label, lIdx) => {
+                const idx = offset + lIdx;
                 return (
                   <div key={lIdx}>
                     <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -811,7 +816,8 @@ export function RepairTypeStep({
                 );
               })}
             </div>
-          ))}
+            );
+          })}
 
           {/* 확인/이전: 치수 재는 방법보다 위에 두어 바로 보이게 */}
           <div className="flex gap-3 pt-1">

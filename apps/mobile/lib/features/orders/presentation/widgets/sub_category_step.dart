@@ -53,6 +53,20 @@ List<String> normalizeInputLabels(dynamic rawLabels, {int inputCount = 1}) {
   return List.generate(count, (_) => '치수 (cm)');
 }
 
+List<String> resolvePartInputLabels({
+  required int inputCount,
+  required List<String> inputLabels,
+  required List<String> fallback,
+}) {
+  if (inputCount > 1 || inputLabels.isNotEmpty) {
+    return normalizeInputLabels(
+      inputLabels,
+      inputCount: inputCount > 0 ? inputCount : 1,
+    );
+  }
+  return fallback.isNotEmpty ? fallback : const ['치수 (cm)'];
+}
+
 SubCategorySelection _selectionFromRow(Map<String, dynamic> row) {
   final inputCount = (row['input_count'] as num?)?.toInt() ?? 1;
   return SubCategorySelection(

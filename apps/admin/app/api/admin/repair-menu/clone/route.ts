@@ -104,6 +104,8 @@ async function cloneRepairType(
           icon_name: p.icon_name,
           price: p.price,
           display_order: p.display_order,
+          input_count: p.input_count ?? 1,
+          input_labels: p.input_labels ?? null,
         }))
       );
     if (partsError) {

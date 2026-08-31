@@ -1933,6 +1933,8 @@ export type Database = {
           display_order: number
           icon_name: string | null
           id: string
+          input_count: number
+          input_labels: string[] | null
           name: string
           part_type: string
           price: number | null
@@ -1944,6 +1946,8 @@ export type Database = {
           display_order?: number
           icon_name?: string | null
           id?: string
+          input_count?: number
+          input_labels?: string[] | null
           name: string
           part_type?: string
           price?: number | null
@@ -1955,6 +1959,8 @@ export type Database = {
           display_order?: number
           icon_name?: string | null
           id?: string
+          input_count?: number
+          input_labels?: string[] | null
           name?: string
           part_type?: string
           price?: number | null

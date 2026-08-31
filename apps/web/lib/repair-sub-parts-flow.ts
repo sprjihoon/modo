@@ -5,6 +5,8 @@ export interface SubPartLike {
   name: string;
   price: number;
   icon_name?: string;
+  input_count?: number | null;
+  input_labels?: string[] | null;
 }
 
 export function normalizeId(value: unknown): string {
@@ -24,11 +26,17 @@ export function mapApiSubParts(rows: unknown): SubPartLike[] {
     const id = normalizeId(r.id);
     if (!id) continue;
     const priceNum = typeof r.price === "number" ? r.price : Number(r.price);
+    const inputCount = Number(r.input_count);
+    const rawLabels = Array.isArray(r.input_labels)
+      ? r.input_labels.map((label) => String(label ?? "").trim()).filter(Boolean)
+      : [];
     out.push({
       id,
       name: typeof r.name === "string" ? r.name : "",
       price: Number.isFinite(priceNum) ? priceNum : 0,
       icon_name: typeof r.icon_name === "string" ? r.icon_name : undefined,
+      input_count: Number.isFinite(inputCount) && inputCount > 0 ? inputCount : 1,
+      input_labels: rawLabels.length > 0 ? rawLabels : null,
     });
   }
   return out;
@@ -101,4 +109,87 @@ export function shouldAutoProceedRepair(opts: {
     !opts.inMeasure &&
     !opts.loading
   );
+}
+
+export function normalizeInputLabels(
+  rawLabels: unknown,
+  inputCount = 1,
+): string[] {
+  const count = inputCount > 0 ? inputCount : 1;
+  if (Array.isArray(rawLabels)) {
+    const labels = rawLabels.map((label) => String(label ?? "").trim()).filter(Boolean);
+    if (labels.length >= count) return labels.slice(0, count);
+    if (labels.length > 0) {
+      return Array.from({ length: count }, (_, i) => labels[i] || `치수 ${i + 1} (cm)`);
+    }
+  }
+  if (typeof rawLabels === "string" && rawLabels.trim()) {
+    if (count <= 1) return [rawLabels.trim()];
+    const parts = rawLabels
+      .split(/(?<=\))\s+(?=\S)/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length >= count) return parts.slice(0, count);
+    return Array.from({ length: count }, (_, i) => `치수 ${i + 1} (cm)`);
+  }
+  return Array.from({ length: count }, (_, i) =>
+    count > 1 ? `치수 ${i + 1} (cm)` : "치수 (cm)",
+  );
+}
+
+/** 부위에 라벨/2칸이 있으면 그걸 쓰고, 없으면 상위 항목 라벨을 따른다. */
+export function resolvePartInputLabels(
+  part: { input_count?: number | null; input_labels?: unknown },
+  fallback: string[],
+): string[] {
+  const count = Number(part.input_count) || 0;
+  const hasOwnLabels =
+    (Array.isArray(part.input_labels) &&
+      part.input_labels.some((label) => String(label ?? "").trim())) ||
+    (typeof part.input_labels === "string" && part.input_labels.trim().length > 0);
+  if (count > 1 || hasOwnLabels) {
+    return normalizeInputLabels(part.input_labels, count > 0 ? count : 1);
+  }
+  return fallback.length > 0 ? fallback : ["치수 (cm)"];
+}
+
+export type MeasureFieldGroup = {
+  key: string;
+  title: string;
+  labels: string[];
+};
+
+export function buildMeasureFieldGroups(opts: {
+  fallbackLabels: string[];
+  parts?: Array<{
+    id: string;
+    name: string;
+    input_count?: number | null;
+    input_labels?: unknown;
+  }>;
+}): MeasureFieldGroup[] {
+  const fallback =
+    opts.fallbackLabels.length > 0 ? opts.fallbackLabels : ["치수 (cm)"];
+  if (!opts.parts || opts.parts.length === 0) {
+    return [{ key: "_single", title: "", labels: fallback }];
+  }
+  return opts.parts.map((part) => ({
+    key: part.id,
+    title: part.name,
+    labels: resolvePartInputLabels(part, fallback),
+  }));
+}
+
+export function measureFieldCount(groups: MeasureFieldGroup[]): number {
+  return groups.reduce((sum, group) => sum + group.labels.length, 0);
+}
+
+export function detailFromMeasureGroup(
+  group: MeasureFieldGroup,
+  values: string[],
+  offset: number,
+): string {
+  return group.labels
+    .map((label, i) => `${label}: ${values[offset + i]?.trim() || "-"}`)
+    .join(", ");
 }

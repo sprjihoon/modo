@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:modu_repair/features/orders/presentation/widgets/repair_type_step.dart';
+import 'package:modu_repair/features/orders/presentation/widgets/sub_category_step.dart';
 
 void main() {
   test('항목이 하나면 수치 이전은 그리드를 건너뛴다', () {
@@ -120,6 +121,25 @@ void main() {
         hasMeasureView: false,
       ),
       isFalse,
+    );
+  });
+
+  test('허리+힙는 부위 라벨 2개를 쓰고 허리는 상위 라벨을 따른다', () {
+    expect(
+      resolvePartInputLabels(
+        inputCount: 2,
+        inputLabels: const ['허리 (cm)', '힙 (cm)'],
+        fallback: const ['줄일 길이 (cm)'],
+      ),
+      ['허리 (cm)', '힙 (cm)'],
+    );
+    expect(
+      resolvePartInputLabels(
+        inputCount: 1,
+        inputLabels: const [],
+        fallback: const ['줄일 길이 (cm)'],
+      ),
+      ['줄일 길이 (cm)'],
     );
   });
 }

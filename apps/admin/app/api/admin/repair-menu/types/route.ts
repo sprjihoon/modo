@@ -2,6 +2,40 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/ops-auth";
 
+function mapSubPartInsert(
+  part: {
+    name: string;
+    icon?: string;
+    icon_name?: string;
+    price?: number;
+    inputCount?: number;
+    input_count?: number;
+    inputLabels?: string[] | null;
+    input_labels?: string[] | null;
+  },
+  repairTypeId: string,
+  index: number,
+) {
+  const inputCount = Math.min(
+    4,
+    Math.max(1, Number(part.inputCount ?? part.input_count) || 1),
+  );
+  const rawLabels = part.inputLabels ?? part.input_labels;
+  const labels = Array.isArray(rawLabels)
+    ? rawLabels.map((label) => String(label ?? "").trim()).filter(Boolean).slice(0, inputCount)
+    : [];
+  return {
+    repair_type_id: repairTypeId,
+    name: part.name,
+    part_type: "sub_part",
+    icon_name: part.icon || part.icon_name || null,
+    price: part.price || 0,
+    display_order: index + 1,
+    input_count: inputCount,
+    input_labels: labels.length > 0 ? labels : null,
+  };
+}
+
 /**
  * 수선 항목 추가 API (관리자용)
  */
@@ -72,14 +106,9 @@ export async function POST(request: NextRequest) {
 
     // 2. 세부 부위 추가 (있는 경우)
     if (has_sub_parts && sub_parts && sub_parts.length > 0 && repairTypeData) {
-      const subPartsData = sub_parts.map((part: any, index: number) => ({
-        repair_type_id: repairTypeData.id,
-        name: part.name,
-        part_type: 'sub_part',
-        icon_name: part.icon || null,
-        price: part.price || 0,
-        display_order: index + 1,
-      }));
+      const subPartsData = sub_parts.map((part: any, index: number) =>
+        mapSubPartInsert(part, repairTypeData.id, index),
+      );
 
       const { error: subPartsError } = await supabaseAdmin
         .from('repair_sub_parts')
@@ -182,14 +211,9 @@ export async function PUT(request: NextRequest) {
         .eq('part_type', 'sub_part');
 
       // 새 세부 부위 추가
-      const subPartsData = sub_parts.map((part: any, index: number) => ({
-        repair_type_id: id,
-        name: part.name,
-        part_type: 'sub_part',
-        icon_name: part.icon || null,
-        price: part.price || 0,
-        display_order: index + 1,
-      }));
+      const subPartsData = sub_parts.map((part: any, index: number) =>
+        mapSubPartInsert(part, id, index),
+      );
 
       const { error: subPartsError } = await supabaseAdmin
         .from('repair_sub_parts')

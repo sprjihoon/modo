@@ -174,6 +174,22 @@ PC(`lg`, 1024px 이상)에서만 중앙 앱(600px) **양옆 여백**에 사이�
 - 마이그레이션: `apps/sql/migrations/add_measure_guide_key.sql`, `add_length_leg_width_guide.sql`
 - 검증: `cd apps/web && npx tsx lib/measure-guide.test.ts` · `cd apps/mobile && flutter test test/measure_guide_test.dart`
 
+### 부위별 치수 칸 (허리+힙)
+
+`허리+힙`처럼 옵션마다 필요한 값이 다를 때는 **상위 수선 항목이 아니라 세부 부위**에 입력 개수와 라벨을 둡니다.
+
+| 부위 | 칸 | 라벨 |
+|---|---|---|
+| 허리+힙 | 2 | 허리 (cm), 힙 (cm) |
+| 허리 / 힙 | 1 | 없으면 상위 항목 라벨 |
+
+- DB: `repair_sub_parts.input_count`, `repair_sub_parts.input_labels`
+- 어드민 **수선 메뉴 → 수선 항목 수정 → 추가된 부위**에서 「입력값 2개 필요」와 라벨을 입력
+- 웹·앱 주문 치수 화면이 부위마다 다른 칸 수를 그림
+- 마이그레이션: `apps/sql/migrations/20260831000000_sub_part_input_labels.sql` (운영 반영됨). 기존 `허리+힙` / `허리 + 힙` 행은 라벨 2개로 채워 둠
+- 검증: `cd apps/web && npx tsx lib/repair-sub-parts-flow.test.ts` · `cd apps/mobile && flutter test test/repair_type_back_test.dart`
+- 로컬 목업(운영 404): `http://localhost:3001/measure-demo` · 전후 사진 목업은 `/photo-demo`
+
 ### 가이드 ID
 
 | ID | 설명 |
@@ -609,6 +625,8 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-31 | 부위별 치수 칸 | `허리+힙`은 입력 2개(허리/힙 cm). 부위마다 `input_count`·`input_labels`. 어드민 메뉴에서 수정. 웹·앱 주문 치수에 반영. 앱은 다음 스토어 빌드 |
+| 2026-08-31 | 고객 전후 사진 | 주문상세 수선 전·후 사진 카드. 웹·앱 동일 조회. 로컬 목업 `/photo-demo` |
 | 2026-08-31 | 앱 홈 버튼 | 수거신청을 푸터 위 가운데 캡슐로. 상단 로그인 버튼 제거. 스토어 `1.0.6+39` |
 | 2026-08-31 | 고객 목록 OS | 어드민 고객 목록·상세에 최근 접속 OS(iOS/Android/웹) 표시. `customer_events.device_os` 기준. 앱 재빌드 없음 |
 | 2026-08-31 | 그랜드 오픈 팝업 | 홈 팝업을 그랜드 오픈으로 교체. 웹은 확인 버튼 없음. 앱 버튼은 스토어 빌드 없이 제거 불가라 유지. 웹·앱 공통(`popups`) |

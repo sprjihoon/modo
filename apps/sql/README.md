@@ -87,6 +87,8 @@ supabase migration new create_users_table
 supabase db push
 ```
 
+최근: `migrations/20260831000000_sub_part_input_labels.sql` — `repair_sub_parts.input_count` / `input_labels` (허리+힙처럼 부위마다 치수 칸 수가 다를 때).
+
 ## 📊 ER 다이어그램
 
 ```
