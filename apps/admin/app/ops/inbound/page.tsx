@@ -7,6 +7,7 @@ import { customerRequestSummary, parseWorkOrderImages } from "@/lib/work-order-i
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
+import { resolveOutboundLabelRecipient } from "@/lib/outbound-label-recipient";
 import { buildBarcodeNo, canStartOutboundPackScan, getRepairItemCount } from "@/lib/barcode";
 import { getOrderSourceBadge } from "@/lib/order-source";
 import {
@@ -1126,53 +1127,23 @@ export default function InboundPage() {
                     senderPhone,
                   });
 
-                  // 받는 분 (출고 송장이므로 항상 delivery_address 사용)
-                  // 🚨 중요: 출고 송장은 센터 → 고객이므로 받는 사람은 항상 delivery_address
-                  // pickup_address를 사용하면 안 됨!
-                  
-                  // 센터 주소 패턴
-                  const centerAddressPattern = /동대구|동촌로\s*1|모두의수선/;
-                  const centerZipcode = '41142';
-                  
-                  // delivery_address 검증
-                  const deliveryIsCenterAddress = result.deliveryAddress && 
-                    (centerAddressPattern.test(result.deliveryAddress) ||
-                     (orderData.delivery_zipcode === centerZipcode));
-                  
-                  // pickup_address 검증 (이것도 센터일 수 있음)
-                  const pickupIsCenterAddress = result.pickupAddress &&
-                    (centerAddressPattern.test(result.pickupAddress) ||
-                     (orderData.pickup_zipcode === centerZipcode));
-                  
-                  // 출고 송장: delivery_address 우선, 단 센터 주소가 아니어야 함
-                  let recipientAddress: string;
-                  let recipientZipcode: string;
-                  
-                  if (result.deliveryAddress && !deliveryIsCenterAddress) {
-                    // Case 1: delivery_address가 있고 센터 주소가 아님 (정상 케이스)
-                    recipientAddress = result.deliveryAddress;
-                    recipientZipcode = orderData.delivery_zipcode || result.customerZipcode || "";
-                  } else if (result.pickupAddress && !pickupIsCenterAddress) {
-                    // Case 2: delivery_address가 센터인데 pickup_address가 센터가 아님
-                    recipientAddress = result.pickupAddress;
-                    recipientZipcode = orderData.pickup_zipcode || result.customerZipcode || "";
-                  } else {
-                    // Case 3: 둘 다 센터 주소거나 없음 - 에러!
-                    console.error("❌ 출고 송장 오류: 고객 주소를 찾을 수 없습니다!", {
-                      deliveryAddress: result.deliveryAddress,
-                      pickupAddress: result.pickupAddress,
-                      deliveryIsCenterAddress,
-                      pickupIsCenterAddress,
-                    });
-                    recipientAddress = result.deliveryAddress || result.pickupAddress || "주소 없음";
-                    recipientZipcode = orderData.delivery_zipcode || orderData.pickup_zipcode || "";
-                  }
-                  
+                  // 받는 분: 출고 송장은 센터 → 고객. 수거지와 배송지가 다르면 배송지를 찍는다.
+                  // shipments.delivery_* 는 수거예약 시 센터로 덮이므로 orders.delivery_* 만 사용.
+                  const outboundRecipient = resolveOutboundLabelRecipient({
+                    pickupAddress: orderData.pickup_address,
+                    pickupAddressDetail: orderData.pickup_address_detail,
+                    pickupZipcode: orderData.pickup_zipcode,
+                    deliveryAddress: orderData.delivery_address,
+                    deliveryAddressDetail: orderData.delivery_address_detail,
+                    deliveryZipcode: orderData.delivery_zipcode || result.customerZipcode,
+                  });
+                  const recipientAddress = outboundRecipient.address || "주소 없음";
+                  const recipientZipcode = outboundRecipient.zipcode || result.customerZipcode || "";
+
                   console.log("📍 받는 사람 주소 결정 (출고 송장):", {
                     deliveryAddress: result.deliveryAddress,
                     pickupAddress: result.pickupAddress,
-                    deliveryIsCenterAddress,
-                    pickupIsCenterAddress,
+                    source: outboundRecipient.source,
                     finalAddress: recipientAddress,
                     finalZipcode: recipientZipcode,
                   });

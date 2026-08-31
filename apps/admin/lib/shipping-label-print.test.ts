@@ -71,6 +71,10 @@ for (const p of callSiteFiles) {
     !src.includes("<ShippingLabelSheet") || src.includes("customLayout={labelLayout"),
     `${rel}가 불러온 labelLayout을 customLayout으로 전달해야 한다`
   );
+  assert(
+    src.includes("resolveOutboundLabelRecipient"),
+    `${rel}가 출고송장 받는분을 orders.delivery_* 기준으로 결정해야 한다`
+  );
 }
 
 function resolveLayout<T>(custom: T[] | null | undefined, fallback: T[]): T[] {

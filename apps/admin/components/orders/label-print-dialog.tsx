@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
+import { resolveOutboundLabelRecipient } from "@/lib/outbound-label-recipient";
 
 interface LabelPrintDialogProps {
   trackingNo: string;
@@ -276,12 +277,17 @@ export function LabelPrintDialog({
       const companyName = companyInfo?.company_name?.split('(')[0].trim() || "모두의수선";
       const companyPhone = companyInfo?.phone || "010-2723-9490";
 
-      // 고객 주소 정보 — delivery_address가 있으면 우선 사용, 없으면 pickup_address로 fallback
-      const pickupAddr = [order.pickup_address, order.pickup_address_detail].filter(Boolean).join(" ");
-      const deliveryAddr = [order.delivery_address, order.delivery_address_detail].filter(Boolean).join(" ");
-      const hasDeliveryAddress = !!order.delivery_address;
-      const customerAddress = hasDeliveryAddress ? deliveryAddr : pickupAddr;
-      const customerZipcode = hasDeliveryAddress ? (order.delivery_zipcode || order.pickup_zipcode) : order.pickup_zipcode;
+      // 출고/반송 받는분: 수거지와 배송지가 다르면 배송지. 수거 송장도 고객 주소는 동일 규칙.
+      const outboundRecipient = resolveOutboundLabelRecipient({
+        pickupAddress: order.pickup_address,
+        pickupAddressDetail: order.pickup_address_detail,
+        pickupZipcode: order.pickup_zipcode,
+        deliveryAddress: order.delivery_address,
+        deliveryAddressDetail: order.delivery_address_detail,
+        deliveryZipcode: order.delivery_zipcode,
+      });
+      const customerAddress = outboundRecipient.address;
+      const customerZipcode = outboundRecipient.zipcode;
 
       const senderAddress = companyAddress;
       const senderName = companyName;

@@ -8,6 +8,7 @@ import '../../../../services/island_area_service.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/promotion_service.dart';
 import '../../../../services/shipping_settings_service.dart';
+import '../../domain/pickup_delivery_address.dart';
 import '../../domain/repair_item_payload.dart';
 import '../../providers/repair_items_provider.dart';
 import '../../providers/cart_provider.dart';
@@ -370,20 +371,14 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       'imageUrls': List<String>.from(widget.imageUrls),
       'imagesWithPins': widget.imagesWithPins ?? [],
       // 수거 정보 포함
-      'pickupAddress': _addressController.text,
-      'pickupAddressDetail': _addressDetailController.text,
-      'pickupZipcode': _zipcodeController.text,
+      'pickupAddress': _resolvedPickupDelivery.pickupAddress,
+      'pickupAddressDetail': _resolvedPickupDelivery.pickupAddressDetail,
+      'pickupZipcode': _resolvedPickupDelivery.pickupZipcode,
       'pickupDate': _selectedPickupDate?.toIso8601String(),
       'notes': _requestController.text,
-      'deliveryAddress': _isDeliveryAddressSame
-          ? _addressController.text
-          : _deliveryAddressController.text,
-      'deliveryAddressDetail': _isDeliveryAddressSame
-          ? _addressDetailController.text
-          : _deliveryAddressDetailController.text,
-      'deliveryZipcode': _isDeliveryAddressSame
-          ? _zipcodeController.text
-          : _deliveryZipcodeController.text,
+      'deliveryAddress': _resolvedPickupDelivery.deliveryAddress,
+      'deliveryAddressDetail': _resolvedPickupDelivery.deliveryAddressDetail,
+      'deliveryZipcode': _resolvedPickupDelivery.deliveryZipcode,
     };
 
     // 장바구니에서 이어 진행하다가 다시 담는 경우, 원본 행을 먼저 정리한다.
@@ -818,10 +813,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       final baseShippingFee = _shippingSettings.baseShippingFee;
       final actualShippingFee =
           (_shippingPromo?['finalShippingFee'] as int?) ?? baseShippingFee;
-      final pickupZip = _zipcodeController.text;
-      final deliveryZip = _isDeliveryAddressSame
-          ? _zipcodeController.text
-          : _deliveryZipcodeController.text;
+      final pickupZip = _resolvedPickupDelivery.pickupZipcode;
+      final deliveryZip = _resolvedPickupDelivery.deliveryZipcode;
       final remoteAreaFee = IslandAreaService().calculateAdditionalFee(
         pickupZipcode: pickupZip,
         deliveryZipcode: deliveryZip,
@@ -836,20 +829,13 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       //   1) orders-quote Edge Function 으로 권위적 가격 + payment_intent 생성
       //   2) totalPrice == 0 → orders-free 로 즉시 PAID 주문 생성
       //   3) totalPrice > 0  → /payment 페이지로 intentId 전달, 결제 후 orders insert
-      final pickupAddr = _addressController.text;
-      final pickupAddrDetail = _addressDetailController.text;
-      final deliveryAddr = _isDeliveryAddressSame
-          ? _addressController.text
-          : _deliveryAddressController.text;
-      final deliveryAddrDetail = _isDeliveryAddressSame
-          ? _addressDetailController.text
-          : _deliveryAddressDetailController.text;
-      final recipientName = _isDeliveryAddressSame
-          ? _recipientNameController.text
-          : _deliveryRecipientNameController.text;
-      final recipientPhone = _isDeliveryAddressSame
-          ? _recipientPhoneController.text
-          : _deliveryRecipientPhoneController.text;
+      final resolved = _resolvedPickupDelivery;
+      final pickupAddr = resolved.pickupAddress;
+      final pickupAddrDetail = resolved.pickupAddressDetail;
+      final deliveryAddr = resolved.deliveryAddress;
+      final deliveryAddrDetail = resolved.deliveryAddressDetail;
+      final recipientName = resolved.customerName;
+      final recipientPhone = resolved.customerPhone;
 
       // 견적 입력 — Edge Function 의 입력 형식에 맞춤.
       // 묶음 결제(bundleItems)가 있으면 items[] 로 보내서 의류별 사진/핀/종류
@@ -880,12 +866,12 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
         'pickupAddress': pickupAddr,
         'pickupAddressDetail': pickupAddrDetail,
         'pickupZipcode': pickupZip,
-        'pickupPhone': recipientPhone,
+        'pickupPhone': resolved.pickupPhone,
         'pickupDate': _selectedPickupDate?.toIso8601String().split('T').first,
         'deliveryAddress': deliveryAddr,
         'deliveryAddressDetail': deliveryAddrDetail,
         'deliveryZipcode': deliveryZip,
-        'deliveryPhone': recipientPhone,
+        'deliveryPhone': resolved.deliveryPhone,
         'customerName': recipientName,
         'customerPhone': recipientPhone,
         'notes': _requestController.text,
@@ -966,12 +952,24 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   /// 폴백용 — 실제 값은 _shippingSettings.baseShippingFee 사용
   int get _shippingFee => _shippingSettings.baseShippingFee;
 
+  ResolvedPickupDelivery get _resolvedPickupDelivery => resolvePickupDelivery(
+        sameAsPickup: _isDeliveryAddressSame,
+        pickupAddress: _addressController.text,
+        pickupAddressDetail: _addressDetailController.text,
+        pickupZipcode: _zipcodeController.text,
+        pickupPhone: _recipientPhoneController.text,
+        pickupName: _recipientNameController.text,
+        deliveryAddress: _deliveryAddressController.text,
+        deliveryAddressDetail: _deliveryAddressDetailController.text,
+        deliveryZipcode: _deliveryZipcodeController.text,
+        deliveryPhone: _deliveryRecipientPhoneController.text,
+        deliveryName: _deliveryRecipientNameController.text,
+      );
+
   /// 현재 입력된 수거지/배송지 기준 도서산간 추가비 (관리자 설정값 적용)
   int get _remoteAreaFee => IslandAreaService().calculateAdditionalFee(
-        pickupZipcode: _zipcodeController.text,
-        deliveryZipcode: _isDeliveryAddressSame
-            ? _zipcodeController.text
-            : _deliveryZipcodeController.text,
+        pickupZipcode: _resolvedPickupDelivery.pickupZipcode,
+        deliveryZipcode: _resolvedPickupDelivery.deliveryZipcode,
         feeAmount: _shippingSettings.remoteAreaFee,
       );
 

@@ -10,6 +10,7 @@ import {
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import { normalizeRepairPart } from "@/lib/barcode";
 import { customerRequestSummary, parseWorkOrderImages } from "@/lib/work-order-images";
+import { resolveOutboundLabelRecipient } from "@/lib/outbound-label-recipient";
 
 type LookupResult = {
   orderId: string;
@@ -83,6 +84,14 @@ export default function ReprintPage() {
       if (deliveryTn) {
         let di: any = shipment.delivery_info;
         if (typeof di === "string") { try { di = JSON.parse(di); } catch { di = null; } }
+        const outboundRecipient = resolveOutboundLabelRecipient({
+          pickupAddress: order.pickup_address,
+          pickupAddressDetail: order.pickup_address_detail,
+          pickupZipcode: order.pickup_zipcode,
+          deliveryAddress: order.delivery_address,
+          deliveryAddressDetail: order.delivery_address_detail,
+          deliveryZipcode: order.delivery_zipcode,
+        });
         shippingLabel = {
           trackingNo: deliveryTn,
           orderDate: order.created_at ? new Date(order.created_at).toLocaleDateString("ko-KR") : "",
@@ -92,8 +101,8 @@ export default function ReprintPage() {
           senderAddress: di?.senderAddr || "서울시 강남구 테헤란로 123",
           senderName: "모두의수선",
           senderPhone: di?.senderTel || "02-0000-0000",
-          recipientZipcode: order.delivery_zipcode || "",
-          recipientAddress: [order.delivery_address, order.delivery_address_detail].filter(Boolean).join(" "),
+          recipientZipcode: outboundRecipient.zipcode,
+          recipientAddress: outboundRecipient.address,
           recipientPhone: order.customer_phone || "",
           totalQuantity: 1,
           itemsList: order.item_name || "의류",

@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { OrderDraft } from "./OrderNewClient";
 import { AddressSearchButton } from "@/components/ui/AddressSearchButton";
 import { isRemoteArea } from "@/lib/remote-area";
+import { resolvePickupDeliveryFields } from "@/lib/pickup-delivery-address";
 
 interface Address {
   id: string;
@@ -253,16 +254,25 @@ export function PickupStep({ draft, onNext, onBack, onSaveToCart }: PickupStepPr
 
   function collectPickupData(): Partial<OrderDraft> {
     const cleanedPhone = pickupPhone.trim();
+    const addresses = resolvePickupDeliveryFields({
+      sameAsPickup,
+      pickupAddress: address,
+      pickupAddressDetail: addressDetail,
+      pickupZipcode,
+      deliveryAddress,
+      deliveryAddressDetail,
+      deliveryZipcode,
+    });
     return {
-      pickupAddress: address.trim(),
-      pickupAddressDetail: addressDetail.trim(),
-      pickupZipcode: pickupZipcode.trim(),
+      pickupAddress: addresses.pickupAddress,
+      pickupAddressDetail: addresses.pickupAddressDetail,
+      pickupZipcode: addresses.pickupZipcode,
       pickupPhone: cleanedPhone,
       pickupDate,
       notes,
-      deliveryAddress: sameAsPickup ? address.trim() : deliveryAddress.trim(),
-      deliveryAddressDetail: sameAsPickup ? addressDetail.trim() : deliveryAddressDetail.trim(),
-      deliveryZipcode: sameAsPickup ? pickupZipcode.trim() : deliveryZipcode.trim(),
+      deliveryAddress: addresses.deliveryAddress,
+      deliveryAddressDetail: addresses.deliveryAddressDetail,
+      deliveryZipcode: addresses.deliveryZipcode,
       deliveryPhone: cleanedPhone,
       agreedToExtraCharge,
       remoteAreaFee,
