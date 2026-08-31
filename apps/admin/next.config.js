@@ -4,7 +4,6 @@ const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' }, // ops 페이지는 아래에서 덮어씀
   {
     key: 'Content-Security-Policy',
     value: [
@@ -35,10 +34,17 @@ const nextConfig = {
         headers: securityHeaders,
       },
       {
-        // ops 페이지: 카메라·마이크 허용 (사진 촬영 기능)
-        source: '/ops/(.*)',
+        // 전역 헤더와 겹치면 브라우저가 allowlist를 교집합으로 합쳐 카메라가 막힌다.
+        // camera=(self) — 괄호 없는 camera=self 는 잘못된 문법이라 Chrome이 차단한다.
+        source: '/ops/:path*',
         headers: [
-          { key: 'Permissions-Policy', value: 'camera=self, microphone=(), geolocation=()' },
+          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
+        ],
+      },
+      {
+        source: '/((?!ops/).*)',
+        headers: [
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
         ],
       },
     ];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { formatCameraError } from "@/lib/ops-camera";
 
 type Props = {
   orderId: string;
@@ -183,7 +184,7 @@ export default function WebcamRecorder({ orderId, onUploaded, onClose, maxDurati
       let errorMessage = "카메라 미리보기에 실패했습니다.";
       
       if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
-        errorMessage = "카메라 권한이 거부되었습니다. 브라우저 주소창 왼쪽의 🔒 아이콘을 클릭하여 카메라 권한을 '허용'으로 변경하고 페이지를 새로고침해주세요.";
+        errorMessage = formatCameraError(e);
       } else if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") {
         errorMessage = "카메라 장치를 찾을 수 없습니다. 카메라가 컴퓨터에 연결되어 있는지 확인해주세요.";
       } else if (e.name === "NotReadableError" || e.name === "TrackStartError") {

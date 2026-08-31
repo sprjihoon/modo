@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Camera, Check, X, RefreshCw } from "lucide-react";
+import { formatCameraError, requestCameraStream } from "@/lib/ops-camera";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ export default function PhotoCapture({
   const recordStartRef = useRef<number>(0);
 
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(true);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [recordDuration, setRecordDuration] = useState(0);
@@ -106,6 +108,9 @@ export default function PhotoCapture({
   };
 
   const startCamera = useCallback(async (facing: "environment" | "user" = "environment") => {
+    setCameraStarting(true);
+    setCameraReady(false);
+    setCameraError(null);
     try {
       // 기존 스트림 및 녹화 중지
       if (recorderRef.current && recorderRef.current.state !== "inactive") {
@@ -115,10 +120,7 @@ export default function PhotoCapture({
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-      });
+      const stream = await requestCameraStream(facing);
       streamRef.current = stream;
 
       if (videoRef.current) {
@@ -129,9 +131,12 @@ export default function PhotoCapture({
       setCameraReady(true);
       setCameraError(null);
       startRecording(stream);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("카메라 오류:", err);
-      setCameraError(err.message || "카메라를 시작할 수 없습니다.");
+      setCameraReady(false);
+      setCameraError(formatCameraError(err));
+    } finally {
+      setCameraStarting(false);
     }
   }, []);
 
@@ -362,17 +367,27 @@ export default function PhotoCapture({
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* ── 왼쪽: 라이브 영상 ── */}
         <div className="flex flex-col w-[55%] bg-black relative">
-          {cameraError && (
-            <div className="absolute inset-0 flex items-center justify-center text-white text-center p-4 z-10">
+          {(cameraError || cameraStarting) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white text-center p-4 z-10">
               <div>
                 <Camera className="w-12 h-12 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">{cameraError}</p>
-                <button
-                  onClick={() => startCamera(facingMode)}
-                  className="mt-3 px-4 py-2 bg-white/20 rounded-lg text-sm"
-                >
-                  재시도
-                </button>
+                {cameraStarting ? (
+                  <>
+                    <div className="w-8 h-8 mx-auto mb-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    <p className="text-sm">카메라 연결 중...</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm whitespace-pre-line">{cameraError}</p>
+                    <button
+                      type="button"
+                      onClick={() => void startCamera(facingMode)}
+                      className="mt-3 px-4 py-2 bg-white/20 rounded-lg text-sm hover:bg-white/30"
+                    >
+                      재시도
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
