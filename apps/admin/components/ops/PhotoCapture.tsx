@@ -1,8 +1,14 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { Camera, Check, X, RefreshCw } from "lucide-react";
+import { Camera, Check, X, RefreshCw, Scan } from "lucide-react";
 import { formatCameraError, requestCameraStream } from "@/lib/ops-camera";
+import {
+  canStartOutboundPackScan,
+  packScanFailMessage,
+  resolveOutboundPackScan,
+  shouldAutoFinishPacking,
+} from "@/lib/barcode";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -11,6 +17,7 @@ export type PhotoType = "before_photo" | "after_photo";
 export interface RepairItem {
   id: string;
   repairPart: string;
+  barcodeNo?: string;
 }
 
 export interface CapturedPhoto {
@@ -37,6 +44,9 @@ interface Props {
   initialPhotos?: Record<number, { before?: string; after?: string }>;
   onAllDone?: (photos: Record<number, { before?: string; after?: string }>) => void;
   onClose: () => void;
+  /** 출고: 내품 스캔/클릭이 모두 끝나면 녹화 종료 */
+  autoFinishOnAllPacked?: boolean;
+  barcodePrefixes?: string[];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -49,6 +59,8 @@ export default function PhotoCapture({
   initialPhotos = {},
   onAllDone,
   onClose,
+  autoFinishOnAllPacked = false,
+  barcodePrefixes = [],
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -62,6 +74,11 @@ export default function PhotoCapture({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [recordDuration, setRecordDuration] = useState(0);
+  const [scanValue, setScanValue] = useState("");
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [sessionPacked, setSessionPacked] = useState<Record<number, boolean>>({});
+  const scanInputRef = useRef<HTMLInputElement>(null);
+  const finishingRef = useRef(false);
 
   const [photoStates, setPhotoStates] = useState<Record<number, PhotoState>>(() => {
     const init: Record<number, PhotoState> = {};
@@ -191,11 +208,11 @@ export default function PhotoCapture({
 
   // ─── 제품명 클릭 → 현재 프레임 즉시 저장 ─────────────────────────────────
 
-  const saveToItem = async (sequence: number) => {
-    if (!cameraReady) return;
+  const saveToItem = async (sequence: number): Promise<boolean> => {
+    if (!cameraReady) return false;
 
     const dataUrl = captureFrame();
-    if (!dataUrl) return;
+    if (!dataUrl) return false;
 
     setPhotoStates((prev) => ({
       ...prev,
@@ -238,6 +255,7 @@ export default function PhotoCapture({
             : { after: savedUrl, afterDone: true, afterUploading: false }),
         },
       }));
+      return true;
     } catch (err: any) {
       console.error("저장 실패:", err);
       alert(`저장 실패: ${err.message}`);
@@ -250,6 +268,7 @@ export default function PhotoCapture({
             : { afterUploading: false }),
         },
       }));
+      return false;
     }
   };
 
@@ -310,8 +329,13 @@ export default function PhotoCapture({
   ).length;
   const totalCount = repairItems.length;
   const allDone = doneCount === totalCount;
+  const packScanReady =
+    autoFinishOnAllPacked &&
+    canStartOutboundPackScan({ itemCount: totalCount, photoDoneCount: doneCount });
 
   const handleFinish = () => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
     const currentDuration = recordDuration;
 
     // 녹화 중지 후 영상 백그라운드 업로드
@@ -334,6 +358,79 @@ export default function PhotoCapture({
     onAllDone?.(result);
     onClose();
   };
+
+  const focusScan = () => {
+    requestAnimationFrame(() => scanInputRef.current?.focus());
+  };
+
+  const handlePackScan = async () => {
+    const raw = scanValue;
+    setScanValue("");
+    focusScan();
+    if (!autoFinishOnAllPacked) return;
+
+    const photoDoneSeqs = repairItems
+      .map((_, idx) => idx + 1)
+      .filter((seq) =>
+        photoType === "before_photo"
+          ? photoStates[seq]?.beforeDone
+          : photoStates[seq]?.afterDone
+      );
+    const decision = resolveOutboundPackScan({
+      scanned: raw,
+      items: repairItems.map((item, idx) => ({
+        seq: idx + 1,
+        barcodeNo: item.barcodeNo,
+      })),
+      prefixes: barcodePrefixes,
+      photoDoneCount: doneCount,
+      photoDoneSeqs,
+      packedSeqs: Object.keys(sessionPacked).map(Number),
+    });
+
+    if (!decision.ok) {
+      setScanMessage(
+        packScanFailMessage(decision.reason, {
+          doneCount,
+          totalCount,
+          seq: decision.seq,
+        })
+      );
+      return;
+    }
+
+    setSessionPacked((prev) => ({ ...prev, [decision.seq]: true }));
+    setScanMessage(`#${decision.seq} 담기 완료`);
+    focusScan();
+  };
+
+  const markPackedByClick = (sequence: number) => {
+    if (!packScanReady) return;
+    if (sessionPacked[sequence]) return;
+    setSessionPacked((prev) => ({ ...prev, [sequence]: true }));
+    setScanMessage(`#${sequence} 담기 완료`);
+    focusScan();
+  };
+
+  useEffect(() => {
+    if (!packScanReady || !cameraReady) return;
+    focusScan();
+  }, [packScanReady, cameraReady]);
+
+  useEffect(() => {
+    if (!autoFinishOnAllPacked) return;
+    if (
+      shouldAutoFinishPacking({
+        itemCount: repairItems.length,
+        sessionPackedSeqs: Object.keys(sessionPacked).map(Number),
+        photosComplete: packScanReady,
+      })
+    ) {
+      handleFinish();
+    }
+    // handleFinish는 최신 photoStates를 읽는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionPacked, autoFinishOnAllPacked, repairItems.length]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -417,7 +514,11 @@ export default function PhotoCapture({
           {cameraReady && (
             <div className="absolute top-3 left-0 right-0 text-center pointer-events-none">
               <span className="px-3 py-1 bg-black/50 text-white text-xs rounded-full">
-                오른쪽 제품명을 클릭하면 현재 화면이 저장됩니다
+                {autoFinishOnAllPacked
+                  ? packScanReady
+                    ? "내품 바코드를 스캔하거나 항목을 클릭하면 담기가 완료됩니다"
+                    : "오른쪽 항목을 클릭해 수선 후 사진을 먼저 저장하세요"
+                  : "오른쪽 제품명을 클릭하면 현재 화면이 저장됩니다"}
               </span>
             </div>
           )}
@@ -426,11 +527,77 @@ export default function PhotoCapture({
         {/* ── 오른쪽: 제품 목록 ── */}
         <div className="flex flex-col w-[45%] bg-gray-50 overflow-y-auto">
           <div className="px-3 py-2 bg-white border-b border-gray-200">
-            <p className="text-xs font-semibold text-gray-600">수선 항목</p>
-            <p className="text-xs text-orange-600 font-medium mt-0.5">
-              클릭 → 현재 화면 즉시 저장
-            </p>
+            {autoFinishOnAllPacked ? (
+              <>
+                <p className="text-xs font-semibold text-gray-600">내품 리스트</p>
+                <p className="text-xs text-gray-800 font-mono mt-0.5 truncate">
+                  {barcodePrefixes[0] || finalWaybillNo || "송장 없음"}
+                </p>
+                <p className="text-xs font-medium mt-0.5 text-green-700">
+                  {packScanReady
+                    ? "스캔 또는 클릭 → 담기 · 전부 담으면 촬영 종료"
+                    : `수선 후 사진 ${doneCount}/${totalCount}장 저장 후 출고 스캔`}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-gray-600">수선 항목</p>
+                <p className="text-xs text-orange-600 font-medium mt-0.5">
+                  클릭 → 현재 화면 즉시 저장
+                </p>
+              </>
+            )}
           </div>
+
+          {autoFinishOnAllPacked && (
+            <div className="px-3 py-2 bg-white border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Scan className="w-4 h-4 text-gray-500 shrink-0" />
+                <input
+                  ref={scanInputRef}
+                  value={scanValue}
+                  onChange={(e) => setScanValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handlePackScan();
+                    }
+                  }}
+                  placeholder={
+                    packScanReady
+                      ? "내품 바코드 스캔"
+                      : "수선 후 사진 저장 후 스캔"
+                  }
+                  disabled={!packScanReady}
+                  className={`flex-1 border rounded-lg px-3 py-2 text-sm font-mono ${
+                    packScanReady ? "bg-white" : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  }`}
+                  autoComplete="off"
+                />
+              </div>
+              {scanMessage && (
+                <p className={`text-xs mt-1.5 ${
+                  scanMessage.includes("완료")
+                    ? "text-green-700"
+                    : "text-red-600"
+                }`}>
+                  {scanMessage}
+                </p>
+              )}
+              <p className={`text-xs mt-1 font-medium ${
+                Object.keys(sessionPacked).length === repairItems.length
+                  ? "text-green-700"
+                  : packScanReady
+                  ? "text-amber-700"
+                  : "text-gray-500"
+              }`}>
+                담기 {Object.keys(sessionPacked).length}/{repairItems.length}
+                {packScanReady && Object.keys(sessionPacked).length < repairItems.length
+                  ? " · 스캔하면 초록 체크로 바뀝니다"
+                  : ""}
+              </p>
+            </div>
+          )}
 
           <div className="p-2 space-y-2">
             {repairItems.map((item, idx) => {
@@ -438,6 +605,7 @@ export default function PhotoCapture({
               const state = photoStates[seq] || {};
               const isDone =
                 photoType === "before_photo" ? state.beforeDone : state.afterDone;
+              const isPacked = !!sessionPacked[seq];
               const isUploading =
                 photoType === "before_photo"
                   ? state.beforeUploading
@@ -448,19 +616,30 @@ export default function PhotoCapture({
               return (
                 <button
                   key={item.id}
-                  onClick={() => saveToItem(seq)}
+                  onClick={async () => {
+                    if (autoFinishOnAllPacked && packScanReady && isDone) {
+                      markPackedByClick(seq);
+                      return;
+                    }
+                    await saveToItem(seq);
+                    if (autoFinishOnAllPacked) focusScan();
+                  }}
                   disabled={!cameraReady || isUploading}
                   className={`w-full text-left rounded-xl p-3 border-2 transition-all ${
                     !cameraReady || isUploading
                       ? "border-gray-200 bg-white cursor-not-allowed opacity-60"
+                      : isPacked
+                      ? "border-green-600 bg-green-100 ring-2 ring-green-300 cursor-pointer"
                       : isDone
-                      ? "border-green-300 bg-green-50 hover:bg-green-100 cursor-pointer"
+                      ? "border-amber-300 bg-amber-50 hover:bg-amber-100 cursor-pointer"
                       : "border-orange-400 bg-orange-50 hover:bg-orange-100 cursor-pointer shadow-sm"
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     {/* 썸네일 */}
-                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 shrink-0 border border-gray-200">
+                    <div className={`w-12 h-12 rounded-lg overflow-hidden bg-gray-200 shrink-0 border ${
+                      isPacked ? "border-green-500" : "border-gray-200"
+                    }`}>
                       {thumbUrl ? (
                         <img
                           src={thumbUrl}
@@ -476,25 +655,50 @@ export default function PhotoCapture({
 
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-gray-500">#{seq}</p>
-                      <p className="text-sm font-medium text-gray-800 truncate">
+                      <p className={`text-sm font-medium truncate ${
+                        isPacked ? "text-green-800" : "text-gray-800"
+                      }`}>
                         {item.repairPart}
                       </p>
+                      {autoFinishOnAllPacked && (
+                        <p className={`text-xs truncate ${
+                          isPacked ? "text-green-700 font-semibold" : isDone ? "text-amber-700" : "text-gray-400"
+                        }`}>
+                          {isPacked
+                            ? "담기 완료"
+                            : isDone
+                            ? "사진 저장됨 · 스캔 대기"
+                            : item.barcodeNo || "사진 대기"}
+                        </p>
+                      )}
+                      {!autoFinishOnAllPacked && item.barcodeNo && (
+                        <p className="text-xs text-gray-400 font-mono truncate">{item.barcodeNo}</p>
+                      )}
                     </div>
 
                     {/* 상태 뱃지 */}
-                    <div className="shrink-0">
+                    <div className="shrink-0 flex flex-col items-center gap-0.5">
                       {isUploading ? (
-                        <div className="w-7 h-7 rounded-full border-2 border-gray-300 border-t-orange-500 animate-spin" />
+                        <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-orange-500 animate-spin" />
+                      ) : isPacked ? (
+                        <>
+                          <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
+                            <Check className="w-5 h-5 text-white" />
+                          </div>
+                          <span className="text-[10px] font-bold text-green-700">담김</span>
+                        </>
                       ) : isDone ? (
-                        <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
-                          <Check className="w-4 h-4 text-green-600" />
-                        </div>
+                        <>
+                          <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-[10px] font-bold">
+                            담기
+                          </div>
+                        </>
                       ) : (
                         <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
                           style={{ backgroundColor: labelColor }}
                         >
-                          클릭
+                          {autoFinishOnAllPacked ? "사진" : "클릭"}
                         </div>
                       )}
                     </div>
@@ -514,7 +718,7 @@ export default function PhotoCapture({
               >
                 <span className="flex items-center justify-center gap-2">
                   <Check className="w-5 h-5" />
-                  전체 완료 — 닫기
+                  {autoFinishOnAllPacked ? "내품 담기 완료 — 촬영 종료" : "전체 완료 — 닫기"}
                 </span>
               </button>
             ) : (
@@ -522,7 +726,9 @@ export default function PhotoCapture({
                 onClick={handleFinish}
                 className="w-full py-3 rounded-xl font-medium text-gray-600 bg-gray-100 hover:bg-gray-200"
               >
-                {doneCount > 0
+                {autoFinishOnAllPacked
+                  ? `남은 내품 ${repairItems.length - Object.keys(sessionPacked).length}개 — 강제 종료`
+                  : doneCount > 0
                   ? `${doneCount}개 저장 완료 — 닫기`
                   : "닫기"}
               </button>

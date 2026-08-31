@@ -46,6 +46,123 @@ export function getRepairItemCount(repairParts: unknown[] | null | undefined): n
   return Array.isArray(repairParts) && repairParts.length > 0 ? repairParts.length : 1;
 }
 
+export type PackListItem = {
+  seq: number;
+  barcodeNo?: string | null;
+};
+
+/** 송장 자체(접두어)를 스캔한 경우 — 내품 바코드가 아님 */
+export const PACK_SCAN_WAYBILL = "WAYBILL" as const;
+
+/**
+ * 출고 내품 스캔값 → 아이템 순번.
+ * DB 바코드 또는 `{송장/주문번호}-{seq}` 형식을 인정한다.
+ */
+export function matchPackedItemSeq(
+  scanned: string,
+  items: PackListItem[],
+  prefixes: string[] = [],
+): number | typeof PACK_SCAN_WAYBILL | null {
+  const q = scanned.trim();
+  if (!q) return null;
+
+  const cleanPrefixes = prefixes.map((p) => p.trim()).filter(Boolean);
+  if (cleanPrefixes.includes(q)) return PACK_SCAN_WAYBILL;
+
+  for (const item of items) {
+    if (item.barcodeNo && item.barcodeNo === q) return item.seq;
+    for (const prefix of cleanPrefixes) {
+      if (buildBarcodeNo(prefix, item.seq) === q) return item.seq;
+    }
+  }
+  return null;
+}
+
+export function canStartOutboundPackScan(args: {
+  itemCount: number;
+  photoDoneCount: number;
+}): boolean {
+  return args.itemCount > 0 && args.photoDoneCount >= args.itemCount;
+}
+
+export function shouldAutoFinishPacking(args: {
+  itemCount: number;
+  sessionPackedSeqs: number[];
+  photosComplete: boolean;
+}): boolean {
+  if (!args.photosComplete || args.itemCount <= 0) return false;
+  const packed = new Set(args.sessionPackedSeqs);
+  for (let seq = 1; seq <= args.itemCount; seq++) {
+    if (!packed.has(seq)) return false;
+  }
+  return true;
+}
+
+export type PackScanFailReason =
+  | "EMPTY"
+  | "PHOTOS_INCOMPLETE"
+  | "WAYBILL"
+  | "UNKNOWN"
+  | "ALREADY_PACKED"
+  | "PHOTO_MISSING";
+
+export type PackScanDecision =
+  | { ok: true; seq: number }
+  | { ok: false; reason: PackScanFailReason; seq?: number };
+
+/** 출고 내품 스캔 한 건의 허용/거절. 사진 미완이면 스캔 자체를 막는다. */
+export function resolveOutboundPackScan(args: {
+  scanned: string;
+  items: PackListItem[];
+  prefixes?: string[];
+  photoDoneCount: number;
+  photoDoneSeqs: number[];
+  packedSeqs: number[];
+}): PackScanDecision {
+  const q = args.scanned.trim();
+  if (!q) return { ok: false, reason: "EMPTY" };
+
+  if (
+    !canStartOutboundPackScan({
+      itemCount: args.items.length,
+      photoDoneCount: args.photoDoneCount,
+    })
+  ) {
+    return { ok: false, reason: "PHOTOS_INCOMPLETE" };
+  }
+
+  const matched = matchPackedItemSeq(q, args.items, args.prefixes ?? []);
+  if (matched === PACK_SCAN_WAYBILL) return { ok: false, reason: "WAYBILL" };
+  if (matched == null) return { ok: false, reason: "UNKNOWN" };
+  if (args.packedSeqs.includes(matched)) {
+    return { ok: false, reason: "ALREADY_PACKED", seq: matched };
+  }
+  if (!args.photoDoneSeqs.includes(matched)) {
+    return { ok: false, reason: "PHOTO_MISSING", seq: matched };
+  }
+  return { ok: true, seq: matched };
+}
+
+export function packScanFailMessage(
+  reason: PackScanFailReason,
+  extra?: { doneCount?: number; totalCount?: number; seq?: number },
+): string | null {
+  switch (reason) {
+    case "EMPTY":
+      return null;
+    case "PHOTOS_INCOMPLETE":
+      return `수선 후 사진을 먼저 저장하세요 (${extra?.doneCount ?? 0}/${extra?.totalCount ?? 0})`;
+    case "WAYBILL":
+      return "송장이 아니라 내품 바코드(-01)를 스캔하세요";
+    case "UNKNOWN":
+      return "이 주문 내품이 아닙니다";
+    case "ALREADY_PACKED":
+      return extra?.seq ? `#${extra.seq} 이미 담았습니다` : "이미 담았습니다";
+    case "PHOTO_MISSING":
+      return extra?.seq ? `#${extra.seq} 수선 후 사진을 먼저 저장하세요` : "수선 후 사진을 먼저 저장하세요";
+  }
+}
+
 export interface BarcodeRow {
   order_id: string;
   barcode_no: string;

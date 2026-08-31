@@ -2,17 +2,18 @@
 "use client";
 
 import { useState } from "react";
-import { Send, Video, Package, RotateCcw, CheckCircle, AlertTriangle, Printer, ExternalLink } from "lucide-react";
+import { Send, Video, Package, RotateCcw, CheckCircle, AlertTriangle, Printer, ExternalLink, Camera } from "lucide-react";
 import WebcamRecorder from "@/components/ops/WebcamRecorder";
 import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
 import { isIslandArea, getIslandAreaInfo } from "@/lib/island-area";
-import { getRepairItemCount } from "@/lib/barcode";
+import { buildBarcodeNo, canStartOutboundPackScan, getRepairItemCount } from "@/lib/barcode";
 
 type LookupResult = {
   orderId: string;
   trackingNo?: string;
   status: string;
-  repairItems?: Array<{ id: string; repairPart: string; }>; // 수선 항목들
+  repairItems?: Array<{ id: string; repairPart: string; barcodeNo?: string }>;
+  barcodePrefixes?: string[];
   customerName?: string;
   deliveryAddress?: string;
   deliveryZipcode?: string;
@@ -112,14 +113,43 @@ export default function OutboundPage() {
       
       // 아이템 목록 생성: 개수는 바코드/수선전 사진과 동일하게 repair_parts 기준으로 통일
       // (바코드 N개 스캔 ↔ 수선후 사진/영상 N개 매칭 유지)
-      const parsedItems: Array<{ id: string; repairPart: string }> = [];
+      const parsedItems: Array<{ id: string; repairPart: string; barcodeNo?: string }> = [];
       const outboundItemCount = getRepairItemCount(
         repairPartsCount > 0 ? (orderData.repair_parts as unknown[]) : null
       );
+      const barcodePrefixes = [
+        shipmentData?.pickup_tracking_no,
+        shipmentData?.delivery_tracking_no,
+        shipmentData?.tracking_no,
+        orderData?.order_number,
+      ]
+        .map((v: unknown) => String(v || "").trim())
+        .filter(Boolean)
+        .filter((v: string, i: number, arr: string[]) => arr.indexOf(v) === i);
+      const barcodePrefix = barcodePrefixes[0] || "";
+
+      const barcodeBySeq: Record<number, string> = {};
+      try {
+        const orderIdForBc = String(orderData?.id || shipmentData?.order_id || "");
+        if (orderIdForBc) {
+          const bcRes = await fetch(`/api/ops/barcodes?orderId=${encodeURIComponent(orderIdForBc)}`);
+          const bcJson = await bcRes.json();
+          if (bcRes.ok && Array.isArray(bcJson.barcodes)) {
+            for (const row of bcJson.barcodes as { seq?: number; barcode_no?: string }[]) {
+              if (row.seq && row.barcode_no) barcodeBySeq[row.seq] = row.barcode_no;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("내부 바코드 조회 실패:", e);
+      }
+
       for (let idx = 0; idx < outboundItemCount; idx++) {
+        const seq = idx + 1;
         parsedItems.push({
-          id: `item_${idx + 1}`,
-          repairPart: String(repairParts[idx] || `아이템 ${idx + 1}`),
+          id: `item_${seq}`,
+          repairPart: String(repairParts[idx] || `아이템 ${seq}`),
+          barcodeNo: barcodeBySeq[seq] || (barcodePrefix ? buildBarcodeNo(barcodePrefix, seq) : undefined),
         });
       }
       
@@ -160,6 +190,7 @@ export default function OutboundPage() {
         trackingNo: String(shipmentData.tracking_no || ''),
         status: String(shipmentData.status || ''),
         repairItems: parsedItems,
+        barcodePrefixes,
         customerName: String(orderData?.customer_name || ''),
         deliveryAddress: String(orderData?.delivery_address || ''),
         deliveryZipcode: deliveryZip,
@@ -251,6 +282,13 @@ export default function OutboundPage() {
     if (!result) return;
 
     // ⛔ 배송지 변경 후 송장 재출력 미완료 시 차단
+    const itemCount = result.repairItems?.length || 1;
+    const photoCount = Object.values(afterPhotos).filter((p) => p.after).length;
+    if (!canStartOutboundPackScan({ itemCount, photoDoneCount: photoCount })) {
+      alert(`수선 후 사진을 먼저 촬영하세요.\n현재 ${photoCount}/${itemCount}장입니다.`);
+      return;
+    }
+
     if (result.addressChangedAfterLabel) {
       alert(
         "⛔ 출고 처리 불가\n\n" +
@@ -670,14 +708,29 @@ export default function OutboundPage() {
           })()}
 
           {/* 출고완료 처리 (포장 완료, 송장 부착) */}
+          {(() => {
+            const itemCount = result?.repairItems?.length || 1;
+            const photoCount = Object.values(afterPhotos).filter((p) => p.after).length;
+            const photosReady =
+              !result ||
+              canStartOutboundPackScan({ itemCount, photoDoneCount: photoCount });
+            const canShip =
+              !!result &&
+              result.status !== "READY_TO_SHIP" &&
+              result.status !== "OUT_FOR_DELIVERY" &&
+              !isProcessing &&
+              photosReady;
+            return (
           <button
             onClick={handleReadyToShip}
-            disabled={!result || result.status === "READY_TO_SHIP" || result.status === "OUT_FOR_DELIVERY" || isProcessing}
+            disabled={!canShip && !(result?.addressChangedAfterLabel && result.status !== "READY_TO_SHIP" && result.status !== "OUT_FOR_DELIVERY")}
           className={`w-full px-6 py-4 rounded-lg font-medium flex items-center justify-center gap-2 ${
               result && result.status !== "READY_TO_SHIP" && result.status !== "OUT_FOR_DELIVERY" && !isProcessing
                 ? result.addressChangedAfterLabel
                   ? "bg-red-100 text-red-700 border-2 border-red-400 cursor-pointer hover:bg-red-200"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
+                  : photosReady
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
           >
@@ -686,6 +739,11 @@ export default function OutboundPage() {
                 <AlertTriangle className="h-5 w-5" />
                 {isProcessing ? "처리 중..." : "출고 불가 — 송장 재출력 필요"}
               </>
+            ) : !photosReady ? (
+              <>
+                <Camera className="h-5 w-5" />
+                수선 후 사진 {photoCount}/{itemCount} — 촬영 후 출고
+              </>
             ) : (
               <>
                 <CheckCircle className="h-5 w-5" />
@@ -693,6 +751,8 @@ export default function OutboundPage() {
               </>
             )}
           </button>
+            );
+          })()}
 
           {/* 발송 처리 (택배 인계) */}
           <button
@@ -802,7 +862,11 @@ export default function OutboundPage() {
         const items = result.repairItems || [];
         const itemCount = items.length || 1;
         const repairItems: RepairItem[] = items.length > 0
-          ? items.map((item) => ({ id: item.id, repairPart: item.repairPart }))
+          ? items.map((item) => ({
+              id: item.id,
+              repairPart: item.repairPart,
+              barcodeNo: item.barcodeNo,
+            }))
           : Array.from({ length: itemCount }, (_, i) => ({
               id: `item_${i + 1}`,
               repairPart: `${i + 1}번 아이템`,
@@ -814,6 +878,8 @@ export default function OutboundPage() {
               repairItems={repairItems}
               photoType="after_photo"
               finalWaybillNo={result.trackingNo}
+              autoFinishOnAllPacked
+              barcodePrefixes={result.barcodePrefixes}
               initialPhotos={afterPhotos}
               onAllDone={(photos) => {
                 setAfterPhotos(photos);
