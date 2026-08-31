@@ -183,7 +183,7 @@ flutter test --coverage
 
 Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.6+40`.
 
-포함 내용: 부위별 치수 칸(`허리+힙` 2칸) · 홈 수거신청 버튼을 푸터 위 가운데 캡슐로 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
+포함 내용: 부위별 치수 칸(`허리+힙` 2칸) · 수거지/배송지 연락처 분리 · 홈 수거신청 버튼을 푸터 위 가운데 캡슐로 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
 
 ```bash
 git checkout main
@@ -213,9 +213,9 @@ Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`1
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
 | 현재 트랙 | **프로덕션 게시** `1.0.6 (38)` · 대한민국 · Alpha opt-in은 유지 |
-| 버전 | `pubspec.yaml` → `1.0.6+38` · Alpha 테스터는 아직 28 |
-| 최근 UX | 네이티브 치수 가이드 · 세부부위 즉시 다음 · 전체 선택 시 가격 · 홈 여백 |
-| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.6+38.aab` |
+| 버전 | `pubspec.yaml` → `1.0.6+40` · 프로덕션 게시는 아직 38 |
+| 최근 UX | 부위별 치수 칸 · 수거지/배송지 연락처 분리 · 네이티브 치수 가이드 |
+| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.6+40.aab` |
 | targetSdk | **36** (Android 16) — `android/app/build.gradle.kts` 고정 · Play 2026-08-31 정책 |
 | ProGuard | `android/app/proguard-rules.pro` — Retrofit + `com.navercorp.nid` (릴리즈 minify 필수) |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
@@ -246,14 +246,14 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.5` 판매 중**. **`1.0.6 (37)`** 제출 |
+| 최신 업로드 | **`1.0.5` 판매 중**. **`1.0.6 (40)`** 심사 대기 |
 | App Store | **판매 중 `1.0.5`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 | 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |
 
 ```bash
 # App Store용 (수동 서명 — Xcode Accounts 없어도 Distribution 인증서+프로파일만 있으면 가능)
-flutter build ipa --release --build-name=1.0.6 --build-number=37 \
+flutter build ipa --release --build-name=1.0.6 --build-number=40 \
   --export-options-plist=ios/ExportOptions.plist
 
 # 업로드 (API Key: secrets/asc-api.json, 커밋 금지)

@@ -326,7 +326,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.6+40`**. iOS 심사 40 · Play 업로드용 40 (부위별 치수 칸 · 허리+힙 2칸) |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.6+40`**. iOS 심사 40 · Play 업로드용 40 (부위별 치수 칸 · 수거지/배송지 연락처 분리) |
 | App Store Connect App ID | `6759492888` |
 | iOS 스토어 | **판매 중 `1.0.5`**. **`1.0.6` 빌드 40 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
@@ -456,7 +456,7 @@ iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토�
 33. ~~`1.0.5+36` 수선 종류 필터~~ — **`1.0.5` 판매 중**
 34. **`1.0.6+37` 치수 가이드 · 세부항목** — 네이티브 치수 가이드 · 세부부위 즉시 다음. iOS 37 심사 중
 35. ~~`1.0.6+38` Play 사진 권한~~ — `READ_MEDIA_*` 제거. **Play 프로덕션 게시**(2026-08-31, 대한민국)
-36. **`1.0.6+40` 부위별 치수 칸** — `허리+힙` 2칸. 로컬 목업 라우트 제거. iOS 40 심사 · Play AAB 40
+36. **`1.0.6+40` 부위별 치수 · 연락처 분리** — `허리+힙` 2칸. 수거지/배송지 연락처가 서로 덮이지 않음. 로컬 목업 라우트 제거. **iOS 40 심사 대기** · Play AAB 40 업로드 준비
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 24. ~~Play 프로덕션 액세스~~ — **게시됨** (2026-08-31). `/download` Play URL 연결
 25. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
@@ -566,7 +566,8 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 | 수거 송장 | 고객 수거지 → 센터 |
 | 출고 송장 | 센터 → `orders.delivery_*` (체크 해제 시 따로 적은 배송지) |
 
-코드: 어드민 `lib/outbound-label-recipient.ts` · 웹 `lib/pickup-delivery-address.ts` · 앱 `lib/features/orders/domain/pickup_delivery_address.dart`
+코드: 어드민 `lib/outbound-label-recipient.ts` · 웹 `lib/pickup-delivery-address.ts` · 앱 `lib/features/orders/domain/pickup_delivery_address.dart`  
+어드민·웹은 `main` 배포로 적용. 앱 연락처 분리는 **`1.0.6+40`** (iOS 심사 대기 · Play AAB 준비).
 
 ```bash
 cd apps/admin && npx tsx lib/outbound-label-recipient.test.ts && npx tsx lib/shipping-label-print.test.ts && npx tsx lib/separate-delivery-flow.test.ts
@@ -642,7 +643,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-31 | 출고송장 배송지 | 수거지≠배송지면 출고 예약·송장은 `orders.delivery_*`. 입고가 센터처럼 보인다고 수거지로 되돌리던 예외 제거. 어드민·웹 라이브(`787c296`). 앱 수거지 연락처 분리는 다음 스토어 빌드 |
+| 2026-08-31 | 출고송장 배송지 | 수거지≠배송지면 출고 예약·송장은 `orders.delivery_*`. 입고가 센터처럼 보인다고 수거지로 되돌리던 예외 제거. 어드민·웹 라이브(`787c296`). 앱 수거지 연락처 분리는 **`1.0.6+40`** (iOS 심사 대기 · Play AAB 준비) |
 | 2026-08-31 | 부위별 치수 칸 | `허리+힙`은 입력 2개(허리/힙 cm). 부위마다 `input_count`·`input_labels`. 어드민 메뉴에서 수정. 웹·앱 주문 치수에 반영. 스토어 `1.0.6+40` |
 | 2026-08-31 | 고객 전후 사진 | 주문상세 수선 전·후 사진 카드. 웹·앱 동일 조회 |
 | 2026-08-31 | 앱 홈 버튼 | 수거신청을 푸터 위 가운데 캡슐로. 상단 로그인 버튼 제거. 스토어 `1.0.6+39` |
