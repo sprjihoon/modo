@@ -3,9 +3,10 @@ export const IOS_APP_STORE_URL =
   process.env.NEXT_PUBLIC_IOS_APP_URL?.trim() ||
   "https://apps.apple.com/kr/app/모두의수선/id6759492888";
 
-/** Play 프로덕션이 열리면 Vercel에 NEXT_PUBLIC_ANDROID_APP_URL 을 넣는다. */
+/** Play 프로덕션 출시됨. 환경변수가 없어도 다운로드가 깨지지 않게 기본값을 둔다. */
 export const ANDROID_PLAY_STORE_URL =
-  process.env.NEXT_PUBLIC_ANDROID_APP_URL?.trim() || "";
+  process.env.NEXT_PUBLIC_ANDROID_APP_URL?.trim() ||
+  "https://play.google.com/store/apps/details?id=com.modurepair.app";
 
 export const APP_DOWNLOAD_PATH = "/download";
 
