@@ -1,0 +1,17 @@
+# Vercel 크론은 *.vercel.app 을 친다. 커스텀 도메인으로 한 번 더 시도한다.
+name: ops-report-cron
+
+on:
+  schedule:
+    - cron: "5 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call admin ops report generate
+        run: |
+          curl -fsS -A "vercel-cron/1.0" -H "x-vercel-cron: 1" \
+            "https://admin.modo.mom/api/admin/ops-reports/generate"

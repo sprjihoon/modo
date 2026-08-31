@@ -24,6 +24,7 @@ assert(isAllowedAdminHost("evil.example.com", { cron: true }), "크론은 배포
 
 assert(isVercelCronRequest(headers({ "user-agent": "vercel-cron/1.0" })), "UA");
 assert(isVercelCronRequest(headers({ "x-vercel-cron": "1" })), "헤더");
+assert(isVercelCronRequest(headers({ "x-vercel-cron": "true" })), "헤더 true");
 assert(!isVercelCronRequest(headers({ "user-agent": "Mozilla/5.0" })), "일반 브라우저");
 
 console.log("admin-host.test.ts: ok");

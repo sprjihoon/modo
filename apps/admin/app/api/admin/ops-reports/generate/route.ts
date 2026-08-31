@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isVercelCronRequest } from "@/lib/admin-host";
 import { requireAdmin } from "@/lib/ops-auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { isDeliverableEmail } from "@/lib/order-email";
@@ -25,8 +26,7 @@ async function authorize(request: NextRequest) {
   if (cronSecret && header === `Bearer ${cronSecret}`) {
     return { ok: true as const, via: "cron" as const };
   }
-  const userAgent = request.headers.get("user-agent") || "";
-  if (userAgent.includes("vercel-cron")) {
+  if (isVercelCronRequest(request.headers)) {
     return { ok: true as const, via: "cron" as const };
   }
   const auth = await requireAdmin();
