@@ -45,7 +45,7 @@
 
 ### 관련 (앱)
 - 네이버 SDK 상세: [`apps/mobile/NAVER_LOGIN_SETUP.md`](../apps/mobile/NAVER_LOGIN_SETUP.md)
-- 홈 팝업: 어드민 **콘텐츠 → 팝업 관리** (`popups`) · 웹·앱 홈 공통. 지금 **그랜드 오픈**(CTA「수선 맡기러 가기」→ `/order/new`). 문구는 루트 README 「홈 팝업」
+- 홈 팝업: 어드민 **콘텐츠 → 팝업 관리** (`popups`) · 웹·앱 홈 공통. 지금 **그랜드 오픈**. 웹은 확인 버튼 없음. 문구는 루트 README 「홈 팝업」
 - 스토어 버전/출시 상태: 루트 [`README.md`](../README.md) 「앱스토어 / Play 출시 준비」 (`1.0.6+38`, iOS `1.0.5` 판매 중 · `1.0.6` 37 심사 · Play 프로덕션 38 게시, MinOS 15). **다음 앱 스토어 빌드는 맥북에서만**
 - 앱 업데이트 안내: `app_versions` · 어드민 설정 → 앱 버전
 - 어드민 CS: 주문 상세에서 재작업·수선비 환불·전손 보상 (`order_cs_events`)

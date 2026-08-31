@@ -14,7 +14,7 @@
 | App Store | **판매 중** `1.0.5` · **`1.0.6` 37 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play | **프로덕션 게시** `1.0.6 (38)` · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app |
 | 앱 다운로드 | `/download` · iOS 앱스토어 · Play 프로덕션 |
-| 홈 팝업 | 그랜드 오픈 (`popups`) · CTA「수선 맡기러 가기」→ `/order/new` |
+| 홈 팝업 | 그랜드 오픈 (`popups`) · 웹은 확인 버튼 없음. 앱 버튼은 스토어 빌드 유지 |
 | Google 검색 | Search Console 소유확인 · 사이트맵 제출 (2026-08-18) |
 | 네이버 검색 | 서치어드바이저 소유확인 · 사이트맵 제출 · 홈 수집 요청 (2026-08-18) |
 | 약관 보상 | 전손·분실·회사 귀책만 `min(잔존가치, 수선비×5, 20만 원)`. 수선 실패는 재작업/수선비 환불 |
