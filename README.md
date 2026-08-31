@@ -394,6 +394,34 @@ flutter build ipa --release --build-name=1.0.5 --build-number=36 \
 
 iOS **1.0.5(36)** 제출. Play Alpha **36** AAB는 로컬 백업만. 스토어에 `1.0.5`가 나온 뒤에만 어드민 **앱 버전** 최신을 `1.0.5+36`로 바꾼다.
 
+### 맥북에서 다음 앱 빌드 (수선 세부항목 다음 단계)
+
+웹 수정은 `main` push로 `modo-web`에 자동 배포된다. **앱 IPA/AAB는 Windows에서 만들지 말고 맥북에서 빌드한다.**
+
+이 빌드에 포함할 앱 수정:
+- 단일 선택 세부부위는 탭하면 바로 치수 입력(또는 담기)
+- 부속품처럼 카드가 많은 항목도 확인/다음 버튼이 화면에 남음
+- 수선항목이 1개면 선택 완료 후 웹과 같이 자동 다음
+
+버전은 맥북에서 올릴 때 `apps/mobile/pubspec.yaml`을 올린다. Windows에서는 versionCode를 올리지 않는다.
+
+```bash
+git checkout main
+git pull
+cd apps/mobile
+flutter pub get
+
+# 버전은 맥북의 pubspec.yaml 확인 후 --build-name / --build-number 지정
+flutter build appbundle --release
+# → build/app/outputs/bundle/release/app-release.aab
+# 백업: ~/Documents/modo-android-signing/
+
+flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+# → build/ios/ipa/모두의수선.ipa
+```
+
+서명 키는 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (Play 업로드 SHA1 `10:90:55…`). Windows PC의 8/3 키(`AE:84:3D…`)로 만든 AAB는 Play에 올리지 않는다.
+
 ### 체크리스트
 
 1. ~~App Store Connect 앱 등록~~ (`com.modurepair.app` / App ID `6759492888`)
@@ -521,6 +549,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-31 | 수선 세부항목 다음 | 전체 옵션이 없는 항목(기장 줄임·부속품 등)에서 세부부위를 눌러도 다음으로 안 넘어가던 문제. 단일 선택은 탭 즉시 치수/담기, 확인 버튼은 화면 하단 고정. **웹은 `main` 배포. 앱은 맥북에서 빌드** |
 | 2026-08-31 | 운영 리포트 크론 404 | Vercel 크론은 `modo-<hash>.vercel.app` 으로 들어오는데 미들웨어가 `modo-admin`만 통과시켜 아침 메일이 안 감. 크론·`modo-` 호스트 허용 |
 | 2026-08-30 | 리뷰 필터 | 전체 리뷰 수선 종류(의류 대분류) 필터. 홈·목록에서 총점·공개 개수 제거. 포토 필터는 데이터 생기면 노출. 앱 `1.0.5+36` |
 | 2026-08-30 | 리뷰 DB | 홈 리뷰 목업 제거. 운영 `reviews` 텍스트 4건 적재 후 API로만 표시. 웹 라이브. 앱 `1.0.5+35` |

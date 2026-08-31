@@ -14,6 +14,8 @@
 
 ## 📱 Mobile App (Flutter)
 
+스토어용 IPA/AAB는 **맥북에서만** 만든다. Windows에서는 빌드하지 않는다. 절차는 루트 [`README.md`](../README.md) 「맥북에서 다음 앱 빌드」.
+
 ### 개발 환경
 
 ```bash

@@ -31,4 +31,36 @@ void main() {
       isFalse,
     );
   });
+
+  test('단일 선택 세부부위는 탭 즉시 확인한다', () {
+    expect(
+      shouldAutoConfirmOnSubPartTap(allowMultipleSubParts: false),
+      isTrue,
+    );
+    expect(
+      shouldAutoConfirmOnSubPartTap(allowMultipleSubParts: true),
+      isFalse,
+    );
+  });
+
+  test('수선항목 1개면 선택 완료 후 자동 다음', () {
+    expect(
+      shouldAutoProceedAfterRepairSelection(
+        repairTypeCount: 1,
+        selectedCount: 1,
+        hasSubPartsView: false,
+        hasMeasureView: false,
+      ),
+      isTrue,
+    );
+    expect(
+      shouldAutoProceedAfterRepairSelection(
+        repairTypeCount: 1,
+        selectedCount: 1,
+        hasSubPartsView: true,
+        hasMeasureView: false,
+      ),
+      isFalse,
+    );
+  });
 }

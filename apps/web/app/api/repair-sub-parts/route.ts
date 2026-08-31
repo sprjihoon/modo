@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
       .from("repair_sub_parts")
       .select("*")
       .eq("repair_type_id", repairTypeId)
-      .eq("part_type", "sub_part")
       .order("display_order", { ascending: true });
 
     // display_order 컬럼 없는 경우 폴백
@@ -25,8 +24,7 @@ export async function GET(request: NextRequest) {
       const { data: fallbackData, error: fallbackError } = await supabase
         .from("repair_sub_parts")
         .select("*")
-        .eq("repair_type_id", repairTypeId)
-        .eq("part_type", "sub_part");
+        .eq("repair_type_id", repairTypeId);
 
       if (fallbackError) {
         return NextResponse.json({ error: fallbackError.message, data: [] }, { status: 200 });
@@ -34,7 +32,12 @@ export async function GET(request: NextRequest) {
       data = fallbackData;
     }
 
-    return NextResponse.json({ data: data ?? [] });
+    const rows = (data ?? []).filter((row) => {
+      const partType = (row as { part_type?: string | null }).part_type;
+      return partType == null || partType === "sub_part";
+    });
+
+    return NextResponse.json({ data: rows });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Internal server error";
     return NextResponse.json({ error: msg, data: [] }, { status: 200 });

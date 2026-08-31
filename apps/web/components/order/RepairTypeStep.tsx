@@ -9,6 +9,15 @@ import { createClient } from "@/lib/supabase/client";
 import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion";
 import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
+import {
+  canConfirmSubParts,
+  mapApiSubParts,
+  normalizeId,
+  resolveSubPartsConfirm,
+  shouldAutoConfirmOnSubPartTap,
+  shouldAutoProceedRepair,
+  type SubPartLike,
+} from "@/lib/repair-sub-parts-flow";
 
 interface RepairType {
   id: string;
@@ -141,11 +150,13 @@ export function RepairTypeStep({
   const autoProceededRef = useRef(false);
   useEffect(() => {
     if (
-      repairTypes.length === 1 &&
-      selectedItems.length > 0 &&
-      !measureView &&
-      !subPartsView &&
-      !isLoading &&
+      shouldAutoProceedRepair({
+        repairTypeCount: repairTypes.length,
+        selectedCount: selectedItems.length,
+        inSubParts: !!subPartsView,
+        inMeasure: !!measureView,
+        loading: isLoading,
+      }) &&
       !autoProceededRef.current
     ) {
       autoProceededRef.current = true;
@@ -310,7 +321,7 @@ export function RepairTypeStep({
     try {
       const res = await fetch(`/api/repair-sub-parts?repair_type_id=${type.id}`);
       const json = await res.json();
-      const subParts: SubPart[] = json.data ?? [];
+      const subParts = mapApiSubParts(json.data) as SubPart[];
 
       if (subParts.length === 0) {
         if (type.requires_measurement) {
@@ -336,50 +347,70 @@ export function RepairTypeStep({
 
   function toggleSubPartInView(subPartId: string) {
     if (!subPartsView) return;
+    const id = normalizeId(subPartId);
+    if (!id) return;
     const { allow_multiple_sub_parts } = subPartsView.repairType;
+
+    if (shouldAutoConfirmOnSubPartTap(allow_multiple_sub_parts)) {
+      confirmInlineSubParts({
+        ...subPartsView,
+        selectedMode: "specific",
+        selectedIds: new Set([id]),
+      });
+      return;
+    }
 
     setSubPartsView((prev) => {
       if (!prev) return prev;
-      const next = new Set(prev.selectedIds);
-      if (allow_multiple_sub_parts) {
-        next.has(subPartId) ? next.delete(subPartId) : next.add(subPartId);
-      } else {
-        next.clear();
-        next.add(subPartId);
-      }
+      const next = new Set(Array.from(prev.selectedIds, normalizeId));
+      next.has(id) ? next.delete(id) : next.add(id);
       return { ...prev, selectedIds: next };
     });
   }
 
   // 인라인 세부 부위 뷰 "확인" 처리
-  function confirmInlineSubParts() {
-    if (!subPartsView) return;
-    const { repairType, subParts, selectedMode, selectedIds } = subPartsView;
+  function confirmInlineSubParts(
+    view: {
+      repairType: RepairType;
+      subParts: SubPart[];
+      selectedMode: "all" | "specific";
+      selectedIds: Set<string>;
+    } | null = subPartsView
+  ) {
+    if (!view) return;
+    const { repairType, subParts, selectedMode, selectedIds } = view;
+    const result = resolveSubPartsConfirm({
+      mode: selectedMode,
+      selectedIds,
+      subParts: subParts as SubPartLike[],
+      requiresMeasurement: repairType.requires_measurement,
+      typePrice: repairType.price,
+      allOptionPrice: repairType.all_option_price,
+    });
 
-    if (selectedMode === "all") {
-      const allPrice = repairType.all_option_price ?? repairType.price;
-      if (repairType.requires_measurement) {
-        // 치수 입력으로 이동 — 뒤로가기 시 세부 부위 화면으로 복귀하도록 subPartsView 유지
-        openMeasureView(repairType, [], allPrice);
-      } else {
-        setSubPartsView(null);
-        addSimpleItem(repairType, undefined, allPrice);
-      }
+    if (result.kind === "noop") return;
+
+    if (result.kind === "measure-all") {
+      openMeasureView(repairType, [], result.overridePrice);
       return;
     }
-
-    // 특정 부위 선택
-    const chosenParts = subParts.filter((p) => selectedIds.has(p.id));
-    if (chosenParts.length === 0) return;
-
-    if (repairType.requires_measurement) {
-      // 치수 입력으로 이동 — 뒤로가기 시 세부 부위 화면으로 복귀하도록 subPartsView 유지
-      openMeasureView(repairType, chosenParts);
+    if (result.kind === "add-all") {
+      setSubPartsView(null);
+      addSimpleItem(repairType, undefined, result.overridePrice);
+      return;
+    }
+    if (result.kind === "measure-parts") {
+      setSubPartsView({
+        ...view,
+        selectedMode: "specific",
+        selectedIds: new Set(result.parts.map((p) => normalizeId(p.id))),
+      });
+      openMeasureView(repairType, result.parts as SubPart[]);
       return;
     }
 
     setSubPartsView(null);
-    const newItems: SelectedItem[] = chosenParts.map((part) => ({
+    const newItems: SelectedItem[] = result.parts.map((part) => ({
       id: `${repairType.id}_${part.id}`,
       name: `${repairType.name} - ${part.name}`,
       price: part.price > 0 ? part.price : repairType.price,
@@ -456,11 +487,10 @@ export function RepairTypeStep({
     const rtIconSrc = getIconSrc(repairType.icon_name);
     const selectionLabel =
       repairType.sub_parts_title || "세부 부위를 선택해주세요";
-    const canConfirm =
-      selectedMode === "all" || (selectedMode === "specific" && selectedIds.size > 0);
+    const canConfirm = canConfirmSubParts(selectedMode, selectedIds.size);
 
     return (
-      <div className="flex flex-col min-h-0">
+      <div className="flex flex-col flex-1 h-full min-h-0">
         {/* 헤더 */}
         <div className="px-4 py-4 border-b border-gray-100">
           <h2 className="text-lg font-bold text-gray-900">
@@ -577,12 +607,12 @@ export function RepairTypeStep({
               )}
               <div className="grid grid-cols-3 gap-3">
                 {subParts.map((part) => {
-                  const isSelected = selectedIds.has(part.id);
+                  const isSelected = selectedIds.has(normalizeId(part.id));
                   const partIconSrc = getIconSrc(part.icon_name);
                   return (
                     <button
                       key={part.id}
-                      onClick={() => toggleSubPartInView(part.id)}
+                      onClick={() => toggleSubPartInView(normalizeId(part.id))}
                       className={cn(
                         "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all",
                         isSelected
@@ -649,8 +679,8 @@ export function RepairTypeStep({
           )}
         </div>
 
-        {/* 하단 확인 버튼 */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-2">
+        {/* 하단 확인 버튼 — 뷰포트 하단에 고정해 세부항목이 많아도 다음이 보이게 */}
+        <div className="shrink-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-2">
           <button
             onClick={confirmInlineSubParts}
             disabled={!canConfirm}
@@ -697,7 +727,7 @@ export function RepairTypeStep({
     );
 
     return (
-      <div className="flex flex-col min-h-0">
+      <div className="flex flex-col flex-1 h-full min-h-0">
         {/* PC: 왼쪽 사이드 위젯 */}
         <MeasureGuideSideWidget initialTypeId={guideTypeId} />
 
@@ -806,7 +836,8 @@ export function RepairTypeStep({
 
   // ── 메인 그리드 뷰 ──────────────────────────────────────────────────────
   return (
-    <div className="relative">
+    <div className="relative flex-1 h-full min-h-0 flex flex-col">
+      <div className="flex-1 overflow-y-auto min-h-0">
       {/* 헤더 */}
       <div className="px-4 py-4 border-b border-gray-100">
         {clothingType && (
@@ -991,9 +1022,10 @@ export function RepairTypeStep({
           </>
         )}
       </div>
+      </div>
 
       {/* 하단 버튼 */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3">
+      <div className="shrink-0 bg-white border-t border-gray-100 px-4 py-3">
         <button
           onClick={() =>
             onNext(

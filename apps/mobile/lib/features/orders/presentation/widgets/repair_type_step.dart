@@ -89,6 +89,24 @@ bool shouldLeaveRepairTypeOnMeasureBack({
   return repairTypeCount <= 1;
 }
 
+/// 단일 선택 세부부위는 탭 즉시 다음 단계로 보낸다.
+bool shouldAutoConfirmOnSubPartTap({required bool allowMultipleSubParts}) {
+  return !allowMultipleSubParts;
+}
+
+/// 웹 RepairTypeStep과 동일: 수선항목이 1개면 선택 완료 후 자동 다음.
+bool shouldAutoProceedAfterRepairSelection({
+  required int repairTypeCount,
+  required int selectedCount,
+  required bool hasSubPartsView,
+  required bool hasMeasureView,
+}) {
+  return repairTypeCount == 1 &&
+      selectedCount > 0 &&
+      !hasSubPartsView &&
+      !hasMeasureView;
+}
+
 class RepairTypeStepWidget extends StatefulWidget {
   final String clothingType;
   final String? clothingCategoryId;
@@ -248,6 +266,31 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
         detail: detail ?? '',
       ));
     });
+    _maybeAutoProceed();
+  }
+
+  List<models.RepairItem> _toRepairItems() {
+    return _selectedItems
+        .map((i) => models.RepairItem(
+              name: i.name,
+              price: i.price,
+              priceRange: i.priceRange,
+              quantity: i.quantity,
+              detail: i.detail.isNotEmpty ? i.detail : null,
+            ))
+        .toList();
+  }
+
+  void _maybeAutoProceed() {
+    if (!shouldAutoProceedAfterRepairSelection(
+      repairTypeCount: _repairTypes.length,
+      selectedCount: _selectedItems.length,
+      hasSubPartsView: _subPartsRepairType != null,
+      hasMeasureView: _measureRepairType != null,
+    )) {
+      return;
+    }
+    widget.onNext(_toRepairItems());
   }
 
   Future<void> _openSubPartsView(_RepairType type) async {
@@ -255,19 +298,23 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
     try {
       final response = await Supabase.instance.client
           .from('repair_sub_parts')
-          .select('id, name, price, icon_name, display_order')
+          .select('id, name, price, icon_name, display_order, part_type')
           .eq('repair_type_id', type.id)
           .order('display_order', ascending: true);
 
-      final parts = (response as List).map((sp) {
-        final m = Map<String, dynamic>.from(sp as Map);
-        return _SubPart(
-          id: m['id'].toString(),
-          name: (m['name'] as String?) ?? '',
-          price: (m['price'] as num?)?.toInt() ?? 0,
-          iconName: m['icon_name'] as String?,
-        );
-      }).toList();
+      final parts = (response as List)
+          .map((sp) => Map<String, dynamic>.from(sp as Map))
+          .where((m) {
+            final partType = m['part_type'];
+            return partType == null || partType == 'sub_part';
+          })
+          .map((m) => _SubPart(
+                id: m['id'].toString(),
+                name: (m['name'] as String?) ?? '',
+                price: (m['price'] as num?)?.toInt() ?? 0,
+                iconName: m['icon_name'] as String?,
+              ))
+          .toList();
 
       if (parts.isEmpty) {
         if (type.requiresMeasurement) {
@@ -352,6 +399,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
         ));
       }
     });
+    _maybeAutoProceed();
   }
 
   void _confirmMeasurement() {
@@ -391,6 +439,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
       _subPartsRepairType = null;
       _subParts = [];
     });
+    _maybeAutoProceed();
   }
 
   bool _isActive(_RepairType type) {
@@ -496,13 +545,20 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                     final isSelected = _subPartsSelectedIds.contains(part.id);
                     return InkWell(
                       onTap: () {
+                        if (shouldAutoConfirmOnSubPartTap(
+                          allowMultipleSubParts: type.allowMultipleSubParts,
+                        )) {
+                          _subPartsMode = 'specific';
+                          _subPartsSelectedIds
+                            ..clear()
+                            ..add(part.id);
+                          _confirmSubParts();
+                          return;
+                        }
                         setState(() {
-                          if (type.allowMultipleSubParts) {
-                            isSelected ? _subPartsSelectedIds.remove(part.id) : _subPartsSelectedIds.add(part.id);
-                          } else {
-                            _subPartsSelectedIds.clear();
-                            _subPartsSelectedIds.add(part.id);
-                          }
+                          isSelected
+                              ? _subPartsSelectedIds.remove(part.id)
+                              : _subPartsSelectedIds.add(part.id);
                         });
                       },
                       borderRadius: BorderRadius.circular(12),

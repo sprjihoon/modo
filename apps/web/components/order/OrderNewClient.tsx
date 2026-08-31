@@ -618,7 +618,7 @@ export function OrderNewClient() {
   const currentFlowStep = getOrderFlowStepIndex(mode, subCategoryPhase);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full min-h-0 flex flex-col">
       <OrderFlowProgress currentStep={currentFlowStep} />
 
       <div className="flex-1 flex flex-col min-h-0">
@@ -655,21 +655,25 @@ export function OrderNewClient() {
         )}
 
         {mode === "addMeasurement" && measurementConfig && (
-          <MeasurementStep
-            config={measurementConfig}
-            onConfirm={handleMeasurementDone}
-            onBack={popMode}
-          />
+          <div className="flex-1 min-h-0 flex flex-col">
+            <MeasurementStep
+              config={measurementConfig}
+              onConfirm={handleMeasurementDone}
+              onBack={popMode}
+            />
+          </div>
         )}
 
         {mode === "addRepair" && (
-          <RepairTypeStep
-            clothingType={stagingClothingType}
-            clothingCategoryId={stagingClothingCategoryId}
-            onNext={(items) => handleRepairDone(items)}
-            onBack={popMode}
-            childBackRef={childBackRef}
-          />
+          <div className="flex-1 min-h-0 flex flex-col">
+            <RepairTypeStep
+              clothingType={stagingClothingType}
+              clothingCategoryId={stagingClothingCategoryId}
+              onNext={(items) => handleRepairDone(items)}
+              onBack={popMode}
+              childBackRef={childBackRef}
+            />
+          </div>
         )}
 
         {mode === "pickup" && (

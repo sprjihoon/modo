@@ -204,6 +204,25 @@ flutter build ipa --release --build-name=1.0.5 --build-number=36 \
 
 심사 중이던 **1.0.5 / 35** 는 취소하고 **36**을 제출한다. Play Alpha **36** AAB는 로컬 백업만. 스토어에 `1.0.5`가 나온 뒤에만 어드민 **앱 버전**을 `1.0.5+36`로 바꾼다.
 
+### 맥북에서 다음 앱 빌드 (수선 세부항목 다음 단계)
+
+**Windows에서는 IPA/AAB를 만들지 않는다.** 웹은 `main` 배포. 앱은 맥북에서만 스토어 빌드한다.
+
+포함: 단일 선택 세부부위 탭 즉시 다음 · 확인 버튼 화면 고정 · 수선항목 1개면 자동 다음.
+
+버전은 맥북에서 `pubspec.yaml`을 올린 뒤 빌드한다.
+
+```bash
+git checkout main
+git pull
+cd apps/mobile
+flutter pub get
+flutter build appbundle --release
+flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+```
+
+Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`10:90:55…`). Windows `AE:84:3D…` 키로 만든 AAB는 올리지 않는다.
+
 ### Android (Play)
 
 | 항목 | 값 |
