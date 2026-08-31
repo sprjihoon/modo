@@ -142,4 +142,113 @@ void main() {
       ['줄일 길이 (cm)'],
     );
   });
+
+  test('앱 치수 칸은 운영 media 행과 같은 맵을 읽는다', () {
+    const fallback = ['줄일 길이 (cm)'];
+    final combo = SubPartMeasureInput.fromRow({
+      'name': '허리+힙',
+      'input_count': 2,
+      'input_labels': ['허리 (cm)', '힙 (cm)'],
+    });
+    final waist = SubPartMeasureInput.fromRow({
+      'name': '허리',
+      'input_count': 1,
+      'input_labels': null,
+    });
+    final hip = SubPartMeasureInput.fromRow({
+      'name': '힙',
+      'input_count': 1,
+      'input_labels': <dynamic>[],
+    });
+
+    final comboGroups = buildPartMeasureLabelGroups(
+      fallbackLabels: fallback,
+      parts: [combo],
+    );
+    expect(comboGroups, [
+      ['허리 (cm)', '힙 (cm)'],
+    ]);
+    expect(measureFieldCount(comboGroups), 2);
+    expect(
+      measureDetailsForGroups(comboGroups, ['3', '2']),
+      ['허리 (cm): 3, 힙 (cm): 2'],
+    );
+
+    final waistGroups = buildPartMeasureLabelGroups(
+      fallbackLabels: fallback,
+      parts: [waist],
+    );
+    expect(waistGroups, [
+      ['줄일 길이 (cm)'],
+    ]);
+    expect(measureFieldCount(waistGroups), 1);
+
+    final mixed = buildPartMeasureLabelGroups(
+      fallbackLabels: fallback,
+      parts: [combo, waist, hip],
+    );
+    expect(measureFieldCount(mixed), 4);
+    expect(
+      measureDetailsForGroups(mixed, ['3', '2', '1', '4']),
+      [
+        '허리 (cm): 3, 힙 (cm): 2',
+        '줄일 길이 (cm): 1',
+        '줄일 길이 (cm): 4',
+      ],
+    );
+  });
+
+  test('전체 선택처럼 부위가 없으면 상위 라벨만 쓴다', () {
+    final groups = buildPartMeasureLabelGroups(
+      fallbackLabels: const ['줄일 길이 (cm)'],
+    );
+    expect(groups, [
+      ['줄일 길이 (cm)'],
+    ]);
+    expect(measureDetailFromValues(groups.first, [''], 0), '줄일 길이 (cm): -');
+  });
+
+  test('운영 허리/힙 줄임 행을 그대로 넣으면 칸 수가 맞는다', () {
+    const typeLabels = ['치수 (cm)'];
+    final combo = SubPartMeasureInput.fromRow({
+      'name': '허리+힙',
+      'input_count': 2,
+      'input_labels': ['허리 (cm)', '힙 (cm)'],
+    });
+    final waist = SubPartMeasureInput.fromRow({
+      'name': '허리',
+      'input_count': 1,
+      'input_labels': null,
+    });
+    final hip = SubPartMeasureInput.fromRow({
+      'name': '힙',
+      'input_count': 1,
+      'input_labels': null,
+    });
+
+    expect(
+      measureFieldCount(
+        buildPartMeasureLabelGroups(fallbackLabels: typeLabels, parts: [combo]),
+      ),
+      2,
+    );
+    expect(
+      buildPartMeasureLabelGroups(fallbackLabels: typeLabels, parts: [waist]),
+      [
+        ['치수 (cm)'],
+      ],
+    );
+    expect(
+      buildPartMeasureLabelGroups(fallbackLabels: typeLabels, parts: [hip]),
+      [
+        ['치수 (cm)'],
+      ],
+    );
+    expect(
+      measureFieldCount(
+        buildPartMeasureLabelGroups(fallbackLabels: typeLabels),
+      ),
+      1,
+    );
+  });
 }

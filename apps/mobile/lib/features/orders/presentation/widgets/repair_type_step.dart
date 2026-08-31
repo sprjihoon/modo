@@ -69,11 +69,11 @@ class _SubPart {
     this.inputLabels = const [],
   });
 
-  List<String> labelsFor(List<String> fallback) {
-    return sub_cat.resolvePartInputLabels(
+  sub_cat.SubPartMeasureInput toMeasureInput() {
+    return sub_cat.SubPartMeasureInput(
+      name: name,
       inputCount: inputCount,
       inputLabels: inputLabels,
-      fallback: fallback,
     );
   }
 }
@@ -359,17 +359,14 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
             return partType == null || partType == 'sub_part';
           })
           .map((m) {
-            final rawLabels = m['input_labels'];
-            final count = (m['input_count'] as num?)?.toInt() ?? 1;
+            final parsed = sub_cat.SubPartMeasureInput.fromRow(m);
             return _SubPart(
               id: m['id'].toString(),
-              name: (m['name'] as String?) ?? '',
+              name: parsed.name,
               price: (m['price'] as num?)?.toInt() ?? 0,
               iconName: m['icon_name'] as String?,
-              inputCount: count,
-              inputLabels: rawLabels is List && rawLabels.isNotEmpty
-                  ? sub_cat.normalizeInputLabels(rawLabels, inputCount: count)
-                  : const [],
+              inputCount: parsed.inputCount,
+              inputLabels: parsed.inputLabels,
             );
           })
           .toList();
@@ -412,15 +409,15 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
   }
 
   List<List<String>> _measureGroupsFor(_RepairType type, List<_SubPart>? chosenParts) {
-    if (chosenParts == null || chosenParts.isEmpty) {
-      return [type.inputLabels];
-    }
-    return chosenParts.map((part) => part.labelsFor(type.inputLabels)).toList();
+    return sub_cat.buildPartMeasureLabelGroups(
+      fallbackLabels: type.inputLabels,
+      parts: chosenParts?.map((part) => part.toMeasureInput()).toList(),
+    );
   }
 
   void _openMeasureView(_RepairType type, {List<_SubPart>? chosenParts, int? overridePrice}) {
     final groups = _measureGroupsFor(type, chosenParts);
-    final fieldCount = groups.fold<int>(0, (sum, labels) => sum + labels.length);
+    final fieldCount = sub_cat.measureFieldCount(groups);
     setState(() {
       _measureRepairType = type;
       _measureChosenParts = chosenParts;
@@ -476,26 +473,23 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
     final groups = _measureGroupsFor(type, chosenParts);
 
     if (chosenParts == null || chosenParts.isEmpty) {
-      final labels = groups.first;
-      final detail = labels.asMap().entries.map((e) => '${e.value}: ${_measureValues[e.key].isEmpty ? '-' : _measureValues[e.key]}').join(', ');
+      final detail = sub_cat.measureDetailFromValues(
+        groups.first,
+        _measureValues,
+        0,
+      );
       _addSimpleItem(type, detail: detail, overridePrice: overridePrice);
     } else {
-      var offset = 0;
+      final details = sub_cat.measureDetailsForGroups(groups, _measureValues);
       for (int pIdx = 0; pIdx < chosenParts.length; pIdx++) {
         final part = chosenParts[pIdx];
-        final labels = groups[pIdx];
-        final detail = labels.asMap().entries.map((e) {
-          final v = _measureValues[offset + e.key];
-          return '${e.value}: ${v.isEmpty ? '-' : v}';
-        }).join(', ');
-        offset += labels.length;
         setState(() {
           _selectedItems.add(_SelectedItem(
             id: '${type.id}_${part.id}',
             name: '${type.name} - ${part.name}',
             price: part.price > 0 ? part.price : type.price,
             priceRange: _formatPrice(part.price > 0 ? part.price : type.price),
-            detail: detail,
+            detail: details[pIdx],
           ));
         });
       }

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:modu_repair/features/orders/domain/models/order_draft.dart';
 import 'package:modu_repair/features/orders/domain/repair_item_payload.dart';
 import 'package:modu_repair/features/orders/presentation/widgets/measurement_step.dart';
+import 'package:modu_repair/features/orders/presentation/widgets/sub_category_step.dart';
 
 void main() {
   group('repairItemDetail', () {
@@ -252,6 +253,47 @@ void main() {
           'detail': detail,
         })['detail'],
         '줄일 길이 (cm): 3',
+      );
+    });
+
+    testWidgets('허리+힙 라벨 2칸을 입력하면 둘 다 확인값에 남는다', (tester) async {
+      List<String>? confirmed;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MeasurementStep(
+              config: const MeasurementStepConfig(
+                itemName: '허리/힙 줄임',
+                labels: ['허리 (cm)', '힙 (cm)'],
+              ),
+              onConfirm: (values) => confirmed = values,
+              onBack: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('허리 (cm)'), findsOneWidget);
+      expect(find.text('힙 (cm)'), findsOneWidget);
+      expect(find.byType(TextField), findsNWidgets(2));
+
+      await tester.enterText(find.byType(TextField).at(0), '3');
+      await tester.enterText(find.byType(TextField).at(1), '2');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(ElevatedButton, '확인'));
+      await tester.pump();
+
+      expect(confirmed, ['3', '2']);
+      expect(
+        measureDetailsForGroups(
+          const [
+            ['허리 (cm)', '힙 (cm)'],
+          ],
+          confirmed!,
+        ),
+        ['허리 (cm): 3, 힙 (cm): 2'],
       );
     });
   });

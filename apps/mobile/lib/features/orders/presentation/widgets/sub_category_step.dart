@@ -67,6 +67,76 @@ List<String> resolvePartInputLabels({
   return fallback.isNotEmpty ? fallback : const ['치수 (cm)'];
 }
 
+class SubPartMeasureInput {
+  final String name;
+  final int inputCount;
+  final List<String> inputLabels;
+
+  const SubPartMeasureInput({
+    required this.name,
+    this.inputCount = 1,
+    this.inputLabels = const [],
+  });
+
+  factory SubPartMeasureInput.fromRow(Map<String, dynamic> row) {
+    final rawLabels = row['input_labels'];
+    final count = (row['input_count'] as num?)?.toInt() ?? 1;
+    return SubPartMeasureInput(
+      name: (row['name'] as String?) ?? '',
+      inputCount: count,
+      inputLabels: rawLabels is List && rawLabels.isNotEmpty
+          ? normalizeInputLabels(rawLabels, inputCount: count)
+          : const [],
+    );
+  }
+}
+
+List<List<String>> buildPartMeasureLabelGroups({
+  required List<String> fallbackLabels,
+  List<SubPartMeasureInput>? parts,
+}) {
+  final fallback =
+      fallbackLabels.isNotEmpty ? fallbackLabels : const ['치수 (cm)'];
+  if (parts == null || parts.isEmpty) return [fallback];
+  return parts
+      .map(
+        (part) => resolvePartInputLabels(
+          inputCount: part.inputCount,
+          inputLabels: part.inputLabels,
+          fallback: fallback,
+        ),
+      )
+      .toList();
+}
+
+int measureFieldCount(List<List<String>> groups) {
+  return groups.fold(0, (sum, labels) => sum + labels.length);
+}
+
+String measureDetailFromValues(
+  List<String> labels,
+  List<String> values,
+  int offset,
+) {
+  return labels.asMap().entries.map((entry) {
+    final index = offset + entry.key;
+    final value = index < values.length ? values[index].trim() : '';
+    return '${entry.value}: ${value.isEmpty ? '-' : value}';
+  }).join(', ');
+}
+
+List<String> measureDetailsForGroups(
+  List<List<String>> groups,
+  List<String> values,
+) {
+  var offset = 0;
+  return groups.map((labels) {
+    final detail = measureDetailFromValues(labels, values, offset);
+    offset += labels.length;
+    return detail;
+  }).toList();
+}
+
 SubCategorySelection _selectionFromRow(Map<String, dynamic> row) {
   final inputCount = (row['input_count'] as num?)?.toInt() ?? 1;
   return SubCategorySelection(

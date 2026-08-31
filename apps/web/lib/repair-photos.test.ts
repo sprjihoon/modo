@@ -3,11 +3,16 @@ import {
   buildRepairPhotoUrl,
   collectCustomerPhotoLookupKeys,
 } from "./repair-photos";
-import { MOCK_REPAIR_PARTS, REPAIR_PHOTO_DEMO_SCENARIOS } from "./repair-photos-mock";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
 }
+
+const repairParts = [
+  { name: "바지 기장 수선", price: 15000, quantity: 1, detail: "줄일 길이: 3cm" },
+  { name: "허리 줄임", price: 20000, quantity: 1, detail: "줄일 길이: 2cm" },
+  { name: "지퍼 교체", price: 18000, quantity: 1 },
+];
 
 assert(
   collectCustomerPhotoLookupKeys("A", "", null, "A", "B").join(",") === "A,B",
@@ -37,18 +42,26 @@ assert(
 );
 
 const inbound = buildRepairPhotoItems({
-  photos: REPAIR_PHOTO_DEMO_SCENARIOS[0].photos,
-  repairParts: MOCK_REPAIR_PARTS,
+  photos: [
+    { type: "before_photo", path: "https://cdn.example/before-1.jpg", sequence: 1 },
+    { type: "before_photo", path: "https://cdn.example/before-2.jpg", sequence: 2 },
+  ],
+  repairParts,
 });
-assert(inbound.length === 2, "입고 목업은 2개 항목");
+assert(inbound.length === 2, "입고만 있으면 2개 항목");
 assert(inbound[0].label === "바지 기장 수선", "sequence 1 라벨은 repair_parts[0]");
 assert(!!inbound[0].before && !inbound[0].after, "입고만 있으면 after 없음");
 
 const mixed = buildRepairPhotoItems({
-  photos: REPAIR_PHOTO_DEMO_SCENARIOS.find((s) => s.id === "mixed")!.photos,
-  repairParts: MOCK_REPAIR_PARTS,
+  photos: [
+    { type: "before_photo", path: "https://cdn.example/before-1.jpg", sequence: 1 },
+    { type: "after_photo", path: "https://cdn.example/after-1.jpg", sequence: 1 },
+    { type: "before_photo", path: "https://cdn.example/before-2.jpg", sequence: 2 },
+    { type: "before_photo", path: "https://cdn.example/before-3.jpg", sequence: 3 },
+  ],
+  repairParts,
 });
-assert(mixed.length === 3, "혼합 목업은 3개 항목");
+assert(mixed.length === 3, "혼합 상태는 3개 항목");
 assert(!!mixed[0].before && !!mixed[0].after, "1번은 전후 모두");
 assert(!!mixed[1].before && !mixed[1].after, "2번은 후 대기");
 assert(mixed[2].label === "지퍼 교체", "3번 라벨은 repair_parts[2]");
@@ -59,7 +72,7 @@ const unnamed = buildRepairPhotoItems({
 });
 assert(unnamed[0].label === "수선 항목 9", "라벨이 없으면 수선 항목 N");
 
-const empty = buildRepairPhotoItems({ photos: [], repairParts: MOCK_REPAIR_PARTS });
+const empty = buildRepairPhotoItems({ photos: [], repairParts });
 assert(empty.length === 0, "사진이 없으면 섹션 데이터도 비어 있다");
 
 console.log("repair-photos.test.ts ok");

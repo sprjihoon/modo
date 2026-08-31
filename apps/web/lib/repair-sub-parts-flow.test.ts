@@ -10,7 +10,6 @@ import {
   shouldAutoConfirmOnSubPartTap,
   shouldAutoProceedRepair,
 } from "./repair-sub-parts-flow";
-import { MOCK_PARENT_LABELS, MOCK_WAIST_HIP_PARTS } from "./repair-measure-mock";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
@@ -169,16 +168,5 @@ assert(
   detailFromMeasureGroup(groups[0], ["3", "2", "1"], 0) === "허리 (cm): 3, 힙 (cm): 2",
   "콤보 상세는 두 값을 이어 붙인다",
 );
-
-const comboOnly = buildMeasureFieldGroups({
-  fallbackLabels: MOCK_PARENT_LABELS,
-  parts: MOCK_WAIST_HIP_PARTS.filter((part) => part.id === "combo"),
-});
-assert(comboOnly[0].labels.join("|") === "허리 (cm)|힙 (cm)", "목업 허리+힙 2칸");
-const waistOnly = buildMeasureFieldGroups({
-  fallbackLabels: MOCK_PARENT_LABELS,
-  parts: MOCK_WAIST_HIP_PARTS.filter((part) => part.id === "waist"),
-});
-assert(waistOnly[0].labels.join() === "줄일 길이 (cm)", "목업 허리는 상위 라벨 1칸");
 
 console.log("web repair-sub-parts-flow.test.ts: ok");
