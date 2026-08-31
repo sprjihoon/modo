@@ -85,6 +85,10 @@ async function loadSchedule() {
 export async function GET(request: NextRequest) {
   const settings = await loadSchedule();
   if (!shouldSendOpsReportNow(settings)) {
+    console.info("[ops-report-cron] skip not-send-time", {
+      host: request.headers.get("host"),
+      schedule: settings,
+    });
     return NextResponse.json({
       success: true,
       skipped: true,
@@ -100,6 +104,7 @@ export async function GET(request: NextRequest) {
     .eq("report_date", reportDate)
     .maybeSingle();
   if (sentOnKstDate(existing?.email_sent_at, kstToday())) {
+    console.info("[ops-report-cron] skip already-sent", { reportDate });
     return NextResponse.json({
       success: true,
       skipped: true,
@@ -108,6 +113,10 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  console.info("[ops-report-cron] send", {
+    host: request.headers.get("host"),
+    reportDate,
+  });
   // 설정한 KST 시각(기본 09:00)에 전날을 다시 집계한 뒤 메일 발송
   return generate(request, {
     date: reportDate,
