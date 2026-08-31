@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ScanBarcode, Printer, Tag, FileText, RotateCcw } from "lucide-react";
 import {
   WorkOrderSheet,
@@ -36,7 +36,23 @@ export default function ReprintPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [show, setShow] = useState<ShowMode>("none");
+  const [labelLayout, setLabelLayout] = useState<any[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const loadLayout = async () => {
+      try {
+        const layoutResponse = await fetch("/api/admin/settings/label-layout");
+        const layoutData = await layoutResponse.json();
+        if (layoutData.success && layoutData.layout) {
+          setLabelLayout(layoutData.layout);
+        }
+      } catch (error) {
+        console.error("송장 레이아웃 로드 실패:", error);
+      }
+    };
+    loadLayout();
+  }, []);
 
   async function handleLookup() {
     const q = scanValue.trim();
@@ -278,7 +294,10 @@ export default function ReprintPage() {
           {/* 출고 송장 인쇄 미리보기 — print 전용 */}
           {result.shippingLabel && (
             <div className="hidden print:block">
-              <ShippingLabelSheet data={result.shippingLabel} />
+              <ShippingLabelSheet
+                data={result.shippingLabel}
+                customLayout={labelLayout || undefined}
+              />
             </div>
           )}
         </>

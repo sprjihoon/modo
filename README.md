@@ -529,6 +529,20 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 
 ---
 
+## 출고 송장 레이아웃
+
+센터 콘솔 **송장 레이아웃**(`/ops/label-editor`)에서 저장한 우체국 C형 송장(168×107mm) 배치를 `company_info.label_layout_config`에 둔다. 출고송장 인쇄는 이 저장본을 쓴다.
+
+| 화면 | 경로 | 레이아웃 |
+|---|---|---|
+| 입고 후 출고 송장 | `/ops/inbound` | 저장본 |
+| 주문 상세·반송 재출력 | `LabelPrintDialog` | 저장본 |
+| 서류 재출력 | `/ops/reprint` | 저장본 |
+
+저장본이 없거나 API 실패면 `ShippingLabelSheet` 기본 양식. 검증: `cd apps/admin && npx tsx lib/shipping-label-print.test.ts`
+
+---
+
 ## 직원 권한
 
 역할은 `users.role` / `staff.role` 기준이다. 로그인·메뉴·URL·직원 CRUD가 같은 규칙을 쓴다. 코드: `apps/admin/lib/staff-permissions.ts`
@@ -552,6 +566,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-31 | 출고 송장 재출력 레이아웃 | 서류 재출력(`/ops/reprint`)이 저장된 송장 레이아웃을 무시하고 기본 양식으로 찍히던 문제. 입고·주문 상세와 같이 `label_layout_config` 사용. 어드민 `admin.modo.mom` |
 | 2026-08-31 | 수선 세부항목 · 전체 가격 | 전체 옵션 없는 항목에서 다음이 안 되던 문제 + 앱에서 치수 화면이 세부부위 뒤에 가려지던 문제. **전체** 선택 시에만 가격 표시. 홈 주문/리뷰 여백. **웹 `modo.io.kr` 라이브(`4eb7e9c`). 앱은 맥북에서 스토어 빌드** |
 | 2026-08-31 | 운영 리포트 크론 SSO | 미들웨어 통과 후에도 `*.vercel.app` 이 Vercel Authentication(SSO) 302. 프로덕션 보호를 Preview만으로 바꿔 크론이 JSON까지 도달. GitHub `ops-report-cron` 이 09:05 KST에 `admin.modo.mom` 으로 재시도 |
 | 2026-08-30 | 리뷰 필터 | 전체 리뷰 수선 종류(의류 대분류) 필터. 홈·목록에서 총점·공개 개수 제거. 포토 필터는 데이터 생기면 노출. 앱 `1.0.5+36` |
