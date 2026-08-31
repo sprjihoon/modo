@@ -37,6 +37,12 @@ export async function POST(request: NextRequest) {
       publicUserId = userRow?.id ?? null;
     }
 
+    const ua = request.headers.get("user-agent") || "";
+    const isIos = /iPhone|iPad|iPod/i.test(ua);
+    const isAndroid = /Android/i.test(ua);
+    const deviceType = isIos || isAndroid ? "mobile" : "desktop";
+    const deviceOs = isIos ? "웹 (iOS)" : isAndroid ? "웹 (Android)" : "Web";
+
     await admin.from("customer_events").insert({
       user_id: publicUserId,
       session_id: sessionId ?? null,
@@ -47,8 +53,8 @@ export async function POST(request: NextRequest) {
       target_id: targetId ?? null,
       target_type: targetType ?? null,
       metadata: metadata ?? {},
-      device_type: "desktop",
-      device_os: "Web",
+      device_type: deviceType,
+      device_os: deviceOs,
       app_version: "web",
     });
 

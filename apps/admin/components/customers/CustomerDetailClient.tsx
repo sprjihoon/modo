@@ -17,6 +17,7 @@ import {
   Minus
 } from "lucide-react";
 import PointManagementDialog from "./PointManagementDialog";
+import { deviceOsInfo } from "@/lib/customer-device-os";
 
 interface CustomerDetailClientProps {
   customer: any;
@@ -149,6 +150,12 @@ export default function CustomerDetailClient({
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <p className="font-medium">{formatDate(customer.created_at)}</p>
                 </div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">최근 접속 OS</p>
+                <p className="font-medium">
+                  {deviceOsInfo(customer.last_device_os)?.detail || "기록 없음"}
+                </p>
               </div>
             </CardContent>
           </Card>

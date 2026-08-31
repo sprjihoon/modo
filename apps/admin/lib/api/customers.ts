@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../supabase';
+import { getLastDeviceOsMap } from '../customer-device-os';
 
 export interface Customer {
   id: string;
@@ -7,6 +8,7 @@ export interface Customer {
   phone: string;
   created_at: string;
   login_provider?: string;
+  last_device_os?: string;
   default_address?: string;
   default_address_detail?: string;
   point_balance?: number;
@@ -59,6 +61,8 @@ export async function getCustomers(filters?: {
 
   if (error) throw error;
 
+  const deviceOsMap = await getLastDeviceOsMap((data || []).map((c) => c.id));
+
   // 주문 통계 정보 추가
   const customersWithStats = await Promise.all(
     (data || []).map(async (customer) => {
@@ -81,6 +85,7 @@ export async function getCustomers(filters?: {
 
       return {
         ...customer,
+        last_device_os: deviceOsMap[customer.id],
         totalOrders,
         totalSpent,
         lastOrderDate,
@@ -140,9 +145,11 @@ export async function getCustomerById(customerId: string) {
   const totalOrders = orders?.length || 0;
   const totalSpent = orders?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0;
   const averageOrderValue = totalOrders > 0 ? Math.floor(totalSpent / totalOrders) : 0;
+  const deviceOsMap = await getLastDeviceOsMap([customerId]);
 
   return {
     ...data,
+    last_device_os: deviceOsMap[customerId],
     totalOrders,
     totalSpent,
     averageOrderValue,

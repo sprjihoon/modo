@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Search, Mail, Phone, Calendar, Loader2 } from "lucide-react";
 import { getCustomers, getCustomerStats, type Customer } from "@/lib/api/customers";
+import { deviceOsInfo } from "@/lib/customer-device-os";
 
 // 오늘 날짜 (YYYY-MM-DD 형식)
 const getToday = () => {
@@ -334,6 +335,24 @@ export default function CustomersPage() {
                                   : customer.login_provider}
                               </span>
                             )}
+                            {(() => {
+                              const os = deviceOsInfo(customer.last_device_os);
+                              if (!os) return null;
+                              return (
+                                <span
+                                  title={os.detail}
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                    os.label === "iOS"
+                                      ? "bg-black text-white"
+                                      : os.label === "Android"
+                                      ? "bg-[#3DDC84] text-gray-900"
+                                      : "bg-slate-100 text-slate-700"
+                                  }`}
+                                >
+                                  {os.label}
+                                </span>
+                              );
+                            })()}
                           </div>
                           <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">

@@ -609,6 +609,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-08-31 | 고객 목록 OS | 어드민 고객 목록·상세에 최근 접속 OS(iOS/Android/웹) 표시. `customer_events.device_os` 기준. 앱 재빌드 없음 |
 | 2026-08-31 | 그랜드 오픈 팝업 | 홈 팝업을 그랜드 오픈으로 교체. 웹은 확인 버튼 없음. 앱 버튼은 스토어 빌드 없이 제거 불가라 유지. 웹·앱 공통(`popups`) |
 | 2026-08-31 | Play 프로덕션 | `1.0.6 (38)` 대한민국 게시. `/download` Play 링크 연결. iOS `1.0.6`은 심사 중이라 `app_versions`는 아직 유지 |
 | 2026-08-31 | Play 사진 권한 | Android 13+ `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO` 제거. 갤러리는 시스템 사진 선택 도구. Play `1.0.6+38` |
