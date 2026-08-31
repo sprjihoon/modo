@@ -108,6 +108,10 @@ export function LaunchAnnouncementPopup() {
   function handleCta() {
     const cta = popup?.cta_text || "";
     dismiss();
+    if (cta.includes("수선")) {
+      router.push("/order/new");
+      return;
+    }
     if (cta.includes("앱")) {
       router.push(APP_DOWNLOAD_PATH);
     }
