@@ -66,6 +66,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   final _deliveryZipcodeController = TextEditingController();
   
   final _requestController = TextEditingController();
+  final _customerMemoController = TextEditingController();
   final _promotionCodeController = TextEditingController();
   
   final _addressService = AddressService();
@@ -257,6 +258,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
     _deliveryAddressDetailController.dispose();
     _deliveryZipcodeController.dispose();
     _requestController.dispose();
+    _customerMemoController.dispose();
     _promotionCodeController.dispose();
     super.dispose();
   }
@@ -376,6 +378,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       'pickupZipcode': _resolvedPickupDelivery.pickupZipcode,
       'pickupDate': _selectedPickupDate?.toIso8601String(),
       'notes': _requestController.text,
+      'customerMemo': _customerMemoController.text.trim(),
       'deliveryAddress': _resolvedPickupDelivery.deliveryAddress,
       'deliveryAddressDetail': _resolvedPickupDelivery.deliveryAddressDetail,
       'deliveryZipcode': _resolvedPickupDelivery.deliveryZipcode,
@@ -875,6 +878,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
         'customerName': recipientName,
         'customerPhone': recipientPhone,
         'notes': _requestController.text,
+        'customerMemo': _customerMemoController.text.trim(),
         if (_appliedPromotion != null)
           'promotionCodeId': _appliedPromotion!['id'] as String,
       };
@@ -1584,6 +1588,55 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                         ),
                       ),
                     ],
+                    
+                    const SizedBox(height: 32),
+
+                    const Text(
+                      '수선 요청 메모',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '핀으로 표시하기 어려운 내용을 적어주세요. 작업지시서와 관리자 주문상세에 보입니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _customerMemoController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: '예) 안감이 약해서 조심해 주세요 / 단추는 그대로 써 주세요',
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade200,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade200,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF00C896),
+                            width: 2,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      ),
+                    ),
                     
                     const SizedBox(height: 32),
                     

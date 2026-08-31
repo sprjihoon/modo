@@ -37,10 +37,10 @@ export async function GET(
     }
 
     // 옛 RPC가 사진/메모 컬럼을 빼먹는 경우 직접 조회해서 보강
-    if (order && (order.images_with_pins === undefined || order.notes === undefined)) {
+    if (order && (order.images_with_pins === undefined || order.notes === undefined || order.customer_memo === undefined)) {
       const { data: extra } = await supabaseAdmin
         .from('orders')
-        .select('images_with_pins, images, image_urls, notes, repair_detail, item_description, repair_parts')
+        .select('images_with_pins, images, image_urls, notes, customer_memo, repair_detail, item_description, repair_parts')
         .eq('id', orderId)
         .maybeSingle();
       if (extra) {
@@ -106,7 +106,7 @@ export async function GET(
     if (finalOrder && (finalOrder.pickup_date === undefined || finalOrder.pickup_address === undefined)) {
       const { data: pickupRow } = await supabaseAdmin
         .from('orders')
-        .select('pickup_date, pickup_phone, pickup_zipcode, pickup_address, pickup_address_detail, notes, customer_phone')
+        .select('pickup_date, pickup_phone, pickup_zipcode, pickup_address, pickup_address_detail, notes, customer_memo, customer_phone')
         .eq('id', orderId)
         .maybeSingle();
       if (pickupRow) {

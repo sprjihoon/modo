@@ -154,6 +154,7 @@ Deno.serve(async (req) => {
       customer_email: p.customerEmail,
       customer_phone: p.customerPhone,
       notes: p.notes,
+      customer_memo: p.customerMemo,
       base_price: p.basePrice,
       total_price: intent.total_price,
       shipping_fee: p.shippingFee,

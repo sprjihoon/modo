@@ -3567,6 +3567,31 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
             ),
           ),
           _buildDeliveryAddressRow(context),
+          if (_orderData?['customer_memo'] != null &&
+              (_orderData!['customer_memo'] as String).isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    '수선 메모',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    _orderData!['customer_memo'] as String,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (_orderData?['notes'] != null &&
               (_orderData!['notes'] as String).isNotEmpty) ...[
             const SizedBox(height: 8),

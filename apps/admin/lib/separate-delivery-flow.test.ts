@@ -33,6 +33,14 @@ assert(
   !/recAddr1\s*=\s*shipment\.delivery_address/.test(outboundBook),
   "출고 예약이 shipments.delivery_address를 수취인으로 쓰면 안 된다"
 );
+assert(
+  outboundBook.includes("order.notes") && outboundBook.includes("delivMsg"),
+  "출고 예약 delivMsg는 고객 배송요청사항(orders.notes)을 써야 한다"
+);
+assert(
+  !outboundBook.includes("delivMsg: '수선 완료품입니다. 확인 부탁드립니다.'"),
+  "출고 예약 delivMsg를 고정 문구만 넣으면 안 된다"
+);
 
 const pickupBook = read("apps/edge/supabase/functions/shipments-book/index.ts");
 const orderUpdate = pickupBook.slice(

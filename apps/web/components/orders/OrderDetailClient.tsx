@@ -51,6 +51,7 @@ interface OrderData {
   delivery_address_detail?: string;
   delivery_zipcode?: string;
   notes?: string;
+  customer_memo?: string;
   memo?: string;
   pickup_date?: string;
   tracking_no?: string;
@@ -1103,6 +1104,12 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
             <p className="text-xs text-[#00C896] font-medium mt-2">
               수거 예정일: {formatDate(order.pickup_date)}
             </p>
+          )}
+          {order.customer_memo && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-400">수선 요청 메모</p>
+              <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap">{order.customer_memo}</p>
+            </div>
           )}
           {(order.notes || order.memo) && (
             <div className="mt-3 pt-3 border-t border-gray-100">

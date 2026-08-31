@@ -183,6 +183,7 @@ class OrderDraft {
   final String? pickupPhone;
   final String? pickupDate;
   final String? notes;
+  final String? customerMemo;
   final String? deliveryAddress;
   final String? deliveryAddressDetail;
   final String? deliveryZipcode;
@@ -198,6 +199,7 @@ class OrderDraft {
     this.pickupPhone,
     this.pickupDate,
     this.notes,
+    this.customerMemo,
     this.deliveryAddress,
     this.deliveryAddressDetail,
     this.deliveryZipcode,
@@ -214,6 +216,7 @@ class OrderDraft {
     String? pickupPhone,
     String? pickupDate,
     String? notes,
+    String? customerMemo,
     String? deliveryAddress,
     String? deliveryAddressDetail,
     String? deliveryZipcode,
@@ -229,6 +232,7 @@ class OrderDraft {
       pickupPhone: pickupPhone ?? this.pickupPhone,
       pickupDate: pickupDate ?? this.pickupDate,
       notes: notes ?? this.notes,
+      customerMemo: customerMemo ?? this.customerMemo,
       deliveryAddress: deliveryAddress ?? this.deliveryAddress,
       deliveryAddressDetail: deliveryAddressDetail ?? this.deliveryAddressDetail,
       deliveryZipcode: deliveryZipcode ?? this.deliveryZipcode,
@@ -246,6 +250,7 @@ class OrderDraft {
         if (pickupPhone != null) 'pickupPhone': pickupPhone,
         if (pickupDate != null) 'pickupDate': pickupDate,
         if (notes != null) 'notes': notes,
+        if (customerMemo != null) 'customerMemo': customerMemo,
         if (deliveryAddress != null) 'deliveryAddress': deliveryAddress,
         if (deliveryAddressDetail != null) 'deliveryAddressDetail': deliveryAddressDetail,
         if (deliveryZipcode != null) 'deliveryZipcode': deliveryZipcode,
@@ -265,6 +270,7 @@ class OrderDraft {
         pickupPhone: json['pickupPhone'] as String?,
         pickupDate: json['pickupDate'] as String?,
         notes: json['notes'] as String?,
+        customerMemo: json['customerMemo'] as String?,
         deliveryAddress: json['deliveryAddress'] as String?,
         deliveryAddressDetail: json['deliveryAddressDetail'] as String?,
         deliveryZipcode: json['deliveryZipcode'] as String?,

@@ -121,6 +121,26 @@ void main() {
     });
   });
 
+  group('OrderDraft customerMemo', () {
+    test('keeps 수선 요청 메모 through json roundtrip', () {
+      const draft = OrderDraft(
+        items: [
+          ClothingItem(
+            clothingType: '바지',
+            repairItems: [RepairItem(name: '기장 줄임', price: 8000)],
+          ),
+        ],
+        notes: '현관 비번 1234',
+        customerMemo: '안감 조심',
+      );
+
+      final restored = OrderDraft.fromJson(draft.toJson());
+      expect(restored.customerMemo, '안감 조심');
+      expect(restored.notes, '현관 비번 1234');
+      expect(restored.toJson()['customerMemo'], '안감 조심');
+    });
+  });
+
   group('formatPointDescription', () {
     test('hides payment intent uuid', () {
       expect(

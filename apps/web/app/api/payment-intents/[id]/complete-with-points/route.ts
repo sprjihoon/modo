@@ -94,6 +94,7 @@ export async function POST(
       customer_phone: p.customerPhone || p.pickupPhone || "010-0000-0000",
       customer_email: p.customerEmail || null,
       notes: p.notes || null,
+      customer_memo: p.customerMemo || null,
       base_price: p.basePrice ?? null,
       total_price: 0,
       shipping_fee: p.shippingFee ?? null,

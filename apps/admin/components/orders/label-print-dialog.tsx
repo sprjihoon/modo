@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
+import { resolveDeliveryRequestMessage } from "@/lib/delivery-request";
 import { resolveOutboundLabelRecipient } from "@/lib/outbound-label-recipient";
 
 interface LabelPrintDialogProps {
@@ -370,6 +371,7 @@ export function LabelPrintDialog({
         memo: effectiveType === 'pickup'
           ? (order.item_description || order.item_name)
           : (order.item_description || order.item_name),
+        deliveryMessage: resolveDeliveryRequestMessage(order.notes ?? fullOrder?.notes),
         
         // 기타
         weight: fullOrder?.weight ? `${fullOrder.weight}kg` : "2kg",

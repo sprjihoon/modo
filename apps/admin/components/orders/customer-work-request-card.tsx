@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Camera, CalendarDays, MapPin, Phone, StickyNote, X } from "lucide-react";
 import { WorkOrderPrintDialog } from "@/components/orders/work-order-print-dialog";
-import { parseWorkOrderImages, customerRequestSummary } from "@/lib/work-order-images";
+import { parseWorkOrderImages } from "@/lib/work-order-images";
 import { measurementLinesFromParts } from "@/lib/repair-parts";
 import { formatOrderDate } from "@/lib/missing-pickup";
 
@@ -15,8 +15,7 @@ interface CustomerWorkRequestCardProps {
 export function CustomerWorkRequestCard({ order }: CustomerWorkRequestCardProps) {
   const images = parseWorkOrderImages(order);
   const notes = (order?.notes ?? "").trim();
-  const repairDetail = (order?.repair_detail ?? "").trim();
-  const summary = customerRequestSummary(order);
+  const customerMemo = (order?.customer_memo ?? "").trim();
   const measurements = measurementLinesFromParts(order?.repair_parts);
   const pinMemos = images.flatMap((image, imgIdx) =>
     (image.pins ?? [])
@@ -40,7 +39,7 @@ export function CustomerWorkRequestCard({ order }: CustomerWorkRequestCardProps)
               고객 접수 내용
             </CardTitle>
             <CardDescription>
-              고객이 주문 시 선택한 수거일, 주소, 사진, 요청 메모입니다
+              고객이 주문 시 선택한 수거일, 주소, 사진, 수선 요청 메모입니다
             </CardDescription>
           </div>
           <WorkOrderPrintDialog order={order} buttonClassName="w-auto" />
@@ -82,18 +81,24 @@ export function CustomerWorkRequestCard({ order }: CustomerWorkRequestCardProps)
         <div>
           <p className="text-sm text-muted-foreground flex items-center gap-1.5">
             <StickyNote className="h-3.5 w-3.5" />
-            요청 메모
+            수선 요청 메모
           </p>
-          {notes || repairDetail ? (
-            <p className="mt-1 whitespace-pre-wrap font-medium">
-              {[notes, repairDetail].filter(Boolean).join("\n")}
-            </p>
+          {customerMemo ? (
+            <p className="mt-1 whitespace-pre-wrap font-medium">{customerMemo}</p>
           ) : (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {summary === "수선 요청 정보 없음" ? "작성된 메모가 없습니다" : summary}
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">작성된 메모가 없습니다</p>
           )}
         </div>
+
+        {notes ? (
+          <div>
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <StickyNote className="h-3.5 w-3.5" />
+              배송 요청사항
+            </p>
+            <p className="mt-1 whitespace-pre-wrap font-medium">{notes}</p>
+          </div>
+        ) : null}
 
         {measurements.length > 0 && (
           <div>

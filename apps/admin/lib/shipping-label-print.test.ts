@@ -28,11 +28,24 @@ assert(
   sheet.includes("customLayout && customLayout.length > 0 ? customLayout : createDefaultLayout()"),
   "ShippingLabelSheet는 저장 레이아웃이 있으면 쓰고, 없으면 기본 양식으로 떨어진다"
 );
+assert(sheet.includes('fieldKey: "delivery_request"'), "기본 양식에 배송요청사항 필드가 있어야 한다");
+assert(
+  sheet.includes('delivery_request: (data) => (data.deliveryMessage || "").trim()'),
+  "송장 문구 매퍼가 deliveryMessage를 배송요청사항으로 찍어야 한다"
+);
 
 const editor = readFileSync(editorPath, "utf8");
+assert(editor.includes('fieldKey: "delivery_request"'), "에디터 필드 목록에 배송요청사항이 있어야 한다");
+assert(editor.includes("공용현관 비번"), "에디터 배송요청사항 예시값이 있어야 한다");
+assert(
+  editor.includes('el.fieldKey === "delivery_request"'),
+  "저장된 양식에 배송요청사항이 없으면 에디터가 붙여야 한다"
+);
+
 const editorFieldKeys = [...editor.matchAll(/fieldKey:\s*"([a-z0-9_]+)"/g)].map((m) => m[1]);
 const uniqueEditorKeys = [...new Set(editorFieldKeys)];
 assert(uniqueEditorKeys.length >= 15, "에디터 필드 키가 있어야 한다");
+assert(uniqueEditorKeys.includes("delivery_request"), "에디터 unique 키에 delivery_request가 있어야 한다");
 
 const mapperBlock = sheet.slice(sheet.indexOf("const mapping"), sheet.indexOf("const mapper"));
 for (const key of uniqueEditorKeys) {
@@ -74,6 +87,14 @@ for (const p of callSiteFiles) {
   assert(
     src.includes("resolveOutboundLabelRecipient"),
     `${rel}가 출고송장 받는분을 orders.delivery_* 기준으로 결정해야 한다`
+  );
+  assert(
+    src.includes("deliveryMessage"),
+    `${rel}가 출고송장에 배송요청사항(deliveryMessage)을 넘겨야 한다`
+  );
+  assert(
+    src.includes("resolveDeliveryRequestMessage"),
+    `${rel}가 배송요청사항을 resolveDeliveryRequestMessage로 정규화해야 한다`
   );
 }
 

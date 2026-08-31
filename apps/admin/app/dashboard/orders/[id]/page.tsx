@@ -821,9 +821,9 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
               );
             })()}
             <div>
-              <p className="text-sm text-muted-foreground">상세 설명</p>
+              <p className="text-sm text-muted-foreground">수선 요청 메모</p>
               <p className="font-medium whitespace-pre-wrap">
-                {order.notes || order.repair_detail || displayOrder.description}
+                {order.customer_memo || order.repair_detail || displayOrder.description || "없음"}
               </p>
             </div>
             <div>

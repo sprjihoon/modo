@@ -21,6 +21,7 @@ const newFlow = normalizeStoredDraft({
     },
   ],
   pickupAddress: "서울 강남구",
+  customerMemo: "안감 조심",
 });
 
 assert(newFlow.items.length === 2, "new-flow clothing count");
@@ -28,6 +29,7 @@ assert(newFlow.items[0].repairItems.length === 1, "first clothing repairs");
 assert(newFlow.items[1].repairItems.length === 2, "second clothing repairs");
 assert(newFlow.items[0].repairItems[0].name === "기장 줄임", "first repair name");
 assert(newFlow.pickupAddress === "서울 강남구", "pickup kept");
+assert(newFlow.customerMemo === "안감 조심", "customer memo kept");
 
 const emptyItemsFallsBack = normalizeStoredDraft({
   items: [],

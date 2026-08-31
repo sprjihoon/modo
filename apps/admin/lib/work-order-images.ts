@@ -80,13 +80,14 @@ export function parseWorkOrderImages(order: {
 }
 
 export function customerRequestSummary(order: {
+  customer_memo?: string | null;
   notes?: string | null;
   repair_detail?: string | null;
   item_description?: string | null;
   item_name?: string | null;
 } | null | undefined): string {
   if (!order) return "수선 요청 정보 없음";
-  const parts = [order.notes, order.repair_detail, order.item_description]
+  const parts = [order.customer_memo, order.repair_detail, order.item_description]
     .map((s) => (s ?? "").trim())
     .filter(Boolean);
   if (parts.length > 0) return [...new Set(parts)].join("\n");

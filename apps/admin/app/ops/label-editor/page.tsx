@@ -195,6 +195,14 @@ const DEFAULT_FIELDS: FieldConfig[] = [
     type: "text",
   },
   {
+    fieldKey: "delivery_request",
+    label: "배송 요청사항",
+    exampleValue: "공용현관 비번: #1234*",
+    fontSize: 11,
+    isBold: false,
+    type: "text",
+  },
+  {
     fieldKey: "tracking_no_barcode",
     label: "등기번호 바코드",
     exampleValue: "60914-8600-5658",
@@ -255,6 +263,7 @@ const getInitialLayout = (canvasWidth: number, canvasHeight: number, companyInfo
     
     { fieldKey: "tracking_no_text", label: "등기번호 (텍스트)", exampleValue: "등기번호: 60914-8600-5658", x: labelWidth * 0.43, y: 255, width: 250, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
     { fieldKey: "waybill_statement", label: "송장 문구", exampleValue: "모두의수선에서 제공되는 서비스입니다.", x: labelWidth * 0.43, y: 280, width: 300, height: 20, fontSize: scaleFont(12), isBold: true, type: "text" },
+    { fieldKey: "delivery_request", label: "배송 요청사항", exampleValue: "공용현관 비번: #1234*", x: labelWidth * 0.43, y: 278, width: 300, height: 28, fontSize: scaleFont(11), isBold: false, type: "text" },
     { fieldKey: "tracking_no_barcode", label: "등기번호 바코드", exampleValue: "60914-8600-5658", x: labelWidth * 0.43, y: 305, width: 280, height: 70, fontSize: scaleFont(12), isBold: false, type: "barcode" },
     
     // 하단
@@ -735,6 +744,11 @@ export default function LabelEditorPage() {
               height: mmToPx(el.height) * scaleFactor,
             };
           });
+          if (!loadedElements.some((el: LabelElement) => el.fieldKey === "delivery_request")) {
+            const defaults = getInitialLayout(canvasSize.width, canvasSize.height, companyInfo);
+            const deliveryRequest = defaults.find((el) => el.fieldKey === "delivery_request");
+            if (deliveryRequest) loadedElements.push(deliveryRequest);
+          }
           setElements(loadedElements);
           setIsInitialized(true);
           alert("저장된 양식이 로드되었습니다.");

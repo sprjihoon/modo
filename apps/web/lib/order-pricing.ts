@@ -36,6 +36,7 @@ export interface OrderQuoteInput {
   // 비어 있으면 users.phone 으로 fallback.
   pickupPhone?: string;
   notes?: string;
+  customerMemo?: string;
   deliveryAddress?: string;
   deliveryAddressDetail?: string;
   deliveryZipcode?: string;
@@ -87,6 +88,7 @@ export interface OrderQuoteResult {
     customerPhone: string;
 
     notes: string | null;
+    customerMemo: string | null;
 
     basePrice: number;
     shippingFee: number;
@@ -298,6 +300,7 @@ export async function quoteOrder(
       customerPhone,
 
       notes: input.notes || null,
+      customerMemo: typeof input.customerMemo === "string" ? input.customerMemo.trim() || null : null,
 
       basePrice: repairItemsTotal,
       shippingFee: BASE_SHIPPING_FEE,

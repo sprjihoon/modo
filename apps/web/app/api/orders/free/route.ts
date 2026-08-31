@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
       customer_email: p.customerEmail,
       customer_phone: p.customerPhone,
       notes: p.notes,
+      customer_memo: p.customerMemo,
       base_price: p.basePrice,
       total_price: 0,
       shipping_fee: p.shippingFee,

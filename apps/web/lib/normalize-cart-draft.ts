@@ -22,6 +22,7 @@ export function normalizeStoredDraft(raw: Record<string, unknown>): OrderDraft {
     pickupPhone: raw.pickupPhone as string | undefined,
     pickupDate: raw.pickupDate as string | undefined,
     notes: raw.notes as string | undefined,
+    customerMemo: raw.customerMemo as string | undefined,
     deliveryAddress: raw.deliveryAddress as string | undefined,
     deliveryAddressDetail: raw.deliveryAddressDetail as string | undefined,
     deliveryZipcode: raw.deliveryZipcode as string | undefined,

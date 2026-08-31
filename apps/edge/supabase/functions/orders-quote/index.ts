@@ -239,6 +239,7 @@ serve(async (req) => {
       customerPhone,
 
       notes: body.notes || null,
+      customerMemo: typeof body.customerMemo === 'string' ? body.customerMemo.trim() || null : null,
 
       basePrice: repairItemsTotal,
       shippingFee: BASE_SHIPPING_FEE,

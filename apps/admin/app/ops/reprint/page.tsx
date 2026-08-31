@@ -10,6 +10,7 @@ import {
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import { normalizeRepairPart } from "@/lib/barcode";
 import { customerRequestSummary, parseWorkOrderImages } from "@/lib/work-order-images";
+import { resolveDeliveryRequestMessage } from "@/lib/delivery-request";
 import { resolveOutboundLabelRecipient } from "@/lib/outbound-label-recipient";
 
 type LookupResult = {
@@ -106,6 +107,7 @@ export default function ReprintPage() {
           recipientPhone: order.customer_phone || "",
           totalQuantity: 1,
           itemsList: order.item_name || "의류",
+          deliveryMessage: resolveDeliveryRequestMessage(order.notes),
           printAreaCd: di?.printAreaCd || "",
         };
       }

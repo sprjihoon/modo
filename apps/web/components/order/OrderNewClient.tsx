@@ -51,6 +51,7 @@ export interface OrderDraft {
   pickupPhone?: string;
   pickupDate?: string;
   notes?: string;
+  customerMemo?: string;
   deliveryAddress?: string;
   deliveryAddressDetail?: string;
   deliveryZipcode?: string;
@@ -87,6 +88,7 @@ function normalizeDraft(raw: unknown): OrderDraft {
     pickupPhone: d.pickupPhone as string | undefined,
     pickupDate: d.pickupDate as string | undefined,
     notes: d.notes as string | undefined,
+    customerMemo: d.customerMemo as string | undefined,
     deliveryAddress: d.deliveryAddress as string | undefined,
     deliveryAddressDetail: d.deliveryAddressDetail as string | undefined,
     deliveryZipcode: d.deliveryZipcode as string | undefined,

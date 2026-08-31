@@ -7,6 +7,7 @@ import { customerRequestSummary, parseWorkOrderImages } from "@/lib/work-order-i
 import { ShippingLabelSheet, type ShippingLabelData } from "@/components/ops/shipping-label-sheet";
 import PhotoCapture, { type RepairItem } from "@/components/ops/PhotoCapture";
 import { lookupDeliveryCode } from "@/lib/delivery-code-lookup";
+import { resolveDeliveryRequestMessage } from "@/lib/delivery-request";
 import { resolveOutboundLabelRecipient } from "@/lib/outbound-label-recipient";
 import { buildBarcodeNo, canStartOutboundPackScan, getRepairItemCount } from "@/lib/barcode";
 import { getOrderSourceBadge } from "@/lib/order-source";
@@ -1177,6 +1178,7 @@ export default function InboundPage() {
                       ? result.repairParts.map((part: string, idx: number) => `${idx + 1}. ${part}`).join('\n')
                       : result.itemName || "거래물품",
                     memo: result.summary,
+                    deliveryMessage: resolveDeliveryRequestMessage(orderData.notes),
                     
                     // 기타 (주문 정보에서 가져오기, 없으면 기본값)
                     weight: orderData.weight ? `${orderData.weight}kg` : "2kg",

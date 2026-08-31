@@ -177,7 +177,11 @@ Deno.serve(async (req) => {
       weight: 2,
       volume: 60,
       microYn: 'N',
-      delivMsg: '수선 완료품입니다. 확인 부탁드립니다.',
+      delivMsg: (() => {
+        const notes = String(order.notes ?? '').trim();
+        if (notes) return notes.length > 200 ? notes.slice(0, 200) : notes;
+        return '수선 완료품입니다. 확인 부탁드립니다.';
+      })(),
       testYn: 'N', // 실제 운송장 발급
       printYn: 'Y', // 운송장 출력
     };

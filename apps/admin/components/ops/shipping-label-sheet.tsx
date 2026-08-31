@@ -33,6 +33,8 @@ export interface ShippingLabelData {
   weight?: string;
   volume?: string;
   deliveryCode?: string;
+  /** 고객 배송요청사항 (orders.notes) */
+  deliveryMessage?: string;
   
   // 우체국 분류 코드
   deliveryPlaceCode?: string;
@@ -125,6 +127,7 @@ const createDefaultLayout = (): LabelLayoutElement[] => {
     
     { fieldKey: "tracking_no_text", x: labelWidth * 0.43, y: 255, width: 250, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" as const },
     { fieldKey: "waybill_statement", x: labelWidth * 0.43, y: 280, width: 300, height: 20, fontSize: scaleFont(12), isBold: true, type: "text" as const },
+    { fieldKey: "delivery_request", x: labelWidth * 0.43, y: 278, width: 300, height: 28, fontSize: scaleFont(11), isBold: false, type: "text" as const },
     
     // 등기번호 바코드 (하단, 숫자 표시)
     { fieldKey: "tracking_no_barcode", x: labelWidth * 0.43, y: 305, width: 280, height: 70, fontSize: scaleFont(12), isBold: false, type: "barcode" as const },
@@ -205,7 +208,8 @@ const mapFieldToActualValue = (fieldKey: string, data: ShippingLabelData): strin
     receiver_name: (data) => data.recipientName || "",
     receiver_phone: (data) => data.recipientPhone || "",
     tracking_no_text: (data) => `등기번호: ${formatTrackingNo(data.trackingNo)}`,
-    waybill_statement: (data) => "모두의수선에서 제공되는 서비스입니다.", // 예시 이미지는 "★글로박스..."지만 기본값은 유지
+    waybill_statement: () => "모두의수선에서 제공되는 서비스입니다.",
+    delivery_request: (data) => (data.deliveryMessage || "").trim(),
     tracking_no_barcode: (data) => data.trackingNo || "",
     bottom_info: (data) => `[총 ${data.totalQuantity || 1}개] [0회 재출력]`,
   };

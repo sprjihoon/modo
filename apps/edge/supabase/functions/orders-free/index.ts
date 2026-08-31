@@ -101,6 +101,7 @@ serve(async (req) => {
       customer_phone: pickup.customerPhone || pickup.pickupPhone || '010-0000-0000',
       customer_email: pickup.customerEmail || null,
       notes: pickup.notes || null,
+      customer_memo: pickup.customerMemo || null,
       base_price: pickup.basePrice ?? 0,
       total_price: 0,
       shipping_fee: pickup.shippingFee ?? null,

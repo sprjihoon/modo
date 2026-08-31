@@ -105,6 +105,7 @@ export function PickupStep({ draft, onNext, onBack, onSaveToCart }: PickupStepPr
   const [pickupPhone, setPickupPhone] = useState(draft.pickupPhone ?? "");
   const [pickupDate, setPickupDate] = useState(draft.pickupDate ?? minDate);
   const [notes, setNotes] = useState(draft.notes ?? "");
+  const [customerMemo, setCustomerMemo] = useState(draft.customerMemo ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 배송지 = 수거지 여부
@@ -270,6 +271,7 @@ export function PickupStep({ draft, onNext, onBack, onSaveToCart }: PickupStepPr
       pickupPhone: cleanedPhone,
       pickupDate,
       notes,
+      customerMemo: customerMemo.trim(),
       deliveryAddress: addresses.deliveryAddress,
       deliveryAddressDetail: addresses.deliveryAddressDetail,
       deliveryZipcode: addresses.deliveryZipcode,
@@ -615,6 +617,24 @@ export function PickupStep({ draft, onNext, onBack, onSaveToCart }: PickupStepPr
           <p className="text-xs text-gray-400 mt-1.5">
             선택하신 날짜가 우체국 수거 신청에 반영되며, 실제 방문일은 우체국 일정에 따라 달라질 수 있습니다.{" "}
             <span className="text-red-400 font-medium">토·일요일 및 공휴일은 수거 불가합니다.</span>
+          </p>
+        </div>
+
+        {/* 수선 요청 메모 — 핀 메모와 별도, 작업지시서·어드민에 표시 */}
+        <div>
+          <label className="flex items-center gap-1.5 text-sm font-bold text-gray-700 mb-2">
+            <MessageSquare className="w-4 h-4 text-[#00C896]" />
+            수선 요청 메모 (선택)
+          </label>
+          <textarea
+            placeholder={"핀으로 표시하기 어려운 내용을 적어주세요\n예) 안감이 약해서 조심해 주세요 / 단추는 그대로 써 주세요"}
+            value={customerMemo}
+            onChange={(e) => setCustomerMemo(e.target.value)}
+            rows={3}
+            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors resize-none"
+          />
+          <p className="text-xs text-gray-400 mt-1.5">
+            수선 작업자에게 전달됩니다. 사진 핀 메모와는 별도입니다.
           </p>
         </div>
 

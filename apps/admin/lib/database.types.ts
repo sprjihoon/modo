@@ -1214,6 +1214,7 @@ export type Database = {
           cs_cycle: number
           cs_status: string | null
           customer_email: string | null
+          customer_memo: string | null
           customer_name: string | null
           customer_phone: string | null
           delivery_address: string | null
@@ -1267,6 +1268,7 @@ export type Database = {
           cs_cycle?: number
           cs_status?: string | null
           customer_email?: string | null
+          customer_memo?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           delivery_address?: string | null
@@ -1320,6 +1322,7 @@ export type Database = {
           cs_cycle?: number
           cs_status?: string | null
           customer_email?: string | null
+          customer_memo?: string | null
           customer_name?: string | null
           customer_phone?: string | null
           delivery_address?: string | null
