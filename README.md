@@ -320,7 +320,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.6+42`. iOS는 `1.0.6` 빌드 42 심사 대기. Play는 **38 게시** · **42 업로드 후 검토 대기**. 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `main`의 `1.0.6+42`. iOS는 `1.0.6` 빌드 42 심사 대기. Play는 **38 게시** · **42 업로드 후 검토 대기**. 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 스토어 빌드(IPA/AAB)는 **하루에 한 번만**. 오늘(2026-09-01) 몇 시간 뒤 다음 빌드 예정(수선 요청 메모 포함). 명령은 `apps/mobile/README.md`에도 같다.
 
 | 항목 | 값 |
 |---|---|
@@ -457,7 +457,7 @@ iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토�
 34. **`1.0.6+37` 치수 가이드 · 세부항목** — 네이티브 치수 가이드 · 세부부위 즉시 다음. iOS 37 심사 중
 35. ~~`1.0.6+38` Play 사진 권한~~ — `READ_MEDIA_*` 제거. **Play 프로덕션 게시**(2026-08-31, 대한민국)
 36. **`1.0.6+42` 수거신청 홈 버튼** — 웹처럼 뒤로가기 옆에 홈 유지. 41은 7월 빌드 번호가 이미 있어 42로 제출. **iOS 42 심사 대기** · Play 42 검토 대기. `app_versions`는 둘 다 `1.0.5`
-38. **수선 요청 메모** — 수거정보의 핀 메모·배송 요청과 별도. `orders.customer_memo`. 작업지시서·어드민 주문상세·입고/작업 요약에 표시. 웹·어드민 `main` 배포. 앱은 다음 스토어 빌드
+38. **수선 요청 메모** — 수거정보의 핀 메모·배송 요청과 별도. `orders.customer_memo`. 작업지시서·어드민 주문상세·입고/작업 요약에 표시. 웹·어드민 `main` 배포. 앱은 **오늘 하루 1회 빌드**에 포함 예정
 37. ~~`1.0.6+40` 부위별 치수 · 연락처 분리~~ — `허리+힙` 2칸. 수거지/배송지 연락처 분리. 41에 흡수
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 24. ~~Play 프로덕션 액세스~~ — **게시됨** (2026-08-31). `/download` Play URL 연결
@@ -559,6 +559,18 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 
 저장본이 없거나 API 실패면 `ShippingLabelSheet` 기본 양식.
 
+### 배송 요청사항
+
+고객이 수거신청에 적은 배송 요청사항(`orders.notes`)은 **그 주문** 출고송장에만 찍힌다. 수선 요청 메모(`orders.customer_memo`)는 작업지시서용이고 송장에는 넣지 않는다.
+
+| 경로 | 동작 |
+|---|---|
+| 출고 송장 인쇄 | 입고·주문 상세·재출력 모두 `delivery_request` 필드에 `orders.notes` |
+| 출고 예약 | 우체국 `delivMsg`에 같은 주문의 `notes` (없으면 `수선 완료품입니다. 확인 부탁드립니다.`, 최대 200자) |
+| 레이아웃 | `/ops/label-editor`에 **배송 요청사항** 필드. 저장된 양식에 없으면 에디터가 붙인다. 위치는 에디터에서 옮긴 뒤 **레이아웃 저장** |
+
+코드: 어드민 `lib/delivery-request.ts` · 출고 예약 `shipments-create-outbound`
+
 ### 받는분 주소
 
 수거신청 「수선 수거지와 수선 후 배송받을 주소지가 동일합니다」를 풀면 `orders.delivery_*`에 다른 주소가 들어간다. 출고 예약·출고송장 수취인은 이 배송지다. 수거예약이 `shipments.delivery_*`를 센터로 덮어도 주문 배송지는 그대로다. 배송지가 비어 있을 때만 수거지로 떨어진다.
@@ -572,7 +584,7 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 어드민·웹은 `main` 배포로 적용. 앱 연락처 분리는 **`1.0.6+42`** (iOS 심사 · Play AAB).
 
 ```bash
-cd apps/admin && npx tsx lib/outbound-label-recipient.test.ts && npx tsx lib/shipping-label-print.test.ts && npx tsx lib/separate-delivery-flow.test.ts
+cd apps/admin && npx tsx lib/outbound-label-recipient.test.ts && npx tsx lib/shipping-label-print.test.ts && npx tsx lib/separate-delivery-flow.test.ts && npx tsx lib/delivery-request.test.ts && npx tsx lib/delivery-request-label.test.ts
 cd apps/web && npx tsx lib/pickup-delivery-address.test.ts
 cd apps/mobile && flutter test test/pickup_delivery_address_test.dart
 ```
@@ -645,7 +657,8 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-09-01 | 수선 요청 메모 | 수거정보에 핀 메모·배송 요청과 별도 칸. `orders.customer_memo`. 작업지시서·어드민 주문상세 동일 값. 웹·어드민 `main` 배포. 앱은 다음 스토어 빌드 |
+| 2026-09-01 | 스토어 빌드 규칙 | IPA/AAB는 **하루에 한 번만**. 오늘은 몇 시간 뒤 빌드 예정(수선 요청 메모 포함) |
+| 2026-09-01 | 수선 요청 메모 | 수거정보에 핀 메모·배송 요청과 별도 칸. `orders.customer_memo`. 작업지시서·어드민 주문상세 동일 값. 웹·어드민 `main` 배포. 앱은 오늘 하루 1회 빌드에 포함 |
 | 2026-08-31 | 앱 버전 안내 | 어드민 `app_versions` iOS/Android 최신·최소를 **`1.0.5`**로 저장(강제 끔). 스토어 `1.0.6`이 양쪽 나온 뒤에만 올린다 |
 | 2026-08-31 | 수거신청 홈 버튼 | 앱 수거신청에도 웹처럼 뒤로가기 옆에 홈. 스토어 `1.0.6+42` |
 | 2026-08-31 | 출고송장 배송지 | 수거지≠배송지면 출고 예약·송장은 `orders.delivery_*`. 입고가 센터처럼 보인다고 수거지로 되돌리던 예외 제거. 어드민·웹 라이브(`787c296`). 앱 수거지 연락처 분리는 **`1.0.6+42`** |

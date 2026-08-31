@@ -179,6 +179,8 @@ flutter test --coverage
 
 루트 [`README.md`](../../README.md)의 **앱스토어 / Play 출시 준비**가 최신 상태의 기준입니다.
 
+스토어 빌드(IPA/AAB)는 **하루에 한 번만** 한다. 오늘은 몇 시간 뒤 다음 빌드 예정(수선 요청 메모 포함).
+
 ### 맥북에서 `1.0.6+42` (지금 이 빌드)
 
 Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.6+42`.
