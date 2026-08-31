@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import PointManagementDialog from "./PointManagementDialog";
 import { deviceOsInfo } from "@/lib/customer-device-os";
+import { DeviceOsBadge } from "@/components/customers/DeviceOsBadge";
 
 interface CustomerDetailClientProps {
   customer: any;
@@ -153,9 +154,12 @@ export default function CustomerDetailClient({
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">최근 접속 OS</p>
-                <p className="font-medium">
-                  {deviceOsInfo(customer.last_device_os)?.detail || "기록 없음"}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <DeviceOsBadge deviceOs={customer.last_device_os} />
+                  <p className="font-medium">
+                    {deviceOsInfo(customer.last_device_os)?.detail || "기록 없음"}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Search, Mail, Phone, Calendar, Loader2 } from "lucide-react";
 import { getCustomers, getCustomerStats, type Customer } from "@/lib/api/customers";
+import { DeviceOsBadge } from "@/components/customers/DeviceOsBadge";
 import { deviceOsInfo } from "@/lib/customer-device-os";
 
 // 오늘 날짜 (YYYY-MM-DD 형식)
@@ -335,24 +336,7 @@ export default function CustomersPage() {
                                   : customer.login_provider}
                               </span>
                             )}
-                            {(() => {
-                              const os = deviceOsInfo(customer.last_device_os);
-                              if (!os) return null;
-                              return (
-                                <span
-                                  title={os.detail}
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                    os.label === "iOS"
-                                      ? "bg-black text-white"
-                                      : os.label === "Android"
-                                      ? "bg-[#3DDC84] text-gray-900"
-                                      : "bg-slate-100 text-slate-700"
-                                  }`}
-                                >
-                                  {os.label}
-                                </span>
-                              );
-                            })()}
+                            <DeviceOsBadge deviceOs={customer.last_device_os} />
                           </div>
                           <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
@@ -380,6 +364,12 @@ export default function CustomersPage() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-6 text-right">
+                        <div>
+                          <p className="text-sm text-muted-foreground">OS</p>
+                          <p className="font-medium text-sm">
+                            {deviceOsInfo(customer.last_device_os)?.detail || "기록 없음"}
+                          </p>
+                        </div>
                         <div>
                           <p className="text-sm text-muted-foreground">주문 수</p>
                           <p className="font-medium">{customer.totalOrders || 0}건</p>
