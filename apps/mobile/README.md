@@ -202,7 +202,7 @@ flutter build ipa --release --build-name=1.0.6 --build-number=42 \
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS는 **1.0.6 / 42** 심사. Play 업로드용 AAB는 **42**. 스토어에 `1.0.6`이 나온 뒤에만 어드민 **앱 버전**을 바꾼다.
+iOS는 **1.0.6 / 42** 심사 대기. Play는 **42 업로드·검토 대기**. 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. 스토어에 `1.0.6`이 양쪽 나온 뒤에만 어드민 **앱 버전**을 올린다.
 
 Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`10:90:55…`). Windows `AE:84:3D…` 키로 만든 AAB는 올리지 않는다.
 
@@ -213,7 +213,7 @@ Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`1
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
 | 현재 트랙 | **프로덕션 게시** `1.0.6 (38)` · 대한민국 · Alpha opt-in은 유지 |
-| 버전 | `pubspec.yaml` → `1.0.6+42` · 프로덕션 게시는 아직 38 · 40은 검토 중 |
+| 버전 | `pubspec.yaml` → `1.0.6+42` · 프로덕션 게시는 아직 38 · 42는 검토 대기 |
 | 최근 UX | 부위별 치수 칸 · 수거지/배송지 연락처 분리 · 네이티브 치수 가이드 |
 | AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.6+42.aab` |
 | targetSdk | **36** (Android 16) — `android/app/build.gradle.kts` 고정 · Play 2026-08-31 정책 |
