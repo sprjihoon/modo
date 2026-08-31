@@ -188,7 +188,6 @@ PC(`lg`, 1024px 이상)에서만 중앙 앱(600px) **양옆 여백**에 사이�
 - 웹·앱 주문 치수 화면이 부위마다 다른 칸 수를 그림
 - 마이그레이션: `apps/sql/migrations/20260831000000_sub_part_input_labels.sql` (운영 반영됨). 기존 `허리+힙` / `허리 + 힙` 행은 라벨 2개로 채워 둠
 - 검증: `cd apps/web && npx tsx lib/repair-sub-parts-flow.test.ts` · `cd apps/mobile && flutter test test/repair_type_back_test.dart`
-- 로컬 목업(운영 404): `http://localhost:3001/measure-demo` · 전후 사진 목업은 `/photo-demo`
 
 ### 가이드 ID
 
@@ -321,21 +320,21 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.6+39`. iOS는 `1.0.6` 빌드 39로 심사 교체. Play 프로덕션은 **38 게시됨**, 업로드용 AAB는 **39**. 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `main`의 `1.0.6+40`. iOS는 `1.0.6` 빌드 40으로 심사 교체. Play 프로덕션은 **38 게시됨**, 업로드용 AAB는 **40**. 명령은 `apps/mobile/README.md`에도 같다.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.6+39`**. iOS 심사 39 · Play 업로드용 39 (홈 수거신청 버튼·상단 로그인 제거) |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.6+40`**. iOS 심사 40 · Play 업로드용 40 (부위별 치수 칸 · 허리+힙 2칸) |
 | App Store Connect App ID | `6759492888` |
-| iOS 스토어 | **판매 중 `1.0.5`**. **`1.0.6` 빌드 39 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| iOS 스토어 | **판매 중 `1.0.5`**. **`1.0.6` 빌드 40 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
 | Play 상태 | **프로덕션 게시됨** `1.0.6 (38)` · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `1.0.6+39` · 백업 `Documents/modo-android-signing/app-release-1.0.6+39.aab` |
+| Android AAB | `1.0.6+40` · 백업 `Documents/modo-android-signing/app-release-1.0.6+40.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -349,7 +348,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **`1.0.5`**. **`1.0.6` 빌드 39** 제출 |
+| App Store 현재 빌드 | 판매 중 **`1.0.5`**. **`1.0.6` 빌드 40** 제출 |
 | 앱 업데이트 안내 | `app_versions`. 지금 최신은 iOS/Android 모두 **`1.0.2`**. 「업데이트 확인」은 이 값과 비교. iOS `1.0.6`이 앱스토어에 나온 뒤에만 어드민 최신을 올린다. Play만 먼저 올리면 아이폰이 아직 없는 업데이트를 안내함 |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
@@ -457,6 +456,7 @@ iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토�
 33. ~~`1.0.5+36` 수선 종류 필터~~ — **`1.0.5` 판매 중**
 34. **`1.0.6+37` 치수 가이드 · 세부항목** — 네이티브 치수 가이드 · 세부부위 즉시 다음. iOS 37 심사 중
 35. ~~`1.0.6+38` Play 사진 권한~~ — `READ_MEDIA_*` 제거. **Play 프로덕션 게시**(2026-08-31, 대한민국)
+36. **`1.0.6+40` 부위별 치수 칸** — `허리+힙` 2칸. 로컬 목업 라우트 제거. iOS 40 심사 · Play AAB 40
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 24. ~~Play 프로덕션 액세스~~ — **게시됨** (2026-08-31). `/download` Play URL 연결
 25. ~~네이버 서치어드바이저~~ (소유확인 · 사이트맵 제출 · 홈 수집 요청, 2026-08-18)
@@ -555,7 +555,24 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 | 주문 상세·반송 재출력 | `LabelPrintDialog` | 저장본 |
 | 서류 재출력 | `/ops/reprint` | 저장본 |
 
-저장본이 없거나 API 실패면 `ShippingLabelSheet` 기본 양식. 검증: `cd apps/admin && npx tsx lib/shipping-label-print.test.ts`
+저장본이 없거나 API 실패면 `ShippingLabelSheet` 기본 양식.
+
+### 받는분 주소
+
+수거신청 「수선 수거지와 수선 후 배송받을 주소지가 동일합니다」를 풀면 `orders.delivery_*`에 다른 주소가 들어간다. 출고 예약·출고송장 수취인은 이 배송지다. 수거예약이 `shipments.delivery_*`를 센터로 덮어도 주문 배송지는 그대로다. 배송지가 비어 있을 때만 수거지로 떨어진다.
+
+| 구분 | 주소 |
+|---|---|
+| 수거 송장 | 고객 수거지 → 센터 |
+| 출고 송장 | 센터 → `orders.delivery_*` (체크 해제 시 따로 적은 배송지) |
+
+코드: 어드민 `lib/outbound-label-recipient.ts` · 웹 `lib/pickup-delivery-address.ts` · 앱 `lib/features/orders/domain/pickup_delivery_address.dart`
+
+```bash
+cd apps/admin && npx tsx lib/outbound-label-recipient.test.ts && npx tsx lib/shipping-label-print.test.ts && npx tsx lib/separate-delivery-flow.test.ts
+cd apps/web && npx tsx lib/pickup-delivery-address.test.ts
+cd apps/mobile && flutter test test/pickup_delivery_address_test.dart
+```
 
 ---
 
@@ -625,8 +642,9 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-08-31 | 부위별 치수 칸 | `허리+힙`은 입력 2개(허리/힙 cm). 부위마다 `input_count`·`input_labels`. 어드민 메뉴에서 수정. 웹·앱 주문 치수에 반영. 앱은 다음 스토어 빌드 |
-| 2026-08-31 | 고객 전후 사진 | 주문상세 수선 전·후 사진 카드. 웹·앱 동일 조회. 로컬 목업 `/photo-demo` |
+| 2026-08-31 | 출고송장 배송지 | 수거지≠배송지면 출고 예약·송장은 `orders.delivery_*`. 입고가 센터처럼 보인다고 수거지로 되돌리던 예외 제거. 어드민·웹 라이브(`787c296`). 앱 수거지 연락처 분리는 다음 스토어 빌드 |
+| 2026-08-31 | 부위별 치수 칸 | `허리+힙`은 입력 2개(허리/힙 cm). 부위마다 `input_count`·`input_labels`. 어드민 메뉴에서 수정. 웹·앱 주문 치수에 반영. 스토어 `1.0.6+40` |
+| 2026-08-31 | 고객 전후 사진 | 주문상세 수선 전·후 사진 카드. 웹·앱 동일 조회 |
 | 2026-08-31 | 앱 홈 버튼 | 수거신청을 푸터 위 가운데 캡슐로. 상단 로그인 버튼 제거. 스토어 `1.0.6+39` |
 | 2026-08-31 | 고객 목록 OS | 어드민 고객 목록·상세에 최근 접속 OS(iOS/Android/웹) 표시. `customer_events.device_os` 기준. 앱 재빌드 없음 |
 | 2026-08-31 | 그랜드 오픈 팝업 | 홈 팝업을 그랜드 오픈으로 교체. 웹은 확인 버튼 없음. 앱 버튼은 스토어 빌드 없이 제거 불가라 유지. 웹·앱 공통(`popups`) |
