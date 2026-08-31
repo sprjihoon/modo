@@ -693,7 +693,7 @@ export function RepairTypeStep({
         {/* 하단 확인 버튼 — 뷰포트 하단에 고정해 세부항목이 많아도 다음이 보이게 */}
         <div className="shrink-0 bg-white border-t border-gray-100 px-4 py-3 flex gap-2">
           <button
-            onClick={confirmInlineSubParts}
+            onClick={() => confirmInlineSubParts()}
             disabled={!canConfirm}
             className={cn(
               "touch-target flex-1 py-4 rounded-xl text-sm font-bold transition-colors",
