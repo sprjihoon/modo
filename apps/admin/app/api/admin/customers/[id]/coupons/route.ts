@@ -54,7 +54,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: "고객을 찾을 수 없습니다." }, { status: 404 });
     }
 
-    const { data, error } = await supabaseAdmin.rpc("issue_exclusive_promotion_code", {
+    const { data, error } = await (supabaseAdmin as any).rpc("issue_exclusive_promotion_code", {
       p_user_id: id,
       p_source: "cs",
       p_discount_type: payload.discount_type,
