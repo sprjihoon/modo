@@ -8,6 +8,7 @@ import {
   isPaidOrder,
   previousPeriod,
 } from "@/lib/marketing-insights";
+import { attachLoyalty } from "@/lib/marketing-loyalty";
 
 export const dynamic = "force-dynamic";
 
@@ -51,11 +52,9 @@ export async function GET(request: NextRequest) {
       fetchAll(async (from, to) => {
         let query = supabaseAdmin
           .from("orders")
-          .select("paid_at, created_at, total_price, payment_status, status, clothing_type, repair_type, order_source, user_id")
+          .select("paid_at, created_at, total_price, payment_status, status, clothing_type, repair_type, order_source, user_id, pickup_address")
           .order("created_at", { ascending: false })
           .range(from, to);
-        if (start) query = query.gte("created_at", start);
-        if (end) query = query.lte("created_at", end);
         return query;
       }),
       fetchAll(async (from, to) => {
@@ -102,11 +101,15 @@ export async function GET(request: NextRequest) {
       events: normalizeEvents(events),
     };
 
-    const data = buildMarketingInsights({
-      startDate,
-      endDate,
-      ...currentInput,
-    });
+    const data = attachLoyalty(
+      buildMarketingInsights({
+        startDate,
+        endDate,
+        ...currentInput,
+      }),
+      orders,
+      { startDate, endDate }
+    );
 
     if (startDate && endDate && previous) {
       const prevInput = filterPeriod(previous.start, previous.end);

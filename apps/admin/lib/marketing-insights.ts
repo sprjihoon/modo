@@ -1,3 +1,5 @@
+import type { RegionStat, RepeatStats } from "./marketing-loyalty";
+
 export const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 export type Bucket = {
@@ -47,6 +49,8 @@ export type MarketingInsightsData = {
   daily: DailyStat[];
   accessPaths: AccessPathStat[];
   compare: CampaignCompare | null;
+  repeat: RepeatStats;
+  regions: RegionStat[];
   insights: MarketingInsight[];
 };
 
@@ -362,6 +366,7 @@ export function buildMarketingInsights(input: {
     repair_type?: string | null;
     order_source?: string | null;
     user_id?: string | null;
+    pickup_address?: string | null;
   }>;
   users: Array<{ created_at: string }>;
   events: Array<{
@@ -639,6 +644,18 @@ export function buildMarketingInsights(input: {
     daily,
     accessPaths,
     compare: input.startDate && input.endDate ? compareDailyPeriods(daily, input.startDate, input.endDate) : null,
+    repeat: {
+      firstBuyers: 0,
+      repeatBuyers: 0,
+      firstOrders: 0,
+      repeatOrders: 0,
+      firstAmount: 0,
+      repeatAmount: 0,
+      repeatRate: 0,
+      avgDaysToSecond: null,
+      dueForSecond: 0,
+    },
+    regions: [] as RegionStat[],
     insights,
   };
 }

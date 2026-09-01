@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar, CreditCard, Loader2, Megaphone, RefreshCw, Users } from "lucide-react";
 import type { AccessPathStat, Bucket, CampaignCompare, DailyStat, MarketingInsightsData } from "@/lib/marketing-insights";
+import type { RegionStat, RepeatStats } from "@/lib/marketing-loyalty";
 import { WEEKDAY_LABELS, addDaysYmd } from "@/lib/marketing-insights";
 import { getOrderSourceLabel } from "@/lib/order-source";
 
@@ -129,6 +130,55 @@ function CompareCard({ compare }: { compare: CampaignCompare }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function RepeatPanel({ repeat }: { repeat: RepeatStats }) {
+  return (
+    <div className="space-y-3 text-sm">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-muted-foreground">첫 구매</p>
+          <p className="text-xl font-semibold">{repeat.firstOrders.toLocaleString()}건</p>
+          <p className="text-xs text-muted-foreground">{repeat.firstBuyers.toLocaleString()}명 · {won(repeat.firstAmount)}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">재구매</p>
+          <p className="text-xl font-semibold">{repeat.repeatOrders.toLocaleString()}건</p>
+          <p className="text-xs text-muted-foreground">{repeat.repeatBuyers.toLocaleString()}명 · {won(repeat.repeatAmount)}</p>
+        </div>
+      </div>
+      <p>재구매율 <span className="font-semibold">{repeat.repeatRate}%</span></p>
+      <p>
+        1→2차 평균{" "}
+        <span className="font-semibold">{repeat.avgDaysToSecond == null ? "데이터 없음" : `${repeat.avgDaysToSecond}일`}</span>
+      </p>
+      <p className="text-muted-foreground">30일 넘게 재구매 없는 1회 고객 {repeat.dueForSecond.toLocaleString()}명</p>
+    </div>
+  );
+}
+
+function RegionBars({ regions }: { regions: RegionStat[] }) {
+  const max = Math.max(...regions.map((row) => row.count), 1);
+  if (regions.length === 0) {
+    return <p className="text-sm text-muted-foreground">지역 데이터 없음</p>;
+  }
+  return (
+    <div className="space-y-2">
+      {regions.slice(0, 8).map((row) => (
+        <div key={row.name}>
+          <div className="flex justify-between text-sm mb-1">
+            <span className="font-medium">{row.name}</span>
+            <span className="text-muted-foreground">
+              {row.count}건 · {row.users}명 · {won(row.amount)}
+            </span>
+          </div>
+          <div className="h-2 rounded bg-gray-100 overflow-hidden">
+            <div className="h-full rounded bg-teal-600" style={{ width: `${Math.max(4, Math.round((row.count / max) * 100))}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -527,6 +577,27 @@ export default function MarketingInsightsPage() {
               </div>
             </CardContent>
           </Card>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>재구매</CardTitle>
+                <CardDescription>선택한 기간 결제. 주기는 전체 주문 기준</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RepeatPanel repeat={data.repeat} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>지역</CardTitle>
+                <CardDescription>수거 주소 기준</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RegionBars regions={data.regions} />
+              </CardContent>
+            </Card>
+          </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
