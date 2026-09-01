@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      eventType, eventName, pageUrl, pageTitle,
+      eventType, eventName, pageUrl, pageTitle, referrer,
       targetId, targetType, metadata, sessionId,
     } = body;
 
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       event_name: eventName ?? null,
       page_url: pageUrl ?? null,
       page_title: pageTitle ?? null,
+      referrer: referrer || request.headers.get("referer") || null,
       target_id: targetId ?? null,
       target_type: targetType ?? null,
       metadata: metadata ?? {},

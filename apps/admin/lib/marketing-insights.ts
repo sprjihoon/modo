@@ -44,12 +44,168 @@ export type MarketingInsightsData = {
   sources: NamedCount[];
   clothing: NamedCount[];
   repairs: NamedCount[];
+  daily: DailyStat[];
+  accessPaths: AccessPathStat[];
   insights: MarketingInsight[];
 };
 
-export function kstParts(iso: string): { weekday: number; hour: number } {
+export function kstParts(iso: string): { weekday: number; hour: number; ymd: string } {
   const kst = new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000);
-  return { weekday: kst.getUTCDay(), hour: kst.getUTCHours() };
+  return {
+    weekday: kst.getUTCDay(),
+    hour: kst.getUTCHours(),
+    ymd: kst.toISOString().slice(0, 10),
+  };
+}
+
+export function addDaysYmd(ymd: string, days: number): string {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + days));
+  return next.toISOString().slice(0, 10);
+}
+
+export function eachYmd(start: string, end: string): string[] {
+  if (!start || !end || start > end) return [];
+  const days: string[] = [];
+  for (let cursor = start; cursor <= end; cursor = addDaysYmd(cursor, 1)) {
+    days.push(cursor);
+  }
+  return days;
+}
+
+export type DailyStat = {
+  date: string;
+  signups: number;
+  payers: number;
+  payments: number;
+  amount: number;
+  visitors: number;
+};
+
+export type AccessPathStat = {
+  name: string;
+  sessions: number;
+  users: number;
+  events: number;
+};
+
+const OWN_HOSTS = [
+  "modo.io.kr",
+  "www.modo.io.kr",
+  "modo.mom",
+  "www.modo.mom",
+  "modorepair.com",
+  "www.modorepair.com",
+  "admin.modo.mom",
+  "localhost",
+];
+
+const ACCESS_RULES: Array<{ name: string; match: RegExp }> = [
+  { name: "네이버", match: /naver\.com|naver\.me/i },
+  { name: "인스타그램", match: /instagram\.com|l\.instagram|ig\.me/i },
+  { name: "유튜브", match: /youtube\.com|youtu\.be/i },
+  { name: "구글", match: /google\.|goo\.gl|g\.page/i },
+  { name: "페이스북", match: /facebook\.com|fb\.com|fb\.me|l\.facebook/i },
+  { name: "카카오", match: /kakao\.com|kakaocdn\.net|daum\.net/i },
+  { name: "틱톡", match: /tiktok\.com|vm\.tiktok/i },
+  { name: "스레드", match: /threads\.net/i },
+  { name: "트위터", match: /twitter\.com|x\.com|t\.co/i },
+  { name: "블로그", match: /tistory\.com|brunch\.co/i },
+];
+
+function textFromUnknown(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function utmFromRecord(record?: Record<string, unknown> | null): string {
+  if (!record) return "";
+  return (
+    textFromUnknown(record.utm_source) ||
+    textFromUnknown(record.utmSource) ||
+    textFromUnknown(record.source) ||
+    ""
+  );
+}
+
+function utmFromUrl(url?: string | null): string {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url, "https://modo.io.kr");
+    return parsed.searchParams.get("utm_source") || parsed.searchParams.get("source") || "";
+  } catch {
+    return "";
+  }
+}
+
+function hostFromUrl(url?: string | null): string {
+  if (!url?.trim()) return "";
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    try {
+      return new URL(`https://${url}`).hostname.toLowerCase();
+    } catch {
+      return url.toLowerCase();
+    }
+  }
+}
+
+function mapKnownSource(raw: string): string | null {
+  const value = raw.trim().toLowerCase();
+  if (!value) return null;
+  if (/naver|네이버/.test(value)) return "네이버";
+  if (/insta|ig\b|인스타/.test(value)) return "인스타그램";
+  if (/google|구글/.test(value)) return "구글";
+  if (/facebook|fb\b|페이스북|메타/.test(value)) return "페이스북";
+  if (/kakao|daum|카카오|다음/.test(value)) return "카카오";
+  if (/youtube|yt\b|유튜브/.test(value)) return "유튜브";
+  if (/tiktok|틱톡/.test(value)) return "틱톡";
+  if (/threads|스레드/.test(value)) return "스레드";
+  if (/twitter|x\.com|트위터/.test(value)) return "트위터";
+  if (/app|ios|android|앱/.test(value)) return /ios/.test(value) ? "앱 · iOS" : /android/.test(value) ? "앱 · Android" : "앱";
+  return raw.trim();
+}
+
+function mapHost(host: string): string | null {
+  if (!host || OWN_HOSTS.some((own) => host === own || host.endsWith(`.${own}`))) return null;
+  const hit = ACCESS_RULES.find((rule) => rule.match.test(host));
+  return hit?.name ?? `기타 · ${host}`;
+}
+
+export function isAppEvent(input: { device_os?: string | null; app_version?: string | null }): boolean {
+  const os = (input.device_os || "").trim();
+  const version = (input.app_version || "").trim();
+  if (/^웹|\bweb\b/i.test(os) || /^web$/i.test(version)) return false;
+  return /^ios|^android/i.test(os) || Boolean(version && version !== "web");
+}
+
+export function classifyAccessPath(input: {
+  referrer?: string | null;
+  page_url?: string | null;
+  metadata?: Record<string, unknown> | null;
+  device_os?: string | null;
+  app_version?: string | null;
+}): string {
+  const fromUtm =
+    mapKnownSource(utmFromRecord(input.metadata)) ||
+    mapKnownSource(utmFromUrl(input.page_url));
+  if (fromUtm) return fromUtm;
+
+  const fromReferrer = mapHost(hostFromUrl(input.referrer));
+  if (fromReferrer) return fromReferrer;
+
+  if (isAppEvent(input)) {
+    const os = input.device_os || "";
+    if (/^ios/i.test(os)) return "앱 · iOS";
+    if (/^android/i.test(os)) return "앱 · Android";
+    return "앱";
+  }
+
+  if (input.referrer?.trim()) return mapHost(hostFromUrl(input.referrer)) || "기타 웹";
+  if (input.page_url || /web/i.test(input.device_os || "") || input.app_version === "web") {
+    return "직접 접속";
+  }
+  return "미기록";
 }
 
 export function isPaidOrder(order: {
@@ -113,6 +269,12 @@ export function buildMarketingInsights(input: {
     created_at: string;
     user_id?: string | null;
     event_type?: string | null;
+    referrer?: string | null;
+    page_url?: string | null;
+    metadata?: Record<string, unknown> | null;
+    device_os?: string | null;
+    app_version?: string | null;
+    session_id?: string | null;
   }>;
 }): MarketingInsightsData {
   const paid = input.orders.filter(isPaidOrder);
@@ -130,10 +292,32 @@ export function buildMarketingInsights(input: {
 
   let paidAmount = 0;
   const visitorIds = new Set<string>();
+  const dailyMap = new Map<string, DailyStat & { payerIds: Set<string>; visitorIds: Set<string> }>();
+
+  const ensureDay = (ymd: string) => {
+    const current = dailyMap.get(ymd);
+    if (current) return current;
+    const created: DailyStat & { payerIds: Set<string>; visitorIds: Set<string> } = {
+      date: ymd,
+      signups: 0,
+      payers: 0,
+      payments: 0,
+      amount: 0,
+      visitors: 0,
+      payerIds: new Set<string>(),
+      visitorIds: new Set<string>(),
+    };
+    dailyMap.set(ymd, created);
+    return created;
+  };
 
   for (const order of paid) {
     const when = order.paid_at || order.created_at;
-    const { weekday, hour } = kstParts(when);
+    const { weekday, hour, ymd } = kstParts(when);
+    const day = ensureDay(ymd);
+    day.payments += 1;
+    day.amount += Number(order.total_price) || 0;
+    if (order.user_id) day.payerIds.add(order.user_id);
     const amount = Number(order.total_price) || 0;
     paidAmount += amount;
     paymentsByWeekday[weekday].count += 1;
@@ -177,21 +361,82 @@ export function buildMarketingInsights(input: {
   });
 
   for (const event of input.events) {
-    const { weekday } = kstParts(event.created_at);
+    const { weekday, ymd } = kstParts(event.created_at);
     visitsByWeekday[weekday].count += 1;
     if (event.user_id) {
       visitUsers[weekday].add(event.user_id);
       visitorIds.add(event.user_id);
+      ensureDay(ymd).visitorIds.add(event.user_id);
     }
   }
   visitsByWeekday.forEach((bucket, i) => {
     bucket.users = visitUsers[i].size;
   });
 
-  for (const user of input.users) {
-    const { weekday } = kstParts(user.created_at);
-    signupsByWeekday[weekday].count += 1;
+  const eventCounts = new Map<string, number>();
+  const sessionFirst = new Map<string, (typeof input.events)[number]>();
+  const sortedEvents = [...input.events].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  sortedEvents.forEach((event, index) => {
+    const path = classifyAccessPath({
+      referrer: event.referrer,
+      page_url: event.page_url,
+      metadata: event.metadata,
+      device_os: event.device_os,
+      app_version: event.app_version,
+    });
+    eventCounts.set(path, (eventCounts.get(path) || 0) + 1);
+    const sessionKey = event.session_id || `anon:${event.created_at}:${index}`;
+    if (!sessionFirst.has(sessionKey)) sessionFirst.set(sessionKey, event);
+  });
+
+  const pathMap = new Map<string, AccessPathStat & { userIds: Set<string> }>();
+  for (const event of sessionFirst.values()) {
+    const name = classifyAccessPath({
+      referrer: event.referrer,
+      page_url: event.page_url,
+      metadata: event.metadata,
+      device_os: event.device_os,
+      app_version: event.app_version,
+    });
+    const row = pathMap.get(name) ?? {
+      name,
+      sessions: 0,
+      users: 0,
+      events: 0,
+      userIds: new Set<string>(),
+    };
+    row.sessions += 1;
+    if (event.user_id) row.userIds.add(event.user_id);
+    pathMap.set(name, row);
   }
+  const accessPaths = [...pathMap.values()]
+    .map((row) => ({
+      name: row.name,
+      sessions: row.sessions,
+      users: row.userIds.size,
+      events: eventCounts.get(row.name) || 0,
+    }))
+    .sort((a, b) => b.sessions - a.sessions || b.users - a.users || b.events - a.events);
+
+  for (const user of input.users) {
+    const { weekday, ymd } = kstParts(user.created_at);
+    signupsByWeekday[weekday].count += 1;
+    ensureDay(ymd).signups += 1;
+  }
+
+  const rangeStart = input.startDate || [...dailyMap.keys()].sort()[0];
+  const rangeEnd = input.endDate || [...dailyMap.keys()].sort().at(-1);
+  const daily = (rangeStart && rangeEnd ? eachYmd(rangeStart, rangeEnd) : []).map((date) => {
+    const row = ensureDay(date);
+    return {
+      date,
+      signups: row.signups,
+      payers: row.payerIds.size,
+      payments: row.payments,
+      amount: row.amount,
+      visitors: row.visitorIds.size,
+    };
+  });
 
   const heatmap: HeatCell[] = [];
   for (let weekday = 0; weekday < 7; weekday += 1) {
@@ -251,11 +496,20 @@ export function buildMarketingInsights(input: {
       body: `${topRepair.name}이(가) ${topRepair.count}건입니다. 가격 안내와 가이드를 이 항목 중심으로 강조하세요.`,
     });
   }
+  const topPath = accessPaths[0];
+  const pathSessions = accessPaths.reduce((sum, item) => sum + item.sessions, 0);
+  if (topPath && pathSessions > 0) {
+    const share = Math.round((topPath.sessions / pathSessions) * 100);
+    insights.push({
+      title: "제일 많은 접속 경로",
+      body: `${topPath.name}에서 온 접속이 가장 많습니다 (${topPath.sessions.toLocaleString()}회 · ${share}%). 광고·콘텐츠는 이 채널을 우선하세요.`,
+    });
+  }
   if (paid.length > 0 && (appShare || webShare)) {
     const appPct = Math.round((appShare / paid.length) * 100);
     insights.push({
-      title: "유입 채널",
-      body: `결제 ${paid.length}건 중 앱 ${appShare}건(${appPct}%), 웹 ${webShare}건. 광고 예산을 비중이 큰 쪽에 우선 두세요.`,
+      title: "주문 채널",
+      body: `결제 ${paid.length}건 중 앱 ${appShare}건(${appPct}%), 웹 ${webShare}건. 앱/웹 전환 차이는 주문 완료 채널 기준입니다.`,
     });
   }
   if (insights.length === 0) {
@@ -283,6 +537,8 @@ export function buildMarketingInsights(input: {
     sources,
     clothing: topNamed([...clothingMap.values()]),
     repairs: topNamed([...repairMap.values()]),
+    daily,
+    accessPaths,
     insights,
   };
 }

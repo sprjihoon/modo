@@ -1,10 +1,45 @@
 let _sessionId: string | null = null;
+const ACQ_KEY = "modo_acq";
 
 function getSessionId(): string {
   if (!_sessionId) {
     _sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2);
   }
   return _sessionId;
+}
+
+function captureAcquisition() {
+  if (typeof window === "undefined") {
+    return { referrer: "", pageUrl: "", utm_source: "", utm_medium: "", utm_campaign: "" };
+  }
+  const url = new URL(window.location.href);
+  const incoming = {
+    referrer: document.referrer || "",
+    utm_source: url.searchParams.get("utm_source") || "",
+    utm_medium: url.searchParams.get("utm_medium") || "",
+    utm_campaign: url.searchParams.get("utm_campaign") || "",
+  };
+  let stored = { referrer: "", utm_source: "", utm_medium: "", utm_campaign: "" };
+  try {
+    stored = { ...stored, ...JSON.parse(sessionStorage.getItem(ACQ_KEY) || "{}") };
+  } catch {
+    // ignore
+  }
+  const next = {
+    referrer: incoming.referrer || stored.referrer,
+    utm_source: incoming.utm_source || stored.utm_source,
+    utm_medium: incoming.utm_medium || stored.utm_medium,
+    utm_campaign: incoming.utm_campaign || stored.utm_campaign,
+  };
+  try {
+    sessionStorage.setItem(ACQ_KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+  return {
+    ...next,
+    pageUrl: `${url.pathname}${url.search}`,
+  };
 }
 
 interface TrackEventParams {
@@ -19,10 +54,22 @@ interface TrackEventParams {
 
 export async function trackEvent(params: TrackEventParams): Promise<void> {
   try {
+    const acq = captureAcquisition();
     await fetch("/api/analytics/track-event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...params, sessionId: getSessionId() }),
+      body: JSON.stringify({
+        ...params,
+        sessionId: getSessionId(),
+        referrer: acq.referrer || undefined,
+        pageUrl: params.pageUrl ?? acq.pageUrl,
+        metadata: {
+          ...params.metadata,
+          ...(acq.utm_source ? { utm_source: acq.utm_source } : {}),
+          ...(acq.utm_medium ? { utm_medium: acq.utm_medium } : {}),
+          ...(acq.utm_campaign ? { utm_campaign: acq.utm_campaign } : {}),
+        },
+      }),
     });
   } catch {
     // 분석 실패는 앱 기능에 영향 없이 무시
@@ -32,7 +79,11 @@ export async function trackEvent(params: TrackEventParams): Promise<void> {
 // 편의 함수
 export const Analytics = {
   pageView: (title: string, url?: string) =>
-    trackEvent({ eventType: "PAGE_VIEW", pageTitle: title, pageUrl: url ?? (typeof window !== "undefined" ? window.location.pathname : undefined) }),
+    trackEvent({
+      eventType: "PAGE_VIEW",
+      pageTitle: title,
+      pageUrl: url ?? (typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined),
+    }),
 
   orderStart: (orderId?: string, amount?: number) =>
     trackEvent({ eventType: "ORDER_START", targetId: orderId, targetType: "order", metadata: { amount } }),

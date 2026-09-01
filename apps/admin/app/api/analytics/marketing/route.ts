@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       fetchAll(async (from, to) => {
         let query = supabaseAdmin
           .from("customer_events")
-          .select("created_at, user_id, event_type")
+          .select("created_at, user_id, event_type, referrer, page_url, metadata, device_os, app_version, session_id")
           .order("created_at", { ascending: false })
           .range(from, to);
         if (start) query = query.gte("created_at", start);
@@ -70,7 +70,13 @@ export async function GET(request: NextRequest) {
       endDate,
       orders,
       users,
-      events,
+      events: events.map((event) => ({
+        ...event,
+        metadata:
+          event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
+            ? (event.metadata as Record<string, unknown>)
+            : null,
+      })),
     });
 
     return NextResponse.json({ success: true, data });

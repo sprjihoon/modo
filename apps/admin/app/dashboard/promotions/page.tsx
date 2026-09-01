@@ -127,7 +127,7 @@ export default function PromotionsPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">프로모션 코드 관리</h1>
-          <p className="text-gray-600 mt-1">이벤트 및 할인 쿠폰을 관리합니다</p>
+          <p className="text-gray-600 mt-1">이벤트 및 할인 쿠폰을 관리합니다. 사용·매출은 <a className="text-teal-700 underline" href="/dashboard/analytics/marketing/actions">마케팅 실행 쿠폰 성적</a>에서 봅니다</p>
         </div>
         <Button
           onClick={() => {

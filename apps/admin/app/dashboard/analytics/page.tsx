@@ -349,12 +349,19 @@ export default function AnalyticsPage() {
                 </p>
               </div>
             </div>
-            <Link href="/dashboard/analytics/marketing">
-              <Button variant="outline" className="gap-2">
-                보러가기
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+            <div className="flex gap-2">
+              <Link href="/dashboard/analytics/marketing/actions">
+                <Button variant="outline" className="gap-2">
+                  휴면·이탈·쿠폰
+                </Button>
+              </Link>
+              <Link href="/dashboard/analytics/marketing">
+                <Button variant="outline" className="gap-2">
+                  보러가기
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </CardContent>
       </Card>

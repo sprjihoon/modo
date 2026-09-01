@@ -1,4 +1,4 @@
-import { buildMarketingInsights, isPaidOrder, kstParts } from "./marketing-insights";
+import { buildMarketingInsights, classifyAccessPath, isPaidOrder, kstParts } from "./marketing-insights";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
@@ -38,8 +38,9 @@ const data = buildMarketingInsights({
   ],
   users: [{ created_at: wed14 }],
   events: [
-    { created_at: "2026-09-05T01:00:00.000Z", user_id: "u3" },
-    { created_at: "2026-09-05T02:00:00.000Z", user_id: "u4" },
+    { created_at: "2026-09-05T01:00:00.000Z", user_id: "u3", referrer: "https://m.search.naver.com/search", session_id: "s1", device_os: "웹 (Android)", app_version: "web" },
+    { created_at: "2026-09-05T02:00:00.000Z", user_id: "u4", referrer: "https://www.instagram.com/", session_id: "s2", device_os: "웹 (iOS)", app_version: "web" },
+    { created_at: "2026-09-05T03:00:00.000Z", user_id: "u5", device_os: "iOS 18.0", app_version: "1.2.0", session_id: "s3" },
   ],
 });
 
@@ -48,5 +49,16 @@ assert(data.paymentsByWeekday[3].count === 1, "수요일 결제 1");
 assert(data.paymentsByHour[14].count === 1, "14시 결제 1");
 assert(data.insights.some((i) => i.title === "결제 피크 요일"), "피크 요일 인사이트");
 assert(data.clothing[0].name === "바지", "의류 집계");
+assert(data.daily.length === 7, "기간 7일 달력");
+const wed = data.daily.find((d) => d.date === "2026-09-02");
+assert(wed?.signups === 1 && wed.payers === 1, "수요일 가입·결제자");
+const sat = data.daily.find((d) => d.date === "2026-09-05");
+assert(sat?.visitors === 3 && sat.payers === 1, "토요일 접속·결제자");
+assert(classifyAccessPath({ referrer: "https://search.naver.com/search.naver" }) === "네이버", "네이버 referrer");
+assert(classifyAccessPath({ page_url: "/?utm_source=instagram" }) === "인스타그램", "인스타 UTM");
+assert(classifyAccessPath({ referrer: "https://www.google.com/" }) === "구글", "구글 referrer");
+assert(classifyAccessPath({ device_os: "iOS 18.0", app_version: "1.2.0" }) === "앱 · iOS", "앱 iOS");
+assert(data.accessPaths[0].name === "네이버" || data.accessPaths.some((p) => p.name === "네이버"), "네이버 접속 경로");
+assert(data.accessPaths.find((p) => p.name === "앱 · iOS")?.sessions === 1, "앱 세션");
 
 console.log("marketing-insights.test.ts ok");
