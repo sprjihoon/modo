@@ -98,6 +98,123 @@ function toCustomer(input: {
   };
 }
 
+type CouponUsageLike = {
+  promotion_code_id: string;
+  user_id: string;
+  order_id: string;
+  discount_amount?: number | null;
+  final_amount?: number | null;
+  used_at: string;
+};
+
+export function buildCouponStats(input: {
+  promotions: Array<{
+    id: string;
+    code: string;
+    description?: string | null;
+    is_active: boolean;
+    used_count?: number | null;
+  }>;
+  usages: Array<{
+    promotion_code_id: string;
+    user_id: string;
+    order_id: string;
+    discount_amount?: number | null;
+    final_amount?: number | null;
+    used_at: string;
+  }>;
+  paidOrders?: Array<{
+    id?: string | null;
+    user_id?: string | null;
+    paid_at?: string | null;
+    created_at: string;
+    total_price?: number | null;
+    promotion_code_id?: string | null;
+    promotion_discount_amount?: number | null;
+  }>;
+  firstPaidAt?: Map<string, string>;
+}): CouponStat[] {
+  const firstPaidAt = input.firstPaidAt ?? new Map<string, string>();
+  const couponMap = new Map<string, CouponStat & { userIds: Set<string>; newIds: Set<string>; repeatIds: Set<string> }>();
+  for (const promo of input.promotions) {
+    couponMap.set(promo.id, {
+      id: promo.id,
+      code: promo.code,
+      description: promo.description ?? null,
+      is_active: promo.is_active,
+      uses: 0,
+      users: 0,
+      revenue: 0,
+      discount: 0,
+      aov: 0,
+      new_customers: 0,
+      repeat_customers: 0,
+      userIds: new Set<string>(),
+      newIds: new Set<string>(),
+      repeatIds: new Set<string>(),
+    });
+  }
+
+  const applyUsage = (usage: CouponUsageLike) => {
+    const row = couponMap.get(usage.promotion_code_id);
+    if (!row) return;
+    row.uses += 1;
+    row.revenue += Number(usage.final_amount) || 0;
+    row.discount += Number(usage.discount_amount) || 0;
+    row.userIds.add(usage.user_id);
+    const first = firstPaidAt.get(usage.user_id);
+    if (first && Math.abs(new Date(first).getTime() - new Date(usage.used_at).getTime()) <= 24 * 60 * 60 * 1000) {
+      row.newIds.add(usage.user_id);
+    } else if (first && first < usage.used_at) {
+      row.repeatIds.add(usage.user_id);
+    } else {
+      row.newIds.add(usage.user_id);
+    }
+  };
+
+  const seenOrders = new Set<string>();
+  for (const order of input.paidOrders ?? []) {
+    if (!order.promotion_code_id || !order.user_id || !order.id) continue;
+    seenOrders.add(order.id);
+    applyUsage({
+      promotion_code_id: order.promotion_code_id,
+      user_id: order.user_id,
+      order_id: order.id,
+      discount_amount: order.promotion_discount_amount ?? 0,
+      final_amount: order.total_price ?? 0,
+      used_at: order.paid_at || order.created_at,
+    });
+  }
+
+  for (const usage of input.usages) {
+    if (seenOrders.has(usage.order_id)) continue;
+    applyUsage(usage);
+  }
+
+  for (const promo of input.promotions) {
+    const row = couponMap.get(promo.id);
+    if (row && row.uses === 0 && (promo.used_count ?? 0) > 0) {
+      row.uses = promo.used_count ?? 0;
+    }
+  }
+
+  return [...couponMap.values()]
+    .map((row) => ({
+      id: row.id,
+      code: row.code,
+      description: row.description,
+      is_active: row.is_active,
+      uses: row.uses,
+      users: row.userIds.size,
+      revenue: row.revenue,
+      discount: row.discount,
+      aov: row.uses ? Math.round(row.revenue / row.uses) : 0,
+      new_customers: row.newIds.size,
+      repeat_customers: row.repeatIds.size,
+    }))
+    .sort((a, b) => b.revenue - a.revenue || b.uses - a.uses || a.code.localeCompare(b.code));
+}
+
 export function buildMarketingActions(input: {
   nowMs?: number;
   users: Array<{
@@ -108,12 +225,16 @@ export function buildMarketingActions(input: {
     created_at: string;
   }>;
   orders: Array<{
+    id?: string | null;
     user_id?: string | null;
     paid_at?: string | null;
     created_at: string;
     total_price?: number | null;
     payment_status?: string | null;
     status?: string | null;
+    promotion_code_id?: string | null;
+    promotion_discount_amount?: number | null;
+    original_total_price?: number | null;
   }>;
   lastSeen: Array<{
     user_id?: string | null;
@@ -292,58 +413,12 @@ export function buildMarketingActions(input: {
     firstPaidAt.set(userId, paid.firstPaidAt);
   }
 
-  const couponMap = new Map<string, CouponStat & { userIds: Set<string>; newIds: Set<string>; repeatIds: Set<string> }>();
-  for (const promo of input.promotions) {
-    couponMap.set(promo.id, {
-      id: promo.id,
-      code: promo.code,
-      description: promo.description ?? null,
-      is_active: promo.is_active,
-      uses: 0,
-      users: 0,
-      revenue: 0,
-      discount: 0,
-      aov: 0,
-      new_customers: 0,
-      repeat_customers: 0,
-      userIds: new Set<string>(),
-      newIds: new Set<string>(),
-      repeatIds: new Set<string>(),
-    });
-  }
-
-  for (const usage of input.usages) {
-    const row = couponMap.get(usage.promotion_code_id);
-    if (!row) continue;
-    row.uses += 1;
-    row.revenue += Number(usage.final_amount) || 0;
-    row.discount += Number(usage.discount_amount) || 0;
-    row.userIds.add(usage.user_id);
-    const first = firstPaidAt.get(usage.user_id);
-    if (first && Math.abs(new Date(first).getTime() - new Date(usage.used_at).getTime()) <= 24 * 60 * 60 * 1000) {
-      row.newIds.add(usage.user_id);
-    } else if (first && first < usage.used_at) {
-      row.repeatIds.add(usage.user_id);
-    } else {
-      row.newIds.add(usage.user_id);
-    }
-  }
-
-  const coupons = [...couponMap.values()]
-    .map((row) => ({
-      id: row.id,
-      code: row.code,
-      description: row.description,
-      is_active: row.is_active,
-      uses: row.uses,
-      users: row.userIds.size,
-      revenue: row.revenue,
-      discount: row.discount,
-      aov: row.uses ? Math.round(row.revenue / row.uses) : 0,
-      new_customers: row.newIds.size,
-      repeat_customers: row.repeatIds.size,
-    }))
-    .sort((a, b) => b.revenue - a.revenue || b.uses - a.uses);
+  const coupons = buildCouponStats({
+    promotions: input.promotions,
+    usages: input.usages,
+    paidOrders: input.orders.filter((order) => isPaidOrder(order)),
+    firstPaidAt,
+  });
 
   return {
     counts: {

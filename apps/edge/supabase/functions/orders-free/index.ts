@@ -139,6 +139,22 @@ serve(async (req) => {
     }
     const newOrderId = inserted.id as string
 
+    if (pickup.promotionCodeId) {
+      try {
+        await admin.rpc('increment_promotion_code_usage', { promo_id: pickup.promotionCodeId })
+        await admin.from('promotion_code_usages').insert({
+          promotion_code_id: pickup.promotionCodeId,
+          user_id: internalUserId,
+          order_id: newOrderId,
+          discount_amount: pickup.promotionDiscountAmount ?? 0,
+          original_amount: pickup.originalTotalPrice ?? 0,
+          final_amount: 0,
+        })
+      } catch (e) {
+        console.error('0원 주문 프로모션 코드 사용 기록 실패:', e)
+      }
+    }
+
     const bookResult = await bookPickupWithRetry({
       orderId: newOrderId,
       payload: {

@@ -39,7 +39,7 @@ export async function loadMarketingActions(): Promise<{
     fetchAll(async (from, to) =>
       supabaseAdmin
         .from("orders")
-        .select("user_id, paid_at, created_at, total_price, payment_status, status")
+        .select("id, user_id, paid_at, created_at, total_price, payment_status, status, promotion_code_id, promotion_discount_amount")
         .order("created_at", { ascending: false })
         .range(from, to)
     ),

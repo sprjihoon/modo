@@ -181,9 +181,11 @@ VALUES
 
 ## 👨‍💼 관리자 페이지 사용법
 
+관리(`/dashboard/promotions`)와 쿠폰 성적표(`/dashboard/analytics/marketing/actions` 쿠폰 탭)는 **같은 `promotion_codes` 목록**입니다. 사용 건수·매출은 `used_count`나 이력 테이블만이 아니라 **결제된 주문의 `promotion_code_id`** 기준입니다. 생성·수정·삭제는 `/api/admin/promotions`(service role)를 탑니다.
+
 ### 프로모션 코드 생성
 
-1. 관리자 대시보드 접속 (http://localhost:3000/dashboard)
+1. 관리자 대시보드 접속 (`admin.modo.mom/dashboard/promotions`)
 2. 좌측 메뉴에서 **"프로모션 코드"** 클릭
 3. **"프로모션 코드 생성"** 버튼 클릭
 4. 다음 정보 입력:
@@ -306,8 +308,9 @@ await promotionService.recordPromotionCodeUsage(
 
 1. **RLS (Row Level Security) 적용됨**
    - 일반 사용자는 활성 프로모션 코드만 조회 가능
-   - 관리자만 프로모션 코드 생성/수정/삭제 가능
-   - 사용자는 본인의 사용 이력만 조회 가능
+   - 관리자 쓰기는 `SUPER_ADMIN` / `ADMIN` / `MANAGER` (`users.auth_id = auth.uid()`)
+   - 어드민 UI는 service role API를 쓰므로 브라우저 anon 세션과 무관하게 저장됨
+   - 정책 SQL: `apps/sql/migrations/fix_promotion_codes_admin_rls.sql`
 
 2. **중복 사용 방지**
    - 주문당 1개의 프로모션 코드만 적용 가능
@@ -339,9 +342,13 @@ await promotionService.recordPromotionCodeUsage(
 5. 프로모션 활성 상태 확인
 
 ### 관리자 페이지가 표시되지 않아요
-1. 사용자 role이 'admin'인지 확인
-2. RLS 정책 확인
+1. 사용자 role이 `SUPER_ADMIN` / `ADMIN`인지 확인
+2. 성적표에만 코드가 보이면 관리 API 배포 여부 확인 (`/api/admin/promotions`)
 3. Supabase 연결 상태 확인
+
+### 관리와 성적표 숫자가 달라요
+1. 둘 다 결제된 주문을 봅니다. 이력(`promotion_code_usages`)만 비어 있어도 주문이 있으면 집계됩니다
+2. 아직 결제에 한 번도 안 쓰인 코드는 0이 정상입니다
 
 ### 할인 금액이 이상해요
 1. 할인 타입 확인 (퍼센트 vs 고정 금액)

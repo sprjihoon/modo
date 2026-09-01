@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash2, Check, X } from "lucide-react";
 
@@ -12,6 +11,10 @@ interface PromotionCode {
   discount_value: number;
   max_uses: number | null;
   used_count: number;
+  uses?: number;
+  users?: number;
+  revenue?: number;
+  discount?: number;
   max_uses_per_user: number;
   min_order_amount: number;
   max_discount_amount: number | null;
@@ -37,18 +40,12 @@ export default function PromotionsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase
-        .from('promotion_codes')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
+      const response = await fetch("/api/admin/promotions");
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "프로모션 코드를 불러올 수 없습니다.");
       }
-      
-      console.log('Loaded promotions:', data);
-      setPromotions((data || []) as any);
+      setPromotions((result.data || []) as PromotionCode[]);
     } catch (error: any) {
       console.error('프로모션 코드 로드 실패:', error);
       setError(error.message || '프로모션 코드를 불러올 수 없습니다.');
@@ -59,16 +56,19 @@ export default function PromotionsPage() {
 
   const toggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from('promotion_codes')
-        .update({ is_active: !currentStatus })
-        .eq('id', id);
-
-      if (error) throw error;
+      const response = await fetch(`/api/admin/promotions/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !currentStatus }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "상태 변경에 실패했습니다.");
+      }
       loadPromotions();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('상태 변경 실패:', error);
-      alert('상태 변경에 실패했습니다.');
+      alert(error instanceof Error ? error.message : "상태 변경에 실패했습니다.");
     }
   };
 
@@ -76,16 +76,17 @@ export default function PromotionsPage() {
     if (!confirm('정말 삭제하시겠습니까?')) return;
 
     try {
-      const { error } = await supabase
-        .from('promotion_codes')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      const response = await fetch(`/api/admin/promotions/${id}`, {
+        method: "DELETE",
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "삭제에 실패했습니다.");
+      }
       loadPromotions();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('삭제 실패:', error);
-      alert('삭제에 실패했습니다.');
+      alert(error instanceof Error ? error.message : "삭제에 실패했습니다.");
     }
   };
 
@@ -127,7 +128,7 @@ export default function PromotionsPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">프로모션 코드 관리</h1>
-          <p className="text-gray-600 mt-1">이벤트 및 할인 쿠폰을 관리합니다. 사용·매출은 <a className="text-teal-700 underline" href="/dashboard/analytics/marketing/actions">마케팅 실행 쿠폰 성적</a>에서 봅니다</p>
+          <p className="text-gray-600 mt-1">이벤트 및 할인 쿠폰을 만들고 결제된 주문 기준으로 사용 건수를 봅니다. 신규/재구매 성적표는 <a className="text-teal-700 underline" href="/dashboard/analytics/marketing/actions">마케팅 실행</a>과 같습니다</p>
         </div>
         <Button
           onClick={() => {
@@ -206,9 +207,11 @@ export default function PromotionsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm">
-                        {promo.used_count} / {promo.max_uses || '무제한'}
+                        {(promo.uses ?? promo.used_count)} / {promo.max_uses || '무제한'}
                         <div className="text-xs text-gray-500">
-                          (사용자당 {promo.max_uses_per_user}회)
+                          {(promo.users ?? 0) > 0
+                            ? `${promo.users}명 · 매출 ${(promo.revenue ?? 0).toLocaleString()}원`
+                            : `사용자당 ${promo.max_uses_per_user}회`}
                         </div>
                       </div>
                     </td>
@@ -336,21 +339,18 @@ function PromotionCodeModal({ promotion, onClose, onSuccess }: PromotionCodeModa
         is_active: formData.is_active,
       };
 
-      let error;
-      if (promotion) {
-        const result = await supabase
-          .from('promotion_codes')
-          .update(data)
-          .eq('id', promotion.id);
-        error = result.error;
-      } else {
-        const result = await supabase
-          .from('promotion_codes')
-          .insert(data);
-        error = result.error;
+      const response = await fetch(
+        promotion ? `/api/admin/promotions/${promotion.id}` : "/api/admin/promotions",
+        {
+          method: promotion ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        }
+      );
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "저장에 실패했습니다.");
       }
-
-      if (error) throw error;
 
       alert(promotion ? '프로모션 코드가 수정되었습니다.' : '프로모션 코드가 생성되었습니다.');
       onSuccess();

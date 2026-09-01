@@ -259,7 +259,10 @@ export default function MarketingActionsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>쿠폰 성적표</CardTitle>
-                  <CardDescription>사용 건수·결제 금액·신규/재구매. 할인만 많고 매출이 없는 코드를 가립니다</CardDescription>
+                  <CardDescription>
+                    프로모션 코드 관리와 같은 목록입니다. 사용·매출은 결제된 주문 기준입니다.{" "}
+                    <Link href="/dashboard/promotions" className="text-teal-700 underline">코드 만들기</Link>
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <CouponTable rows={data.coupons} />

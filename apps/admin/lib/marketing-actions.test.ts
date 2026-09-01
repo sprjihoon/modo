@@ -36,11 +36,14 @@ const data = buildMarketingActions({
       payment_status: "PAID",
     },
     {
+      id: "o2",
       user_id: "u5",
       paid_at: "2026-08-31T00:00:00.000Z",
       created_at: "2026-08-31T00:00:00.000Z",
       total_price: 15000,
       payment_status: "PAID",
+      promotion_code_id: "p3",
+      promotion_discount_amount: 2000,
     },
   ],
   lastSeen: [
@@ -55,6 +58,7 @@ const data = buildMarketingActions({
   promotions: [
     { id: "p1", code: "WELCOME", description: "첫 결제", is_active: true },
     { id: "p2", code: "UNUSED", description: null, is_active: true },
+    { id: "p3", code: "FR", description: "주문만 있는 코드", is_active: true, used_count: 0 },
   ],
   usages: [
     {
@@ -75,9 +79,11 @@ assert(data.oneShot.some((c) => c.id === "u2"), "1회 구매");
 assert(data.abandon.some((c) => c.id === "u3"), "장바구니 이탈");
 assert(!data.abandon.some((c) => c.id === "u5"), "결제한 사람은 이탈 아님");
 assert(!data.quiet30.some((c) => c.id === "u4"), "탈퇴 제외");
-assert(data.coupons[0].code === "WELCOME" && data.coupons[0].uses === 1, "쿠폰 사용");
-assert(data.coupons[0].new_customers === 1, "쿠폰 신규");
-assert(data.coupons[0].revenue === 17000, "쿠폰 매출");
+assert(data.coupons.find((c) => c.code === "WELCOME")?.uses === 1, "쿠폰 사용");
+assert(data.coupons.find((c) => c.code === "WELCOME")?.new_customers === 1, "쿠폰 신규");
+assert(data.coupons.find((c) => c.code === "WELCOME")?.revenue === 17000, "쿠폰 매출");
+const fromOrder = data.coupons.find((c) => c.code === "FR");
+assert(fromOrder?.uses === 1 && fromOrder.revenue === 15000 && fromOrder.discount === 2000, "주문 기준 쿠폰 성적");
 assert(data.appOnly.some((c) => c.id === "u5"), "앱만");
 assert(data.counts.appOnly >= 1, "앱만 집계");
 

@@ -137,6 +137,22 @@ serve(async (req) => {
       return json({ error: '주문 생성 실패' }, 500)
     }
 
+    if (p.promotionCodeId) {
+      try {
+        await admin.rpc('increment_promotion_code_usage', { promo_id: p.promotionCodeId })
+        await admin.from('promotion_code_usages').insert({
+          promotion_code_id: p.promotionCodeId,
+          user_id: userRow.id,
+          order_id: inserted.id,
+          discount_amount: p.promotionDiscountAmount ?? 0,
+          original_amount: intent.charge_before_points ?? p.originalTotalPrice ?? 0,
+          final_amount: 0,
+        })
+      } catch (e) {
+        console.error('[payments-complete-with-points] 프로모션 코드 사용 기록 실패:', e)
+      }
+    }
+
     await admin
       .from('payment_intents')
       .update({
