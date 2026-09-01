@@ -44,7 +44,6 @@ export async function GET() {
       const stat = statsById.get(promo.id);
       return {
         ...promo,
-        used_count: stat?.uses ?? promo.used_count,
         uses: stat?.uses ?? promo.used_count ?? 0,
         users: stat?.users ?? 0,
         revenue: stat?.revenue ?? 0,

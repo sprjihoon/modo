@@ -187,13 +187,33 @@ serve(async (req) => {
           .maybeSingle()
         const promo = pr.data
         if (promo) {
-          let calc = promo.discount_type === 'PERCENTAGE'
-            ? Math.round(repairItemsTotal * promo.discount_value / 100)
-            : promo.discount_value
-          if (promo.max_discount_amount != null) calc = Math.min(calc, promo.max_discount_amount)
-          calc = Math.min(calc, repairItemsTotal)
-          promotionDiscountAmount = calc
-          verifiedPromotionCodeId = promo.id
+          const maxUses = promo.max_uses as number | null
+          const maxPerUser = Number(promo.max_uses_per_user) || 1
+          const usedCount = Number(promo.used_count) || 0
+          const { data: promoOrders } = await admin
+            .from('orders')
+            .select('user_id, payment_status, paid_at')
+            .eq('promotion_code_id', promo.id)
+          const paid = (promoOrders || []).filter((order: { user_id?: string | null; payment_status?: string | null; paid_at?: string | null }) => {
+            const payment = String(order.payment_status || '').toUpperCase()
+            if (['FAILED', 'CANCELED', 'REFUNDED', 'PENDING'].includes(payment)) return false
+            return Boolean(order.paid_at) || ['PAID', 'PARTIAL_CANCELED', 'COMPLETED', 'DONE'].includes(payment)
+          })
+          const totalUses = Math.max(usedCount, paid.length)
+          const userUses = paid.filter((order: { user_id?: string | null }) => order.user_id === internalUserId).length
+          if (maxUses != null && totalUses >= maxUses) {
+            console.warn('프로모션 코드 선착순 마감:', promo.code)
+          } else if (userUses >= maxPerUser) {
+            console.warn('프로모션 코드 사용자당 한도 초과:', promo.code)
+          } else {
+            let calc = promo.discount_type === 'PERCENTAGE'
+              ? Math.round(repairItemsTotal * promo.discount_value / 100)
+              : promo.discount_value
+            if (promo.max_discount_amount != null) calc = Math.min(calc, promo.max_discount_amount)
+            calc = Math.min(calc, repairItemsTotal)
+            promotionDiscountAmount = calc
+            verifiedPromotionCodeId = promo.id
+          }
         }
       } catch (e) {
         console.warn('프로모션 코드 검증 실패:', e)

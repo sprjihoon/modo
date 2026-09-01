@@ -162,7 +162,10 @@ export default function PromotionsPage() {
                     할인 정보
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    사용 현황
+                    한도
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    사용
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     유효기간
@@ -205,15 +208,17 @@ export default function PromotionsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">
-                        {(promo.uses ?? promo.used_count)} / {promo.max_uses || '무제한'}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div>전체 {promo.max_uses ?? "무제한"}회</div>
+                      <div className="text-xs text-gray-500">사용자당 {promo.max_uses_per_user}회</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div>{promo.uses ?? promo.used_count}건</div>
+                      {(promo.users ?? 0) > 0 && (
                         <div className="text-xs text-gray-500">
-                          {(promo.users ?? 0) > 0
-                            ? `${promo.users}명 · 매출 ${(promo.revenue ?? 0).toLocaleString()}원`
-                            : `사용자당 ${promo.max_uses_per_user}회`}
+                          {promo.users}명 · {(promo.revenue ?? 0).toLocaleString()}원
                         </div>
-                      </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div>
@@ -476,32 +481,46 @@ function PromotionCodeModal({ promotion, onClose, onSuccess }: PromotionCodeModa
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">최대 사용 횟수</label>
-              <input
-                type="number"
-                min="1"
-                value={formData.max_uses}
-                onChange={(e) => setFormData({ ...formData, max_uses: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                placeholder="무제한"
-              />
+          <div className="rounded-lg border bg-gray-50 p-4 space-y-3">
+            <p className="text-sm font-medium">사용 한도</p>
+            <p className="text-xs text-gray-500">
+              두 값을 같이 씁니다. 예: 전체 10회 + 사용자당 1회 = 선착순 10명, 한 사람 1번.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">전체 선착순 횟수</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.max_uses}
+                  onChange={(e) => setFormData({ ...formData, max_uses: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg bg-white"
+                  placeholder="비우면 무제한"
+                />
+                <p className="text-xs text-gray-500 mt-1">모든 고객 합쳐서 몇 번까지</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  사용자당 횟수 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={formData.max_uses_per_user}
+                  onChange={(e) => setFormData({ ...formData, max_uses_per_user: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border rounded-lg bg-white"
+                />
+                <p className="text-xs text-gray-500 mt-1">같은 사람이 몇 번까지</p>
+              </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                사용자당 최대 사용 횟수 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                required
-                min="1"
-                value={formData.max_uses_per_user}
-                onChange={(e) => setFormData({ ...formData, max_uses_per_user: Number(e.target.value) })}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
-            </div>
+            <p className="text-sm text-teal-800">
+              {formData.max_uses
+                ? `전체 ${formData.max_uses}회까지`
+                : "전체 횟수 제한 없음"}
+              {", "}
+              한 사람은 {formData.max_uses_per_user}회까지
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
