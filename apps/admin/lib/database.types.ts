@@ -1651,6 +1651,57 @@ export type Database = {
           },
         ]
       }
+      invite_coupon_milestones: {
+        Row: {
+          id: string
+          threshold: number
+          min_paid_orders: number
+          min_photo_reviews: number
+          discount_type: Database["public"]["Enums"]["discount_type"]
+          discount_value: number
+          valid_days: number
+          valid_until: string | null
+          min_order_amount: number
+          max_discount_amount: number | null
+          description: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          threshold: number
+          min_paid_orders?: number
+          min_photo_reviews?: number
+          discount_type?: Database["public"]["Enums"]["discount_type"]
+          discount_value: number
+          valid_days?: number
+          valid_until?: string | null
+          min_order_amount?: number
+          max_discount_amount?: number | null
+          description?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          threshold?: number
+          min_paid_orders?: number
+          min_photo_reviews?: number
+          discount_type?: Database["public"]["Enums"]["discount_type"]
+          discount_value?: number
+          valid_days?: number
+          valid_until?: string | null
+          min_order_amount?: number
+          max_discount_amount?: number | null
+          description?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       promotion_code_usages: {
         Row: {
           discount_amount: number
@@ -1724,6 +1775,12 @@ export type Database = {
           used_count: number
           valid_from: string
           valid_until: string | null
+          assigned_user_id: string | null
+          source: string
+          issued_by: string | null
+          issued_note: string | null
+          milestone_threshold: number | null
+          milestone_id: string | null
         }
         Insert: {
           code: string
@@ -1742,6 +1799,12 @@ export type Database = {
           used_count?: number
           valid_from?: string
           valid_until?: string | null
+          assigned_user_id?: string | null
+          source?: string
+          issued_by?: string | null
+          issued_note?: string | null
+          milestone_threshold?: number | null
+          milestone_id?: string | null
         }
         Update: {
           code?: string
@@ -1760,6 +1823,12 @@ export type Database = {
           used_count?: number
           valid_from?: string
           valid_until?: string | null
+          assigned_user_id?: string | null
+          source?: string
+          issued_by?: string | null
+          issued_note?: string | null
+          milestone_threshold?: number | null
+          milestone_id?: string | null
         }
         Relationships: []
       }
@@ -2952,6 +3021,24 @@ export type Database = {
       increment_promotion_code_usage: {
         Args: { promo_id: string }
         Returns: undefined
+      }
+      issue_exclusive_promotion_code: {
+        Args: {
+          p_user_id: string
+          p_source: string
+          p_discount_type: string
+          p_discount_value: number
+          p_valid_days?: number
+          p_min_order_amount?: number
+          p_max_discount_amount?: number
+          p_issued_by?: string
+          p_issued_note?: string
+          p_milestone_threshold?: number
+          p_description?: string
+          p_milestone_id?: string
+          p_valid_until?: string
+        }
+        Returns: Json
       }
       manage_user_points: {
         Args: {

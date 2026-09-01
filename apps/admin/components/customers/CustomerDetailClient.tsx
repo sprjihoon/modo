@@ -241,6 +241,13 @@ export default function CustomerDetailClient({
                   <Plus className="h-4 w-4 mr-2" />
                   포인트 지급/차감
                 </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => setCouponDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  쿠폰 발급
+                </Button>
               </div>
             </CardContent>
           </Card>
