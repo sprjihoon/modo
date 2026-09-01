@@ -204,7 +204,7 @@ flutter build ipa --release --build-name=1.0.7 --build-number=45 \
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS는 **1.0.6 판매 중** · **1.0.7 / 45 제출**(44 취소). Play는 **38 게시** · **45 AAB 백업**(`~/Documents/modo-android-signing/app-release-1.0.7+45.aab`, Play Console에 직접 업로드). 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.6` 판매 중이라 최신은 **`1.0.6`까지** 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.**
+iOS는 **1.0.6 판매 중** · **1.0.7 / 45 `WAITING_FOR_REVIEW`**(44 취소). Play는 **38 게시** · **45 AAB 백업**(`~/Documents/modo-android-signing/app-release-1.0.7+45.aab`, Play Console에 직접 업로드). 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.6` 판매 중이라 최신은 **`1.0.6`까지** 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.**
 
 Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`10:90:55…`). Windows `AE:84:3D…` 키로 만든 AAB는 올리지 않는다.
 
@@ -248,7 +248,7 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.6` 판매 중**. **`1.0.7 (45)` 제출** |
+| 최신 업로드 | **`1.0.6` 판매 중**. **`1.0.7 (45)` `WAITING_FOR_REVIEW`** |
 | App Store | **판매 중 `1.0.6`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 | 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |

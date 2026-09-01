@@ -359,11 +359,11 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.7+45`. iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 45 제출**(44 심사 취소 후 교체). Play는 **38 게시** · **45 AAB 백업**(`Documents/modo-android-signing/app-release-1.0.7+45.aab`, Play Console에 직접 업로드). 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `main`의 `1.0.7+45`. iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 45 `WAITING_FOR_REVIEW`**(44 심사 취소 후 교체). Play는 **38 게시** · **45 AAB 백업**(`Documents/modo-android-signing/app-release-1.0.7+45.aab`, Play Console에 직접 업로드). 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 `apps/mobile/README.md`에도 같다.
 
 **스토어 빌드 규칙:** IPA/AAB는 너무 자주 올리지 않는다. **하루에 한 번만** 한다. 웹·어드민은 `main` push 시 Vercel 자동 배포라 이 제한과 무관하다.
 
-**오늘(2026-09-02):** 스토어 빌드 `1.0.7+45`. 웹 쿠폰함 확인 + 쿠폰·프로모는 앱 주문에서만 적용. 44 심사를 45로 교체.
+**오늘(2026-09-02):** 스토어 빌드 `1.0.7+45` 재제출 완료. 44 심사 취소 · 45 `WAITING_FOR_REVIEW`. 웹 쿠폰함 확인 + 쿠폰·프로모는 앱 주문에서만 적용.
 
 | 항목 | 값 |
 |---|---|
@@ -371,7 +371,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Bundle / Application ID | `com.modurepair.app` |
 | 버전 | `apps/mobile/pubspec.yaml` → **`1.0.7+45`**. iOS 심사 45 · Play 45 업로드 (웹 쿠폰함 확인 · 쿠폰은 앱에서만 적용) |
 | App Store Connect App ID | `6759492888` |
-| iOS 스토어 | **판매 중 `1.0.6`**. **`1.0.7` 빌드 45 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| iOS 스토어 | **판매 중 `1.0.6`**. **`1.0.7` 빌드 45 `WAITING_FOR_REVIEW`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
 | Play 상태 | **프로덕션 게시** `1.0.6 (38)` · **45 AAB 백업·콘솔 업로드** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
@@ -391,7 +391,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **`1.0.6`**. **`1.0.7` 빌드 45 제출** |
+| App Store 현재 빌드 | 판매 중 **`1.0.6`**. **`1.0.7` 빌드 45 `WAITING_FOR_REVIEW`** |
 | 웹 배포 | `main` push 즉시 `modo-web` (modo.io.kr). 수선 요청 메모 **라이브**. 스토어 빌드와 무관 |
 | 앱 업데이트 안내 | `app_versions`. 지금 최신·최소는 iOS/Android 모두 **`1.0.5`** (강제 업데이트 끔). iOS·Play 모두 `1.0.6` 판매 중이라 최신은 **`1.0.6`까지** 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
@@ -764,6 +764,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-02 | `1.0.7+45` 재제출 | 44 심사 취소. iOS 45 `WAITING_FOR_REVIEW`. Play AAB 백업 `app-release-1.0.7+45.aab` |
 | 2026-09-02 | 웹 쿠폰함 · 앱 전용 적용 | 웹 `/profile/coupons`에서 보유 쿠폰 확인. 웹 견적·결제는 쿠폰·프로모 무시. 적용은 앱 주문만. 스토어 `1.0.7+45` |
 | 2026-09-01 | 전용 쿠폰·조합 미션 | CS/미션 전용 코드(`assigned_user_id`). 앱 쿠폰함·수거신청 선택. 초대·수선·포토리뷰 AND 미션을 여러 개. 미션 기한은 발급 후 N일. 공개코드·내쿠폰·포인트는 한 주문에 하나만. SQL 라이브. 어드민·웹 `main` 배포. 앱은 다음 스토어 빌드 |
 | 2026-09-01 | 프로모션 한도·사용 | 관리 목록 `10/1`은 한도가 아니라 사용 10건/한도 1회가 붙은 것. 한도(전체 선착순·사용자당)와 사용(결제 건수)을 칸으로 분리. 사용 N = 결제된 주문에 코드가 붙은 횟수. 어드민·웹 라이브 |
