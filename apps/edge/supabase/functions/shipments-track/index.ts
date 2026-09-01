@@ -233,11 +233,12 @@ Deno.serve(async (req) => {
         }
         
         // orders 테이블도 업데이트
+        // orders.completed_at 컬럼은 운영 DB에 없음. status만 갱신해야 함.
         const { error: orderUpdateError } = await supabase
           .from('orders')
           .update({
             status: 'DELIVERED',
-            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           })
           .eq('id', shipment.order_id);
         
