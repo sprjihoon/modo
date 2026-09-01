@@ -294,12 +294,13 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 - 미션은 여러 개를 동시에 둘 수 있다. 조건 숫자 0이면 그 항목은 보지 않는다. 예: 초대 10 · 수선 1 · 포토리뷰 1.
 - 미션 쿠폰 사용기한은 **발급 후 N일**. 조건을 채운 날부터 센다. 달력 고정 날짜가 아니다.
 - CS 발급은 사용기한 날짜를 직접 고를 수 있다.
-- **공개 코드 · 내 쿠폰 · 포인트는 한 주문에 하나만.** 쿠폰이 있으면 포인트 칸을 막고, `apply_points_to_payment_intent`도 `COUPON_APPLIED`로 거절한다. 웹 주문은 쿠폰 없이 포인트만 쓸 수 있다.
+- **공개 코드 · 내 쿠폰 · 포인트는 한 주문에 하나만.** 쿠폰이 있으면 포인트 칸을 막고, `apply_points_to_payment_intent`도 `COUPON_APPLIED`로 거절한다.
+- **포인트는 웹·앱 결제 모두 사용 가능.** 웹은 쿠폰을 적용하지 않으므로 포인트만 쓴다. 앱은 쿠폰을 쓰면 포인트를 못 쓴다.
 
 ### 어드민
 
-- 고객 상세 「전용 쿠폰 발급」 (`POST /api/admin/customers/[id]/coupons`)
-- 프로모션 관리 공개 / 전용 발급 탭 (`/dashboard/promotions`)
+- 고객 상세 「전용 쿠폰 발급」 (`POST /api/admin/customers/[id]/coupons`) — CS 전용은 여기서만 만든다
+- 프로모션 관리 (`/dashboard/promotions`) **공개** = 누구나 쓰는 코드 생성·목록. **전용 발급** = 이미 나간 전용 쿠폰 목록(여기서 만들지 않음)
 - 포인트 설정 「조합 미션 → 전용 쿠폰」 (`/dashboard/points?tab=settings`, `/api/admin/invite/milestones`)
 
 ### DB / RPC
@@ -312,8 +313,8 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 ### 검증 (2026-09-02)
 
 - `apps/admin/lib/exclusive-coupon.test.ts` — 소유권, 조합 조건 AND, 미션은 발급 후 일수
-- `apps/mobile/test/promotion_rules_test.dart` — 17건 (한도 · 전용 코드 본인만 · 쿠폰/포인트 중복 불가)
-- `apps/web/lib/promotion-eval.test.ts` — 견적 규칙 · 쿠폰함 상태. 웹 견적은 쿠폰을 적용하지 않음
+- `apps/mobile/test/promotion_rules_test.dart` — 웹은 쿠폰 적용 불가 · 한도 · 전용 코드 본인만 · 쿠폰/포인트 중복 불가
+- `apps/web/lib/promotion-eval.test.ts` — 견적 규칙 · 쿠폰함 상태. 웹 견적·웹 주문은 쿠폰을 적용하지 않음. 포인트는 웹 결제에서 사용
 
 ---
 
@@ -348,7 +349,8 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | 적용 시점 | 결제 전 인텐트에 예약 차감 (`USED`), `total_price` 감소 |
 | 전액 포인트 | 잔액 0원이면 PortOne 없이 `complete-with-points`로 주문 생성 |
 | 취소 복구 | 주문 취소 성공 시 `USE_RESTORE`로 포인트 환급 |
-| 쿠폰과 중복 | **불가.** 공개 코드 또는 내 쿠폰이 있으면 포인트 사용 금지 |
+| 사용 채널 | **웹·앱 결제 모두.** 웹 `/payment` 「포인트 사용」 · 앱 `payment_page.dart` |
+| 쿠폰과 중복 | **앱에서 불가.** 공개 코드 또는 내 쿠폰이 있으면 포인트 사용 금지. 웹은 쿠폰 미적용이라 포인트만 사용 |
 
 - API: `POST /api/payment-intents/[id]/apply-points`, `.../complete-with-points`
 - RPC: `apply_points_to_payment_intent`, `restore_order_points_used`
@@ -764,6 +766,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-02 | 전용 탭 CTA · 웹 포인트 | 프로모션 **전용 발급**은 목록만. 공개 코드 만들기 버튼 제거. 포인트는 웹·앱 결제 모두 사용. 쿠폰 적용은 앱만. 어드민·웹·Edge 라이브 |
 | 2026-09-02 | `1.0.7+45` 재제출 | 44 심사 취소. iOS 45 `WAITING_FOR_REVIEW`. Play AAB 백업 `app-release-1.0.7+45.aab` |
 | 2026-09-02 | 웹 쿠폰함 · 앱 전용 적용 | 웹 `/profile/coupons`에서 보유 쿠폰 확인. 웹 견적·결제는 쿠폰·프로모 무시. 적용은 앱 주문만. 스토어 `1.0.7+45` |
 | 2026-09-01 | 전용 쿠폰·조합 미션 | CS/미션 전용 코드(`assigned_user_id`). 앱 쿠폰함·수거신청 선택. 초대·수선·포토리뷰 AND 미션을 여러 개. 미션 기한은 발급 후 N일. 공개코드·내쿠폰·포인트는 한 주문에 하나만. SQL 라이브. 어드민·웹 `main` 배포. 앱은 다음 스토어 빌드 |
