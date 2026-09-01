@@ -425,8 +425,8 @@ export function PaymentClient() {
 
   return (
     <>
-      {/* 본문 — 하단 고정 영역 높이만큼 여백 */}
-      <div className="pb-28">
+      {/* 본문 — 결제 버튼 + 접힌 푸터 높이만큼 여백 */}
+      <div className="pb-40">
         <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <Scissors className="w-4 h-4 text-[#00C896]" />
@@ -644,25 +644,24 @@ export function PaymentClient() {
             </div>
           </div>
         )}
-
-        <div className="mt-4">
-          <CompanyFooter />
-        </div>
       </div>
 
-      {/* 결제 버튼 — 앱과 같이 본문 아래가 아니라 화면 하단에만 고정 */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] z-30 px-5 py-3 bg-gradient-to-t from-white via-white to-transparent">
-        <button
-          onClick={handlePayment}
-          disabled={isRequesting || testRequesting !== null}
-          className="touch-target w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-full shadow-lg shadow-[#00C896]/30 disabled:opacity-50 active:bg-[#00A07B] active:shadow-none transition-all"
-        >
-          {isRequesting
-            ? "결제 진행 중..."
-            : intent.total_price === 0
-              ? "포인트로 결제 완료하기"
-              : `${formatPrice(intent.total_price)} 결제하기`}
-        </button>
+      {/* 결제 버튼 위 · 푸터는 맨 아래. 아코디언은 접힌 채 시작 */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] z-20 bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+        <div className="px-5 py-3">
+          <button
+            onClick={handlePayment}
+            disabled={isRequesting || testRequesting !== null}
+            className="touch-target w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-full shadow-lg shadow-[#00C896]/30 disabled:opacity-50 active:bg-[#00A07B] active:shadow-none transition-all"
+          >
+            {isRequesting
+              ? "결제 진행 중..."
+              : intent.total_price === 0
+                ? "포인트로 결제 완료하기"
+                : `${formatPrice(intent.total_price)} 결제하기`}
+          </button>
+        </div>
+        <CompanyFooter />
       </div>
 
       {showExitDialog && (
