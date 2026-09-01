@@ -464,6 +464,7 @@ iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토�
 36. ~~**`1.0.6+42` 수거신청 홈 버튼**~~ — **iOS `1.0.6` 판매 중**. Play 38 게시 · 42는 검토였음
 38. **`1.0.7+43` 수선 요청 메모** — 수거정보의 핀 메모·배송 요청과 별도. `orders.customer_memo`. 작업지시서·어드민 주문상세·입고/작업 요약에 표시. **웹 `modo.io.kr` 라이브**. 앱은 오늘 하루 1회 스토어 빌드
 39. **출고송장 배송요청사항** — 고객 `orders.notes`를 그 주문 출고송장·우체국 `delivMsg`에 출력. 레이아웃 에디터에서 위치 저장. 어드민 `main` 배포
+40. **배송완료 자동 반영** — 우체국 배달완료면 `DELIVERED`. 폴링은 출고완료·배송중. 어드민 주문 상세를 열어도 동기화. 어드민·Edge 라이브
 37. ~~`1.0.6+40` 부위별 치수 · 연락처 분리~~ — `허리+힙` 2칸. 수거지/배송지 연락처 분리. 41에 흡수
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 24. ~~Play 프로덕션 액세스~~ — **게시됨** (2026-08-31). `/download` Play URL 연결
@@ -589,6 +590,19 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 코드: 어드민 `lib/outbound-label-recipient.ts` · 웹 `lib/pickup-delivery-address.ts` · 앱 `lib/features/orders/domain/pickup_delivery_address.dart`  
 어드민·웹은 `main` 배포로 적용. 앱 연락처 분리는 **`1.0.6` 판매 중**. 수선 요청 메모는 **`1.0.7+43`**.
 
+### 배송완료 자동 반영
+
+우체국이 배달완료면 `orders`·`shipments`를 `DELIVERED`로 바꾼다. 발송 처리(`OUT_FOR_DELIVERY`)를 안 해도 출고완료(`READY_TO_SHIP`)에 출고송장이 있으면 대상이다.
+
+| 경로 | 동작 |
+|---|---|
+| 폴링 | `poll-delivery-tracking` — KST 08:00~20:30 매 30분. `READY_TO_SHIP` / `OUT_FOR_DELIVERY` / `IN_TRANSIT` + `delivery_tracking_no` |
+| 어드민 주문 상세 | 위 상태면 `POST /api/orders/[id]/sync-delivery` → `shipments-track` |
+| 고객 배송추적 | 기존처럼 `shipments-track` 조회 시 동일 전환 |
+| 판별 | 이력 전체에서 `배달완료`·`배송완료`·`전달완료`·`수령완료`. 공공데이터포털 종적조회 우선, 실패 시 웹 스크래핑 |
+
+이미 배달된 건은 주문 상세를 열거나 다음 폴링에서 맞춰진다. 2026-09-01 어드민·Edge 라이브.
+
 ```bash
 cd apps/admin && npx tsx lib/outbound-label-recipient.test.ts && npx tsx lib/shipping-label-print.test.ts && npx tsx lib/separate-delivery-flow.test.ts && npx tsx lib/delivery-request.test.ts && npx tsx lib/delivery-request-label.test.ts
 cd apps/web && npx tsx lib/pickup-delivery-address.test.ts
@@ -663,6 +677,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-01 | 배송완료 자동 반영 | 우체국 배달완료인데 어드민이 출고완료에 남던 문제. 폴링이 `OUT_FOR_DELIVERY`만 봐서 발송 처리를 안 한 건은 조회 안 됨. 이제 `READY_TO_SHIP`도 추적. 주문 상세 열면 `sync-delivery`로 즉시 반영. Edge `poll-delivery-tracking`·`shipments-track` · 어드민 라이브 |
 | 2026-09-01 | `1.0.7+43` 스토어 | iOS `1.0.6` 판매 후 다음 버전. 수선 요청 메모 포함. iOS 43 심사 · Play 43 AAB |
 | 2026-09-01 | 웹 즉시 배포 | 수선 요청 메모는 `main` 푸시로 `modo-web` 바로 적용. 스토어 빌드와 별개 |
 | 2026-09-01 | 출고송장 배송요청사항 | 고객 `orders.notes`를 그 주문 출고송장(`delivery_request`)·우체국 `delivMsg`에 출력. 수선 메모와 분리. 레이아웃 에디터에서 위치 저장. 어드민 라이브 · Edge `shipments-create-outbound` 배포 |
@@ -758,7 +773,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 | 2026-07-07 | 웹 HOLD 상태 표시 누락 수정 | `ORDER_STATUS_MAP`에 `HOLD`(추가결제 대기) 추가. 타임라인 `DB_STATUS_STEP`에 HOLD·RETURN_* 매핑 추가 |
 | 2026-07-07 | 작업자 추가비용 요청 시 관리자 알림 미전송 수정 | `ops/extra-charge/route.ts`의 TODO 구현. 작업자가 요청하면 MANAGER/ADMIN/SUPER_ADMIN 전원에게 알림 DB 저장 + FCM 푸시 발송 |
 | 2026-07-07 | 모바일 의류 SVG 아이콘 적용 | 주문 목록 카드에 의류 종류(청바지·바지·원피스·치마·티셔츠·셔츠·아우터·정장·니트·가죽)에 맞는 SVG 아이콘 표시. 웹과 동일한 키워드 매핑 |
-| 2026-07-07 | 배송완료 자동 폴링 Cron 추가 | `poll-delivery-tracking` Edge Function 신규 배포. pg_cron으로 KST 08:00~20:30 매 30분마다 `OUT_FOR_DELIVERY` 주문 자동 추적 → `DELIVERED` 자동 전환 |
+| 2026-07-07 | 배송완료 자동 폴링 Cron 추가 | `poll-delivery-tracking` Edge Function 신규 배포. pg_cron으로 KST 08:00~20:30 매 30분마다 자동 추적 → `DELIVERED`. 당시에는 `OUT_FOR_DELIVERY`만. 출고완료 누락은 2026-09-01에 수정 |
 | 2026-07-07 | SUPER_ADMIN 추가결제 직접 요청 DB 수정 | `request_extra_charge` RPC에 `SUPER_ADMIN` 역할 추가 (기존: MANAGER/ADMIN만 직접 청구 가능) |
 | 2026-07-06 | 결제 완료 알림 한글 깨짐 | `payments-confirm` Edge Function 파일 인코딩 오류로 한글이 `??`로 저장 → 파일 전체 UTF-8 재작성. 기존 깨진 알림은 Supabase에서 직접 수정 필요 |
 | 2026-07-06 | 결제 취소 후 주문 상태 미변경 | `pay/cancel` API·`webhook` (`Transaction.Cancelled`) 전체 취소 시 `orders.status`를 `CANCELLED`로 업데이트하지 않던 문제 수정 |
