@@ -174,7 +174,7 @@ export default function CustomerBehaviorPage() {
           if (!sessionData) await loadSessionData();
           break;
         case "time":
-          if (!timePatternData) await loadTimePatternData();
+          await loadTimePatternData();
           break;
         case "devices":
           if (deviceData.length === 0) await loadDeviceData();
@@ -780,14 +780,46 @@ export default function CustomerBehaviorPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {timePatternData?.hourly && timePatternData.hourly.length > 0 ? (
-                <div className="space-y-6">
+              {timePatternData?.daily?.some((d: any) => (d.unique_users || 0) + (d.total_events || 0) > 0) ||
+              timePatternData?.hourly?.some((h: any) => (h.event_count || 0) > 0) ? (
+                <div className="space-y-8">
+                  <div>
+                    <h4 className="font-medium mb-1">요일별 접속</h4>
+                    <p className="text-xs text-muted-foreground mb-3">선택한 기간의 고유 접속 고객 수 (KST)</p>
+                    <div className="grid grid-cols-7 gap-2">
+                      {["일", "월", "화", "수", "목", "금", "토"].map((label, dow) => {
+                        const data = timePatternData.daily?.find((d: any) => Number(d.day_of_week) === dow)
+                          ?? timePatternData.daily?.find((d: any) => d.day_name === label);
+                        const users = data?.unique_users || 0;
+                        const events = data?.total_events || 0;
+                        const maxUsers = Math.max(...(timePatternData.daily || []).map((d: any) => d.unique_users || 0), 1);
+                        const height = Math.max(8, Math.round((users / maxUsers) * 96));
+                        const isPeak = users > 0 && users === maxUsers;
+                        return (
+                          <div key={label} className="text-center">
+                            <div className="h-24 flex items-end justify-center">
+                              <div
+                                className={`w-full max-w-12 rounded-t ${isPeak ? "bg-teal-600" : "bg-teal-400"}`}
+                                style={{ height }}
+                                title={`${label}요일: 접속 ${users}명 · 이벤트 ${events}건`}
+                              />
+                            </div>
+                            <p className={`text-sm mt-2 font-medium ${dow === 0 ? "text-red-500" : ""}`}>{label}</p>
+                            <p className="text-sm font-semibold">{users.toLocaleString()}명</p>
+                            <p className="text-[11px] text-muted-foreground">{events.toLocaleString()}건</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div>
                     <h4 className="font-medium mb-3">시간대별 활동</h4>
                     <div className="grid grid-cols-12 gap-1">
                       {Array.from({ length: 24 }, (_, hour) => {
                         const data = timePatternData.hourly.find((h: any) => h.hour_of_day === hour);
                         const count = data?.event_count || 0;
+                        const users = data?.unique_users || 0;
                         const maxCount = Math.max(...timePatternData.hourly.map((h: any) => h.event_count || 0), 1);
                         const intensity = count / maxCount;
                         return (
@@ -797,7 +829,7 @@ export default function CustomerBehaviorPage() {
                               style={{
                                 backgroundColor: `rgba(59, 130, 246, ${intensity})`,
                               }}
-                              title={`${hour}시: ${count}건`}
+                              title={`${hour}시: 이벤트 ${count}건 · 접속 ${users}명`}
                             />
                             <span className="text-xs text-muted-foreground">{hour}</span>
                           </div>
@@ -810,7 +842,7 @@ export default function CustomerBehaviorPage() {
                 <div className="text-center py-12 text-muted-foreground">
                   <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>시간 패턴 데이터가 없습니다</p>
-                  <p className="text-sm mt-2">고객 이벤트가 수집되면 시간대별 분석이 표시됩니다</p>
+                  <p className="text-sm mt-2">고객 이벤트가 수집되면 요일·시간대별 분석이 표시됩니다</p>
                 </div>
               )}
             </CardContent>

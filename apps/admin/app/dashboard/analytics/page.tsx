@@ -18,6 +18,7 @@ import {
   Award,
   ArrowRight,
   RefreshCw,
+  Megaphone,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -333,6 +334,30 @@ export default function AnalyticsPage() {
           </Link>
         </div>
       </div>
+
+      <Card className="bg-gradient-to-r from-teal-50 to-emerald-50 border-teal-200">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-teal-100 rounded-lg">
+                <Megaphone className="h-6 w-6 text-teal-700" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">마케팅 인사이트</h3>
+                <p className="text-sm text-muted-foreground">
+                  결제가 많은 요일·시간, 가입·접속 패턴, 푸시·프로모션 타이밍을 한곳에서 봅니다
+                </p>
+              </div>
+            </div>
+            <Link href="/dashboard/analytics/marketing">
+              <Button variant="outline" className="gap-2">
+                보러가기
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 직원 성과 대시보드 카드 */}
       <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">

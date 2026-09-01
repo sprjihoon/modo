@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Mail, Phone, Calendar, Loader2 } from "lucide-react";
 import { getCustomers, getCustomerStats, type Customer } from "@/lib/api/customers";
 import { DeviceOsBadge } from "@/components/customers/DeviceOsBadge";
-import { deviceOsInfo } from "@/lib/customer-device-os";
+import { deviceOsInfo, formatLastSeenAt } from "@/lib/customer-device-os";
 
 // 오늘 날짜 (YYYY-MM-DD 형식)
 const getToday = () => {
@@ -360,10 +360,23 @@ export default function CustomersPage() {
                                   : "-"}
                               </span>
                             </div>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              <span>
+                                마지막 접속{" "}
+                                {formatLastSeenAt(customer.last_seen_at) || "기록 없음"}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-6 text-right">
+                        <div>
+                          <p className="text-sm text-muted-foreground">마지막 접속</p>
+                          <p className="font-medium text-sm">
+                            {formatLastSeenAt(customer.last_seen_at) || "기록 없음"}
+                          </p>
+                        </div>
                         <div>
                           <p className="text-sm text-muted-foreground">OS</p>
                           <p className="font-medium text-sm">

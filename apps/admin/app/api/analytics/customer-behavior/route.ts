@@ -388,29 +388,91 @@ async function getSessionAnalysis(startDate?: string | null, endDate?: string | 
   };
 }
 
+const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+
+function kstParts(iso: string): { weekday: number; hour: number } {
+  const kst = new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000);
+  return { weekday: kst.getUTCDay(), hour: kst.getUTCHours() };
+}
+
+async function fetchEventsInRange(startDate?: string | null, endDate?: string | null) {
+  const rows: { user_id: string | null; session_id: string | null; created_at: string }[] = [];
+  const pageSize = 1000;
+  let from = 0;
+
+  while (from < 20000) {
+    let query = supabaseAdmin
+      .from("customer_events")
+      .select("user_id, session_id, created_at")
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (startDate) query = query.gte("created_at", `${startDate}T00:00:00+09:00`);
+    if (endDate) query = query.lte("created_at", `${endDate}T23:59:59+09:00`);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data?.length) break;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return rows;
+}
+
 /**
- * 시간 패턴 분석
+ * 시간·요일 접속 패턴 (KST, customer_events 직접 집계)
  */
 async function getTimePatternAnalysis(startDate?: string | null, endDate?: string | null) {
-  // 시간대별 패턴
-  const { data: hourlyData, error: hourlyError } = await supabaseAdmin
-    .from('hourly_activity_pattern')
-    .select('*')
-    .order('hour_of_day');
+  const events = await fetchEventsInRange(startDate, endDate);
 
-  if (hourlyError) throw hourlyError;
+  const hourly = Array.from({ length: 24 }, (_, hour) => ({
+    hour_of_day: hour,
+    event_count: 0,
+    unique_users: 0,
+    unique_sessions: 0,
+    _users: new Set<string>(),
+    _sessions: new Set<string>(),
+  }));
 
-  // 요일별 패턴
-  const { data: dailyData, error: dailyError } = await supabaseAdmin
-    .from('daily_performance')
-    .select('*')
-    .order('day_of_week');
+  const daily = WEEKDAY_NAMES.map((day_name, day_of_week) => ({
+    day_of_week,
+    day_name,
+    total_events: 0,
+    unique_users: 0,
+    unique_sessions: 0,
+    _users: new Set<string>(),
+    _sessions: new Set<string>(),
+  }));
 
-  if (dailyError) throw dailyError;
+  for (const row of events) {
+    const { weekday, hour } = kstParts(row.created_at);
+    const hourBucket = hourly[hour];
+    const dayBucket = daily[weekday];
+    hourBucket.event_count += 1;
+    dayBucket.total_events += 1;
+    if (row.user_id) {
+      hourBucket._users.add(row.user_id);
+      dayBucket._users.add(row.user_id);
+    }
+    if (row.session_id) {
+      hourBucket._sessions.add(row.session_id);
+      dayBucket._sessions.add(row.session_id);
+    }
+  }
 
   return {
-    hourly: hourlyData,
-    daily: dailyData,
+    hourly: hourly.map(({ _users, _sessions, ...rest }) => ({
+      ...rest,
+      unique_users: _users.size,
+      unique_sessions: _sessions.size,
+    })),
+    daily: daily.map(({ _users, _sessions, ...rest }) => ({
+      ...rest,
+      unique_users: _users.size,
+      unique_sessions: _sessions.size,
+    })),
   };
 }
 

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../supabase';
-import { getLastDeviceOsMap } from '../customer-device-os';
+import { getLastAccessMap } from '../customer-device-os';
 
 export interface Customer {
   id: string;
@@ -9,6 +9,7 @@ export interface Customer {
   created_at: string;
   login_provider?: string;
   last_device_os?: string;
+  last_seen_at?: string;
   default_address?: string;
   default_address_detail?: string;
   point_balance?: number;
@@ -61,7 +62,7 @@ export async function getCustomers(filters?: {
 
   if (error) throw error;
 
-  const deviceOsMap = await getLastDeviceOsMap((data || []).map((c) => c.id));
+  const accessMap = await getLastAccessMap((data || []).map((c) => c.id));
 
   // 주문 통계 정보 추가
   const customersWithStats = await Promise.all(
@@ -85,7 +86,8 @@ export async function getCustomers(filters?: {
 
       return {
         ...customer,
-        last_device_os: deviceOsMap[customer.id],
+        last_device_os: accessMap[customer.id]?.last_device_os,
+        last_seen_at: accessMap[customer.id]?.last_seen_at,
         totalOrders,
         totalSpent,
         lastOrderDate,
@@ -145,11 +147,12 @@ export async function getCustomerById(customerId: string) {
   const totalOrders = orders?.length || 0;
   const totalSpent = orders?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0;
   const averageOrderValue = totalOrders > 0 ? Math.floor(totalSpent / totalOrders) : 0;
-  const deviceOsMap = await getLastDeviceOsMap([customerId]);
+  const accessMap = await getLastAccessMap([customerId]);
 
   return {
     ...data,
-    last_device_os: deviceOsMap[customerId],
+    last_device_os: accessMap[customerId]?.last_device_os,
+    last_seen_at: accessMap[customerId]?.last_seen_at,
     totalOrders,
     totalSpent,
     averageOrderValue,

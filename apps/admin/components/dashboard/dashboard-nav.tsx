@@ -88,6 +88,7 @@ const navGroups: NavGroup[] = [
       { title: "고객 관리", href: "/dashboard/customers", icon: Users },
       { title: "포인트 관리", href: "/dashboard/points", icon: TrendingUp },
       { title: "프로모션 코드", href: "/dashboard/promotions", icon: Ticket },
+      { title: "마케팅 인사이트", href: "/dashboard/analytics/marketing", icon: Megaphone },
       { title: "배송비 관리", href: "/dashboard/settings/shipping", icon: Truck },
     ],
   },
@@ -108,6 +109,7 @@ const navGroups: NavGroup[] = [
     items: [
       { title: "통계 및 분석", href: "/dashboard/analytics", icon: BarChart3 },
       { title: "운영 리포트", href: "/dashboard/reports", icon: ClipboardList },
+      { title: "마케팅 인사이트", href: "/dashboard/analytics/marketing", icon: Megaphone },
       { title: "고객 행동 분석", href: "/dashboard/analytics/customer-behavior", icon: Activity },
       { title: "직원 성과 KPI", href: "/dashboard/analytics/performance", icon: Activity },
       { title: "직원 행동 로그", href: "/dashboard/action-logs", icon: Activity },

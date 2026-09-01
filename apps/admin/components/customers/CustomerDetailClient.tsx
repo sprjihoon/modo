@@ -17,7 +17,7 @@ import {
   Minus
 } from "lucide-react";
 import PointManagementDialog from "./PointManagementDialog";
-import { deviceOsInfo } from "@/lib/customer-device-os";
+import { deviceOsInfo, formatLastSeenAt } from "@/lib/customer-device-os";
 import { DeviceOsBadge } from "@/components/customers/DeviceOsBadge";
 
 interface CustomerDetailClientProps {
@@ -150,6 +150,13 @@ export default function CustomerDetailClient({
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <p className="font-medium">{formatDate(customer.created_at)}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">마지막 접속</p>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <p className="font-medium">{formatLastSeenAt(customer.last_seen_at) || "기록 없음"}</p>
                 </div>
               </div>
               <div>
