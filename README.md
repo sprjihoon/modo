@@ -281,7 +281,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ## 고객 리뷰
 
-배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.5` 판매 중 · `1.0.6+37`에 가이드·세부항목 포함(스토어는 심사 통과 후).
+배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.6` 판매 중 · 수선 요청 메모는 `1.0.7+43`.
 
 | 항목 | 내용 |
 |---|---|
@@ -320,25 +320,25 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.6+42`. iOS는 `1.0.6` 빌드 42 심사 대기. Play는 **38 게시** · **42 업로드 후 검토 대기**. 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. **수선 요청 메모는 웹 `modo.io.kr` 라이브.** 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `main`의 `1.0.7+43`. iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 43 제출**. Play는 **38 게시** · **43 AAB 업로드**. 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 `apps/mobile/README.md`에도 같다.
 
 **스토어 빌드 규칙:** IPA/AAB는 너무 자주 올리지 않는다. **하루에 한 번만** 한다. 웹·어드민은 `main` push 시 Vercel 자동 배포라 이 제한과 무관하다.
 
-**오늘(2026-09-01):** 웹은 바로 적용한다. `modo.io.kr`(`modo-web`) 라이브 · `orders.customer_memo` 컬럼 반영 · `payments-confirm` 등 Edge 배포 완료. 스토어 앱은 지금은 빌드하지 않고 **몇 시간 뒤에** 하루 1회 예정.
+**오늘(2026-09-01):** 하루 1회 스토어 빌드 `1.0.7+43`. 수선 요청 메모가 앱에 포함된다. 웹은 이미 `modo.io.kr` 라이브.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.6+42`**. iOS 심사 42 · Play 42 검토 대기 (수거신청 홈 버튼 · 부위별 치수 칸 · 연락처 분리) |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.7+43`**. iOS 심사 43 · Play 43 업로드 (수선 요청 메모) |
 | App Store Connect App ID | `6759492888` |
-| iOS 스토어 | **판매 중 `1.0.5`**. **`1.0.6` 빌드 42 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| iOS 스토어 | **판매 중 `1.0.6`**. **`1.0.7` 빌드 43 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **프로덕션 게시** `1.0.6 (38)` · **42 업로드·검토 대기** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | **프로덕션 게시** `1.0.6 (38)` · **43 AAB 업로드** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `1.0.6+42` · 백업 `Documents/modo-android-signing/app-release-1.0.6+42.aab` |
+| Android AAB | `1.0.7+43` · 백업 `Documents/modo-android-signing/app-release-1.0.7+43.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -352,9 +352,9 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **`1.0.5`**. **`1.0.6` 빌드 42** 제출 |
+| App Store 현재 빌드 | 판매 중 **`1.0.6`**. **`1.0.7` 빌드 43** 제출 |
 | 웹 배포 | `main` push 즉시 `modo-web` (modo.io.kr). 수선 요청 메모 **라이브**. 스토어 빌드와 무관 |
-| 앱 업데이트 안내 | `app_versions`. 지금 최신·최소는 iOS/Android 모두 **`1.0.5`** (강제 업데이트 끔). 「업데이트 확인」은 이 값과 비교. iOS·Play에 `1.0.6`이 둘 다 나온 뒤에만 어드민 최신을 올린다. Play만 먼저 올리면 아이폰이 아직 없는 업데이트를 안내함 |
+| 앱 업데이트 안내 | `app_versions`. 지금 최신·최소는 iOS/Android 모두 **`1.0.5`** (강제 업데이트 끔). iOS·Play 모두 `1.0.6` 판매 중이라 최신은 **`1.0.6`까지** 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
 ### 심사용 테스트 계정
@@ -461,8 +461,8 @@ iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토�
 33. ~~`1.0.5+36` 수선 종류 필터~~ — **`1.0.5` 판매 중**
 34. **`1.0.6+37` 치수 가이드 · 세부항목** — 네이티브 치수 가이드 · 세부부위 즉시 다음. iOS 37 심사 중
 35. ~~`1.0.6+38` Play 사진 권한~~ — `READ_MEDIA_*` 제거. **Play 프로덕션 게시**(2026-08-31, 대한민국)
-36. **`1.0.6+42` 수거신청 홈 버튼** — 웹처럼 뒤로가기 옆에 홈 유지. 41은 7월 빌드 번호가 이미 있어 42로 제출. **iOS 42 심사 대기** · Play 42 검토 대기. `app_versions`는 둘 다 `1.0.5`
-38. **수선 요청 메모** — 수거정보의 핀 메모·배송 요청과 별도. `orders.customer_memo`. 작업지시서·어드민 주문상세·입고/작업 요약에 표시. **웹 `modo.io.kr` 라이브**. 앱은 **오늘 하루 1회 빌드**에 포함 예정
+36. ~~**`1.0.6+42` 수거신청 홈 버튼**~~ — **iOS `1.0.6` 판매 중**. Play 38 게시 · 42는 검토였음
+38. **`1.0.7+43` 수선 요청 메모** — 수거정보의 핀 메모·배송 요청과 별도. `orders.customer_memo`. 작업지시서·어드민 주문상세·입고/작업 요약에 표시. **웹 `modo.io.kr` 라이브**. 앱은 오늘 하루 1회 스토어 빌드
 39. **출고송장 배송요청사항** — 고객 `orders.notes`를 그 주문 출고송장·우체국 `delivMsg`에 출력. 레이아웃 에디터에서 위치 저장. 어드민 `main` 배포
 37. ~~`1.0.6+40` 부위별 치수 · 연락처 분리~~ — `허리+힙` 2칸. 수거지/배송지 연락처 분리. 41에 흡수
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
@@ -587,7 +587,7 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 | 출고 송장 | 센터 → `orders.delivery_*` (체크 해제 시 따로 적은 배송지) |
 
 코드: 어드민 `lib/outbound-label-recipient.ts` · 웹 `lib/pickup-delivery-address.ts` · 앱 `lib/features/orders/domain/pickup_delivery_address.dart`  
-어드민·웹은 `main` 배포로 적용. 앱 연락처 분리는 **`1.0.6+42`** (iOS 심사 · Play AAB).
+어드민·웹은 `main` 배포로 적용. 앱 연락처 분리는 **`1.0.6` 판매 중**. 수선 요청 메모는 **`1.0.7+43`**.
 
 ```bash
 cd apps/admin && npx tsx lib/outbound-label-recipient.test.ts && npx tsx lib/shipping-label-print.test.ts && npx tsx lib/separate-delivery-flow.test.ts && npx tsx lib/delivery-request.test.ts && npx tsx lib/delivery-request-label.test.ts
@@ -663,10 +663,11 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-01 | `1.0.7+43` 스토어 | iOS `1.0.6` 판매 후 다음 버전. 수선 요청 메모 포함. iOS 43 심사 · Play 43 AAB |
 | 2026-09-01 | 웹 즉시 배포 | 수선 요청 메모는 `main` 푸시로 `modo-web` 바로 적용. 스토어 빌드와 별개 |
 | 2026-09-01 | 출고송장 배송요청사항 | 고객 `orders.notes`를 그 주문 출고송장(`delivery_request`)·우체국 `delivMsg`에 출력. 수선 메모와 분리. 레이아웃 에디터에서 위치 저장. 어드민 라이브 · Edge `shipments-create-outbound` 배포 |
-| 2026-09-01 | 스토어 빌드 규칙 | IPA/AAB는 **하루에 한 번만**. 웹은 바로 적용(`modo.io.kr` 라이브). 앱은 오늘 몇 시간 뒤 1회 |
-| 2026-09-01 | 수선 요청 메모 | 수거정보에 핀 메모·배송 요청과 별도 칸. `orders.customer_memo`. **웹 `modo.io.kr` 라이브**(컬럼·결제 Edge 포함). 앱은 오늘 하루 1회 빌드에 포함 |
+| 2026-09-01 | 스토어 빌드 규칙 | IPA/AAB는 **하루에 한 번만**. 웹은 바로 적용(`modo.io.kr` 라이브) |
+| 2026-09-01 | 수선 요청 메모 | 수거정보에 핀 메모·배송 요청과 별도 칸. `orders.customer_memo`. **웹 `modo.io.kr` 라이브**. 앱 `1.0.7+43` |
 | 2026-08-31 | 앱 버전 안내 | 어드민 `app_versions` iOS/Android 최신·최소를 **`1.0.5`**로 저장(강제 끔). 스토어 `1.0.6`이 양쪽 나온 뒤에만 올린다 |
 | 2026-08-31 | 수거신청 홈 버튼 | 앱 수거신청에도 웹처럼 뒤로가기 옆에 홈. 스토어 `1.0.6+42` |
 | 2026-08-31 | 출고송장 배송지 | 수거지≠배송지면 출고 예약·송장은 `orders.delivery_*`. 입고가 센터처럼 보인다고 수거지로 되돌리던 예외 제거. 어드민·웹 라이브(`787c296`). 앱 수거지 연락처 분리는 **`1.0.6+42`** |
