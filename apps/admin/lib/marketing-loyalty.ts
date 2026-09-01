@@ -173,9 +173,11 @@ export function attachLoyalty<T extends {
     startDate: range.startDate,
     endDate: range.endDate,
   });
+  const startDate = range.startDate;
+  const endDate = range.endDate;
   data.regions = buildRegionStats({
-    orders: range.startDate && range.endDate
-      ? orders.filter((order) => inKstRange(order.paid_at || order.created_at, range.startDate, range.endDate))
+    orders: startDate && endDate
+      ? orders.filter((order) => inKstRange(order.paid_at || order.created_at, startDate, endDate))
       : orders,
   });
   if (data.repeat.avgDaysToSecond) {
