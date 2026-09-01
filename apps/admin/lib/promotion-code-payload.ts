@@ -14,6 +14,20 @@ export type PromotionWritePayload = {
   is_active?: boolean;
 };
 
+export type PromotionInsertPayload = {
+  code: string;
+  discount_type: DiscountType;
+  discount_value: number;
+  max_uses: number | null;
+  max_uses_per_user: number;
+  min_order_amount: number;
+  max_discount_amount: number | null;
+  valid_from: string;
+  valid_until: string | null;
+  description: string | null;
+  is_active: boolean;
+};
+
 function asNumber(value: unknown): number | null {
   if (value === "" || value === null || value === undefined) return null;
   const n = Number(value);
@@ -32,7 +46,7 @@ function validateDiscount(type: DiscountType, value: number): string | null {
 
 export function buildPromotionInsert(
   body: Record<string, unknown>
-): PromotionWritePayload | { error: string } {
+): PromotionInsertPayload | { error: string } {
   const code = String(body.code ?? "").toUpperCase().trim();
   if (!code) return { error: "프로모션 코드는 필수입니다." };
 
