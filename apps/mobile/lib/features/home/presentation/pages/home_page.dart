@@ -314,6 +314,8 @@ class _HomePageState extends ConsumerState<HomePage>
             // 고객 리뷰 (주문 아래) — 두 영역이 붙지 않도록 여백
             const SizedBox(height: 24),
             const HomeReviewsPreview(),
+            // FAB이 콘텐츠를 가리지 않도록 스크롤 여백
+            const SizedBox(height: 72),
           ],
         ),
       ),
@@ -327,31 +329,41 @@ class _HomePageState extends ConsumerState<HomePage>
                   : snapshot.hasData && (snapshot.data?.isNotEmpty ?? false);
           final buttonText = hasOrders ? '수거신청 하기' : '첫 수거신청 하기';
 
-          return Material(
-            color: const Color(0xFF00C896),
-            elevation: 6,
-            shadowColor: const Color(0x4D00C896),
-            borderRadius: BorderRadius.circular(999),
-            child: InkWell(
-              onTap: () => _showPreparationDialog(context),
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFF00C896),
               borderRadius: BorderRadius.circular(999),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.add, color: Colors.white, size: 18),
-                    const SizedBox(width: 6),
-                    Text(
-                      buttonText,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x4D00C896),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: () => _showPreparationDialog(context),
+                borderRadius: BorderRadius.circular(999),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add, color: Colors.white, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        buttonText,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
