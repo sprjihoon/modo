@@ -8,7 +8,7 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { getResInfo, getTrackingInfo, getStatusFromEvents } from '../_shared/epost/index.ts';
+import { getResInfo, getTrackingInfo, getStatusFromEvents, mapDeliveryStatusToCode, pickHigherStatusCode } from '../_shared/epost/index.ts';
 import type { TrackingEvent, TrackingResponse } from '../_shared/epost/index.ts';
 
 Deno.serve(async (req) => {
@@ -75,7 +75,10 @@ Deno.serve(async (req) => {
 
       if (trackingInfo.success && trackingInfo.events.length > 0) {
         console.log('✅ 웹 스크래핑 성공:', trackingInfo.events.length, '건');
-        const statusCode = getStatusFromEvents(trackingInfo.events);
+        const statusCode = pickHigherStatusCode(
+          getStatusFromEvents(trackingInfo.events),
+          mapDeliveryStatusToCode(trackingInfo.deliveryStatus),
+        );
         epostStatus = {
           treatStusCd: statusCode,
           deliveryStatus: trackingInfo.deliveryStatus,
@@ -209,8 +212,9 @@ Deno.serve(async (req) => {
         }
       }
       
-      // 🚚 배송 송장 + 배송완료(05) = 배송 완료 (READY_TO_SHIP/OUT_FOR_DELIVERY → DELIVERED)
-      if (isDeliveryTracking && epostStatus?.treatStusCd === '05' && (currentOrderStatus === 'READY_TO_SHIP' || currentOrderStatus === 'OUT_FOR_DELIVERY')) {
+      // 🚚 배송 송장 + 배송완료(05) = 배송 완료 (출고완료/배송중 → DELIVERED)
+      const canMarkDelivered = ['READY_TO_SHIP', 'OUT_FOR_DELIVERY', 'IN_TRANSIT'].includes(currentOrderStatus);
+      if (isDeliveryTracking && epostStatus?.treatStusCd === '05' && canMarkDelivered) {
         console.log('📦 배송완료 감지! 상태를 DELIVERED로 업데이트합니다.');
         
         // shipments 테이블 업데이트

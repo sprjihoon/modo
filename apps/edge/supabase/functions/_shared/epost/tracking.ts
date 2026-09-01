@@ -46,6 +46,12 @@ const EPOST_HEADERS = {
  * @param trackingNo 등기번호 (13-15자리)
  */
 export async function getTrackingInfo(trackingNo: string): Promise<TrackingResponse> {
+  const publicResult = await getPublicTrackingInfo(trackingNo);
+  if (publicResult.success && publicResult.events.length > 0) {
+    console.log('✅ 공공데이터포털 종적조회로 이벤트 확보:', publicResult.events.length, '건');
+    return publicResult;
+  }
+
   const attempts = [
     // 시도 1: GET + displayHeader=N (원래 동작하던 방식)
     () => fetch(`${EPOST_TRACE_URL}?sid1=${encodeURIComponent(trackingNo)}&displayHeader=N`, {
@@ -198,7 +204,12 @@ export function mapDeliveryStatusToCode(deliveryStatus: string | undefined): str
   
   const statusLower = deliveryStatus.toLowerCase();
   
-  if (statusLower.includes('배달완료') || statusLower.includes('수령')) {
+  if (
+    statusLower.includes('배달완료') ||
+    statusLower.includes('배송완료') ||
+    statusLower.includes('전달완료') ||
+    statusLower.includes('수령완료')
+  ) {
     return '05'; // 배송완료
   }
   if (statusLower.includes('배달중') || statusLower.includes('배달준비')) {
@@ -323,7 +334,7 @@ export async function getPublicTrackingInfo(trackingNo: string): Promise<Trackin
  * 처리현황에서 상태 코드 추출
  *
  * 매핑 규칙:
- *   05 배송완료 ← "배달완료" / "수령"
+ *   05 배송완료 ← "배달완료" / "배송완료" / "전달완료" / "수령완료"
  *   04 배송중   ← "배달중" / "배달준비" / "도착" / "발송" / "출발" / "이동"
  *   03 집하완료 ← "집하" 키워드 (실제 물리적 집하 발생). 또는 일반소포의 "접수"
  *   02 운송장출력 ← "운송장" / "출력" / "수거준비" / "신청"
@@ -334,54 +345,72 @@ export async function getPublicTrackingInfo(trackingNo: string): Promise<Trackin
  *       반품소포에서 운송장만 출력된 상태에도 "집하완료"로 잘못 표시되었음.
  *       반품소포 여부는 events 안에 "수거" 또는 "반품" 키워드가 있는지로 판별한다.
  */
-export function getStatusFromEvents(events: TrackingEvent[]): string {
-  if (events.length === 0) return '00';
+const STATUS_RANK = ['00', '01', '02', '03', '04', '05'] as const;
 
-  const latestEvent = events[events.length - 1];
-  const latest = latestEvent.status;
+function codeRank(code: string): number {
+  const idx = STATUS_RANK.indexOf(code as (typeof STATUS_RANK)[number]);
+  return idx === -1 ? 0 : idx;
+}
 
-  // 05 배송완료
-  if (latest.includes('배달완료') || latest.includes('수령')) {
+function statusTextToCode(status: string, isPickupDirection: boolean): string {
+  // 05 배송완료 — "수령" 단독은 "수령인 부재"와 혼동되므로 쓰지 않음
+  if (
+    status.includes('배달완료') ||
+    status.includes('배송완료') ||
+    status.includes('전달완료') ||
+    status.includes('수령완료')
+  ) {
     return '05';
   }
 
-  // 04 배송중
   if (
-    latest.includes('배달중') ||
-    latest.includes('배달준비') ||
-    latest.includes('도착') ||
-    latest.includes('발송') ||
-    latest.includes('출발') ||
-    latest.includes('이동')
+    status.includes('배달중') ||
+    status.includes('배달준비') ||
+    status.includes('도착') ||
+    status.includes('발송') ||
+    status.includes('출발') ||
+    status.includes('이동')
   ) {
     return '04';
   }
 
-  // 03 집하완료 — 명시적 "집하" 키워드만 (실제 물리적 픽업)
-  if (latest.includes('집하')) {
+  if (status.includes('집하')) {
     return '03';
   }
 
-  // "접수": 일반소포는 우체국 입고(=집하완료) 의미, 반품소포(수거)는 신청 접수 처리이지 물리적 집하 아님.
-  // 이벤트 이력에 "수거" / "반품" 키워드가 있으면 반품소포로 판단.
-  const isPickupDirection = events.some(
-    (e) => e.status.includes('수거') || e.status.includes('반품')
-  );
-  if (latest.includes('접수')) {
+  if (status.includes('접수')) {
     return isPickupDirection ? '02' : '03';
   }
 
-  // 02 운송장출력 / 수거준비 / 신청 단계 (아직 물리적 집하 전)
   if (
-    latest.includes('운송장') ||
-    latest.includes('출력') ||
-    latest.includes('수거준비') ||
-    latest.includes('신청')
+    status.includes('운송장') ||
+    status.includes('출력') ||
+    status.includes('수거준비') ||
+    status.includes('신청')
   ) {
     return '02';
   }
 
-  // 알 수 없는 상태: 이벤트는 있으나 의미 불명 → 보수적으로 02 (집하 전)로 판단.
-  // (과거: '03' 으로 기본 설정해 잘못 "집하완료" 표시되던 버그 수정.)
   return '02';
+}
+
+export function getStatusFromEvents(events: TrackingEvent[]): string {
+  if (events.length === 0) return '00';
+
+  const isPickupDirection = events.some(
+    (e) => e.status.includes('수거') || e.status.includes('반품')
+  );
+
+  // 최신 행이 앞/뒤 어디에 있어도, 이력 중 가장 진행된 상태를 사용
+  return events.reduce((best, event) => {
+    const code = statusTextToCode(event.status, isPickupDirection);
+    return codeRank(code) > codeRank(best) ? code : best;
+  }, '00');
+}
+
+export function pickHigherStatusCode(...codes: Array<string | undefined | null>): string {
+  return codes.reduce<string>((best, code) => {
+    if (!code) return best;
+    return codeRank(code) > codeRank(best) ? code : best;
+  }, '00');
 }

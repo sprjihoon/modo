@@ -63,6 +63,7 @@ export {
   getPublicTrackingInfo,
   mapDeliveryStatusToCode,
   getStatusFromEvents,
+  pickHigherStatusCode,
 } from './tracking.ts';
 
 // Mock 함수들

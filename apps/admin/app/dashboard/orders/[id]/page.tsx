@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -128,6 +128,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
   const [showCancelItemsDialog, setShowCancelItemsDialog] = useState(false);
   const [selectedCancelItems, setSelectedCancelItems] = useState<Set<number>>(new Set());
   const [isCancellingItems, setIsCancellingItems] = useState(false);
+  const deliverySyncRef = useRef<string | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me").then(r => r.json()).then(d => {
@@ -140,8 +141,8 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
     loadOrder();
   }, [params.id]);
 
-  const loadOrder = async () => {
-    setIsLoadingOrder(true);
+  const loadOrder = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setIsLoadingOrder(true);
     try {
       const response = await fetch(`/api/orders/${params.id}`);
       if (response.ok) {
@@ -180,12 +181,26 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
 
           // Load extra charge requests
           loadExtraCharges();
+
+          const syncable = ["READY_TO_SHIP", "OUT_FOR_DELIVERY", "IN_TRANSIT"].includes(data.order.status);
+          const deliveryNo = data.order.shipment?.delivery_tracking_no;
+          if (syncable && deliveryNo && deliverySyncRef.current !== params.id) {
+            deliverySyncRef.current = params.id;
+            fetch(`/api/orders/${params.id}/sync-delivery`, { method: "POST" })
+              .then((r) => r.json())
+              .then((sync) => {
+                if (sync?.updated && sync.status === "DELIVERED") {
+                  loadOrder({ silent: true });
+                }
+              })
+              .catch((e) => console.warn("배송완료 자동 동기화 실패:", e));
+          }
         }
       }
     } catch (error) {
       console.error('주문 로드 실패:', error);
     } finally {
-      setIsLoadingOrder(false);
+      if (!opts?.silent) setIsLoadingOrder(false);
     }
   };
 

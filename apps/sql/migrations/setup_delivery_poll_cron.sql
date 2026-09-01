@@ -1,5 +1,5 @@
 -- 배송 자동 폴링 Cron Job 설정
--- OUT_FOR_DELIVERY 주문을 30분마다 자동 추적하여 DELIVERED로 업데이트
+-- READY_TO_SHIP / OUT_FOR_DELIVERY 주문을 30분마다 자동 추적하여 DELIVERED로 업데이트
 -- 
 -- 실행 전: Supabase 대시보드 > Database > Extensions에서 pg_cron, pg_net 활성화 필요
 
