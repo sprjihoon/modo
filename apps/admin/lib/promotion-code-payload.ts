@@ -91,7 +91,7 @@ export function buildPromotionInsert(
     valid_from,
     valid_until: body.valid_until ? new Date(String(body.valid_until)).toISOString() : null,
     description: body.description ? String(body.description).trim() || null : null,
-    is_active: body.is_active ?? true,
+    is_active: body.is_active !== false,
   };
 }
 
