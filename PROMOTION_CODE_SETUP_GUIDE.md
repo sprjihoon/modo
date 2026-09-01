@@ -181,7 +181,11 @@ VALUES
 
 ## 👨‍💼 관리자 페이지 사용법
 
-관리(`/dashboard/promotions`)와 쿠폰 성적표(`/dashboard/analytics/marketing/actions` 쿠폰 탭)는 **같은 `promotion_codes` 목록**입니다. 사용 건수·매출은 `used_count`나 이력 테이블만이 아니라 **결제된 주문의 `promotion_code_id`** 기준입니다. 생성·수정·삭제는 `/api/admin/promotions`(service role)를 탑니다.
+관리(`/dashboard/promotions`)와 쿠폰 성적표(`/dashboard/analytics/marketing/actions` 쿠폰 탭)는 **같은 `promotion_codes` 목록**입니다.
+
+- **한도:** 전체 선착순 횟수 + 사용자당 횟수. 둘 다 설정합니다.
+- **사용 N건:** 결제된 주문에 코드가 붙은 횟수입니다. 한도를 줄여도 이미 결제된 건수는 그대로입니다.
+- 생성·수정·삭제는 `/api/admin/promotions`(service role)를 탑니다.
 
 ### 프로모션 코드 생성
 
