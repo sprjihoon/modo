@@ -360,13 +360,6 @@ export default function CustomersPage() {
                                   : "-"}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              <span>
-                                마지막 접속{" "}
-                                {formatLastSeenAt(customer.last_seen_at) || "기록 없음"}
-                              </span>
-                            </div>
                           </div>
                         </div>
                       </div>
