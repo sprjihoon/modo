@@ -975,20 +975,6 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
         final newOrderId = freeRes['orderId'] as String;
         debugPrint('✅ 0원 주문 생성: $newOrderId');
 
-        if (_appliedPromotion != null) {
-          try {
-            await _promotionService.recordPromotionCodeUsage(
-              promotionCodeId: _appliedPromotion!['id'] as String,
-              orderId: newOrderId,
-              discountAmount: _appliedPromotion!['discount_amount'] as int,
-              originalAmount: _appliedPromotion!['original_amount'] as int,
-              finalAmount: _appliedPromotion!['final_amount'] as int,
-            );
-          } catch (e) {
-            debugPrint('⚠️ 프로모션 코드 사용 기록 실패 (무시): $e');
-          }
-        }
-
         CustomerEventService.trackPickupRequestComplete(orderId: newOrderId);
         if (mounted) {
           context.go('/orders/$newOrderId');

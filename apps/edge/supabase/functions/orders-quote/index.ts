@@ -9,6 +9,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveOrderSourceFromRequest } from '../_shared/order-source.ts'
 import { toQuoteRepairItem } from '../_shared/repair-parts.ts'
+import { evaluatePromotionCode, resolvePromoUsageCounts } from '../_shared/promotion-eval.ts'
 
 interface RepairPart { name?: string; price?: number; quantity?: number; detail?: string }
 interface InputItem {
@@ -187,37 +188,38 @@ serve(async (req) => {
           .maybeSingle()
         const promo = pr.data
         if (promo) {
-          const assignedUserId = (promo.assigned_user_id as string | null) || null
-          if (assignedUserId && assignedUserId !== internalUserId) {
-            console.warn('전용 프로모션 코드 소유자가 아님:', promo.code)
-          } else {
-          const maxUses = promo.max_uses as number | null
-          const maxPerUser = Number(promo.max_uses_per_user) || 1
-          const usedCount = Number(promo.used_count) || 0
-          const { data: promoOrders } = await admin
-            .from('orders')
-            .select('user_id, payment_status, paid_at')
-            .eq('promotion_code_id', promo.id)
-          const paid = (promoOrders || []).filter((order: { user_id?: string | null; payment_status?: string | null; paid_at?: string | null }) => {
-            const payment = String(order.payment_status || '').toUpperCase()
-            if (['FAILED', 'CANCELED', 'REFUNDED', 'PENDING'].includes(payment)) return false
-            return Boolean(order.paid_at) || ['PAID', 'PARTIAL_CANCELED', 'COMPLETED', 'DONE'].includes(payment)
+          const [{ data: promoOrders }, { data: usages }] = await Promise.all([
+            admin.from('orders').select('user_id, payment_status, paid_at').eq('promotion_code_id', promo.id),
+            admin.from('promotion_code_usages').select('user_id').eq('promotion_code_id', promo.id),
+          ])
+          const counts = resolvePromoUsageCounts({
+            usedCount: Number(promo.used_count) || 0,
+            paidOrders: promoOrders || [],
+            usageRows: usages || [],
+            currentUserId: internalUserId,
           })
-          const totalUses = Math.max(usedCount, paid.length)
-          const userUses = paid.filter((order: { user_id?: string | null }) => order.user_id === internalUserId).length
-          if (maxUses != null && totalUses >= maxUses) {
-            console.warn('프로모션 코드 선착순 마감:', promo.code)
-          } else if (userUses >= maxPerUser) {
-            console.warn('프로모션 코드 사용자당 한도 초과:', promo.code)
-          } else {
-            let calc = promo.discount_type === 'PERCENTAGE'
-              ? Math.round(repairItemsTotal * promo.discount_value / 100)
-              : promo.discount_value
-            if (promo.max_discount_amount != null) calc = Math.min(calc, promo.max_discount_amount)
-            calc = Math.min(calc, repairItemsTotal)
-            promotionDiscountAmount = calc
+          const evaluated = evaluatePromotionCode({
+            now: new Date(),
+            orderAmount: repairItemsTotal,
+            isActive: Boolean(promo.is_active),
+            validFrom: new Date(promo.valid_from as string),
+            validUntil: promo.valid_until ? new Date(promo.valid_until as string) : null,
+            minOrderAmount: Number(promo.min_order_amount) || 0,
+            maxUses: promo.max_uses as number | null,
+            usedCount: counts.totalUses,
+            maxUsesPerUser: Number(promo.max_uses_per_user) || 1,
+            userUsageCount: counts.userUses,
+            discountType: promo.discount_type as string,
+            discountValue: Number(promo.discount_value) || 0,
+            maxDiscountAmount: promo.max_discount_amount as number | null,
+            assignedUserId: (promo.assigned_user_id as string | null) || null,
+            currentUserId: internalUserId,
+          })
+          if (evaluated.ok) {
+            promotionDiscountAmount = evaluated.discountAmount
             verifiedPromotionCodeId = promo.id
-          }
+          } else {
+            console.warn('프로모션 코드 거절:', promo.code, evaluated.error)
           }
         }
       } catch (e) {

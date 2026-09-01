@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   MapPin, Calendar, MessageSquare, ChevronDown, CheckCircle,
-  Plus, Info, Truck, ShoppingCart,
+  Plus, Info, Truck, ShoppingCart, Ticket,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -414,6 +414,19 @@ export function PickupStep({ draft, onNext, onBack, onSaveToCart }: PickupStepPr
             </p>
           </div>
         </div>
+
+        <Link
+          href="/profile/coupons"
+          className="flex items-start gap-2 p-3 bg-gray-50 border border-gray-100 rounded-xl"
+        >
+          <Ticket className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-gray-700">쿠폰·프로모션 코드는 앱에서만 사용할 수 있어요</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              보유 쿠폰은 쿠폰함에서 확인할 수 있습니다.
+            </p>
+          </div>
+        </Link>
 
         {/* 수거 주소 */}
         <div>

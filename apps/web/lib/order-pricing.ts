@@ -3,10 +3,10 @@
 // - 권위적 가격 계산은 서버에서만 수행 (클라이언트 입력 신뢰 X)
 
 import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
 import { getRemoteAreaFee } from "@/lib/remote-area";
 import { getShippingSettings } from "@/lib/shipping-settings";
 import { toQuoteRepairItem } from "@/lib/repair-parts";
+// 쿠폰·프로모션 코드는 앱 주문에서만 적용한다. 웹 quote 는 입력해도 무시한다.
 
 export interface RepairPart {
   name: string;
@@ -217,62 +217,9 @@ export async function quoteOrder(
   );
   const remoteAreaFee = remoteAreaOneWay * 2;
 
-  // 프로모션 코드 할인 검증
-  let promotionDiscountAmount = 0;
-  let verifiedPromotionCodeId: string | null = null;
-  if (input.promotionCodeId) {
-    try {
-      const { data: promo } = await supabase
-        .from("promotion_codes")
-        .select("*")
-        .eq("id", input.promotionCodeId)
-        .eq("is_active", true)
-        .maybeSingle();
-        if (promo) {
-        const assignedUserId = (promo.assigned_user_id as string | null) || null;
-        if (assignedUserId && assignedUserId !== user.internalUserId) {
-          console.warn("전용 프로모션 코드 소유자가 아님:", promo.code);
-        } else {
-        const maxUses = promo.max_uses as number | null;
-        const maxPerUser = Number(promo.max_uses_per_user) || 1;
-        const usedCount = Number(promo.used_count) || 0;
-        let totalUses = usedCount;
-        let userUses = 0;
-        try {
-          const svc = createServiceClient();
-          const { data: promoOrders } = await svc
-            .from("orders")
-            .select("user_id, payment_status, paid_at")
-            .eq("promotion_code_id", promo.id);
-          const paid = (promoOrders || []).filter((order) => {
-            const payment = String(order.payment_status || "").toUpperCase();
-            if (["FAILED", "CANCELED", "REFUNDED", "PENDING"].includes(payment)) return false;
-            return Boolean(order.paid_at) || ["PAID", "PARTIAL_CANCELED", "COMPLETED", "DONE"].includes(payment);
-          });
-          totalUses = Math.max(usedCount, paid.length);
-          userUses = paid.filter((order) => order.user_id === user.internalUserId).length;
-        } catch (e) {
-          console.warn("프로모션 사용 횟수 조회 실패:", e);
-        }
-        if (maxUses != null && totalUses >= maxUses) {
-          console.warn("프로모션 코드 선착순 마감:", promo.code);
-        } else if (userUses >= maxPerUser) {
-          console.warn("프로모션 코드 사용자당 한도 초과:", promo.code);
-        } else {
-          let calc = promo.discount_type === "PERCENTAGE"
-            ? Math.round(repairItemsTotal * promo.discount_value / 100)
-            : promo.discount_value;
-          if (promo.max_discount_amount != null) calc = Math.min(calc, promo.max_discount_amount);
-          calc = Math.min(calc, repairItemsTotal);
-          promotionDiscountAmount = calc;
-          verifiedPromotionCodeId = promo.id;
-        }
-        }
-      }
-    } catch (e) {
-      console.warn("프로모션 코드 검증 실패:", e);
-    }
-  }
+  // 웹에서는 쿠폰·프로모션 코드를 적용하지 않는다. (앱 전용)
+  const promotionDiscountAmount = 0;
+  const verifiedPromotionCodeId: string | null = null;
 
   const repairFinalPrice = repairItemsTotal - promotionDiscountAmount;
   const totalPrice = repairFinalPrice + shippingFee + remoteAreaFee;

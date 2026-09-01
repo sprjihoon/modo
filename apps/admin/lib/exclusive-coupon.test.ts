@@ -126,4 +126,29 @@ const badDays = validateInviteMilestoneBody({
 });
 assert("error" in badDays, "발급 후 0일은 거절");
 
+assert(
+  missionConditionsMet({
+    inviteCount: 0,
+    paidOrders: 1,
+    photoReviews: 0,
+    alreadyIssued: false,
+    minInvite: 0,
+    minPaidOrders: 1,
+    minPhotoReviews: 0,
+  }),
+  "수선만 조건이어도 발급"
+);
+assert(
+  !missionConditionsMet({
+    inviteCount: 9,
+    paidOrders: 1,
+    photoReviews: 1,
+    alreadyIssued: false,
+    minInvite: 10,
+    minPaidOrders: 1,
+    minPhotoReviews: 1,
+  }),
+  "초대 미달이면 AND 실패"
+);
+
 console.log("exclusive-coupon.test.ts ok");

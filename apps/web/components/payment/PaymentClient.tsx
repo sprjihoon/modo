@@ -530,11 +530,10 @@ export function PaymentClient() {
               보유 {pointBalance.toLocaleString("ko-KR")}P
             </p>
           </div>
-          {(p.promotionDiscountAmount ?? 0) > 0 || p.promotionCodeId ? (
-            <p className="text-xs text-gray-500">
-              쿠폰과 포인트는 함께 사용할 수 없습니다. 포인트를 쓰려면 쿠폰을 빼 주세요.
-            </p>
-          ) : pointBalance < MIN_POINTS_USE ? (
+          <p className="text-xs text-gray-400 mb-2">
+            쿠폰·프로모션 코드는 앱에서만 사용할 수 있어요.
+          </p>
+          {pointBalance < MIN_POINTS_USE ? (
             <p className="text-xs text-gray-400">
               {MIN_POINTS_USE.toLocaleString("ko-KR")}P 이상 모이면 결제 시 사용할 수 있습니다.
             </p>

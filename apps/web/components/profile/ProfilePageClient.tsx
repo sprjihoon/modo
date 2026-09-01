@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   User, MapPin, Receipt, Gift, Megaphone,
   HeadphonesIcon, Settings, LogOut, ChevronRight,
-  Coins, Star,
+  Coins, Star, Ticket,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/utils";
@@ -148,16 +148,24 @@ export function ProfilePageClient() {
               </p>
               <p className="text-sm text-gray-400 mt-0.5">{profile?.email}</p>
             </div>
-            {/* 포인트 */}
-            <Link
-              href="/profile/points"
-              className="flex items-center gap-1.5 bg-[#00C896]/10 px-3 py-2 rounded-xl active:opacity-80"
-            >
-              <Coins className="w-4 h-4 text-[#00C896]" />
-              <span className="text-sm font-bold text-[#00C896]">
-                {formatPrice(profile?.point_balance ?? 0)}
-              </span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/profile/coupons"
+                className="flex items-center gap-1.5 bg-[#00C896]/10 px-3 py-2 rounded-xl active:opacity-80"
+              >
+                <Ticket className="w-4 h-4 text-[#00C896]" />
+                <span className="text-sm font-bold text-[#00C896]">쿠폰</span>
+              </Link>
+              <Link
+                href="/profile/points"
+                className="flex items-center gap-1.5 bg-[#00C896]/10 px-3 py-2 rounded-xl active:opacity-80"
+              >
+                <Coins className="w-4 h-4 text-[#00C896]" />
+                <span className="text-sm font-bold text-[#00C896]">
+                  {formatPrice(profile?.point_balance ?? 0)}
+                </span>
+              </Link>
+            </div>
           </div>
         )}
       </div>
@@ -183,6 +191,12 @@ export function ProfilePageClient() {
           icon={<Coins className="w-5 h-5" />}
           title="포인트 내역"
           href="/profile/points"
+        />
+        <MenuItem
+          icon={<Ticket className="w-5 h-5" />}
+          title="쿠폰함"
+          subtitle="앱에서만 사용 가능"
+          href="/profile/coupons"
         />
         <MenuItem
           icon={<Star className="w-5 h-5" />}

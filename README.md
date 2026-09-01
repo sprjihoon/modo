@@ -281,12 +281,12 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ## 전용 쿠폰 · 조합 미션
 
-공개 프로모션 코드(`TEST2026` 같은 누구나 입력)와 별도로, **고객 1명에게만 묶인 전용 쿠폰**이 있다. 쿠폰함은 **앱 마이페이지**만. 웹 고객 화면에는 없다.
+공개 프로모션 코드(`TEST2026` 같은 누구나 입력)와 별도로, **고객 1명에게만 묶인 전용 쿠폰**이 있다. 쿠폰함은 **웹 `/profile/coupons`와 앱 마이페이지**에서 확인한다. **주문에 적용하는 것은 앱만.** 웹 수거·결제는 코드·내 쿠폰을 받지 않는다.
 
 | 종류 | 누가 받나 | 어디서 |
 |---|---|---|
-| 공개 코드 | 코드를 아는 누구나 | 수거신청 코드 입력 |
-| CS 전용 | 어드민이 고객 상세에서 발급 | 앱 쿠폰함 · 수거신청 「내 쿠폰 선택」 |
+| 공개 코드 | 코드를 아는 누구나 | **앱** 수거신청 코드 입력 |
+| CS 전용 | 어드민이 고객 상세에서 발급 | 웹/앱 쿠폰함 확인 · **앱** 수거신청 「내 쿠폰 선택」 |
 | 미션 전용 | 초대·결제 수선·포토리뷰 AND 조건을 처음 모두 채운 사람 | 위와 같음. 미션마다 1장 |
 
 ### 규칙
@@ -294,7 +294,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 - 미션은 여러 개를 동시에 둘 수 있다. 조건 숫자 0이면 그 항목은 보지 않는다. 예: 초대 10 · 수선 1 · 포토리뷰 1.
 - 미션 쿠폰 사용기한은 **발급 후 N일**. 조건을 채운 날부터 센다. 달력 고정 날짜가 아니다.
 - CS 발급은 사용기한 날짜를 직접 고를 수 있다.
-- **공개 코드 · 내 쿠폰 · 포인트는 한 주문에 하나만.** 쿠폰이 있으면 포인트 칸을 막고, `apply_points_to_payment_intent`도 `COUPON_APPLIED`로 거절한다.
+- **공개 코드 · 내 쿠폰 · 포인트는 한 주문에 하나만.** 쿠폰이 있으면 포인트 칸을 막고, `apply_points_to_payment_intent`도 `COUPON_APPLIED`로 거절한다. 웹 주문은 쿠폰 없이 포인트만 쓸 수 있다.
 
 ### 어드민
 
@@ -307,18 +307,19 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 - `promotion_codes.assigned_user_id` · `source`(`public` \| `cs` \| `invite_milestone`) · `milestone_id`
 - `invite_coupon_milestones` (`threshold`, `min_paid_orders`, `min_photo_reviews`, `valid_days`)
 - RPC: `issue_exclusive_promotion_code`, `try_issue_invite_milestone_coupons`, `coupon_mission_progress`
-- 마이그레이션: `20260901030000` ~ `20260901070000` (전용 쿠폰 · 포인트 중복 불가 · 조합 미션 · 발급 후 일수)
+- 마이그레이션: `20260901030000` ~ `20260901080000` (전용 쿠폰 · 포인트 중복 불가 · 조합 미션 · 발급 후 일수 · 사용 횟수 가드)
 
-### 검증 (2026-09-01)
+### 검증 (2026-09-02)
 
 - `apps/admin/lib/exclusive-coupon.test.ts` — 소유권, 조합 조건 AND, 미션은 발급 후 일수
 - `apps/mobile/test/promotion_rules_test.dart` — 17건 (한도 · 전용 코드 본인만 · 쿠폰/포인트 중복 불가)
+- `apps/web/lib/promotion-eval.test.ts` — 견적 규칙 · 쿠폰함 상태. 웹 견적은 쿠폰을 적용하지 않음
 
 ---
 
 ## 고객 리뷰
 
-배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.6` 판매 중 · 수선 요청 메모·수거신청 버튼 투명은 `1.0.7+44`.
+배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.6` 판매 중 · 수선 요청 메모·쿠폰 앱 전용 적용은 `1.0.7+45`.
 
 | 항목 | 내용 |
 |---|---|
@@ -358,25 +359,25 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.7+44`. iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 44 `WAITING_FOR_REVIEW`**(43 심사 취소 후 교체). Play는 **38 게시** · **44 AAB 백업**(`Documents/modo-android-signing/app-release-1.0.7+44.aab`, Play Console에 직접 업로드). 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `main`의 `1.0.7+45`. iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 45 제출**(44 심사 취소 후 교체). Play는 **38 게시** · **45 AAB 백업**(`Documents/modo-android-signing/app-release-1.0.7+45.aab`, Play Console에 직접 업로드). 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 `apps/mobile/README.md`에도 같다.
 
 **스토어 빌드 규칙:** IPA/AAB는 너무 자주 올리지 않는다. **하루에 한 번만** 한다. 웹·어드민은 `main` push 시 Vercel 자동 배포라 이 제한과 무관하다.
 
-**오늘(2026-09-01):** 스토어 빌드 `1.0.7+44` 재제출 완료. 43 심사 취소 · 44 `WAITING_FOR_REVIEW`. 홈 수거신청 버튼 뒤 흰 배경 제거 + 수선 요청 메모. 웹은 이미 `modo.io.kr` 라이브.
+**오늘(2026-09-02):** 스토어 빌드 `1.0.7+45`. 웹 쿠폰함 확인 + 쿠폰·프로모는 앱 주문에서만 적용. 44 심사를 45로 교체.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.7+44`**. iOS 심사 44 · Play 44 업로드 (수거신청 버튼 투명 · 수선 요청 메모) |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.7+45`**. iOS 심사 45 · Play 45 업로드 (웹 쿠폰함 확인 · 쿠폰은 앱에서만 적용) |
 | App Store Connect App ID | `6759492888` |
-| iOS 스토어 | **판매 중 `1.0.6`**. **`1.0.7` 빌드 44 `WAITING_FOR_REVIEW`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| iOS 스토어 | **판매 중 `1.0.6`**. **`1.0.7` 빌드 45 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **프로덕션 게시** `1.0.6 (38)` · **44 AAB 백업·콘솔 업로드** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | **프로덕션 게시** `1.0.6 (38)` · **45 AAB 백업·콘솔 업로드** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `1.0.7+44` · 백업 `Documents/modo-android-signing/app-release-1.0.7+44.aab` |
+| Android AAB | `1.0.7+45` · 백업 `Documents/modo-android-signing/app-release-1.0.7+45.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -390,7 +391,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **`1.0.6`**. **`1.0.7` 빌드 44 `WAITING_FOR_REVIEW`** |
+| App Store 현재 빌드 | 판매 중 **`1.0.6`**. **`1.0.7` 빌드 45 제출** |
 | 웹 배포 | `main` push 즉시 `modo-web` (modo.io.kr). 수선 요청 메모 **라이브**. 스토어 빌드와 무관 |
 | 앱 업데이트 안내 | `app_versions`. 지금 최신·최소는 iOS/Android 모두 **`1.0.5`** (강제 업데이트 끔). iOS·Play 모두 `1.0.6` 판매 중이라 최신은 **`1.0.6`까지** 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
@@ -502,6 +503,7 @@ iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토�
 36. ~~**`1.0.6+42` 수거신청 홈 버튼**~~ — **iOS `1.0.6` 판매 중**. Play 38 게시 · 42는 검토였음
 38. **`1.0.7+43` 수선 요청 메모** — 수거정보의 핀 메모·배송 요청과 별도. `orders.customer_memo`. 작업지시서·어드민 주문상세·입고/작업 요약에 표시. **웹 `modo.io.kr` 라이브**. 앱은 오늘 하루 1회 스토어 빌드
 43. **`1.0.7+44` 홈 수거신청 버튼 투명** — 푸터 위 가운데 캡슐은 유지. 뒤 흰 띠를 없애고 콘텐츠 위에 겹침. 시뮬 확인. 43 심사 교체
+44. **`1.0.7+45` 웹 쿠폰함 · 앱 전용 적용** — 웹에서 쿠폰 확인. 웹 주문은 쿠폰·프로모 없음. 적용은 앱만. 44 심사 교체
 39. **출고송장 배송요청사항** — 고객 `orders.notes`를 그 주문 출고송장·우체국 `delivMsg`에 출력. 레이아웃 에디터에서 위치 저장. 어드민 `main` 배포
 40. **배송완료 자동 반영** — 우체국 배달완료면 `DELIVERED`. 폴링은 월~토 9·11·13·15·17시. 일·공휴일 제외. 어드민 주문 상세를 열어도 동기화. 어드민·Edge 라이브
 41. **마케팅 인사이트** — 어드민 **분석 → 마케팅 인사이트**. 결제·가입·접속이 몰리는 요일·시간, 히트맵, 푸시 타이밍, 인기 의류/수선, 앱/웹 유입. 고객 목록·상세에 **마지막 접속**. 고객 행동 분석 시간 탭에 요일별 접속
@@ -629,7 +631,7 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 | 출고 송장 | 센터 → `orders.delivery_*` (체크 해제 시 따로 적은 배송지) |
 
 코드: 어드민 `lib/outbound-label-recipient.ts` · 웹 `lib/pickup-delivery-address.ts` · 앱 `lib/features/orders/domain/pickup_delivery_address.dart`  
-어드민·웹은 `main` 배포로 적용. 앱 연락처 분리는 **`1.0.6` 판매 중**. 수선 요청 메모·수거신청 버튼 투명은 **`1.0.7+44`**.
+어드민·웹은 `main` 배포로 적용. 앱 연락처 분리는 **`1.0.6` 판매 중**. 수선 요청 메모·쿠폰 앱 전용 적용은 **`1.0.7+45`**.
 
 ### 배송완료 자동 반영
 
@@ -762,6 +764,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-02 | 웹 쿠폰함 · 앱 전용 적용 | 웹 `/profile/coupons`에서 보유 쿠폰 확인. 웹 견적·결제는 쿠폰·프로모 무시. 적용은 앱 주문만. 스토어 `1.0.7+45` |
 | 2026-09-01 | 전용 쿠폰·조합 미션 | CS/미션 전용 코드(`assigned_user_id`). 앱 쿠폰함·수거신청 선택. 초대·수선·포토리뷰 AND 미션을 여러 개. 미션 기한은 발급 후 N일. 공개코드·내쿠폰·포인트는 한 주문에 하나만. SQL 라이브. 어드민·웹 `main` 배포. 앱은 다음 스토어 빌드 |
 | 2026-09-01 | 프로모션 한도·사용 | 관리 목록 `10/1`은 한도가 아니라 사용 10건/한도 1회가 붙은 것. 한도(전체 선착순·사용자당)와 사용(결제 건수)을 칸으로 분리. 사용 N = 결제된 주문에 코드가 붙은 횟수. 어드민·웹 라이브 |
 | 2026-09-01 | `1.0.7+44` 재제출 | 43 심사 취소. iOS 44 `WAITING_FOR_REVIEW`. Play AAB 백업 `app-release-1.0.7+44.aab` |

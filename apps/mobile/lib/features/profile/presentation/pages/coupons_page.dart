@@ -75,6 +75,21 @@ class _CouponsPageState extends State<CouponsPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00C896).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF00C896).withValues(alpha: 0.2),
+                ),
+              ),
+              child: const Text(
+                '쿠폰은 앱에서 주문할 때 사용할 수 있어요. 웹 주문에는 적용되지 않습니다.',
+                style: TextStyle(fontSize: 13, height: 1.4),
+              ),
+            ),
+            const SizedBox(height: 16),
             Text(
               '사용 가능 ${usable.length}장',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
