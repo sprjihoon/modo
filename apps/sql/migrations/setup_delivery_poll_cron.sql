@@ -1,5 +1,5 @@
 -- 배송 자동 폴링 Cron Job 설정
--- READY_TO_SHIP / OUT_FOR_DELIVERY 주문을 30분마다 자동 추적하여 DELIVERED로 업데이트
+-- READY_TO_SHIP / OUT_FOR_DELIVERY 주문을 2시간마다 자동 추적하여 DELIVERED로 업데이트
 -- 
 -- 실행 전: Supabase 대시보드 > Database > Extensions에서 pg_cron, pg_net 활성화 필요
 
@@ -11,11 +11,12 @@ BEGIN
   END IF;
 END $$;
 
--- KST 8시~20시(UTC 23시 + UTC 0~11시)에만 30분마다 폴링 — 국내 배송 운영 시간대
--- UTC 23 = KST 8시, UTC 0~11 = KST 9~20시
+-- KST 09:00, 11:00, 13:00, 15:00, 17:00 (18시 이후 없음)
+-- 월~토만 (0=일 제외). 공휴일은 Edge Function에서 skip
+-- UTC 00, 02, 04, 06, 08 / dow 1-6
 SELECT cron.schedule(
   'poll-delivery-tracking',
-  '0,30 0-11,23 * * *',
+  '0 0,2,4,6,8 * * 1-6',
   $$
   SELECT net.http_post(
     url := 'https://rzrwediccbamxluegnex.supabase.co/functions/v1/poll-delivery-tracking',

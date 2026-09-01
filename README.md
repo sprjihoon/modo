@@ -464,7 +464,7 @@ iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토�
 36. ~~**`1.0.6+42` 수거신청 홈 버튼**~~ — **iOS `1.0.6` 판매 중**. Play 38 게시 · 42는 검토였음
 38. **`1.0.7+43` 수선 요청 메모** — 수거정보의 핀 메모·배송 요청과 별도. `orders.customer_memo`. 작업지시서·어드민 주문상세·입고/작업 요약에 표시. **웹 `modo.io.kr` 라이브**. 앱은 오늘 하루 1회 스토어 빌드
 39. **출고송장 배송요청사항** — 고객 `orders.notes`를 그 주문 출고송장·우체국 `delivMsg`에 출력. 레이아웃 에디터에서 위치 저장. 어드민 `main` 배포
-40. **배송완료 자동 반영** — 우체국 배달완료면 `DELIVERED`. 폴링은 출고완료·배송중. 어드민 주문 상세를 열어도 동기화. 어드민·Edge 라이브
+40. **배송완료 자동 반영** — 우체국 배달완료면 `DELIVERED`. 폴링은 월~토 9·11·13·15·17시. 일·공휴일 제외. 어드민 주문 상세를 열어도 동기화. 어드민·Edge 라이브
 37. ~~`1.0.6+40` 부위별 치수 · 연락처 분리~~ — `허리+힙` 2칸. 수거지/배송지 연락처 분리. 41에 흡수
 23. 비공개 테스트 테스터 opt-in · 실기기 **SNS 가입/로그인**(네이버 포함)·주문·**라이브 결제** 스모크 · **iOS Apple 로그인 실기기 확인**
 24. ~~Play 프로덕션 액세스~~ — **게시됨** (2026-08-31). `/download` Play URL 연결
@@ -596,7 +596,7 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 
 | 경로 | 동작 |
 |---|---|
-| 폴링 | `poll-delivery-tracking` — KST 08:00~20:30 매 30분. `READY_TO_SHIP` / `OUT_FOR_DELIVERY` / `IN_TRANSIT` + `delivery_tracking_no` |
+| 폴링 | `poll-delivery-tracking` — KST 09·11·13·15·17시, **월~토**. 일요일·공휴일·18시 이후 없음. `READY_TO_SHIP` / `OUT_FOR_DELIVERY` / `IN_TRANSIT` + `delivery_tracking_no` |
 | 어드민 주문 상세 | 위 상태면 `POST /api/orders/[id]/sync-delivery` → `shipments-track` |
 | 고객 배송추적 | 기존처럼 `shipments-track` 조회 시 동일 전환 |
 | 판별 | 이력 전체에서 `배달완료`·`배송완료`·`전달완료`·`수령완료`. 공공데이터포털 종적조회 우선, 실패 시 웹 스크래핑 |
@@ -677,6 +677,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-01 | 배송완료 폴링 간격 | 30분 → **KST 09·11·13·15·17시**(2시간). 월~토만. 일요일·공휴일·18시 이후 중지. 주문 상세를 열면 그때도 동기화 |
 | 2026-09-01 | 배송완료 자동 반영 | 우체국 배달완료인데 어드민이 출고완료에 남던 문제. 폴링이 `OUT_FOR_DELIVERY`만 봐서 발송 처리를 안 한 건은 조회 안 됨. 이제 `READY_TO_SHIP`도 추적. 주문 상세 열면 `sync-delivery`로 즉시 반영. Edge `poll-delivery-tracking`·`shipments-track` · 어드민 라이브 |
 | 2026-09-01 | `1.0.7+43` 스토어 | iOS `1.0.6` 판매 후 다음 버전. 수선 요청 메모 포함. iOS 43 심사 · Play 43 AAB |
 | 2026-09-01 | 웹 즉시 배포 | 수선 요청 메모는 `main` 푸시로 `modo-web` 바로 적용. 스토어 빌드와 별개 |
