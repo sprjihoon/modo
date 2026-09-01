@@ -426,7 +426,7 @@ export function PaymentClient() {
   return (
     <>
       {/* 본문 — 하단 고정 영역 높이만큼 여백 */}
-      <div className="pb-36">
+      <div className="pb-28">
         <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <Scissors className="w-4 h-4 text-[#00C896]" />
@@ -644,10 +644,14 @@ export function PaymentClient() {
             </div>
           </div>
         )}
+
+        <div className="mt-4">
+          <CompanyFooter />
+        </div>
       </div>
 
-      {/* 결제 버튼 — 푸터 위에 별도 고정 */}
-      <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full max-w-[600px] z-30 px-5 py-2">
+      {/* 결제 버튼 — 앱과 같이 본문 아래가 아니라 화면 하단에만 고정 */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] z-30 px-5 py-3 bg-gradient-to-t from-white via-white to-transparent">
         <button
           onClick={handlePayment}
           disabled={isRequesting || testRequesting !== null}
@@ -659,11 +663,6 @@ export function PaymentClient() {
               ? "포인트로 결제 완료하기"
               : `${formatPrice(intent.total_price)} 결제하기`}
         </button>
-      </div>
-
-      {/* 푸터 — 최하단 고정 */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] z-20 bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
-        <CompanyFooter variant="payment" />
       </div>
 
       {showExitDialog && (

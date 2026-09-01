@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
+import '../../domain/measurement_input.dart';
 import '../../domain/models/image_pin.dart';
 import '../../providers/repair_items_provider.dart';
 import '../../providers/cart_provider.dart';
@@ -65,7 +67,9 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
   void _editRepairItem(int index, Map<String, dynamic> item) async {
     // 수치 수정 다이얼로그
     final measurement = item['measurement'] as String;
-    final controller = TextEditingController(text: measurement.replaceAll('cm', '').trim());
+    final controller = TextEditingController(
+      text: sanitizeMeasurementInput(measurement.replaceAll('cm', '')),
+    );
     
     final result = await showDialog<String>(
       context: context,
@@ -86,6 +90,18 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ],
+              onChanged: (v) {
+                final digits = sanitizeMeasurementInput(v);
+                if (digits != v) {
+                  controller.value = TextEditingValue(
+                    text: digits,
+                    selection: TextSelection.collapsed(offset: digits.length),
+                  );
+                }
+              },
               decoration: InputDecoration(
                 labelText: '새로운 치수 (cm)',
                 border: OutlineInputBorder(
@@ -112,12 +128,13 @@ class _RepairConfirmationPageState extends ConsumerState<RepairConfirmationPage>
       ),
     );
     
-    if (result != null && result.isNotEmpty && mounted) {
+    final digits = result == null ? '' : sanitizeMeasurementInput(result);
+    if (digits.isNotEmpty && mounted) {
       // 항목 업데이트
       final updatedItems = List<Map<String, dynamic>>.from(widget.repairItems);
       updatedItems[index] = {
         ...item,
-        'measurement': '${result}cm',
+        'measurement': '${digits}cm',
       };
       
       ref.read(repairItemsProvider.notifier).setItems(updatedItems);

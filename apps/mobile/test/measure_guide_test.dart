@@ -256,6 +256,32 @@ void main() {
     });
   });
 
+  group('MeasurementStep digits-only', () {
+    testWidgets('rejects signs and decimal points', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MeasurementStep(
+              config: const MeasurementStepConfig(
+                itemName: '소매기장 줄임',
+                labels: ['줄일 길이 (cm)'],
+              ),
+              onConfirm: (_) {},
+              onBack: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), '-12.5e+3');
+      await tester.pump();
+
+      expect(find.text('1253'), findsOneWidget);
+      expect(find.text('-12.5e+3'), findsNothing);
+    });
+  });
+
   group('MeasurementStep layout', () {
     testWidgets('이전/확인 appear above 치수 재는 방법', (tester) async {
       await tester.pumpWidget(

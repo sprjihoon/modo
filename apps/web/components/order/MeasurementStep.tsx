@@ -5,6 +5,7 @@ import { InlineSvg } from "@/components/ui/inline-svg";
 import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion";
 import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
+import { sanitizeMeasurementInput } from "@/lib/measurement-input";
 
 export interface MeasurementGroup {
   key: string;
@@ -104,13 +105,15 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
                     {label}
                   </label>
                   <input
-                    type="number"
-                    inputMode="decimal"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
                     placeholder="예: 30"
                     value={values[idx] || ""}
                     onChange={(e) => {
                       const next = [...values];
-                      next[idx] = e.target.value;
+                      next[idx] = sanitizeMeasurementInput(e.target.value);
                       setValues(next);
                     }}
                     className="w-full px-4 py-3.5 border-2 border-gray-100 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"
@@ -141,7 +144,7 @@ export function MeasurementStep({ config, onConfirm, onBack }: MeasurementStepPr
             이전
           </button>
           <button
-            onClick={() => onConfirm(values)}
+            onClick={() => onConfirm(values.map(sanitizeMeasurementInput))}
             disabled={!hasAnyValue}
             className="touch-target flex-[2] py-3.5 rounded-xl bg-[#00C896] text-white text-sm font-bold disabled:opacity-40 transition-opacity"
           >

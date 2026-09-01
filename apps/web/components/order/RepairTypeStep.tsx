@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { MeasureGuideAccordion } from "@/components/guide/MeasureGuideAccordion";
 import { MeasureGuideSideWidget } from "@/components/guide/MeasureGuideSideWidget";
 import { resolveMeasureGuideId } from "@/lib/measure-guide";
+import { sanitizeMeasurementInput } from "@/lib/measurement-input";
 import {
   buildMeasureFieldGroups,
   canConfirmSubParts,
@@ -423,6 +424,7 @@ export function RepairTypeStep({
 
   function confirmMeasurement(values: string[]) {
     if (!measureView) return;
+    values = values.map(sanitizeMeasurementInput);
     const { repairType, chosenParts, overridePrice } = measureView;
     const groups = buildMeasureFieldGroups({
       fallbackLabels: getInputLabels(repairType),
@@ -801,13 +803,15 @@ export function RepairTypeStep({
                       {label}
                     </label>
                     <input
-                      type="number"
-                      inputMode="decimal"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="off"
                       placeholder="예: 30"
                       value={measureValues[idx] || ""}
                       onChange={(e) => {
                         const next = [...measureValues];
-                        next[idx] = e.target.value;
+                        next[idx] = sanitizeMeasurementInput(e.target.value);
                         setMeasureValues(next);
                       }}
                       className="w-full px-4 py-3.5 border-2 border-gray-100 rounded-xl text-base outline-none focus:border-[#00C896] transition-colors"

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/measure_guide.dart';
+import '../../domain/measurement_input.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
 import 'measure_guide_accordion.dart';
 
@@ -69,8 +70,9 @@ class _MeasurementStepState extends State<MeasurementStep> {
   bool get _hasAnyValue =>
       _controllers.any((c) => c.text.trim().isNotEmpty);
 
-  List<String> get _values =>
-      _controllers.map((c) => c.text.trim()).toList();
+  List<String> get _values => _controllers
+      .map((c) => sanitizeMeasurementInput(c.text.trim()))
+      .toList();
 
   String get _displayName {
     final sub = widget.config.subType;
@@ -256,14 +258,22 @@ class _MeasurementStepState extends State<MeasurementStep> {
                       const SizedBox(height: 6),
                       TextField(
                         controller: _controllers[index],
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
+                        keyboardType: TextInputType.number,
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[0-9.]'),
-                          ),
+                          FilteringTextInputFormatter.digitsOnly,
                         ],
+                        onChanged: (v) {
+                          final digits = sanitizeMeasurementInput(v);
+                          if (digits != v) {
+                            _controllers[index].value = TextEditingValue(
+                              text: digits,
+                              selection: TextSelection.collapsed(
+                                offset: digits.length,
+                              ),
+                            );
+                          }
+                          setState(() {});
+                        },
                         decoration: InputDecoration(
                           hintText: '예: 30',
                           hintStyle: TextStyle(color: Colors.grey.shade400),
@@ -293,7 +303,6 @@ class _MeasurementStepState extends State<MeasurementStep> {
                             ),
                           ),
                         ),
-                        onChanged: (_) => setState(() {}),
                       ),
                     ],
                   ),

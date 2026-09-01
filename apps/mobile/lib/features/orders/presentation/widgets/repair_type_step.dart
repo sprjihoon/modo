@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/measure_guide.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
 import '../../../../services/repair_service.dart';
+import '../../domain/measurement_input.dart';
 import '../../domain/models/order_draft.dart' as models;
 import 'measure_guide_accordion.dart';
 import 'sub_category_step.dart' as sub_cat;
@@ -975,7 +977,10 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
           Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           TextField(
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+            ],
             decoration: InputDecoration(
               hintText: '예: 30',
               hintStyle: TextStyle(color: Colors.grey.shade400),
@@ -993,7 +998,9 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                 borderSide: const BorderSide(color: _brandColor, width: 2),
               ),
             ),
-            onChanged: (v) => setState(() { _measureValues[index] = v; }),
+            onChanged: (v) => setState(() {
+              _measureValues[index] = sanitizeMeasurementInput(v);
+            }),
           ),
         ],
       ),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
+import '../../domain/measurement_input.dart';
 import '../../providers/repair_items_provider.dart';
 
 final supabase = Supabase.instance.client;
@@ -947,13 +948,19 @@ class _RepairDetailInputPageState extends ConsumerState<RepairDetailInputPage> {
         ],
         TextField(
           controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(
-            decimal: true,
-            signed: true,
-          ),
+          keyboardType: TextInputType.number,
           inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
+            FilteringTextInputFormatter.digitsOnly,
           ],
+          onChanged: (v) {
+            final digits = sanitizeMeasurementInput(v);
+            if (digits != v) {
+              controller.value = TextEditingValue(
+                text: digits,
+                selection: TextSelection.collapsed(offset: digits.length),
+              );
+            }
+          },
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
