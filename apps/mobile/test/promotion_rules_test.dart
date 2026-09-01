@@ -190,6 +190,14 @@ void main() {
     expect(couponBlocksPoints(promotionCodeId: ''), isFalse);
   });
 
+  test('웹에서는 쿠폰을 적용하지 않는다', () {
+    expect(promotionCodesAllowedOnOrderSource('web'), isFalse);
+    expect(promotionCodesAllowedOnOrderSource('WEB'), isFalse);
+    expect(promotionCodesAllowedOnOrderSource('app'), isTrue);
+    expect(promotionCodesAllowedOnOrderSource('ios'), isTrue);
+    expect(promotionCodesAllowedOnOrderSource('android'), isTrue);
+  });
+
   test('쿠폰함 상태 분류', () {
     expect(
       classifyWalletCoupon(

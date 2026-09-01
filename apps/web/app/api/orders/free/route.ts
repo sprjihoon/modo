@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
       shipping_discount_amount: p.shippingDiscountAmount,
       shipping_promotion_id: p.shippingPromotionId,
       remote_area_fee: p.remoteAreaFee,
-      promotion_code_id: p.promotionCodeId,
-      promotion_discount_amount: p.promotionDiscountAmount,
+      promotion_code_id: null,
+      promotion_discount_amount: 0,
       original_total_price: p.originalTotalPrice,
       repair_parts: p.repairParts,
       images_with_pins: p.imagesWithPins,
@@ -102,23 +102,6 @@ export async function POST(request: NextRequest) {
     if (!inserted) {
       console.error("0원 주문 생성 실패:", lastErr);
       return NextResponse.json({ error: "주문 생성 실패" }, { status: 500 });
-    }
-
-    // 프로모션 코드 사용 기록
-    if (p.promotionCodeId) {
-      try {
-        await admin.rpc("increment_promotion_code_usage", { promo_id: p.promotionCodeId });
-        await admin.from("promotion_code_usages").insert({
-          promotion_code_id: p.promotionCodeId,
-          user_id: user.internalUserId,
-          order_id: inserted.id,
-          discount_amount: p.promotionDiscountAmount ?? 0,
-          original_amount: p.originalTotalPrice ?? 0,
-          final_amount: 0,
-        });
-      } catch (e) {
-        console.error("0원 주문 프로모션 코드 사용 기록 실패(무시):", e);
-      }
     }
 
     for (let attempt = 1; attempt <= 3; attempt++) {

@@ -5,6 +5,7 @@ import {
   evaluatePromotionCode,
   exclusiveCouponOwnerOk,
   isPaidPromoOrder,
+  promotionCodesAllowedOnOrderSource,
   resolvePromoUsageCounts,
 } from "./promotion-eval";
 
@@ -129,6 +130,12 @@ assert(ok.ok && ok.discountAmount === 5000, "본인 전용 적용");
 assert(!couponBlocksPoints({}), "쿠폰 없으면 포인트 가능");
 assert(couponBlocksPoints({ promotionDiscountAmount: 5000 }), "할인액 있으면 포인트 불가");
 assert(couponBlocksPoints({ promotionCodeId: "CSA53BA4" }), "코드만 있어도 포인트 불가");
+
+assert(!promotionCodesAllowedOnOrderSource("web"), "웹은 쿠폰 적용 불가");
+assert(!promotionCodesAllowedOnOrderSource("WEB"), "웹 대소문자");
+assert(promotionCodesAllowedOnOrderSource("app"), "앱은 쿠폰 적용");
+assert(promotionCodesAllowedOnOrderSource("ios"), "ios는 앱");
+assert(promotionCodesAllowedOnOrderSource("android"), "android는 앱");
 
 assert(
   classifyWalletCoupon({ isActive: true, now, usedCount: 0, maxUses: 1 }) === "usable",

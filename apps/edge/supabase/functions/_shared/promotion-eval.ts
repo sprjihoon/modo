@@ -106,3 +106,9 @@ export function evaluatePromotionCode(input: {
     }),
   }
 }
+
+/** 웹 주문은 쿠폰·프로모 적용 불가. 앱(ios/android 포함)만 적용. */
+export function promotionCodesAllowedOnOrderSource(source?: string | null): boolean {
+  const value = String(source ?? '').toLowerCase().trim()
+  return value !== 'web'
+}

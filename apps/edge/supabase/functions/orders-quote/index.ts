@@ -9,7 +9,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveOrderSourceFromRequest } from '../_shared/order-source.ts'
 import { toQuoteRepairItem } from '../_shared/repair-parts.ts'
-import { evaluatePromotionCode, resolvePromoUsageCounts } from '../_shared/promotion-eval.ts'
+import { evaluatePromotionCode, promotionCodesAllowedOnOrderSource, resolvePromoUsageCounts } from '../_shared/promotion-eval.ts'
 
 interface RepairPart { name?: string; price?: number; quantity?: number; detail?: string }
 interface InputItem {
@@ -175,10 +175,10 @@ serve(async (req) => {
     const remoteAreaOneWay = isRemoteArea(body.pickupZipcode || '') ? REMOTE_AREA_FEE : 0
     const remoteAreaFee = remoteAreaOneWay * 2
 
-    // 프로모션 코드 검증
+    // 프로모션 코드 검증 (앱만. 웹 소스는 무시)
     let promotionDiscountAmount = 0
     let verifiedPromotionCodeId: string | null = null
-    if (body.promotionCodeId) {
+    if (promotionCodesAllowedOnOrderSource(orderSource) && body.promotionCodeId) {
       try {
         const pr = await admin
           .from('promotion_codes')

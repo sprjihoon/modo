@@ -162,12 +162,30 @@ export default function PromotionsPage() {
 
       {visiblePromotions.length === 0 ? (
         <div className="bg-white rounded-lg border p-12 text-center">
-          <p className="text-gray-500 mb-4">
-            {tab === "exclusive" ? "발급된 전용 쿠폰이 없습니다" : "등록된 프로모션 코드가 없습니다"}
-          </p>
-          <Button onClick={() => setShowCreateModal(true)}>
-            첫 프로모션 코드 만들기
-          </Button>
+          {tab === "exclusive" ? (
+            <>
+              <p className="text-gray-800 font-medium mb-2">발급된 전용 쿠폰이 없습니다</p>
+              <p className="text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+                이 탭은 이미 나간 전용 쿠폰을 보는 곳입니다.
+                CS 발급은 고객 상세에서, 미션 자동 발급은 포인트 설정에서 합니다.
+              </p>
+              <div className="flex justify-center gap-2 mt-5">
+                <Button variant="outline" asChild>
+                  <a href="/dashboard/customers">고객 관리</a>
+                </Button>
+                <Button variant="outline" asChild>
+                  <a href="/dashboard/points?tab=settings">포인트 설정</a>
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-500 mb-4">등록된 프로모션 코드가 없습니다</p>
+              <Button onClick={() => setShowCreateModal(true)}>
+                첫 프로모션 코드 만들기
+              </Button>
+            </>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-lg border">

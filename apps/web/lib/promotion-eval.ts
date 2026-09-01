@@ -115,6 +115,12 @@ export function couponBlocksPoints(input: {
   return (input.promotionDiscountAmount ?? 0) > 0 || Boolean(input.promotionCodeId);
 }
 
+/** 웹 주문은 쿠폰·프로모 적용 불가. 앱(ios/android 포함)만 적용. */
+export function promotionCodesAllowedOnOrderSource(source?: string | null): boolean {
+  const value = String(source ?? "").toLowerCase().trim();
+  return value !== "web";
+}
+
 export type CouponWalletStatus = "usable" | "used" | "expired" | "inactive";
 
 export function classifyWalletCoupon(input: {

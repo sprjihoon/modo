@@ -101,8 +101,8 @@ export async function POST(
       shipping_discount_amount: p.shippingDiscountAmount ?? 0,
       shipping_promotion_id: p.shippingPromotionId || null,
       remote_area_fee: p.remoteAreaFee ?? 0,
-      promotion_code_id: p.promotionCodeId || null,
-      promotion_discount_amount: p.promotionDiscountAmount ?? null,
+      promotion_code_id: null,
+      promotion_discount_amount: 0,
       original_total_price: intent.charge_before_points ?? p.originalTotalPrice ?? null,
       points_used: intent.points_used,
       repair_parts: Array.isArray(p.repairParts) ? p.repairParts : null,
@@ -133,21 +133,6 @@ export async function POST(
       return NextResponse.json({ error: "주문 생성 실패" }, { status: 500 });
     }
 
-    if (p.promotionCodeId) {
-      try {
-        await svc.rpc("increment_promotion_code_usage", { promo_id: p.promotionCodeId });
-        await svc.from("promotion_code_usages").insert({
-          promotion_code_id: p.promotionCodeId,
-          user_id: userRow.id,
-          order_id: inserted.id,
-          discount_amount: p.promotionDiscountAmount ?? 0,
-          original_amount: intent.charge_before_points ?? p.originalTotalPrice ?? 0,
-          final_amount: 0,
-        });
-      } catch (e) {
-        console.error("[complete-with-points] 프로모션 코드 사용 기록 실패:", e);
-      }
-    }
 
     await svc
       .from("payment_intents")

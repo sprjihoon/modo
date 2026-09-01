@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { bookPickupWithRetry, notifyStaffPickupBookFailed } from '../_shared/book-pickup.ts'
 import { orderSourceFromPayload } from '../_shared/order-source.ts'
+import { promotionCodesAllowedOnOrderSource } from '../_shared/promotion-eval.ts'
 import { flushPendingNotifications } from '../_shared/flush-notifications.ts'
 
 const PORTONE_API_SECRET = Deno.env.get('PORTONE_API_SECRET') || ''
@@ -259,6 +260,9 @@ serve(async (req) => {
       const intentId = (orderData as any)._intent_id as string
       const pointsUsed = Number((orderData as any)._points_used ?? 0) || 0
       const chargeBeforePoints = (orderData as any)._charge_before_points as number | null
+      const allowPromo = promotionCodesAllowedOnOrderSource(orderSourceFromPayload(pickup))
+      const promoId = allowPromo ? pickup.promotionCodeId || null : null
+      const promoAmt = allowPromo ? pickup.promotionDiscountAmount ?? null : 0
 
       const orderNumber = `ORD${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`
       const insertData: Record<string, any> = {
@@ -291,8 +295,8 @@ serve(async (req) => {
         shipping_discount_amount: pickup.shippingDiscountAmount ?? 0,
         shipping_promotion_id: pickup.shippingPromotionId || null,
         remote_area_fee: pickup.remoteAreaFee ?? 0,
-        promotion_code_id: pickup.promotionCodeId || null,
-        promotion_discount_amount: pickup.promotionDiscountAmount ?? null,
+        promotion_code_id: promoId,
+        promotion_discount_amount: promoAmt,
         original_total_price: chargeBeforePoints ?? pickup.originalTotalPrice ?? null,
         points_used: pointsUsed,
         repair_parts: Array.isArray(pickup.repairParts) && pickup.repairParts.length > 0 ? pickup.repairParts : null,
@@ -369,12 +373,12 @@ serve(async (req) => {
         }
       }
 
-      // 프로모션 코드 사용 처리
-      if (pickup.promotionCodeId) {
+      // 프로모션 코드 사용 처리 (앱 주문만)
+      if (promoId) {
         try {
-          await supabaseClient.rpc('increment_promotion_code_usage', { promo_id: pickup.promotionCodeId })
+          await supabaseClient.rpc('increment_promotion_code_usage', { promo_id: promoId })
           await supabaseClient.from('promotion_code_usages').insert({
-            promotion_code_id: pickup.promotionCodeId,
+            promotion_code_id: promoId,
             user_id: internalUserId,
             order_id: newOrderId,
             discount_amount: pickup.promotionDiscountAmount ?? 0,

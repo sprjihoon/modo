@@ -84,6 +84,11 @@ bool couponBlocksPoints({
       (promotionCodeId != null && promotionCodeId.isNotEmpty);
 }
 
+/// 웹 주문은 쿠폰·프로모 적용 불가. 앱(ios/android 포함)만 적용.
+bool promotionCodesAllowedOnOrderSource(String? source) {
+  return (source ?? '').toLowerCase().trim() != 'web';
+}
+
 CouponWalletStatus classifyWalletCoupon({
   required bool isActive,
   required DateTime now,

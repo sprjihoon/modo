@@ -217,7 +217,7 @@ export async function quoteOrder(
   );
   const remoteAreaFee = remoteAreaOneWay * 2;
 
-  // 웹에서는 쿠폰·프로모션 코드를 적용하지 않는다. (앱 전용)
+  // 웹 견적은 쿠폰·프로모션 코드를 적용하지 않는다. (앱 전용)
   const promotionDiscountAmount = 0;
   const verifiedPromotionCodeId: string | null = null;
 
