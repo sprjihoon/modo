@@ -76,6 +76,7 @@ export async function POST(
         INTENT_CONSUMED: "이미 처리된 결제입니다.",
         FORBIDDEN: "권한이 없습니다.",
         INTENT_NOT_FOUND: "결제 정보를 찾을 수 없습니다.",
+        COUPON_APPLIED: "쿠폰과 포인트는 함께 사용할 수 없습니다.",
       };
       const key = Object.keys(map).find((k) => msg.includes(k));
       console.error("[apply-points]", error);

@@ -38,6 +38,7 @@ import '../../features/profile/presentation/pages/add_address_page.dart';
 import '../../features/profile/presentation/pages/payment_history_page.dart';
 import '../../features/profile/presentation/pages/receipt_page.dart';
 import '../../features/profile/presentation/pages/points_history_page.dart';
+import '../../features/profile/presentation/pages/coupons_page.dart';
 import '../../features/profile/presentation/pages/invite_friends_page.dart';
 import '../../features/announcements/presentation/pages/announcements_page.dart';
 import '../../features/announcements/presentation/pages/announcement_detail_page.dart';
@@ -519,6 +520,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'points-history',
             name: 'profile-points-history',
             builder: (context, state) => const PointsHistoryPage(),
+          ),
+          GoRoute(
+            path: 'coupons',
+            name: 'profile-coupons',
+            builder: (context, state) => const CouponsPage(),
           ),
           GoRoute(
             path: 'reviews',

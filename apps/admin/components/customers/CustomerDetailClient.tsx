@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
   Minus
 } from "lucide-react";
 import PointManagementDialog from "./PointManagementDialog";
+import CouponIssueDialog from "./CouponIssueDialog";
 import { deviceOsInfo, formatLastSeenAt } from "@/lib/customer-device-os";
 import { DeviceOsBadge } from "@/components/customers/DeviceOsBadge";
 
@@ -39,8 +40,33 @@ export default function CustomerDetailClient({
     }).replace(/\./g, '.').replace(/\s/g, '');
   };
   const [pointDialogOpen, setPointDialogOpen] = useState(false);
+  const [couponDialogOpen, setCouponDialogOpen] = useState(false);
+  const [coupons, setCoupons] = useState<Array<{
+    id: string;
+    code: string;
+    discount_type: string;
+    discount_value: number;
+    used_count: number;
+    valid_until: string | null;
+    is_active: boolean;
+    source: string;
+    issued_note: string | null;
+  }>>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const orders = customer.orders || [];
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/admin/customers/${customer.id}/coupons`);
+        const json = await res.json();
+        if (res.ok && json.success) setCoupons(json.data || []);
+      } catch (error) {
+        console.error("전용 쿠폰 조회 실패:", error);
+      }
+    };
+    load();
+  }, [customer.id, refreshKey]);
 
   const handlePointSuccess = () => {
     // 페이지 새로고침
@@ -220,6 +246,49 @@ export default function CustomerDetailClient({
           </Card>
         </div>
 
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>전용 쿠폰</CardTitle>
+              <CardDescription>이 고객만 사용할 수 있는 코드입니다</CardDescription>
+            </div>
+            <Button onClick={() => setCouponDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              쿠폰 발급
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {coupons.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">발급된 전용 쿠폰이 없습니다</p>
+            ) : (
+              <div className="space-y-2">
+                {coupons.map((coupon) => {
+                  const expired = coupon.valid_until && new Date(coupon.valid_until) < new Date();
+                  const used = (coupon.used_count || 0) > 0;
+                  const label = !coupon.is_active ? "비활성" : used ? "사용" : expired ? "만료" : "사용가능";
+                  return (
+                    <div key={coupon.id} className="flex items-center justify-between border rounded-lg p-3">
+                      <div>
+                        <p className="font-mono font-bold">{coupon.code}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {coupon.discount_type === "PERCENTAGE"
+                            ? `${coupon.discount_value}% 할인`
+                            : `${coupon.discount_value.toLocaleString()}원 할인`}
+                          {coupon.valid_until
+                            ? ` · ${new Date(coupon.valid_until).toLocaleDateString("ko-KR")}까지`
+                            : " · 기한 없음"}
+                          {coupon.issued_note ? ` · ${coupon.issued_note}` : ""}
+                        </p>
+                      </div>
+                      <Badge variant={label === "사용가능" ? "default" : "outline"}>{label}</Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Order History */}
         <Card>
           <CardHeader>
@@ -277,6 +346,13 @@ export default function CustomerDetailClient({
         customerName={customer.name}
         currentBalance={customer.point_balance || 0}
         onSuccess={handlePointSuccess}
+      />
+      <CouponIssueDialog
+        open={couponDialogOpen}
+        onOpenChange={setCouponDialogOpen}
+        customerId={customer.id}
+        customerName={customer.name}
+        onSuccess={() => setRefreshKey((prev) => prev + 1)}
       />
     </>
   );

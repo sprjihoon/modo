@@ -187,6 +187,10 @@ serve(async (req) => {
           .maybeSingle()
         const promo = pr.data
         if (promo) {
+          const assignedUserId = (promo.assigned_user_id as string | null) || null
+          if (assignedUserId && assignedUserId !== internalUserId) {
+            console.warn('전용 프로모션 코드 소유자가 아님:', promo.code)
+          } else {
           const maxUses = promo.max_uses as number | null
           const maxPerUser = Number(promo.max_uses_per_user) || 1
           const usedCount = Number(promo.used_count) || 0
@@ -213,6 +217,7 @@ serve(async (req) => {
             calc = Math.min(calc, repairItemsTotal)
             promotionDiscountAmount = calc
             verifiedPromotionCodeId = promo.id
+          }
           }
         }
       } catch (e) {

@@ -279,6 +279,43 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ---
 
+## 전용 쿠폰 · 조합 미션
+
+공개 프로모션 코드(`TEST2026` 같은 누구나 입력)와 별도로, **고객 1명에게만 묶인 전용 쿠폰**이 있다. 쿠폰함은 **앱 마이페이지**만. 웹 고객 화면에는 없다.
+
+| 종류 | 누가 받나 | 어디서 |
+|---|---|---|
+| 공개 코드 | 코드를 아는 누구나 | 수거신청 코드 입력 |
+| CS 전용 | 어드민이 고객 상세에서 발급 | 앱 쿠폰함 · 수거신청 「내 쿠폰 선택」 |
+| 미션 전용 | 초대·결제 수선·포토리뷰 AND 조건을 처음 모두 채운 사람 | 위와 같음. 미션마다 1장 |
+
+### 규칙
+
+- 미션은 여러 개를 동시에 둘 수 있다. 조건 숫자 0이면 그 항목은 보지 않는다. 예: 초대 10 · 수선 1 · 포토리뷰 1.
+- 미션 쿠폰 사용기한은 **발급 후 N일**. 조건을 채운 날부터 센다. 달력 고정 날짜가 아니다.
+- CS 발급은 사용기한 날짜를 직접 고를 수 있다.
+- **공개 코드 · 내 쿠폰 · 포인트는 한 주문에 하나만.** 쿠폰이 있으면 포인트 칸을 막고, `apply_points_to_payment_intent`도 `COUPON_APPLIED`로 거절한다.
+
+### 어드민
+
+- 고객 상세 「전용 쿠폰 발급」 (`POST /api/admin/customers/[id]/coupons`)
+- 프로모션 관리 공개 / 전용 발급 탭 (`/dashboard/promotions`)
+- 포인트 설정 「조합 미션 → 전용 쿠폰」 (`/dashboard/points?tab=settings`, `/api/admin/invite/milestones`)
+
+### DB / RPC
+
+- `promotion_codes.assigned_user_id` · `source`(`public` \| `cs` \| `invite_milestone`) · `milestone_id`
+- `invite_coupon_milestones` (`threshold`, `min_paid_orders`, `min_photo_reviews`, `valid_days`)
+- RPC: `issue_exclusive_promotion_code`, `try_issue_invite_milestone_coupons`, `coupon_mission_progress`
+- 마이그레이션: `20260901030000` ~ `20260901070000` (전용 쿠폰 · 포인트 중복 불가 · 조합 미션 · 발급 후 일수)
+
+### 검증 (2026-09-01)
+
+- `apps/admin/lib/exclusive-coupon.test.ts` — 소유권, 조합 조건 AND, 미션은 발급 후 일수
+- `apps/mobile/test/promotion_rules_test.dart` — 17건 (한도 · 전용 코드 본인만 · 쿠폰/포인트 중복 불가)
+
+---
+
 ## 고객 리뷰
 
 배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.6` 판매 중 · 수선 요청 메모·수거신청 버튼 투명은 `1.0.7+44`.
@@ -310,11 +347,12 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | 적용 시점 | 결제 전 인텐트에 예약 차감 (`USED`), `total_price` 감소 |
 | 전액 포인트 | 잔액 0원이면 PortOne 없이 `complete-with-points`로 주문 생성 |
 | 취소 복구 | 주문 취소 성공 시 `USE_RESTORE`로 포인트 환급 |
+| 쿠폰과 중복 | **불가.** 공개 코드 또는 내 쿠폰이 있으면 포인트 사용 금지 |
 
 - API: `POST /api/payment-intents/[id]/apply-points`, `.../complete-with-points`
 - RPC: `apply_points_to_payment_intent`, `restore_order_points_used`
-- 마이그레이션: `add_points_use_enum.sql`, `add_points_use_at_checkout.sql`
-- UI: `PaymentClient` 「포인트 사용」 카드
+- 마이그레이션: `add_points_use_enum.sql`, `add_points_use_at_checkout.sql`, `20260901040000_coupon_points_exclusive.sql`
+- UI: `PaymentClient` · 앱 `payment_page.dart` 「포인트 사용」 카드
 
 ---
 
@@ -724,6 +762,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-01 | 전용 쿠폰·조합 미션 | CS/미션 전용 코드(`assigned_user_id`). 앱 쿠폰함·수거신청 선택. 초대·수선·포토리뷰 AND 미션을 여러 개. 미션 기한은 발급 후 N일. 공개코드·내쿠폰·포인트는 한 주문에 하나만. SQL 라이브. 어드민·웹 `main` 배포. 앱은 다음 스토어 빌드 |
 | 2026-09-01 | 프로모션 한도·사용 | 관리 목록 `10/1`은 한도가 아니라 사용 10건/한도 1회가 붙은 것. 한도(전체 선착순·사용자당)와 사용(결제 건수)을 칸으로 분리. 사용 N = 결제된 주문에 코드가 붙은 횟수. 어드민·웹 라이브 |
 | 2026-09-01 | `1.0.7+44` 재제출 | 43 심사 취소. iOS 44 `WAITING_FOR_REVIEW`. Play AAB 백업 `app-release-1.0.7+44.aab` |
 | 2026-09-01 | 홈 수거신청 버튼 투명 | 푸터 위 가운데 캡슐 뒤 흰 띠 제거. 콘텐츠 위에 겹침. iPhone 시뮬 확인. 스토어 `1.0.7+44` |

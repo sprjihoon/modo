@@ -7,6 +7,8 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/order_service.dart';
 import '../../../../services/point_service.dart';
+import '../../../../services/promotion_rules.dart';
+import '../../../../services/promotion_rules.dart';
 import '../../domain/models/image_pin.dart';
 import '../../domain/repair_item_payload.dart';
 
@@ -179,6 +181,7 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
         'remote_area_fee': remoteAreaFee,
         'promotion_discount_amount':
             (payload['promotionDiscountAmount'] as num?)?.toInt() ?? 0,
+        'promotion_code_id': payload['promotionCodeId'],
         'original_total_price': payload['originalTotalPrice'],
         'repair_parts': repairParts,
         'clothing_type': payload['clothingType'] ?? '',
@@ -811,7 +814,28 @@ class _PaymentPageState extends ConsumerState<PaymentPage> {
     );
   }
 
+  bool get _couponBlocksPoints => couponBlocksPoints(
+        promotionDiscountAmount:
+            (_orderData?['promotion_discount_amount'] as num?)?.toInt() ?? 0,
+        promotionCodeId: _orderData?['promotion_code_id']?.toString(),
+      );
+
   Widget _buildPointsSection() {
+    if (_couponBlocksPoints) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Text(
+          '쿠폰과 포인트는 함께 사용할 수 없습니다. 포인트를 쓰려면 수거신청에서 쿠폰을 빼 주세요.',
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+        ),
+      );
+    }
+
     final canUse = _pointBalance >= kMinPointsUse || _pointsUsed > 0;
     final chargeBefore = _chargeBeforePoints ??
         (((_orderData?['total_price'] as num?)?.toInt() ?? 0) + _pointsUsed);

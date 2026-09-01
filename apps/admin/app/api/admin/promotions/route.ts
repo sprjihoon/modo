@@ -40,14 +40,29 @@ export async function GET() {
     });
     const statsById = new Map(stats.map((row) => [row.id, row]));
 
+    const assignedIds = [...new Set(
+      (promos.data || [])
+        .map((promo) => promo.assigned_user_id as string | null)
+        .filter((id): id is string => Boolean(id))
+    )];
+    const assignedUsers = assignedIds.length
+      ? await supabaseAdmin.from("users").select("id, name, email").in("id", assignedIds)
+      : { data: [] as { id: string; name: string | null; email: string | null }[] };
+    const userById = new Map((assignedUsers.data || []).map((row) => [row.id, row]));
+
     const data = (promos.data || []).map((promo) => {
       const stat = statsById.get(promo.id);
+      const assigned = promo.assigned_user_id
+        ? userById.get(promo.assigned_user_id as string)
+        : null;
       return {
         ...promo,
         uses: stat?.uses ?? promo.used_count ?? 0,
         users: stat?.users ?? 0,
         revenue: stat?.revenue ?? 0,
         discount: stat?.discount ?? 0,
+        assigned_user_name: assigned?.name || null,
+        assigned_user_email: assigned?.email || null,
       };
     });
 

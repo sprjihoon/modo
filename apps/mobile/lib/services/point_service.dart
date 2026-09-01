@@ -96,6 +96,9 @@ class PointService {
     if (msg.contains('INTENT_NOT_FOUND')) {
       return '결제 정보를 찾을 수 없습니다.';
     }
+    if (msg.contains('COUPON_APPLIED')) {
+      return '쿠폰과 포인트는 함께 사용할 수 없습니다.';
+    }
     return '포인트 적용에 실패했습니다.';
   }
 

@@ -68,6 +68,12 @@ class ProfilePage extends ConsumerWidget {
                     onTap: () => context.push('/profile/points-history'),
                   ),
                   _MenuItem(
+                    icon: Icons.confirmation_number_outlined,
+                    title: '쿠폰함',
+                    subtitle: '전용 쿠폰 확인·복사',
+                    onTap: () => context.push('/profile/coupons'),
+                  ),
+                  _MenuItem(
                     icon: Icons.rate_review_outlined,
                     title: '내 리뷰',
                     subtitle: '작성한 리뷰 수정·삭제',
@@ -260,48 +266,20 @@ class ProfilePage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 
-                // 포인트 - 클릭 가능
-                InkWell(
-                  onTap: () => context.push('/profile/points-history'),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _HeaderChip(
+                      label: '포인트',
+                      value: '${points}P',
+                      onTap: () => context.push('/profile/points-history'),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
+                    _HeaderChip(
+                      label: '쿠폰함',
+                      onTap: () => context.push('/profile/coupons'),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          '포인트',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.black54,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${points}P',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_ios,
-                          size: 12,
-                          color: Colors.grey.shade500,
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -476,5 +454,59 @@ class _MenuItem {
     this.titleColor,
     this.onTap,
   });
+}
+
+class _HeaderChip extends StatelessWidget {
+  const _HeaderChip({
+    required this.label,
+    required this.onTap,
+    this.value,
+  });
+
+  final String label;
+  final String? value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            if (value != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                value!,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 12,
+              color: Colors.grey.shade500,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 

@@ -23,6 +23,10 @@ interface PromotionCode {
   description: string | null;
   is_active: boolean;
   created_at: string;
+  assigned_user_id?: string | null;
+  assigned_user_name?: string | null;
+  assigned_user_email?: string | null;
+  source?: string;
 }
 
 export default function PromotionsPage() {
@@ -31,6 +35,7 @@ export default function PromotionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<PromotionCode | null>(null);
+  const [tab, setTab] = useState<"public" | "exclusive">("public");
 
   useEffect(() => {
     loadPromotions();
@@ -90,6 +95,10 @@ export default function PromotionsPage() {
     }
   };
 
+  const visiblePromotions = promotions.filter((promo) =>
+    tab === "exclusive" ? Boolean(promo.assigned_user_id) : !promo.assigned_user_id
+  );
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '무기한';
     try {
@@ -142,9 +151,20 @@ export default function PromotionsPage() {
         </Button>
       </div>
 
-      {promotions.length === 0 ? (
+      <div className="flex gap-2 mb-4">
+        <Button variant={tab === "public" ? "default" : "outline"} onClick={() => setTab("public")}>
+          공개
+        </Button>
+        <Button variant={tab === "exclusive" ? "default" : "outline"} onClick={() => setTab("exclusive")}>
+          전용 발급
+        </Button>
+      </div>
+
+      {visiblePromotions.length === 0 ? (
         <div className="bg-white rounded-lg border p-12 text-center">
-          <p className="text-gray-500 mb-4">등록된 프로모션 코드가 없습니다</p>
+          <p className="text-gray-500 mb-4">
+            {tab === "exclusive" ? "발급된 전용 쿠폰이 없습니다" : "등록된 프로모션 코드가 없습니다"}
+          </p>
           <Button onClick={() => setShowCreateModal(true)}>
             첫 프로모션 코드 만들기
           </Button>
@@ -158,6 +178,11 @@ export default function PromotionsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     코드
                   </th>
+                  {tab === "exclusive" && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      고객
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     할인 정보
                   </th>
@@ -179,7 +204,7 @@ export default function PromotionsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {promotions.map((promo) => (
+                {visiblePromotions.map((promo) => (
                   <tr key={promo.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
@@ -189,6 +214,15 @@ export default function PromotionsPage() {
                         )}
                       </div>
                     </td>
+                    {tab === "exclusive" && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div>{promo.assigned_user_name || "-"}</div>
+                        <div className="text-xs text-gray-500">{promo.assigned_user_email}</div>
+                        <div className="text-xs text-gray-400">
+                          {promo.source === "invite_milestone" ? "초대 보상" : "CS"}
+                        </div>
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="font-semibold">
