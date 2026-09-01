@@ -181,15 +181,11 @@ flutter test --coverage
 
 스토어 빌드(IPA/AAB)는 **하루에 한 번만** 한다. 웹은 기다리지 않고 `modo.io.kr`에 바로 적용한다.
 
-### 맥북에서 `1.0.7+43` (지금 이 빌드)
+### 맥북에서 `1.0.7+44` (지금 이 빌드)
 
-Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.7+43`.
+Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.7+44`.
 
-포함 내용: 수선 요청 메모(`orders.customer_memo`) · 수거신청 홈 버튼 · 부위별 치수 칸(`허리+힙` 2칸) · 수거지/배송지 연락처 분리 · 홈 수거신청 버튼을 푸터 위 가운데 캡슐로 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
-
-### 다음 스토어 빌드에 포함 (아직 `1.0.7+43` 아님)
-
-홈 수거신청 버튼은 푸터 위 가운데 캡슐을 유지하되, 뒤 흰 배경을 없애고 콘텐츠 위에 투명하게 겹친다. iPhone 시뮬레이터에서 확인함.
+포함 내용: 홈 수거신청 버튼 뒤 흰 배경 제거(푸터 위 가운데 캡슐은 유지) · 수선 요청 메모(`orders.customer_memo`) · 수거신청 홈 버튼 · 부위별 치수 칸(`허리+힙` 2칸) · 수거지/배송지 연락처 분리 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
 
 ```bash
 git checkout main
@@ -198,17 +194,17 @@ cd apps/mobile
 flutter pub get
 
 # Play AAB
-flutter build appbundle --release --build-name=1.0.7 --build-number=43
+flutter build appbundle --release --build-name=1.0.7 --build-number=44
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.7+43.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.7+44.aab
 
 # App Store / TestFlight IPA
-flutter build ipa --release --build-name=1.0.7 --build-number=43 \
+flutter build ipa --release --build-name=1.0.7 --build-number=44 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS는 **1.0.6 판매 중** · **1.0.7 / 43** 심사. Play는 **38 게시** · **43 AAB 업로드**. 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.6` 판매 중이라 최신은 **`1.0.6`까지** 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.**
+iOS는 **1.0.6 판매 중** · **1.0.7 / 44** 심사. Play는 **38 게시** · **44 AAB 업로드**. 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.6` 판매 중이라 최신은 **`1.0.6`까지** 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.**
 
 Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`10:90:55…`). Windows `AE:84:3D…` 키로 만든 AAB는 올리지 않는다.
 
@@ -219,9 +215,9 @@ Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`1
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
 | 현재 트랙 | **프로덕션 게시** `1.0.6 (38)` · 대한민국 · Alpha opt-in은 유지 |
-| 버전 | `pubspec.yaml` → `1.0.7+43` · 프로덕션 게시는 아직 38 · 43 AAB 업로드 |
+| 버전 | `pubspec.yaml` → `1.0.7+44` · 프로덕션 게시는 아직 38 · 44 AAB 업로드 |
 | 최근 UX | 부위별 치수 칸 · 수거지/배송지 연락처 분리 · 네이티브 치수 가이드 |
-| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.7+43.aab` |
+| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.7+44.aab` |
 | targetSdk | **36** (Android 16) — `android/app/build.gradle.kts` 고정 · Play 2026-08-31 정책 |
 | ProGuard | `android/app/proguard-rules.pro` — Retrofit + `com.navercorp.nid` (릴리즈 minify 필수) |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
@@ -252,14 +248,14 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.6` 판매 중**. **`1.0.7 (43)`** 심사 |
+| 최신 업로드 | **`1.0.6` 판매 중**. **`1.0.7 (44)`** 심사 |
 | App Store | **판매 중 `1.0.6`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 | 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |
 
 ```bash
 # App Store용 (수동 서명 — Xcode Accounts 없어도 Distribution 인증서+프로파일만 있으면 가능)
-flutter build ipa --release --build-name=1.0.7 --build-number=43 \
+flutter build ipa --release --build-name=1.0.7 --build-number=44 \
   --export-options-plist=ios/ExportOptions.plist
 
 # 업로드 (API Key: secrets/asc-api.json, 커밋 금지)

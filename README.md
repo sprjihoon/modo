@@ -281,7 +281,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ## 고객 리뷰
 
-배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.6` 판매 중 · 수선 요청 메모는 `1.0.7+43`.
+배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 `1.0.6` 판매 중 · 수선 요청 메모·수거신청 버튼 투명은 `1.0.7+44`.
 
 | 항목 | 내용 |
 |---|---|
@@ -320,27 +320,25 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.7+43`. iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 43 제출**. Play는 **38 게시** · **43 AAB 업로드**. 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `main`의 `1.0.7+44`. iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 44 제출**. Play는 **38 게시** · **44 AAB 업로드**. 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 `apps/mobile/README.md`에도 같다.
 
 **스토어 빌드 규칙:** IPA/AAB는 너무 자주 올리지 않는다. **하루에 한 번만** 한다. 웹·어드민은 `main` push 시 Vercel 자동 배포라 이 제한과 무관하다.
 
-**오늘(2026-09-01):** 하루 1회 스토어 빌드 `1.0.7+43`. 수선 요청 메모가 앱에 포함된다. 웹은 이미 `modo.io.kr` 라이브.
-
-**다음 스토어 빌드에 포함:** 홈 수거신청 버튼 뒤 흰 배경 제거. 푸터 위 가운데 캡슐은 유지하고 콘텐츠 위에 투명하게 겹침. iPhone 시뮬레이터 확인 완료. **`1.0.7+43`에는 없음.**
+**오늘(2026-09-01):** 스토어 빌드 `1.0.7+44`. 43 심사를 교체. 홈 수거신청 버튼 뒤 흰 배경 제거 + 수선 요청 메모. 웹은 이미 `modo.io.kr` 라이브.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.7+43`**. iOS 심사 43 · Play 43 업로드 (수선 요청 메모) |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.7+44`**. iOS 심사 44 · Play 44 업로드 (수거신청 버튼 투명 · 수선 요청 메모) |
 | App Store Connect App ID | `6759492888` |
-| iOS 스토어 | **판매 중 `1.0.6`**. **`1.0.7` 빌드 43 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| iOS 스토어 | **판매 중 `1.0.6`**. **`1.0.7` 빌드 44 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **프로덕션 게시** `1.0.6 (38)` · **43 AAB 업로드** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | **프로덕션 게시** `1.0.6 (38)` · **44 AAB 업로드** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `1.0.7+43` · 백업 `Documents/modo-android-signing/app-release-1.0.7+43.aab` |
+| Android AAB | `1.0.7+44` · 백업 `Documents/modo-android-signing/app-release-1.0.7+44.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -354,7 +352,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **`1.0.6`**. **`1.0.7` 빌드 43** 제출 |
+| App Store 현재 빌드 | 판매 중 **`1.0.6`**. **`1.0.7` 빌드 44** 제출 |
 | 웹 배포 | `main` push 즉시 `modo-web` (modo.io.kr). 수선 요청 메모 **라이브**. 스토어 빌드와 무관 |
 | 앱 업데이트 안내 | `app_versions`. 지금 최신·최소는 iOS/Android 모두 **`1.0.5`** (강제 업데이트 끔). iOS·Play 모두 `1.0.6` 판매 중이라 최신은 **`1.0.6`까지** 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
@@ -465,7 +463,7 @@ iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토�
 35. ~~`1.0.6+38` Play 사진 권한~~ — `READ_MEDIA_*` 제거. **Play 프로덕션 게시**(2026-08-31, 대한민국)
 36. ~~**`1.0.6+42` 수거신청 홈 버튼**~~ — **iOS `1.0.6` 판매 중**. Play 38 게시 · 42는 검토였음
 38. **`1.0.7+43` 수선 요청 메모** — 수거정보의 핀 메모·배송 요청과 별도. `orders.customer_memo`. 작업지시서·어드민 주문상세·입고/작업 요약에 표시. **웹 `modo.io.kr` 라이브**. 앱은 오늘 하루 1회 스토어 빌드
-43. **다음 스토어 빌드** 홈 수거신청 버튼 투명 — 푸터 위 가운데 캡슐은 유지. 뒤 흰 띠를 없애고 콘텐츠 위에 겹침. 시뮬 확인. `1.0.7+43` 이후
+43. **`1.0.7+44` 홈 수거신청 버튼 투명** — 푸터 위 가운데 캡슐은 유지. 뒤 흰 띠를 없애고 콘텐츠 위에 겹침. 시뮬 확인. 43 심사 교체
 39. **출고송장 배송요청사항** — 고객 `orders.notes`를 그 주문 출고송장·우체국 `delivMsg`에 출력. 레이아웃 에디터에서 위치 저장. 어드민 `main` 배포
 40. **배송완료 자동 반영** — 우체국 배달완료면 `DELIVERED`. 폴링은 월~토 9·11·13·15·17시. 일·공휴일 제외. 어드민 주문 상세를 열어도 동기화. 어드민·Edge 라이브
 41. **마케팅 인사이트** — 어드민 **분석 → 마케팅 인사이트**. 결제·가입·접속이 몰리는 요일·시간, 히트맵, 푸시 타이밍, 인기 의류/수선, 앱/웹 유입. 고객 목록·상세에 **마지막 접속**. 고객 행동 분석 시간 탭에 요일별 접속
@@ -593,7 +591,7 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 | 출고 송장 | 센터 → `orders.delivery_*` (체크 해제 시 따로 적은 배송지) |
 
 코드: 어드민 `lib/outbound-label-recipient.ts` · 웹 `lib/pickup-delivery-address.ts` · 앱 `lib/features/orders/domain/pickup_delivery_address.dart`  
-어드민·웹은 `main` 배포로 적용. 앱 연락처 분리는 **`1.0.6` 판매 중**. 수선 요청 메모는 **`1.0.7+43`**.
+어드민·웹은 `main` 배포로 적용. 앱 연락처 분리는 **`1.0.6` 판매 중**. 수선 요청 메모·수거신청 버튼 투명은 **`1.0.7+44`**.
 
 ### 배송완료 자동 반영
 
@@ -720,7 +718,8 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-09-01 | 홈 수거신청 버튼 투명 | 푸터 위 가운데 캡슐 뒤 흰 띠 제거. 콘텐츠 위에 겹침. iPhone 시뮬 확인. **다음 스토어 빌드** (`1.0.7+43`에는 없음) |
+| 2026-09-01 | `1.0.7+44` 스토어 | 홈 수거신청 버튼 뒤 흰 띠 제거. 43 심사 교체. iOS 44 제출 · Play 44 AAB |
+| 2026-09-01 | 홈 수거신청 버튼 투명 | 푸터 위 가운데 캡슐 뒤 흰 띠 제거. 콘텐츠 위에 겹침. iPhone 시뮬 확인. 스토어 `1.0.7+44` |
 | 2026-09-01 | 마케팅 P2 7·8 | 재구매율·1→2차 평균 일수·30일 미재구매 수. 수거 주소 지역(서울/경기 등). 마케팅 인사이트. 어드민 라이브 |
 | 2026-09-01 | 마케팅 P1 | 전후 비교(인사이트). 공지 대상을 휴면/이탈/앱만으로 푸시. 배너·팝업 클릭 후 7일 결제. 웹 팝업 열람 추적. Edge `send-announcement-push`. 어드민·웹 라이브 |
 | 2026-09-01 | 마케팅 P0 | 어드민 `/dashboard/analytics/marketing/actions`. 30/60일 휴면, 1회 구매 후 조용, 장바구니 이탈, 쿠폰 성적(사용·매출·객단가·신규/재구매). 어드민 라이브 |
