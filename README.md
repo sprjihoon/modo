@@ -320,11 +320,11 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.7+44`. iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 44 제출**. Play는 **38 게시** · **44 AAB 업로드**. 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `main`의 `1.0.7+44`. iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 44 `WAITING_FOR_REVIEW`**(43 심사 취소 후 교체). Play는 **38 게시** · **44 AAB 백업**(`Documents/modo-android-signing/app-release-1.0.7+44.aab`, Play Console에 직접 업로드). 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 `apps/mobile/README.md`에도 같다.
 
 **스토어 빌드 규칙:** IPA/AAB는 너무 자주 올리지 않는다. **하루에 한 번만** 한다. 웹·어드민은 `main` push 시 Vercel 자동 배포라 이 제한과 무관하다.
 
-**오늘(2026-09-01):** 스토어 빌드 `1.0.7+44`. 43 심사를 교체. 홈 수거신청 버튼 뒤 흰 배경 제거 + 수선 요청 메모. 웹은 이미 `modo.io.kr` 라이브.
+**오늘(2026-09-01):** 스토어 빌드 `1.0.7+44` 재제출 완료. 43 심사 취소 · 44 `WAITING_FOR_REVIEW`. 홈 수거신청 버튼 뒤 흰 배경 제거 + 수선 요청 메모. 웹은 이미 `modo.io.kr` 라이브.
 
 | 항목 | 값 |
 |---|---|
@@ -332,10 +332,10 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Bundle / Application ID | `com.modurepair.app` |
 | 버전 | `apps/mobile/pubspec.yaml` → **`1.0.7+44`**. iOS 심사 44 · Play 44 업로드 (수거신청 버튼 투명 · 수선 요청 메모) |
 | App Store Connect App ID | `6759492888` |
-| iOS 스토어 | **판매 중 `1.0.6`**. **`1.0.7` 빌드 44 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| iOS 스토어 | **판매 중 `1.0.6`**. **`1.0.7` 빌드 44 `WAITING_FOR_REVIEW`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **프로덕션 게시** `1.0.6 (38)` · **44 AAB 업로드** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | **프로덕션 게시** `1.0.6 (38)` · **44 AAB 백업·콘솔 업로드** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
 | Android AAB | `1.0.7+44` · 백업 `Documents/modo-android-signing/app-release-1.0.7+44.aab` |
@@ -352,7 +352,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **`1.0.6`**. **`1.0.7` 빌드 44** 제출 |
+| App Store 현재 빌드 | 판매 중 **`1.0.6`**. **`1.0.7` 빌드 44 `WAITING_FOR_REVIEW`** |
 | 웹 배포 | `main` push 즉시 `modo-web` (modo.io.kr). 수선 요청 메모 **라이브**. 스토어 빌드와 무관 |
 | 앱 업데이트 안내 | `app_versions`. 지금 최신·최소는 iOS/Android 모두 **`1.0.5`** (강제 업데이트 끔). iOS·Play 모두 `1.0.6` 판매 중이라 최신은 **`1.0.6`까지** 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
@@ -718,7 +718,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-09-01 | `1.0.7+44` 스토어 | 홈 수거신청 버튼 뒤 흰 띠 제거. 43 심사 교체. iOS 44 제출 · Play 44 AAB |
+| 2026-09-01 | `1.0.7+44` 재제출 | 43 심사 취소. iOS 44 `WAITING_FOR_REVIEW`. Play AAB 백업 `app-release-1.0.7+44.aab` |
 | 2026-09-01 | 홈 수거신청 버튼 투명 | 푸터 위 가운데 캡슐 뒤 흰 띠 제거. 콘텐츠 위에 겹침. iPhone 시뮬 확인. 스토어 `1.0.7+44` |
 | 2026-09-01 | 마케팅 P2 7·8 | 재구매율·1→2차 평균 일수·30일 미재구매 수. 수거 주소 지역(서울/경기 등). 마케팅 인사이트. 어드민 라이브 |
 | 2026-09-01 | 마케팅 P1 | 전후 비교(인사이트). 공지 대상을 휴면/이탈/앱만으로 푸시. 배너·팝업 클릭 후 7일 결제. 웹 팝업 열람 추적. Edge `send-announcement-push`. 어드민·웹 라이브 |
