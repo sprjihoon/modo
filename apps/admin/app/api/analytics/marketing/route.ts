@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireStaff } from "@/lib/ops-auth";
-import { buildMarketingInsights } from "@/lib/marketing-insights";
+import {
+  buildMarketingInsights,
+  compareTotals,
+  inKstRange,
+  isPaidOrder,
+  previousPeriod,
+} from "@/lib/marketing-insights";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +26,14 @@ async function fetchAll<T>(
   return rows;
 }
 
+function uniquePayers(orders: Array<{ user_id?: string | null; payment_status?: string | null; paid_at?: string | null; status?: string | null }>) {
+  const ids = new Set<string>();
+  for (const order of orders) {
+    if (order.user_id && isPaidOrder(order)) ids.add(order.user_id);
+  }
+  return ids.size;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireStaff();
@@ -28,7 +42,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
-    const start = startDate ? `${startDate}T00:00:00+09:00` : undefined;
+    const previous = startDate && endDate ? previousPeriod(startDate, endDate) : null;
+    const queryStart = previous?.start ?? startDate;
+    const start = queryStart ? `${queryStart}T00:00:00+09:00` : undefined;
     const end = endDate ? `${endDate}T23:59:59+09:00` : undefined;
 
     const [orders, users, events] = await Promise.all([
@@ -65,19 +81,61 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    const data = buildMarketingInsights({
-      startDate,
-      endDate,
-      orders,
-      users,
-      events: events.map((event) => ({
+    const normalizeEvents = (rows: typeof events) =>
+      rows.map((event) => ({
         ...event,
         metadata:
           event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
             ? (event.metadata as Record<string, unknown>)
             : null,
-      })),
+      }));
+
+    const filterPeriod = (rangeStart: string, rangeEnd: string) => ({
+      orders: orders.filter((order) => inKstRange(order.paid_at || order.created_at, rangeStart, rangeEnd)),
+      users: users.filter((user) => inKstRange(user.created_at, rangeStart, rangeEnd)),
+      events: normalizeEvents(events.filter((event) => inKstRange(event.created_at, rangeStart, rangeEnd))),
     });
+
+    const currentInput = startDate && endDate ? filterPeriod(startDate, endDate) : {
+      orders,
+      users,
+      events: normalizeEvents(events),
+    };
+
+    const data = buildMarketingInsights({
+      startDate,
+      endDate,
+      ...currentInput,
+    });
+
+    if (startDate && endDate && previous) {
+      const prevInput = filterPeriod(previous.start, previous.end);
+      const prevData = buildMarketingInsights({
+        startDate: previous.start,
+        endDate: previous.end,
+        ...prevInput,
+      });
+      data.compare = compareTotals(
+        {
+          startDate,
+          endDate,
+          signups: data.totals.signups,
+          payers: uniquePayers(currentInput.orders),
+          payments: data.totals.paidOrders,
+          amount: data.totals.paidAmount,
+          visitors: data.totals.visitors,
+        },
+        {
+          startDate: previous.start,
+          endDate: previous.end,
+          signups: prevData.totals.signups,
+          payers: uniquePayers(prevInput.orders),
+          payments: prevData.totals.paidOrders,
+          amount: prevData.totals.paidAmount,
+          visitors: prevData.totals.visitors,
+        }
+      );
+    }
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {

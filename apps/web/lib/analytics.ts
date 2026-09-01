@@ -124,6 +124,9 @@ export const Analytics = {
   bannerClick: (bannerId: string, bannerTitle: string) =>
     trackEvent({ eventType: "BANNER_CLICK", eventName: bannerTitle, targetId: bannerId, targetType: "banner" }),
 
+  popupView: (popupId: string, popupTitle: string) =>
+    trackEvent({ eventType: "BANNER_CLICK", eventName: popupTitle, targetId: popupId, targetType: "popup" }),
+
   imageUploadStart: (orderId?: string) =>
     trackEvent({ eventType: "IMAGE_UPLOAD_START", targetId: orderId, targetType: "order" }),
 

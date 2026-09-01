@@ -193,6 +193,11 @@ export default function AnnouncementsPage() {
       all: '전체 사용자',
       active_users: '활성 사용자 (30일 내)',
       recent_orders: '최근 주문자 (7일 내)',
+      quiet_30: '휴면 30일',
+      quiet_60: '휴면 60일',
+      one_shot: '1회 구매 후 조용',
+      abandon: '장바구니 이탈',
+      app_only: '앱만 쓰는 고객',
     }
     return audiences[audience] || audience
   }
@@ -415,7 +420,13 @@ export default function AnnouncementsPage() {
                     <option value="all">전체 사용자</option>
                     <option value="active_users">활성 사용자 (30일 내)</option>
                     <option value="recent_orders">최근 주문자 (7일 내)</option>
+                    <option value="quiet_30">휴면 30일</option>
+                    <option value="quiet_60">휴면 60일</option>
+                    <option value="one_shot">1회 구매 후 조용</option>
+                    <option value="abandon">장바구니 이탈</option>
+                    <option value="app_only">앱만 쓰는 고객</option>
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">휴면·이탈·앱만은 마케팅 실행 목록과 같습니다</p>
                 </div>
               </div>
 

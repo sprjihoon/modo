@@ -1,4 +1,4 @@
-import { isPaidOrder } from "./marketing-insights";
+import { isAppEvent, isPaidOrder } from "./marketing-insights";
 
 export const ABANDON_EVENT_TYPES = ["CART_ADD", "ORDER_START", "ORDER_PAYMENT_START"] as const;
 export const PAID_EVENT_TYPES = ["ORDER_PAYMENT_SUCCESS", "ORDER_COMPLETE"] as const;
@@ -38,11 +38,13 @@ export type MarketingActionsData = {
     quiet60: number;
     oneShot: number;
     abandon: number;
+    appOnly: number;
   };
   quiet30: ActionCustomer[];
   quiet60: ActionCustomer[];
   oneShot: ActionCustomer[];
   abandon: ActionCustomer[];
+  appOnly: ActionCustomer[];
   coupons: CouponStat[];
 };
 
@@ -113,7 +115,12 @@ export function buildMarketingActions(input: {
     payment_status?: string | null;
     status?: string | null;
   }>;
-  lastSeen: Array<{ user_id?: string | null; created_at: string }>;
+  lastSeen: Array<{
+    user_id?: string | null;
+    created_at: string;
+    device_os?: string | null;
+    app_version?: string | null;
+  }>;
   abandonEvents: Array<{
     user_id?: string | null;
     created_at: string;
@@ -138,10 +145,19 @@ export function buildMarketingActions(input: {
 }): MarketingActionsData {
   const nowMs = input.nowMs ?? Date.now();
   const lastSeenMap = new Map<string, string>();
+  const lastDevice = new Map<string, { device_os: string | null; app_version: string | null; created_at: string }>();
   for (const row of input.lastSeen) {
     if (!row.user_id) continue;
     const current = lastSeenMap.get(row.user_id);
     if (!current || row.created_at > current) lastSeenMap.set(row.user_id, row.created_at);
+    const device = lastDevice.get(row.user_id);
+    if (!device || row.created_at > device.created_at) {
+      lastDevice.set(row.user_id, {
+        device_os: row.device_os ?? null,
+        app_version: row.app_version ?? null,
+        created_at: row.created_at,
+      });
+    }
   }
 
   const paidByUser = new Map<string, { count: number; amount: number; lastPaidAt: string; firstPaidAt: string }>();
@@ -247,6 +263,30 @@ export function buildMarketingActions(input: {
   }
   abandon.sort((a, b) => (b.last_intent_at || "").localeCompare(a.last_intent_at || ""));
 
+  const appOnly: ActionCustomer[] = [];
+  for (const user of input.users) {
+    if (isDeletedCustomer(user.email)) continue;
+    const device = lastDevice.get(user.id);
+    if (!device || !isAppEvent(device)) continue;
+    const paid = paidByUser.get(user.id);
+    appOnly.push(
+      toCustomer({
+        id: user.id,
+        name: user.name ?? null,
+        email: user.email ?? null,
+        phone: user.phone ?? null,
+        created_at: user.created_at,
+        last_seen_at: lastSeenMap.get(user.id) ?? null,
+        last_paid_at: paid?.lastPaidAt ?? null,
+        paid_orders: paid?.count ?? 0,
+        paid_amount: paid?.amount ?? 0,
+        nowMs,
+        reason: "최근 접속이 앱",
+      })
+    );
+  }
+  appOnly.sort((a, b) => (b.last_seen_at || "").localeCompare(a.last_seen_at || ""));
+
   const firstPaidAt = new Map<string, string>();
   for (const [userId, paid] of paidByUser) {
     firstPaidAt.set(userId, paid.firstPaidAt);
@@ -311,11 +351,13 @@ export function buildMarketingActions(input: {
       quiet60: quiet60.length,
       oneShot: oneShot.length,
       abandon: abandon.length,
+      appOnly: appOnly.length,
     },
     quiet30,
     quiet60,
     oneShot,
     abandon,
+    appOnly,
     coupons,
   };
 }

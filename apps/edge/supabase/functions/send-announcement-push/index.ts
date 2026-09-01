@@ -14,7 +14,16 @@ interface AnnouncementPayload {
   targetAudience?: string
   imageUrl?: string
   linkUrl?: string
+  userIds?: string[]
 }
+
+const SEGMENT_AUDIENCES = new Set([
+  'quiet_30',
+  'quiet_60',
+  'one_shot',
+  'abandon',
+  'app_only',
+])
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -87,15 +96,29 @@ serve(async (req) => {
 
     console.log('📢 공지사항 푸시 발송 시작:', payload.announcementId)
 
+    const audience = payload.targetAudience || 'all'
+    if (SEGMENT_AUDIENCES.has(audience) && !payload.userIds?.length) {
+      return json(req, {
+        success: true,
+        message: '발송 대상이 없습니다',
+        total: 0,
+        sent_count: 0,
+        failed: 0,
+      })
+    }
+
     const { data: tokens, error } = await supabase.rpc('get_all_fcm_tokens', {
-      p_target_audience: payload.targetAudience || 'all',
+      p_target_audience: SEGMENT_AUDIENCES.has(audience) ? 'all' : audience,
     })
 
     if (error) {
       throw error
     }
 
-    const recipients = tokens ?? []
+    const allowed = payload.userIds?.length ? new Set(payload.userIds) : null
+    const recipients = (tokens ?? []).filter((row: { user_id: string }) =>
+      allowed ? allowed.has(row.user_id) : true
+    )
     console.log(`📋 대상 사용자: ${recipients.length}명`)
 
     if (recipients.length === 0) {

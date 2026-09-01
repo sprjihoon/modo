@@ -184,7 +184,7 @@ export default function BannersPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">배너 관리</h1>
-          <p className="text-gray-600 mt-1">홈 화면 배너를 관리합니다</p>
+          <p className="text-gray-600 mt-1">홈 화면 배너를 관리합니다. 클릭·결제 성적은 <a className="text-teal-700 underline" href="/dashboard/analytics/marketing/actions">마케팅 실행 배너·팝업</a>에서 봅니다</p>
         </div>
         <Button
           onClick={() => {

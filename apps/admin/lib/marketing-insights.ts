@@ -46,6 +46,7 @@ export type MarketingInsightsData = {
   repairs: NamedCount[];
   daily: DailyStat[];
   accessPaths: AccessPathStat[];
+  compare: CampaignCompare | null;
   insights: MarketingInsight[];
 };
 
@@ -81,6 +82,104 @@ export type DailyStat = {
   amount: number;
   visitors: number;
 };
+
+export type PeriodTotals = {
+  startDate: string;
+  endDate: string;
+  signups: number;
+  payers: number;
+  payments: number;
+  amount: number;
+  visitors: number;
+};
+
+export type CampaignCompare = {
+  current: PeriodTotals;
+  previous: PeriodTotals;
+  delta: Omit<PeriodTotals, "startDate" | "endDate">;
+  pct: Omit<PeriodTotals, "startDate" | "endDate">;
+};
+
+function sumDaily(days: DailyStat[]): Omit<PeriodTotals, "startDate" | "endDate"> {
+  return days.reduce(
+    (sum, day) => ({
+      signups: sum.signups + day.signups,
+      payers: sum.payers + day.payers,
+      payments: sum.payments + day.payments,
+      amount: sum.amount + day.amount,
+      visitors: sum.visitors + day.visitors,
+    }),
+    { signups: 0, payers: 0, payments: 0, amount: 0, visitors: 0 }
+  );
+}
+
+function pctChange(current: number, previous: number): number {
+  if (previous === 0) return current === 0 ? 0 : 100;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+export function previousPeriod(start: string, end: string): { start: string; end: string } | null {
+  const days = eachYmd(start, end).length;
+  if (!days) return null;
+  return {
+    start: addDaysYmd(start, -days),
+    end: addDaysYmd(start, -1),
+  };
+}
+
+export function compareTotals(current: PeriodTotals, previous: PeriodTotals): CampaignCompare {
+  return {
+    current,
+    previous,
+    delta: {
+      signups: current.signups - previous.signups,
+      payers: current.payers - previous.payers,
+      payments: current.payments - previous.payments,
+      amount: current.amount - previous.amount,
+      visitors: current.visitors - previous.visitors,
+    },
+    pct: {
+      signups: pctChange(current.signups, previous.signups),
+      payers: pctChange(current.payers, previous.payers),
+      payments: pctChange(current.payments, previous.payments),
+      amount: pctChange(current.amount, previous.amount),
+      visitors: pctChange(current.visitors, previous.visitors),
+    },
+  };
+}
+
+export function inKstRange(iso: string | null | undefined, start: string, end: string): boolean {
+  if (!iso || !start || !end) return false;
+  const ymd = kstParts(iso).ymd;
+  return ymd >= start && ymd <= end;
+}
+
+export function compareDailyPeriods(daily: DailyStat[], start: string, end: string): CampaignCompare | null {
+  const previous = previousPeriod(start, end);
+  if (!previous) return null;
+  const currentDays = daily.filter((day) => day.date >= start && day.date <= end);
+  const previousDays = daily.filter((day) => day.date >= previous.start && day.date <= previous.end);
+  const current = { startDate: start, endDate: end, ...sumDaily(currentDays) };
+  const prev = { startDate: previous.start, endDate: previous.end, ...sumDaily(previousDays) };
+  return {
+    current,
+    previous: prev,
+    delta: {
+      signups: current.signups - prev.signups,
+      payers: current.payers - prev.payers,
+      payments: current.payments - prev.payments,
+      amount: current.amount - prev.amount,
+      visitors: current.visitors - prev.visitors,
+    },
+    pct: {
+      signups: pctChange(current.signups, prev.signups),
+      payers: pctChange(current.payers, prev.payers),
+      payments: pctChange(current.payments, prev.payments),
+      amount: pctChange(current.amount, prev.amount),
+      visitors: pctChange(current.visitors, prev.visitors),
+    },
+  };
+}
 
 export type AccessPathStat = {
   name: string;
@@ -539,6 +638,7 @@ export function buildMarketingInsights(input: {
     repairs: topNamed([...repairMap.values()]),
     daily,
     accessPaths,
+    compare: input.startDate && input.endDate ? compareDailyPeriods(daily, input.startDate, input.endDate) : null,
     insights,
   };
 }

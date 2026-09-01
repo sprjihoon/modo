@@ -6,6 +6,8 @@ import {
   canRetryAnnouncementSend,
   parseAnnouncementPushResult,
 } from "@/lib/announcement-send";
+import { isSegmentAudience, resolveAudienceUserIds } from "@/lib/marketing-audience";
+import { loadMarketingActions } from "@/lib/marketing-actions-data";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -22,7 +24,10 @@ type AnnouncementRow = {
   sent_at: string | null;
 };
 
-async function trySendAnnouncementPush(announcement: AnnouncementRow): Promise<{
+async function trySendAnnouncementPush(
+  announcement: AnnouncementRow,
+  userIds?: string[]
+): Promise<{
   total: number;
   success: number;
   failed: number;
@@ -57,6 +62,7 @@ async function trySendAnnouncementPush(announcement: AnnouncementRow): Promise<{
           targetAudience: announcement.target_audience,
           imageUrl: announcement.image_url,
           linkUrl: announcement.link_url,
+          userIds,
         }),
       }
     );
@@ -141,7 +147,12 @@ export async function POST(req: NextRequest) {
     };
 
     if (announcement.send_push) {
-      push = await trySendAnnouncementPush(announcement);
+      let userIds: string[] | undefined;
+      if (isSegmentAudience(announcement.target_audience)) {
+        const { actions } = await loadMarketingActions();
+        userIds = resolveAudienceUserIds(announcement.target_audience || "", actions);
+      }
+      push = await trySendAnnouncementPush(announcement, userIds);
     }
 
     // 푸시 성공/실패와 무관하게 sent로 고정해야 앱/웹 공지 탭에 노출된다.

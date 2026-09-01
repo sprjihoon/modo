@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { Analytics } from "@/lib/analytics";
 
 interface PopupItem {
   title: string;
@@ -80,6 +81,7 @@ export function LaunchAnnouncementPopup() {
 
         setPopup(data as Popup);
         setOpen(true);
+        Analytics.popupView(data.id, data.title);
       } catch {
         // 팝업 로드 실패 시 표시하지 않음
       }

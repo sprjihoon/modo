@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar, CreditCard, Loader2, Megaphone, RefreshCw, Users } from "lucide-react";
-import type { AccessPathStat, Bucket, DailyStat, MarketingInsightsData } from "@/lib/marketing-insights";
+import type { AccessPathStat, Bucket, CampaignCompare, DailyStat, MarketingInsightsData } from "@/lib/marketing-insights";
 import { WEEKDAY_LABELS, addDaysYmd } from "@/lib/marketing-insights";
 import { getOrderSourceLabel } from "@/lib/order-source";
 
@@ -86,6 +86,49 @@ function DailyCalendar({
         );
       })}
     </div>
+  );
+}
+
+function CompareCard({ compare }: { compare: CampaignCompare }) {
+  const rows = [
+    ["가입", compare.current.signups, compare.previous.signups, compare.delta.signups, compare.pct.signups, "명"],
+    ["결제자", compare.current.payers, compare.previous.payers, compare.delta.payers, compare.pct.payers, "명"],
+    ["결제", compare.current.payments, compare.previous.payments, compare.delta.payments, compare.pct.payments, "건"],
+    ["매출", compare.current.amount, compare.previous.amount, compare.delta.amount, compare.pct.amount, "원"],
+    ["접속", compare.current.visitors, compare.previous.visitors, compare.delta.visitors, compare.pct.visitors, "명"],
+  ] as const;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>캠페인 전후 비교</CardTitle>
+        <CardDescription>
+          {compare.current.startDate} ~ {compare.current.endDate} vs 직전 {compare.previous.startDate} ~ {compare.previous.endDate}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-3 sm:grid-cols-5">
+          {rows.map(([label, current, previous, delta, pct, unit]) => {
+            const up = delta > 0;
+            const down = delta < 0;
+            return (
+              <div key={label} className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="text-lg font-semibold">
+                  {label === "매출" ? won(current) : `${current.toLocaleString()}${unit}`}
+                </p>
+                <p className={`text-xs mt-1 ${up ? "text-teal-700" : down ? "text-red-600" : "text-muted-foreground"}`}>
+                  {delta > 0 ? "+" : ""}
+                  {label === "매출" ? won(delta) : `${delta.toLocaleString()}${unit}`} ({pct > 0 ? "+" : ""}{pct}%)
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  직전 {label === "매출" ? won(previous) : `${previous.toLocaleString()}${unit}`}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -318,6 +361,8 @@ export default function MarketingInsightsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {data.compare && <CompareCard compare={data.compare} />}
 
           <Card>
             <CardHeader>

@@ -45,7 +45,7 @@ const data = buildMarketingActions({
   ],
   lastSeen: [
     { user_id: "u1", created_at: "2026-07-01T00:00:00.000Z" },
-    { user_id: "u5", created_at: "2026-08-31T12:00:00.000Z" },
+    { user_id: "u5", created_at: "2026-08-31T12:00:00.000Z", device_os: "iOS 18.0", app_version: "1.2.0" },
   ],
   abandonEvents: [
     { user_id: "u3", created_at: "2026-08-28T00:00:00.000Z", event_type: "CART_ADD" },
@@ -78,5 +78,7 @@ assert(!data.quiet30.some((c) => c.id === "u4"), "탈퇴 제외");
 assert(data.coupons[0].code === "WELCOME" && data.coupons[0].uses === 1, "쿠폰 사용");
 assert(data.coupons[0].new_customers === 1, "쿠폰 신규");
 assert(data.coupons[0].revenue === 17000, "쿠폰 매출");
+assert(data.appOnly.some((c) => c.id === "u5"), "앱만");
+assert(data.counts.appOnly >= 1, "앱만 집계");
 
 console.log("marketing-actions.test.ts ok");

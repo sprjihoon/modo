@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, RefreshCw, Copy, Users, ShoppingCart, Ticket } from "lucide-react";
 import type { ActionCustomer, CouponStat, MarketingActionsData } from "@/lib/marketing-actions";
+import type { CreativeStat } from "@/lib/marketing-creatives";
 import { formatLastSeenAt } from "@/lib/customer-device-os";
 
 function won(n: number) {
@@ -74,7 +75,7 @@ function copyPhones(rows: ActionCustomer[]) {
 }
 
 export default function MarketingActionsPage() {
-  const [data, setData] = useState<MarketingActionsData | null>(null);
+  const [data, setData] = useState<(MarketingActionsData & { creatives: CreativeStat[] }) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState("quiet30");
@@ -102,6 +103,7 @@ export default function MarketingActionsPage() {
     tab === "quiet60" ? data?.quiet60 :
     tab === "oneShot" ? data?.oneShot :
     tab === "abandon" ? data?.abandon :
+    tab === "appOnly" ? data?.appOnly :
     data?.quiet30;
 
   return (
@@ -115,7 +117,7 @@ export default function MarketingActionsPage() {
         </div>
         <div className="flex gap-2">
           <Link href="/dashboard/analytics/marketing">
-            <Button variant="outline" size="sm">인사이트</Button>
+            <Button variant="outline" size="sm">전후 비교·인사이트</Button>
           </Link>
           <Button onClick={load} variant="outline" size="sm" disabled={isLoading}>
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -181,9 +183,11 @@ export default function MarketingActionsPage() {
                 <TabsTrigger value="quiet60">60일 휴면</TabsTrigger>
                 <TabsTrigger value="oneShot">1회 구매</TabsTrigger>
                 <TabsTrigger value="abandon"><ShoppingCart className="h-4 w-4 mr-1" />장바구니 이탈</TabsTrigger>
+                <TabsTrigger value="appOnly">앱만</TabsTrigger>
                 <TabsTrigger value="coupons"><Ticket className="h-4 w-4 mr-1" />쿠폰 성적</TabsTrigger>
+                <TabsTrigger value="creatives">배너·팝업</TabsTrigger>
               </TabsList>
-              {tab !== "coupons" && currentRows && (
+              {tab !== "coupons" && tab !== "creatives" && currentRows && (
                 <Button variant="outline" size="sm" onClick={() => copyPhones(currentRows)}>
                   <Copy className="h-4 w-4 mr-2" />
                   전화번호 복사
@@ -239,6 +243,18 @@ export default function MarketingActionsPage() {
               </Card>
             </TabsContent>
 
+            <TabsContent value="appOnly">
+              <Card>
+                <CardHeader>
+                  <CardTitle>최근 접속이 앱인 고객</CardTitle>
+                  <CardDescription>공지 대상을 「앱만 쓰는 고객」으로 보내면 이 목록에 푸시됩니다</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CustomerTable rows={data.appOnly} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="coupons">
               <Card>
                 <CardHeader>
@@ -250,9 +266,58 @@ export default function MarketingActionsPage() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="creatives">
+              <Card>
+                <CardHeader>
+                  <CardTitle>배너·팝업 반응</CardTitle>
+                  <CardDescription>최근 90일 클릭. 클릭 후 7일 안 결제를 연결합니다. 웹 팝업 열람은 배포 이후부터 쌓입니다</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CreativeTable rows={data.creatives} />
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </>
       )}
+    </div>
+  );
+}
+
+function CreativeTable({ rows }: { rows: CreativeStat[] }) {
+  if (rows.length === 0) {
+    return <p className="text-sm text-muted-foreground py-8 text-center">배너·팝업이 없습니다</p>;
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-left text-muted-foreground">
+            <th className="py-2 pr-3 font-medium">유형</th>
+            <th className="py-2 pr-3 font-medium">제목</th>
+            <th className="py-2 pr-3 font-medium">클릭</th>
+            <th className="py-2 pr-3 font-medium">고객</th>
+            <th className="py-2 pr-3 font-medium">이후 결제</th>
+            <th className="py-2 font-medium">매출</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={`${row.kind}-${row.id}`} className="border-b last:border-0">
+              <td className="py-2 pr-3">{row.kind === "popup" ? "팝업" : "배너"}</td>
+              <td className="py-2 pr-3">
+                {row.title}
+                {!row.is_active && <span className="text-xs text-muted-foreground ml-2">중지</span>}
+              </td>
+              <td className="py-2 pr-3">{row.clicks.toLocaleString()}</td>
+              <td className="py-2 pr-3">{row.users.toLocaleString()}</td>
+              <td className="py-2 pr-3">{row.payments.toLocaleString()}</td>
+              <td className="py-2">{won(row.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

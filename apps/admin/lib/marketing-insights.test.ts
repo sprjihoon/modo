@@ -1,4 +1,4 @@
-import { buildMarketingInsights, classifyAccessPath, isPaidOrder, kstParts } from "./marketing-insights";
+import { buildMarketingInsights, classifyAccessPath, compareDailyPeriods, isPaidOrder, kstParts, previousPeriod } from "./marketing-insights";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
@@ -60,5 +60,8 @@ assert(classifyAccessPath({ referrer: "https://www.google.com/" }) === "구글",
 assert(classifyAccessPath({ device_os: "iOS 18.0", app_version: "1.2.0" }) === "앱 · iOS", "앱 iOS");
 assert(data.accessPaths[0].name === "네이버" || data.accessPaths.some((p) => p.name === "네이버"), "네이버 접속 경로");
 assert(data.accessPaths.find((p) => p.name === "앱 · iOS")?.sessions === 1, "앱 세션");
+assert(previousPeriod("2026-09-08", "2026-09-14")?.start === "2026-09-01", "직전 기간");
+const cmp = compareDailyPeriods(data.daily, "2026-09-01", "2026-09-07");
+assert(cmp && cmp.current.payments === 2, "기간 결제 합");
 
 console.log("marketing-insights.test.ts ok");
