@@ -1,16 +1,20 @@
 import {
   addKstDays,
   aggregateTrend,
+  assembleCustomerRankings,
   assemblePulse,
+  buildOpsReportEmailHtml,
   buildOpsReportEmailText,
   customersOf,
   eachDateInclusive,
   exceptionAttention,
   formatOpsReportTime,
   kstDayRange,
+  kstRangeInclusive,
   kstTimeParts,
   normalizeOpsReportSettings,
   parseOpsReportTime,
+  rankingsOf,
   resolveResendFrom,
   lastDayOfMonth,
   parseReportDate,
@@ -30,6 +34,9 @@ function assert(cond: unknown, msg: string) {
 const range = kstDayRange("2026-08-25");
 assert(range.startUtc === "2026-08-24T15:00:00.000Z", "KST 0시는 UTC 전날 15시");
 assert(range.endUtc.startsWith("2026-08-25T14:59:59"), "KST 하루 끝은 UTC 14:59");
+const span = kstRangeInclusive("2026-08-25", "2026-08-26");
+assert(span.startUtc === range.startUtc, "기간 시작은 첫날 0시");
+assert(span.endUtc.startsWith("2026-08-26T14:59:59"), "기간 끝은 마지막 날");
 
 assert(addKstDays("2026-08-01", -1) === "2026-07-31", "월 넘김");
 assert(parseReportDate("2026-08-26") === "2026-08-26", "정상 날짜");
@@ -96,7 +103,43 @@ const metrics: OpsDailyMetrics = {
 };
 assert(customersOf(metrics).signups === 3, "옛 스냅샷은 가입을 pulse에서");
 assert(customersOf(metrics).withdrawals === 0, "옛 스냅샷 탈퇴 기본 0");
+assert(rankingsOf(metrics).topReferrers.length === 0, "옛 스냅샷 순위 기본 빈 배열");
 assert(exceptionAttention(metrics.exceptions) === 8, "살펴볼 일 합");
+
+const assembledRanks = assembleCustomerRankings({
+  invitees: [
+    { invited_by: "u1" },
+    { invited_by: "u1" },
+    { invited_by: "u2" },
+    { invited_by: null },
+  ],
+  orders: [
+    { user_id: "u1", payment_status: "PAID", status: "BOOKED", total_price: 20000 },
+    { user_id: "u1", payment_status: "PAID", status: "INBOUND", total_price: 10000 },
+    { user_id: "u3", payment_status: "PAID", status: "BOOKED", total_price: 50000 },
+    { user_id: "u2", payment_status: "PAID", status: "CANCELLED", total_price: 90000 },
+  ],
+  visits: [
+    { user_id: "u2", session_id: "s1", event_id: "e1" },
+    { user_id: "u2", session_id: "s1", event_id: "e2" },
+    { user_id: "u2", session_id: "s2", event_id: "e3" },
+    { user_id: "u1", session_id: "s3", event_id: "e4" },
+  ],
+  profiles: [
+    { id: "u1", name: "홍길동", email: "hong@example.com" },
+    { id: "u2", name: "김철수", email: "kim@example.com" },
+    { id: "u3", name: "이영희", email: "lee@example.com" },
+    { id: "u4", name: "탈퇴", email: "deleted_x@deleted.modorepair.com" },
+  ],
+  limit: 3,
+});
+assert(assembledRanks.topReferrers[0].name === "홍길동" && assembledRanks.topReferrers[0].value === 2, "추천 1위");
+assert(assembledRanks.topReferrers[1].name === "김철수" && assembledRanks.topReferrers[1].value === 1, "추천 2위");
+assert(assembledRanks.topRevenue[0].name === "이영희" && assembledRanks.topRevenue[0].value === 50000, "매출 1위");
+assert(assembledRanks.topRevenue[1].name === "홍길동" && assembledRanks.topRevenue[1].extra === 2, "매출 2위 2건");
+assert(assembledRanks.topOrders[0].userId === "u1" && assembledRanks.topOrders[0].value === 2, "주문 1위 2건");
+assert(assembledRanks.topVisitors[0].name === "김철수" && assembledRanks.topVisitors[0].value === 2, "접속은 세션 수");
+assert(assembledRanks.topVisitors[0].extra === 3, "접속 이벤트 수");
 
 const rows: OpsDailyReportRow[] = [
   {
@@ -164,12 +207,32 @@ const text = buildOpsReportEmailText("2026-08-25", {
     active30d: 40,
     totalCustomers: 120,
   },
+  rankings: assembledRanks,
 });
 assert(text.includes("2026-08-25"), "메일 날짜");
 assert(text.includes("결제 2"), "메일 결제 건");
 assert(text.includes("탈퇴 1"), "메일 탈퇴");
 assert(text.includes("활성(30일) 40"), "메일 활성");
 assert(text.includes("그날 접속 8"), "메일 접속");
+assert(text.includes("친구추천 1.홍길동 2명"), "메일 추천 순위");
+assert(text.includes("매출 1.이영희 50000원"), "메일 매출 순위");
+assert(text.includes("접속 1.김철수 2회"), "메일 접속 순위");
+assert(text.includes("주문 1.홍길동 2건"), "메일 주문 순위");
+
+const html = buildOpsReportEmailHtml("2026-08-25", {
+  ...metrics,
+  customers: {
+    signups: 3,
+    withdrawals: 1,
+    recentLogins: 8,
+    active30d: 40,
+    totalCustomers: 120,
+  },
+  rankings: assembledRanks,
+});
+assert(html.includes("친구추천 TOP"), "메일 HTML 추천 제목");
+assert(html.includes("홍길동"), "메일 HTML 고객명");
+assert(html.includes("50,000원"), "메일 HTML 매출");
 
 assert(resolveResendFrom("???? <noreply@modo.mom>").startsWith("모두의수선"), "깨진 발신명은 복구");
 assert(resolveResendFrom("=?UTF-8?B?66y464+Z7J2Y7Iug7Iah?= <noreply@modo.mom>").includes("UTF-8"), "인코딩된 발신명은 유지");

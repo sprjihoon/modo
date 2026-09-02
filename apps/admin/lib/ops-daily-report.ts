@@ -61,6 +61,24 @@ export type OpsDailyCustomers = {
   totalCustomers: number;
 };
 
+export const RANKING_LIMIT = 10;
+export const EMAIL_RANKING_LIMIT = 5;
+
+export type OpsCustomerRankRow = {
+  userId: string;
+  name: string;
+  email: string | null;
+  value: number;
+  extra: number;
+};
+
+export type OpsCustomerRankings = {
+  topReferrers: OpsCustomerRankRow[];
+  topRevenue: OpsCustomerRankRow[];
+  topVisitors: OpsCustomerRankRow[];
+  topOrders: OpsCustomerRankRow[];
+};
+
 export type OpsDailyMetrics = {
   pulse: OpsDailyPulse;
   pipeline: OpsDailyPipeline | null;
@@ -68,6 +86,7 @@ export type OpsDailyMetrics = {
   center: OpsDailyCenter;
   moneyOut: OpsDailyMoneyOut;
   customers?: OpsDailyCustomers;
+  rankings?: OpsCustomerRankings;
 };
 
 export type OpsDailyReportRow = {
@@ -115,6 +134,16 @@ export function kstDayRange(dateYmd: string): { startUtc: string; endUtc: string
   };
 }
 
+/** KST 기간 → UTC ISO 구간 */
+export function kstRangeInclusive(fromYmd: string, toYmd: string): { startUtc: string; endUtc: string } {
+  const from = fromYmd <= toYmd ? fromYmd : toYmd;
+  const to = fromYmd <= toYmd ? toYmd : fromYmd;
+  return {
+    startUtc: kstDayRange(from).startUtc,
+    endUtc: kstDayRange(to).endUtc,
+  };
+}
+
 export function emptyPulse(): OpsDailyPulse {
   return {
     signups: 0,
@@ -143,6 +172,25 @@ export function customersOf(metrics: OpsDailyMetrics): OpsDailyCustomers {
     ...emptyCustomers(),
     ...(metrics.customers ?? {}),
     signups: metrics.customers?.signups ?? metrics.pulse.signups,
+  };
+}
+
+export function emptyRankings(): OpsCustomerRankings {
+  return {
+    topReferrers: [],
+    topRevenue: [],
+    topVisitors: [],
+    topOrders: [],
+  };
+}
+
+export function rankingsOf(metrics: OpsDailyMetrics): OpsCustomerRankings {
+  const rankings = metrics.rankings;
+  return {
+    topReferrers: rankings?.topReferrers ?? [],
+    topRevenue: rankings?.topRevenue ?? [],
+    topVisitors: rankings?.topVisitors ?? [],
+    topOrders: rankings?.topOrders ?? [],
   };
 }
 
@@ -187,6 +235,225 @@ export function assemblePulse(params: {
     promoDiscount: paid.reduce((sum, o) => sum + (o.promotion_discount_amount || 0), 0),
     sources,
   };
+}
+
+function isPaidOpenOrder(order: { payment_status: string | null; status: string | null }): boolean {
+  return order.payment_status === "PAID" && !CLOSED.has(order.status ?? "");
+}
+
+function sortRankRows(a: OpsCustomerRankRow, b: OpsCustomerRankRow): number {
+  return b.value - a.value || b.extra - a.extra;
+}
+
+export function assembleCustomerRankings(input: {
+  invitees: Array<{ invited_by: string | null }>;
+  orders: Array<{
+    user_id: string | null;
+    payment_status: string | null;
+    status: string | null;
+    total_price: number | null;
+  }>;
+  visits: Array<{
+    user_id: string | null;
+    session_id: string | null;
+    event_id?: string | null;
+  }>;
+  profiles: Array<{ id: string; name: string | null; email: string | null }>;
+  limit?: number;
+}): OpsCustomerRankings {
+  const limit = input.limit ?? RANKING_LIMIT;
+  const profiles = new Map(
+    input.profiles
+      .filter((profile) => profile.id && !String(profile.email ?? "").startsWith("deleted_"))
+      .map((profile) => [
+        profile.id,
+        { name: (profile.name || "").trim() || "이름 없음", email: profile.email },
+      ])
+  );
+
+  const referrerCounts = new Map<string, number>();
+  for (const row of input.invitees) {
+    if (!row.invited_by) continue;
+    referrerCounts.set(row.invited_by, (referrerCounts.get(row.invited_by) ?? 0) + 1);
+  }
+
+  const revenue = new Map<string, { value: number; extra: number }>();
+  for (const order of input.orders) {
+    if (!order.user_id || !isPaidOpenOrder(order)) continue;
+    const current = revenue.get(order.user_id) ?? { value: 0, extra: 0 };
+    current.value += order.total_price || 0;
+    current.extra += 1;
+    revenue.set(order.user_id, current);
+  }
+
+  const visits = new Map<string, { sessions: Set<string>; events: number }>();
+  let visitIndex = 0;
+  for (const event of input.visits) {
+    if (!event.user_id) continue;
+    const current = visits.get(event.user_id) ?? { sessions: new Set<string>(), events: 0 };
+    current.sessions.add(event.session_id || event.event_id || `${event.user_id}-${visitIndex}`);
+    current.events += 1;
+    visits.set(event.user_id, current);
+    visitIndex += 1;
+  }
+
+  function label(userId: string, value: number, extra: number): OpsCustomerRankRow | null {
+    const profile = profiles.get(userId);
+    if (!profile) return null;
+    return { userId, name: profile.name, email: profile.email, value, extra };
+  }
+
+  return {
+    topReferrers: [...referrerCounts.entries()]
+      .map(([userId, value]) => label(userId, value, 0))
+      .filter((row): row is OpsCustomerRankRow => !!row)
+      .sort(sortRankRows)
+      .slice(0, limit),
+    topRevenue: [...revenue.entries()]
+      .map(([userId, row]) => label(userId, row.value, row.extra))
+      .filter((row): row is OpsCustomerRankRow => !!row)
+      .sort(sortRankRows)
+      .slice(0, limit),
+    topOrders: [...revenue.entries()]
+      .map(([userId, row]) => label(userId, row.extra, row.value))
+      .filter((row): row is OpsCustomerRankRow => !!row)
+      .sort(sortRankRows)
+      .slice(0, limit),
+    topVisitors: [...visits.entries()]
+      .map(([userId, row]) => label(userId, row.sessions.size, row.events))
+      .filter((row): row is OpsCustomerRankRow => !!row)
+      .sort(sortRankRows)
+      .slice(0, limit),
+  };
+}
+
+async function fetchAllRows<T>(
+  loadPage: (from: number, to: number) => Promise<{ data: T[] | null; error?: { message: string } | null }>
+): Promise<T[]> {
+  const pageSize = 1000;
+  const rows: T[] = [];
+  for (let from = 0; from < 20000; from += pageSize) {
+    const { data, error } = await loadPage(from, from + pageSize - 1);
+    if (error || !data?.length) break;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return rows;
+}
+
+function parseRpcRankings(data: unknown, limit: number): OpsCustomerRankings | null {
+  if (!data || typeof data !== "object") return null;
+  const raw = data as Record<string, unknown>;
+  if (
+    !Array.isArray(raw.topReferrers) &&
+    !Array.isArray(raw.topRevenue) &&
+    !Array.isArray(raw.topVisitors) &&
+    !Array.isArray(raw.topOrders)
+  ) {
+    return null;
+  }
+
+  const normalize = (rows: unknown): OpsCustomerRankRow[] => {
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((row) => {
+        if (!row || typeof row !== "object") return null;
+        const item = row as Record<string, unknown>;
+        const userId = String(item.userId ?? item.user_id ?? "");
+        if (!userId) return null;
+        const name = String(item.name ?? "").trim() || "이름 없음";
+        return {
+          userId,
+          name,
+          email: typeof item.email === "string" ? item.email : null,
+          value: Number(item.value) || 0,
+          extra: Number(item.extra) || 0,
+        };
+      })
+      .filter((row): row is OpsCustomerRankRow => !!row)
+      .slice(0, limit);
+  };
+
+  return {
+    topReferrers: normalize(raw.topReferrers),
+    topRevenue: normalize(raw.topRevenue),
+    topVisitors: normalize(raw.topVisitors),
+    topOrders: normalize(raw.topOrders),
+  };
+}
+
+export async function buildCustomerRankings(
+  admin: AdminClient,
+  fromYmd: string,
+  toYmd: string,
+  limit = RANKING_LIMIT
+): Promise<OpsCustomerRankings> {
+  const { startUtc, endUtc } = kstRangeInclusive(fromYmd, toYmd);
+
+  const { data: rpcData, error: rpcError } = await (admin as any).rpc("ops_customer_rankings", {
+    p_start: startUtc,
+    p_end: endUtc,
+    p_limit: limit,
+  });
+  const fromRpc = rpcError ? null : parseRpcRankings(rpcData, limit);
+  if (fromRpc) return fromRpc;
+
+  const query = admin as any;
+  const [invitees, orders, visits] = await Promise.all([
+    fetchAllRows<{ invited_by: string | null }>((from, to) =>
+      query
+        .from("users")
+        .select("invited_by")
+        .eq("role", "CUSTOMER")
+        .not("invited_by", "is", null)
+        .not("email", "like", "deleted_%")
+        .gte("created_at", startUtc)
+        .lte("created_at", endUtc)
+        .range(from, to)
+    ),
+    fetchAllRows<{
+      user_id: string | null;
+      payment_status: string | null;
+      status: string | null;
+      total_price: number | null;
+    }>((from, to) =>
+      query
+        .from("orders")
+        .select("user_id, payment_status, status, total_price")
+        .not("user_id", "is", null)
+        .gte("created_at", startUtc)
+        .lte("created_at", endUtc)
+        .range(from, to)
+    ),
+    fetchAllRows<{ user_id: string | null; session_id: string | null; event_id: string | null }>(
+      (from, to) =>
+        query
+          .from("customer_events")
+          .select("user_id, session_id, event_id")
+          .not("user_id", "is", null)
+          .in("event_type", ["PAGE_VIEW", "APP_OPEN"])
+          .gte("created_at", startUtc)
+          .lte("created_at", endUtc)
+          .range(from, to)
+    ),
+  ]);
+
+  const ids = new Set<string>();
+  for (const row of invitees) if (row.invited_by) ids.add(row.invited_by);
+  for (const row of orders) if (row.user_id) ids.add(row.user_id);
+  for (const row of visits) if (row.user_id) ids.add(row.user_id);
+
+  const profiles: Array<{ id: string; name: string | null; email: string | null }> = [];
+  const idList = [...ids];
+  for (let i = 0; i < idList.length; i += 200) {
+    const { data } = await query
+      .from("users")
+      .select("id, name, email")
+      .in("id", idList.slice(i, i + 200));
+    profiles.push(...(data ?? []));
+  }
+
+  return assembleCustomerRankings({ invitees, orders, visits, profiles, limit });
 }
 
 export function exceptionAttention(ex: OpsDailyExceptions): number {
@@ -468,6 +735,7 @@ export async function buildOpsDailyMetrics(
     workComplete,
     outboundScans,
     moneyCs,
+    rankings,
   ] = await Promise.all([
     ordersQuery,
     countRows(admin, "users", (q) =>
@@ -531,6 +799,7 @@ export async function buildOpsDailyMetrics(
       .gte("created_at", startUtc)
       .lte("created_at", endUtc)
       .in("action", ["PAYMENT_REFUND", "REPAIR_REFUND", "COMPENSATION", "ORDER_CANCEL"]),
+    buildCustomerRankings(admin, reportDate, reportDate),
   ]);
 
   const cancelQueue = cancelByAt + cancelByReturn;
@@ -665,6 +934,7 @@ export async function buildOpsDailyMetrics(
       recentLogins,
       totalCustomers,
     },
+    rankings,
   };
 }
 
@@ -680,10 +950,48 @@ function won(n: number): string {
   return `${n.toLocaleString("ko-KR")}원`;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function rankingEmailBlock(
+  title: string,
+  rows: OpsCustomerRankRow[],
+  format: (row: OpsCustomerRankRow) => string
+): string {
+  const top = rows.slice(0, EMAIL_RANKING_LIMIT);
+  const body = top.length
+    ? top
+        .map(
+          (row, index) =>
+            `<tr><td style="padding:6px 0;color:#4b5563;">${index + 1}. ${escapeHtml(row.name)}</td><td style="text-align:right;font-weight:700;">${format(row)}</td></tr>`
+        )
+        .join("")
+    : `<tr><td colspan="2" style="padding:6px 0;color:#9ca3af;">없음</td></tr>`;
+  return `
+        <tr><td style="padding:20px 28px 8px;font-size:13px;font-weight:700;color:#111827;">${title}</td></tr>
+        <tr><td style="padding:0 28px;"><table width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;">${body}</table></td></tr>`;
+}
+
+function rankingTextLine(
+  title: string,
+  rows: OpsCustomerRankRow[],
+  format: (row: OpsCustomerRankRow) => string
+): string {
+  const top = rows.slice(0, EMAIL_RANKING_LIMIT);
+  if (top.length === 0) return `${title} 없음`;
+  return `${title} ${top.map((row, index) => `${index + 1}.${row.name} ${format(row)}`).join(" / ")}`;
+}
+
 export function buildOpsReportEmailHtml(reportDate: string, metrics: OpsDailyMetrics): string {
   const p = metrics.pulse;
   const e = metrics.exceptions;
   const c = customersOf(metrics);
+  const ranks = rankingsOf(metrics);
   const pipe = metrics.pipeline;
   const attn = exceptionAttention(e);
   const pipelineRows = pipe
@@ -716,13 +1024,17 @@ export function buildOpsReportEmailHtml(reportDate: string, metrics: OpsDailyMet
         <tr><td style="padding:20px 28px 8px;font-size:13px;font-weight:700;color:#111827;">파이프라인</td></tr>
         <tr><td style="padding:0 28px;"><table width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;">${pipelineRows}</table></td></tr>
         <tr><td style="padding:20px 28px 8px;font-size:13px;font-weight:700;color:#111827;">예외</td></tr>
-        <tr><td style="padding:0 28px 28px;"><table width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;">
+        <tr><td style="padding:0 28px;"><table width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;">
           <tr><td style="padding:6px 0;color:#4b5563;">그날 취소·반송</td><td style="text-align:right;font-weight:700;">${e.cancelQueue}</td></tr>
           <tr><td style="padding:6px 0;color:#4b5563;">CS · 추가금 대기 · 보상 미지급</td><td style="text-align:right;font-weight:700;">${e.csEvents} · ${e.extraChargePending} · ${e.compensationPending}</td></tr>
           <tr><td style="padding:6px 0;color:#4b5563;">웹훅 오류 / 서명</td><td style="text-align:right;font-weight:700;">${e.webhookErrors} / ${e.webhookBadSig}</td></tr>
           <tr><td style="padding:6px 0;color:#4b5563;">알림 미발송 / 재시도 3+</td><td style="text-align:right;font-weight:700;">${e.notificationsUnsent} / ${e.notificationsRetry3}</td></tr>
         </table></td></tr>
-        <tr><td style="padding:0 28px 32px;color:#9ca3af;font-size:12px;">자세히 보기: <a href="https://admin.modo.mom/dashboard/reports?date=${reportDate}" style="color:#00C896;text-decoration:none;">어드민 운영 리포트</a></td></tr>
+        ${rankingEmailBlock("친구추천 TOP", ranks.topReferrers, (row) => `${row.value}명`)}
+        ${rankingEmailBlock("매출 TOP", ranks.topRevenue, (row) => `${won(row.value)} · ${row.extra}건`)}
+        ${rankingEmailBlock("접속 TOP", ranks.topVisitors, (row) => `${row.value}회 · ${row.extra}건`)}
+        ${rankingEmailBlock("주문 TOP", ranks.topOrders, (row) => `${row.value}건 · ${won(row.extra)}`)}
+        <tr><td style="padding:20px 28px 32px;color:#9ca3af;font-size:12px;">자세히 보기: <a href="https://admin.modo.mom/dashboard/reports?date=${reportDate}" style="color:#00C896;text-decoration:none;">어드민 운영 리포트</a></td></tr>
       </table>
     </td></tr>
   </table>
@@ -733,11 +1045,16 @@ export function buildOpsReportEmailText(reportDate: string, metrics: OpsDailyMet
   const p = metrics.pulse;
   const e = metrics.exceptions;
   const c = customersOf(metrics);
+  const ranks = rankingsOf(metrics);
   return [
     `모두의수선 운영 리포트 ${reportDate}`,
     `가입 ${c.signups} / 탈퇴 ${c.withdrawals} / 결제 ${p.paidOrders} / 매출 ${p.revenue}원`,
     `활성(30일) ${c.active30d} / 그날 접속 ${c.recentLogins} / 전체 ${c.totalCustomers}`,
     `결제실패 ${p.paymentFailed} / CS ${e.csEvents} / 살펴볼 일 ${exceptionAttention(e)}`,
+    rankingTextLine("친구추천", ranks.topReferrers, (row) => `${row.value}명`),
+    rankingTextLine("매출", ranks.topRevenue, (row) => `${row.value}원`),
+    rankingTextLine("접속", ranks.topVisitors, (row) => `${row.value}회`),
+    rankingTextLine("주문", ranks.topOrders, (row) => `${row.value}건`),
     `https://admin.modo.mom/dashboard/reports?date=${reportDate}`,
   ].join("\n");
 }

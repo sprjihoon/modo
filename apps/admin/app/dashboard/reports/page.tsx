@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   addKstDays,
   aggregateTrend,
   customersOf,
   DEFAULT_OPS_REPORT_SETTINGS,
+  emptyRankings,
   exceptionAttention,
   formatOpsReportTime,
   kstToday,
@@ -15,6 +17,8 @@ import {
   parseReportDate,
   toTrendPoints,
   weekStartMonday,
+  type OpsCustomerRankRow,
+  type OpsCustomerRankings,
   type OpsDailyMetrics,
   type OpsDailyReportRow,
   type OpsReportScheduleSettings,
@@ -35,6 +39,7 @@ import {
   TrendingUp,
   Clock,
   Save,
+  Trophy,
 } from "lucide-react";
 import {
   CartesianGrid,
@@ -55,6 +60,40 @@ function trendPointDate(state: unknown): string {
   const payload = (state as { activePayload?: Array<{ payload?: { date?: string } }> } | null)
     ?.activePayload?.[0]?.payload?.date;
   return payload ?? "";
+}
+
+function RankList({
+  title,
+  hint,
+  rows,
+  format,
+}: {
+  title: string;
+  hint: string;
+  rows: OpsCustomerRankRow[];
+  format: (row: OpsCustomerRankRow) => string;
+}) {
+  return (
+    <div>
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="text-xs text-muted-foreground mb-2">{hint}</p>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">해당 기간 없음</p>
+      ) : (
+        <ol className="space-y-2 text-sm">
+          {rows.map((row, index) => (
+            <li key={row.userId} className="flex items-baseline justify-between gap-2">
+              <Link href={`/dashboard/customers/${row.userId}`} className="truncate hover:underline">
+                <span className="text-muted-foreground mr-1">{index + 1}.</span>
+                {row.name}
+              </Link>
+              <span className="shrink-0 font-medium">{format(row)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
 }
 
 function Metric({
@@ -105,6 +144,11 @@ export default function OpsReportsPage() {
   const [schedule, setSchedule] = useState<OpsReportScheduleSettings>(DEFAULT_OPS_REPORT_SETTINGS);
   const [scheduleHour, setScheduleHour] = useState(DEFAULT_OPS_REPORT_SETTINGS.sendHour);
   const [scheduleEnabled, setScheduleEnabled] = useState(DEFAULT_OPS_REPORT_SETTINGS.enabled);
+  const [rankFrom, setRankFrom] = useState(initialReportDate);
+  const [rankTo, setRankTo] = useState(initialReportDate);
+  const [rankPreset, setRankPreset] = useState("day");
+  const [rankings, setRankings] = useState<OpsCustomerRankings>(emptyRankings());
+  const [rankLoading, setRankLoading] = useState(false);
 
   const loadDay = useCallback(async (targetDate: string) => {
     setLoading(true);
@@ -129,6 +173,20 @@ export default function OpsReportsPage() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const loadRankings = useCallback(async (from: string, to: string) => {
+    setRankLoading(true);
+    try {
+      const res = await fetch(`/api/admin/ops-reports/rankings?from=${from}&to=${to}`);
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || "순위 조회 실패");
+      setRankings(json.rankings ?? emptyRankings());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRankLoading(false);
     }
   }, []);
 
@@ -210,11 +268,44 @@ export default function OpsReportsPage() {
     loadTrend(trendFrom, trendTo);
   }, [trendFrom, trendTo, loadTrend]);
 
+  useEffect(() => {
+    loadRankings(rankFrom, rankTo);
+  }, [rankFrom, rankTo, loadRankings]);
+
+  useEffect(() => {
+    setRankFrom(date);
+    setRankTo(date);
+    setRankPreset("day");
+  }, [date]);
+
   const metrics: OpsDailyMetrics | null = report?.metrics ?? null;
   const trend = useMemo(
     () => aggregateTrend(toTrendPoints(reports), grain),
     [reports, grain]
   );
+
+  function applyRankPreset(next: string) {
+    setRankPreset(next);
+    if (next === "day") {
+      setRankFrom(date);
+      setRankTo(date);
+    } else if (next === "today") {
+      setRankFrom(today);
+      setRankTo(today);
+    } else if (next === "yesterday") {
+      setRankFrom(kstYesterday());
+      setRankTo(kstYesterday());
+    } else if (next === "7days") {
+      setRankFrom(addKstDays(today, -6));
+      setRankTo(today);
+    } else if (next === "30days") {
+      setRankFrom(addKstDays(today, -29));
+      setRankTo(today);
+    } else if (next === "month") {
+      setRankFrom(monthStart(today));
+      setRankTo(today);
+    }
+  }
 
   function applyPreset(next: string) {
     setPreset(next);
@@ -546,6 +637,93 @@ export default function OpsReportsPage() {
                 : ""}
             </p>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5" />
+                고객 순위
+              </CardTitle>
+              <CardDescription>
+                선택한 기간에 친구추천·매출·접속·주문이 많은 고객입니다. 일일 메일은 그날 하루치만 넣습니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                {[
+                  ["day", "선택한 날"],
+                  ["today", "오늘"],
+                  ["yesterday", "어제"],
+                  ["7days", "최근 7일"],
+                  ["30days", "최근 30일"],
+                  ["month", "이번 달"],
+                ].map(([id, label]) => (
+                  <Button
+                    key={id}
+                    size="sm"
+                    variant={rankPreset === id ? "default" : "outline"}
+                    onClick={() => applyRankPreset(id)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+                {rankLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  type="date"
+                  className="w-40 h-9"
+                  max={rankTo}
+                  value={rankFrom}
+                  onChange={(e) => {
+                    setRankPreset("custom");
+                    setRankFrom(e.target.value);
+                  }}
+                />
+                <span className="text-muted-foreground">~</span>
+                <Input
+                  type="date"
+                  className="w-40 h-9"
+                  min={rankFrom}
+                  max={today}
+                  value={rankTo}
+                  onChange={(e) => {
+                    setRankPreset("custom");
+                    setRankTo(e.target.value);
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {rankFrom === rankTo ? rankFrom : `${rankFrom} ~ ${rankTo}`}
+                </span>
+              </div>
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+                <RankList
+                  title="친구추천"
+                  hint="기간 내 초대로 가입한 수"
+                  rows={rankings.topReferrers}
+                  format={(row) => `${row.value}명`}
+                />
+                <RankList
+                  title="매출"
+                  hint="결제 금액 · 주문 건수"
+                  rows={rankings.topRevenue}
+                  format={(row) => `${won(row.value)} · ${row.extra}건`}
+                />
+                <RankList
+                  title="접속"
+                  hint="세션 수 · 페이지/앱 오픈"
+                  rows={rankings.topVisitors}
+                  format={(row) => `${row.value}회 · ${row.extra}건`}
+                />
+                <RankList
+                  title="주문"
+                  hint="결제 건수 · 매출"
+                  rows={rankings.topOrders}
+                  format={(row) => `${row.value}건 · ${won(row.extra)}`}
+                />
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
 
