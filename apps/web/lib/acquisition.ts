@@ -107,9 +107,10 @@ export function acqColumns(touch?: AcquisitionTouch | null): {
   acq_content: string | null;
   acq_term: string | null;
 } | null {
-  if (!hasSource(touch)) return null;
+  const source = touch?.source.trim() || "";
+  if (!source || !touch) return null;
   return {
-    acq_source: touch.source.trim(),
+    acq_source: source,
     acq_medium: touch.medium.trim() || null,
     acq_campaign: touch.campaign.trim() || null,
     acq_content: touch.content.trim() || null,
