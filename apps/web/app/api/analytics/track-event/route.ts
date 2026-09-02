@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { acqColumns, parseCookieHeader } from "@/lib/acquisition";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,15 @@ export async function POST(request: NextRequest) {
       device_os: deviceOs,
       app_version: "web",
     });
+
+    const firstAcq = acqColumns(parseCookieHeader(request.headers.get("cookie"))?.first);
+    if (publicUserId && firstAcq) {
+      try {
+        await admin.from("users").update(firstAcq).eq("id", publicUserId).is("acq_source", null);
+      } catch {
+        // acq 컬럼이 아직 없으면 이벤트 기록만 유지
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch {

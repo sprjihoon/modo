@@ -11,6 +11,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { bookPickupWithRetry, notifyStaffPickupBookFailed } from '../_shared/book-pickup.ts'
 import { resolveOrderSourceFromRequest } from '../_shared/order-source.ts'
 import { flushPendingNotifications } from '../_shared/flush-notifications.ts'
+import { acqColumnsFromPickup } from '../_shared/acquisition.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -115,6 +116,7 @@ serve(async (req) => {
       images_with_pins: Array.isArray(pickup.imagesWithPins) && pickup.imagesWithPins.length > 0 ? pickup.imagesWithPins : null,
       images: Array.isArray(pickup.imageUrls) && pickup.imageUrls.length > 0 ? { urls: pickup.imageUrls } : null,
       order_source: orderSource,
+      ...acqColumnsFromPickup(pickup),
     }
 
     let attempt = 0

@@ -55,6 +55,42 @@ export type Database = {
           },
         ]
       }
+      ad_spend: {
+        Row: {
+          amount: number
+          campaign: string
+          created_at: string
+          end_date: string
+          id: string
+          note: string | null
+          source: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          campaign?: string
+          created_at?: string
+          end_date: string
+          id?: string
+          note?: string | null
+          source: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          campaign?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          note?: string | null
+          source?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       addresses: {
         Row: {
           address: string
@@ -1205,6 +1241,11 @@ export type Database = {
       }
       orders: {
         Row: {
+          acq_campaign: string | null
+          acq_content: string | null
+          acq_medium: string | null
+          acq_source: string | null
+          acq_term: string | null
           additional_price: number | null
           base_price: number
           canceled_at: string | null
@@ -1259,6 +1300,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          acq_campaign?: string | null
+          acq_content?: string | null
+          acq_medium?: string | null
+          acq_source?: string | null
+          acq_term?: string | null
           additional_price?: number | null
           base_price?: number
           canceled_at?: string | null
@@ -1313,6 +1359,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          acq_campaign?: string | null
+          acq_content?: string | null
+          acq_medium?: string | null
+          acq_source?: string | null
+          acq_term?: string | null
           additional_price?: number | null
           base_price?: number
           canceled_at?: string | null
@@ -2366,6 +2417,11 @@ export type Database = {
       users: {
         Row: {
           auth_id: string | null
+          acq_campaign: string | null
+          acq_content: string | null
+          acq_medium: string | null
+          acq_source: string | null
+          acq_term: string | null
           auth_provider: string | null
           created_at: string
           default_address: string | null
@@ -2389,6 +2445,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acq_campaign?: string | null
+          acq_content?: string | null
+          acq_medium?: string | null
+          acq_source?: string | null
+          acq_term?: string | null
           auth_id?: string | null
           auth_provider?: string | null
           created_at?: string
@@ -2413,6 +2474,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acq_campaign?: string | null
+          acq_content?: string | null
+          acq_medium?: string | null
+          acq_source?: string | null
+          acq_term?: string | null
           auth_id?: string | null
           auth_provider?: string | null
           created_at?: string

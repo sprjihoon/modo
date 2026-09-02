@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getAuthorizedUser, quoteOrder } from "@/lib/order-pricing";
+import { acqColumns, parseCookieHeader } from "@/lib/acquisition";
 
 /**
  * POST /api/orders/quote
@@ -26,6 +27,10 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await quoteOrder(user, body);
+    const lastAcq = acqColumns(parseCookieHeader(request.headers.get("cookie"))?.last);
+    const pickupPayload = lastAcq
+      ? { ...result.pickupPayload, ...lastAcq }
+      : result.pickupPayload;
 
     // service-role client 로 payment_intents insert (RLS 우회)
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -46,7 +51,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.internalUserId,
         total_price: result.totalPrice,
-        payload: result.pickupPayload,
+        payload: pickupPayload,
       })
       .select("id")
       .single();

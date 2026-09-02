@@ -306,6 +306,9 @@ export default function MarketingInsightsPage() {
           <p className="text-muted-foreground">결제·가입·접속이 몰리는 요일과 시간을 보고 푸시·프로모션 타이밍을 정합니다</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/dashboard/analytics/ads">
+            <Button variant="outline" size="sm">광고 성과</Button>
+          </Link>
           <Link href="/dashboard/analytics/marketing/actions">
             <Button variant="outline" size="sm">휴면·이탈·쿠폰</Button>
           </Link>

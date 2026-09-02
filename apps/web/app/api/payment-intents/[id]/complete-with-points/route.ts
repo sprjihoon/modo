@@ -109,6 +109,15 @@ export async function POST(
       images_with_pins: Array.isArray(p.imagesWithPins) ? p.imagesWithPins : null,
       images: Array.isArray(p.imageUrls) ? { urls: p.imageUrls } : null,
       order_source: orderSourceFromPayload(p) ?? "web",
+      ...(p.acq_source
+        ? {
+            acq_source: p.acq_source,
+            acq_medium: p.acq_medium || null,
+            acq_campaign: p.acq_campaign || null,
+            acq_content: p.acq_content || null,
+            acq_term: p.acq_term || null,
+          }
+        : {}),
     };
 
     let inserted: { id: string } | null = null;

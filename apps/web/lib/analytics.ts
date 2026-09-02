@@ -1,5 +1,6 @@
+import { captureBrowserAcquisition } from "./acquisition";
+
 let _sessionId: string | null = null;
-const ACQ_KEY = "modo_acq";
 
 function getSessionId(): string {
   if (!_sessionId) {
@@ -10,35 +11,26 @@ function getSessionId(): string {
 
 function captureAcquisition() {
   if (typeof window === "undefined") {
-    return { referrer: "", pageUrl: "", utm_source: "", utm_medium: "", utm_campaign: "" };
+    return {
+      referrer: "",
+      pageUrl: "",
+      utm_source: "",
+      utm_medium: "",
+      utm_campaign: "",
+      utm_content: "",
+      utm_term: "",
+    };
   }
-  const url = new URL(window.location.href);
-  const incoming = {
-    referrer: document.referrer || "",
-    utm_source: url.searchParams.get("utm_source") || "",
-    utm_medium: url.searchParams.get("utm_medium") || "",
-    utm_campaign: url.searchParams.get("utm_campaign") || "",
-  };
-  let stored = { referrer: "", utm_source: "", utm_medium: "", utm_campaign: "" };
-  try {
-    stored = { ...stored, ...JSON.parse(sessionStorage.getItem(ACQ_KEY) || "{}") };
-  } catch {
-    // ignore
-  }
-  const next = {
-    referrer: incoming.referrer || stored.referrer,
-    utm_source: incoming.utm_source || stored.utm_source,
-    utm_medium: incoming.utm_medium || stored.utm_medium,
-    utm_campaign: incoming.utm_campaign || stored.utm_campaign,
-  };
-  try {
-    sessionStorage.setItem(ACQ_KEY, JSON.stringify(next));
-  } catch {
-    // ignore
-  }
+  const pair = captureBrowserAcquisition();
+  const last = pair.last.source ? pair.last : pair.first;
   return {
-    ...next,
-    pageUrl: `${url.pathname}${url.search}`,
+    referrer: last.referrer || pair.first.referrer,
+    pageUrl: `${window.location.pathname}${window.location.search}`,
+    utm_source: last.source,
+    utm_medium: last.medium,
+    utm_campaign: last.campaign,
+    utm_content: last.content,
+    utm_term: last.term,
   };
 }
 
@@ -68,6 +60,8 @@ export async function trackEvent(params: TrackEventParams): Promise<void> {
           ...(acq.utm_source ? { utm_source: acq.utm_source } : {}),
           ...(acq.utm_medium ? { utm_medium: acq.utm_medium } : {}),
           ...(acq.utm_campaign ? { utm_campaign: acq.utm_campaign } : {}),
+          ...(acq.utm_content ? { utm_content: acq.utm_content } : {}),
+          ...(acq.utm_term ? { utm_term: acq.utm_term } : {}),
         },
       }),
     });

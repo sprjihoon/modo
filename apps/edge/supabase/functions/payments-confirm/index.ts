@@ -5,6 +5,7 @@ import { bookPickupWithRetry, notifyStaffPickupBookFailed } from '../_shared/boo
 import { orderSourceFromPayload } from '../_shared/order-source.ts'
 import { promotionCodesAllowedOnOrderSource } from '../_shared/promotion-eval.ts'
 import { flushPendingNotifications } from '../_shared/flush-notifications.ts'
+import { acqColumnsFromPickup } from '../_shared/acquisition.ts'
 
 const PORTONE_API_SECRET = Deno.env.get('PORTONE_API_SECRET') || ''
 const PORTONE_API_URL = 'https://api.portone.io'
@@ -303,6 +304,7 @@ serve(async (req) => {
         images_with_pins: Array.isArray(pickup.imagesWithPins) && pickup.imagesWithPins.length > 0 ? pickup.imagesWithPins : null,
         images: Array.isArray(pickup.imageUrls) && pickup.imageUrls.length > 0 ? { urls: pickup.imageUrls } : null,
         order_source: orderSourceFromPayload(pickup),
+        ...acqColumnsFromPickup(pickup),
       }
 
       let attempt = 0

@@ -51,6 +51,7 @@
 - 수선 요청 메모: `orders.customer_memo` · 핀 메모·배송 요청(`notes`)과 별도 · **웹 `modo.io.kr` 라이브** · 앱 `1.0.7+46` · 작업지시서·어드민 주문상세 공통
 - 출고송장 배송요청사항: 해당 주문의 `orders.notes`만 송장·우체국 `delivMsg`에 출력. 레이아웃 필드 `delivery_request`. Edge `shipments-create-outbound` 배포됨
 - 어드민 CS: 주문 상세에서 재작업·수선비 환불·전손 보상 (`order_cs_events`)
+- 광고 성과: 어드민 `/dashboard/analytics/ads` · 가입 CPA·주문 CPA·CAC · 루트 README 「광고 성과」
 - 배포 절차 상세: [`deployment.md`](deployment.md)
 
 ## 🎯 빠른 시작

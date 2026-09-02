@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getAuthorizedUser, quoteOrder } from "@/lib/order-pricing";
+import { acqColumns, parseCookieHeader } from "@/lib/acquisition";
 
 /**
  * POST /api/orders/free
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest) {
       images_with_pins: p.imagesWithPins,
       images: p.imageUrls ? { urls: p.imageUrls } : null,
       order_source: "web",
+      ...(acqColumns(parseCookieHeader(request.headers.get("cookie"))?.last) || {}),
     };
 
     let inserted: { id: string } | null = null;

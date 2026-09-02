@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { safeRedirectPath } from "@/lib/utils";
+import { acqColumns, parseCookieHeader } from "@/lib/acquisition";
 
 function readInviteCookie(request: Request): string {
   const raw = request.headers.get("cookie") || "";
@@ -82,6 +83,19 @@ export async function GET(request: Request) {
           .maybeSingle();
 
         if (userRow?.id) {
+          const firstAcq = acqColumns(parseCookieHeader(request.headers.get("cookie"))?.first);
+          if (firstAcq) {
+            try {
+              await admin
+                .from("users")
+                .update(firstAcq)
+                .eq("id", userRow.id)
+                .is("acq_source", null);
+            } catch {
+              // acq 컬럼 마이그레이션 전이면 가입은 그대로 진행
+            }
+          }
+
           await admin.rpc("grant_signup_reward", {
             p_user_id: userRow.id,
           });

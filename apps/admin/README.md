@@ -190,6 +190,9 @@ await supabase.auth.signOut()
 Windows에서는 `npm run build`를 돌리지 않는다. 맥북에서 `main` pull 후 타입체크·빌드를 이어간다.
 
 ```bash
+# 광고 성과 (가입 CPA · 주문 CPA · CAC)
+npx tsx lib/ad-performance.test.ts
+
 # 입고·출고 스캔 / 관리자 미디어 조회
 npx tsx lib/barcode.test.ts
 npx tsx lib/ops-camera.test.ts

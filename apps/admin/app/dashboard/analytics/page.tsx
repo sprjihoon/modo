@@ -335,6 +335,30 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-100 rounded-lg">
+                <Megaphone className="h-6 w-6 text-amber-700" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">광고 성과</h3>
+                <p className="text-sm text-muted-foreground">
+                  가입 CPA · 주문 CPA · CAC. 네이버·인스타·구글·유튜브 광고 유지/정리
+                </p>
+              </div>
+            </div>
+            <Link href="/dashboard/analytics/ads">
+              <Button variant="outline" className="gap-2">
+                보러가기
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="bg-gradient-to-r from-teal-50 to-emerald-50 border-teal-200">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
@@ -350,6 +374,11 @@ export default function AnalyticsPage() {
               </div>
             </div>
             <div className="flex gap-2">
+              <Link href="/dashboard/analytics/ads">
+                <Button variant="outline" className="gap-2">
+                  광고 성과
+                </Button>
+              </Link>
               <Link href="/dashboard/analytics/marketing/actions">
                 <Button variant="outline" className="gap-2">
                   휴면·이탈·쿠폰
