@@ -7,7 +7,6 @@ import { formatPrice } from "@/lib/utils";
 import { Scissors, MapPin, CreditCard, AlertCircle, X, ShoppingCart, Coins } from "lucide-react";
 import { Analytics } from "@/lib/analytics";
 import { addCartItem } from "@/lib/cart";
-import { CompanyFooter } from "@/components/layout/CompanyFooter";
 import type { OrderDraft } from "@/components/order/OrderNewClient";
 import { parseRepairPart } from "@/lib/repair-parts";
 
@@ -381,7 +380,7 @@ export function PaymentClient() {
 
   if (isLoading) {
     return (
-      <div className="p-4 space-y-3 pb-8">
+      <div className="flex-1 min-h-0 p-4 space-y-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />
         ))}
@@ -424,9 +423,8 @@ export function PaymentClient() {
   const repairTotal = (p.basePrice ?? 0) - (p.promotionDiscountAmount ?? 0);
 
   return (
-    <>
-      {/* 본문 — 결제 버튼 + 접힌 푸터 높이만큼 여백 */}
-      <div className="pb-40">
+    <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 overflow-y-auto min-h-0 pb-4">
         <div className="mx-4 mt-4 p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <Scissors className="w-4 h-4 text-[#00C896]" />
@@ -646,22 +644,18 @@ export function PaymentClient() {
         )}
       </div>
 
-      {/* 결제 버튼 위 · 푸터는 맨 아래. 아코디언은 접힌 채 시작 */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[600px] z-20 bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
-        <div className="px-5 py-3">
-          <button
-            onClick={handlePayment}
-            disabled={isRequesting || testRequesting !== null}
-            className="touch-target w-full py-4 bg-[#00C896] text-white text-base font-bold rounded-full shadow-lg shadow-[#00C896]/30 disabled:opacity-50 active:bg-[#00A07B] active:shadow-none transition-all"
-          >
-            {isRequesting
-              ? "결제 진행 중..."
-              : intent.total_price === 0
-                ? "포인트로 결제 완료하기"
-                : `${formatPrice(intent.total_price)} 결제하기`}
-          </button>
-        </div>
-        <CompanyFooter />
+      <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 py-3">
+        <button
+          onClick={handlePayment}
+          disabled={isRequesting || testRequesting !== null}
+          className="touch-target w-full py-4 bg-[#00C896] text-white text-sm font-bold rounded-xl disabled:opacity-50 active:opacity-80 transition-colors"
+        >
+          {isRequesting
+            ? "결제 진행 중..."
+            : intent.total_price === 0
+              ? "포인트로 결제 완료하기"
+              : `${formatPrice(intent.total_price)} 결제하기`}
+        </button>
       </div>
 
       {showExitDialog && (
@@ -706,6 +700,6 @@ export function PaymentClient() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
