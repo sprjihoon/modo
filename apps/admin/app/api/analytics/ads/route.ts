@@ -21,6 +21,8 @@ async function fetchAll<T>(
   return rows;
 }
 
+type EventRow = Omit<AdEvent, "metadata"> & { metadata?: unknown };
+
 function asMeta(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -66,15 +68,16 @@ export async function GET(request: NextRequest) {
       );
     });
 
-    const events = (
-      await fetchAll<AdEvent>(async (from, to) =>
-        supabaseAdmin
+    const events: AdEvent[] = (
+      await fetchAll<EventRow>(async (from, to) => {
+        const result = await supabaseAdmin
           .from("customer_events")
           .select("created_at, user_id, referrer, page_url, metadata, device_os, app_version")
           .not("user_id", "is", null)
           .order("created_at", { ascending: true })
-          .range(from, to)
-      )
+          .range(from, to);
+        return { data: (result.data || null) as EventRow[] | null, error: result.error };
+      })
     ).map((event) => ({ ...event, metadata: asMeta(event.metadata) }));
 
     let spends: AdSpendRow[] = [];
