@@ -1,16 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Mail, Phone, Calendar, Loader2 } from "lucide-react";
-import { getCustomers, getCustomerStats, type Customer } from "@/lib/api/customers";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, Mail, Phone, Calendar, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { type Customer } from "@/lib/api/customers";
 import { DeviceOsBadge } from "@/components/customers/DeviceOsBadge";
 import { deviceOsInfo, formatLastSeenAt } from "@/lib/customer-device-os";
+import {
+  applyCustomerListView,
+  type CustomerSortBy,
+  type CustomerSortDir,
+} from "@/lib/customer-list";
 
 // 오늘 날짜 (YYYY-MM-DD 형식)
 const getToday = () => {
@@ -34,10 +46,17 @@ export default function CustomersPage() {
   const [datePreset, setDatePreset] = useState<string>("all");
   // 날짜 필터 기준: created_at(가입일) | last_order(최근 주문일)
   const [dateFilterType, setDateFilterType] = useState<"created_at" | "last_order">("created_at");
+  const [sortBy, setSortBy] = useState<CustomerSortBy>("created_at");
+  const [sortDir, setSortDir] = useState<CustomerSortDir>("desc");
+  const [pageSize, setPageSize] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const resetPage = () => setCurrentPage(1);
 
   // 날짜 프리셋 변경
   const handleDatePreset = (preset: string) => {
     setDatePreset(preset);
+    resetPage();
     const today = getToday();
     switch (preset) {
       case "today":
@@ -88,7 +107,14 @@ export default function CustomersPage() {
   const stats = data?.stats;
   const isLoadingStats = isLoadingCustomers;
 
-  const filteredCustomers = customers;
+  const listView = useMemo(
+    () => applyCustomerListView(customers, { sortBy, sortDir, page: currentPage, pageSize }),
+    [customers, sortBy, sortDir, currentPage, pageSize]
+  );
+  const filteredCustomers = listView.items;
+  const totalCount = listView.pagination.total;
+  const totalPages = listView.pagination.totalPages;
+  const safePage = listView.pagination.page;
 
   // 고객 상태 계산 (최근 30일 내 주문 = 활성, 이번 달 가입 = 신규, 그 외 = 일반)
   const getCustomerStatus = (customer: Customer) => {
@@ -130,7 +156,7 @@ export default function CustomersPage() {
             <span className="text-sm text-muted-foreground">기준:</span>
             <div className="flex rounded-md border overflow-hidden text-xs">
               <button
-                onClick={() => setDateFilterType("created_at")}
+                onClick={() => { setDateFilterType("created_at"); resetPage(); }}
                 className={`px-3 py-1.5 font-medium transition-colors ${
                   dateFilterType === "created_at"
                     ? "bg-primary text-primary-foreground"
@@ -140,7 +166,7 @@ export default function CustomersPage() {
                 가입일
               </button>
               <button
-                onClick={() => setDateFilterType("last_order")}
+                onClick={() => { setDateFilterType("last_order"); resetPage(); }}
                 className={`px-3 py-1.5 font-medium transition-colors border-l ${
                   dateFilterType === "last_order"
                     ? "bg-primary text-primary-foreground"
@@ -168,14 +194,14 @@ export default function CustomersPage() {
                 type="date"
                 className="w-36 h-9"
                 value={startDate}
-                onChange={(e) => { setStartDate(e.target.value); setDatePreset("custom"); }}
+                onChange={(e) => { setStartDate(e.target.value); setDatePreset("custom"); resetPage(); }}
               />
               <span className="text-muted-foreground">~</span>
               <Input
                 type="date"
                 className="w-36 h-9"
                 value={endDate}
-                onChange={(e) => { setEndDate(e.target.value); setDatePreset("custom"); }}
+                onChange={(e) => { setEndDate(e.target.value); setDatePreset("custom"); resetPage(); }}
               />
             </div>
           </div>
@@ -185,8 +211,73 @@ export default function CustomersPage() {
               placeholder="고객명, 이메일, 전화번호로 검색..."
               className="pl-10"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); resetPage(); }}
             />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 mt-4">
+            <Select
+              value={sortBy}
+              onValueChange={(value) => {
+                setSortBy(value as CustomerSortBy);
+                setSortDir("desc");
+                resetPage();
+              }}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="정렬 기준" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_at">가입일</SelectItem>
+                <SelectItem value="last_seen_at">마지막 접속</SelectItem>
+                <SelectItem value="last_device_os">OS</SelectItem>
+                <SelectItem value="totalOrders">주문 수</SelectItem>
+                <SelectItem value="totalSpent">총 구매액</SelectItem>
+                <SelectItem value="lastOrderDate">최근 주문</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={sortDir}
+              onValueChange={(value) => {
+                setSortDir(value as CustomerSortDir);
+                resetPage();
+              }}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="정렬 순서" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc">
+                  {sortBy === "last_device_os"
+                    ? "웹 우선"
+                    : sortBy === "totalOrders" || sortBy === "totalSpent"
+                    ? "많은순"
+                    : "최신순"}
+                </SelectItem>
+                <SelectItem value="asc">
+                  {sortBy === "last_device_os"
+                    ? "iOS 우선"
+                    : sortBy === "totalOrders" || sortBy === "totalSpent"
+                    ? "적은순"
+                    : "오래된순"}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => {
+                setPageSize(Number(value));
+                resetPage();
+              }}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="페이지 크기" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10명씩</SelectItem>
+                <SelectItem value="20">20명씩</SelectItem>
+                <SelectItem value="50">50명씩</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -262,7 +353,11 @@ export default function CustomersPage() {
         <CardHeader>
           <CardTitle>고객 목록</CardTitle>
           <CardDescription>
-            {isLoadingCustomers ? "로딩 중..." : `총 ${filteredCustomers.length}명의 고객`}
+            {isLoadingCustomers
+              ? "로딩 중..."
+              : totalCount === 0
+              ? "총 0명의 고객"
+              : `총 ${totalCount.toLocaleString()}명 중 ${((safePage - 1) * pageSize + 1).toLocaleString()} - ${Math.min(safePage * pageSize, totalCount).toLocaleString()}명`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -406,6 +501,53 @@ export default function CustomersPage() {
                   </Link>
                 );
               })}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6">
+              <div className="text-sm text-muted-foreground">
+                {(safePage - 1) * pageSize + 1} - {Math.min(safePage * pageSize, totalCount)} / {totalCount}명
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, Math.min(p, totalPages) - 1))}
+                  disabled={safePage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (page) =>
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= safePage - 1 && page <= safePage + 1)
+                  )
+                  .map((page, idx, arr) => (
+                    <div key={page} className="flex items-center gap-2">
+                      {idx > 0 && arr[idx - 1] !== page - 1 && (
+                        <span className="px-2">...</span>
+                      )}
+                      <Button
+                        variant={page === safePage ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    </div>
+                  ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
