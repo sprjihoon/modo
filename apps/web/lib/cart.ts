@@ -8,6 +8,9 @@ import { createClient } from "@/lib/supabase/client";
 import { OrderDraft } from "@/components/order/OrderNewClient";
 import { normalizeStoredDraft } from "./normalize-cart-draft";
 import { collectOrderImageUrls, deleteOrderImages } from "./order-image-storage";
+import { partitionExpiredCart } from "./cart-expiry";
+
+export { CART_TTL_DAYS, isCartExpired } from "./cart-expiry";
 
 export { normalizeStoredDraft } from "./normalize-cart-draft";
 
@@ -29,6 +32,32 @@ function localLoad(): CartDraftItem[] {
   } catch {
     return [];
   }
+}
+
+async function dropExpiredCartItems(
+  items: CartDraftItem[],
+  removeServerIds?: (ids: string[]) => Promise<void>,
+): Promise<CartDraftItem[]> {
+  const { keep, expired } = partitionExpiredCart(items, (item) => item.savedAt);
+  if (expired.length === 0) return items;
+
+  if (removeServerIds) {
+    const ids = expired
+      .map((item) => item.id)
+      .filter((id) => !id.startsWith("cart_"));
+    if (ids.length > 0) {
+      try {
+        await removeServerIds(ids);
+      } catch { /* 로컬만이라도 비운다 */ }
+    }
+  }
+
+  const remainingUrls = new Set(keep.flatMap((item) => collectOrderImageUrls(item.draft)));
+  const toDelete = expired
+    .flatMap((item) => collectOrderImageUrls(item.draft))
+    .filter((url) => !remainingUrls.has(url));
+  await deleteOrderImages(toDelete);
+  return keep;
 }
 
 /**
@@ -75,7 +104,13 @@ async function resolveUserId(): Promise<string | null> {
 export async function fetchCartItems(): Promise<CartDraftItem[]> {
   try {
     const userId = await resolveUserId();
-    if (!userId) return localLoad();
+    if (!userId) {
+      const local = localLoad();
+      const kept = await dropExpiredCartItems(local);
+      if (kept.length !== local.length) localSave(kept);
+      else localCache(kept);
+      return kept;
+    }
 
     const supabase = createClient();
     const { data, error } = await supabase
@@ -86,7 +121,7 @@ export async function fetchCartItems(): Promise<CartDraftItem[]> {
 
     if (error) throw error;
 
-    const items: CartDraftItem[] = (data ?? []).flatMap((row) => {
+    const loaded: CartDraftItem[] = (data ?? []).flatMap((row) => {
       try {
         const d = row.draft_data as Record<string, unknown>;
         if (!d) return [];
@@ -97,12 +132,18 @@ export async function fetchCartItems(): Promise<CartDraftItem[]> {
       }
     });
 
+    const items = await dropExpiredCartItems(loaded, async (ids) => {
+      await supabase.from("cart_drafts").delete().in("id", ids);
+    });
+
     // 서버 데이터를 로컬에 캐싱 (이벤트 발행 없이 — 무한 루프 방지)
     localCache(items);
     return items;
   } catch {
     // 서버 오류 시 로컬 캐시 반환
-    return localLoad();
+    const kept = await dropExpiredCartItems(localLoad());
+    localCache(kept);
+    return kept;
   }
 }
 
@@ -193,10 +234,10 @@ export async function clearCartItems(): Promise<void> {
 
 /** 로컬 캐시 기반 즉시 카운트 (동기, SSR-safe). */
 export function getCartCount(): number {
-  return localLoad().length;
+  return getCartItems().length;
 }
 
 // 하위 호환: 동기 getCartItems (로컬 캐시 반환)
 export function getCartItems(): CartDraftItem[] {
-  return localLoad();
+  return partitionExpiredCart(localLoad(), (item) => item.savedAt).keep;
 }

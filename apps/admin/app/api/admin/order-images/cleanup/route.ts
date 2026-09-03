@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isVercelCronRequest } from "@/lib/admin-host";
 import { requireAdmin } from "@/lib/ops-auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { expireAbandonedCarts } from "@/lib/cart-draft-expire";
 import { classifyStoredOrderImages, cleanupOrderImages } from "@/lib/order-image-cleanup";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +28,9 @@ export async function GET(request: NextRequest) {
   try {
     const admin = getSupabaseAdmin();
     if (auth.via === "cron") {
+      const carts = await expireAbandonedCarts(admin);
       const result = await cleanupOrderImages(admin, "run");
-      return NextResponse.json({ success: true, ...result });
+      return NextResponse.json({ success: true, carts, ...result });
     }
     const preview = await classifyStoredOrderImages(admin);
     return NextResponse.json({ success: true, summary: preview.summary });

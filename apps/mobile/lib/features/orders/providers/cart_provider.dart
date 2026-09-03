@@ -6,6 +6,7 @@ import '../../../../services/cart_service.dart';
 import '../../../../services/customer_event_service.dart';
 import '../../../../services/image_service.dart';
 import '../domain/cart_draft_items.dart';
+import '../domain/cart_expiry.dart';
 import '../domain/cart_item.dart';
 
 export '../domain/cart_item.dart';
@@ -32,6 +33,8 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
     // 2. 로그인 되어 있으면 서버에서 최신 데이터로 대체
     if (_svc.isLoggedIn) {
       await _syncFromServer();
+    } else {
+      await _purgeExpired(removeServer: false);
     }
   }
 
@@ -77,8 +80,14 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
         try {
           final data = Map<String, dynamic>.from(row['draft_data'] as Map);
           final serverId = row['id'] as String;
+          final addedAt = DateTime.tryParse(row['created_at']?.toString() ?? '');
           items.addAll(
-            cartItemsFromDraft(data, idPrefix: serverId, serverId: serverId),
+            cartItemsFromDraft(
+              data,
+              idPrefix: serverId,
+              serverId: serverId,
+              addedAt: addedAt,
+            ),
           );
         } catch (e) {
           debugPrint('CartNotifier._syncFromServer item parse error: $e');
@@ -86,7 +95,7 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
       }
 
       state = items;
-      await _saveLocalCache();
+      await _purgeExpired(removeServer: true);
     } catch (e) {
       debugPrint('CartNotifier._syncFromServer error: $e');
     }
@@ -126,6 +135,7 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
       await _syncFromServer();
     } else {
       await _loadLocalCache();
+      await _purgeExpired(removeServer: false);
     }
   }
 
@@ -263,6 +273,23 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
     state = [];
     await _saveLocalCache();
     await _deleteUnusedPhotos(leaving);
+  }
+
+  Future<void> _purgeExpired({required bool removeServer}) async {
+    final expired = state.where((item) => isCartExpired(item.addedAt)).toList();
+    if (expired.isEmpty) {
+      await _saveLocalCache();
+      return;
+    }
+    if (removeServer && _svc.isLoggedIn) {
+      final ids = expired.map((item) => item.serverId).whereType<String>().toSet();
+      for (final id in ids) {
+        await _svc.removeItem(id);
+      }
+    }
+    state = state.where((item) => !isCartExpired(item.addedAt)).toList();
+    await _saveLocalCache();
+    await _deleteUnusedPhotos(expired);
   }
 
   Future<void> _deleteUnusedPhotos(Iterable<CartItem> leaving) async {

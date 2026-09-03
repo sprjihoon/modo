@@ -11,6 +11,7 @@ List<CartItem> cartItemsFromDraft(
   Map<String, dynamic> data, {
   required String idPrefix,
   String? serverId,
+  DateTime? addedAt,
 }) {
   final items = <CartItem>[];
 
@@ -41,6 +42,7 @@ List<CartItem> cartItemsFromDraft(
             imagesWithPins: imagesWithPins,
             groupKey: groupKey,
             clothingType: clothingType,
+            addedAt: addedAt,
           ),
         );
         globalIdx++;
@@ -72,6 +74,7 @@ List<CartItem> cartItemsFromDraft(
           imagesWithPins: imagesWithPins,
           groupKey: serverId ?? idPrefix,
           clothingType: clothingType,
+          addedAt: addedAt,
         ),
       );
     }
@@ -97,6 +100,7 @@ List<CartItem> cartItemsFromDraft(
         imagesWithPins: imagesWithPins,
         groupKey: serverId ?? idPrefix,
         clothingType: clothingType,
+        addedAt: addedAt,
       ),
     );
   }
