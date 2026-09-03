@@ -536,7 +536,7 @@ export default function OpsReportsPage() {
               label="살펴볼 일"
               value={attn}
               warn={attn > 0}
-              hint="그날 취소·반송 + CS + 웹훅 + 미발송"
+              hint="그날 발생한 취소·반송 + CS + 웹훅 + 미발송 합. 아래 예외에서 항목을 확인하세요"
             />
           </div>
 
@@ -599,7 +599,12 @@ export default function OpsReportsPage() {
                   <p>3일 이상 정체 <b>{pipe.stuckOver3Days}</b></p>
                   <p>오늘 수거 {pipe.pickupsToday} · 내일 {pipe.pickupsTomorrow}</p>
                   <p>대기열 {pipe.waitlist}</p>
-                  <p>남은 취소·반송 {pipe.cancelOpen ?? 0}</p>
+                  <p>
+                    남은 취소·반송{" "}
+                    <Link href="/dashboard/cancellations" className="font-bold underline underline-offset-2">
+                      {pipe.cancelOpen ?? 0}
+                    </Link>
+                  </p>
                   <p>
                     한도 {pipe.todayOrderCount ?? "-"} / {pipe.orderLimit ?? "없음"}
                   </p>
@@ -618,7 +623,12 @@ export default function OpsReportsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-              <p>그날 취소·반송 <b>{ex!.cancelQueue}</b></p>
+              <p>
+                그날 취소·반송{" "}
+                <Link href="/dashboard/cancellations" className="font-bold underline underline-offset-2">
+                  {ex!.cancelQueue}
+                </Link>
+              </p>
               <p>CS 이벤트 <b>{ex!.csEvents}</b></p>
               <p>추가금 대기 <b>{ex!.extraChargePending}</b></p>
               <p>보상 미지급 <b>{ex!.compensationPending}</b></p>

@@ -190,7 +190,15 @@ export default function OrdersPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 취소/반송 통합 보기
+  // 레거시 ?cancelView= 는 전용 큐 페이지로 보냄 (같은 /dashboard/orders 주소는 화면이 안 바뀜)
+  useEffect(() => {
+    const view = resolveCancelViewFromSearchParams(searchParams);
+    if (view !== "OFF") {
+      router.replace(`/dashboard/cancellations?kind=${view}`);
+    }
+  }, [searchParams, router]);
+
+  // 취소/반송 통합 보기 (리다이렉트 전까지의 폴백)
   const initialCancelView = resolveCancelViewFromSearchParams(searchParams);
   const [cancelView, setCancelView] = useState<CancelView>(initialCancelView);
   const [cancelStats, setCancelStats] = useState<CancellationStats | null>(null);
@@ -421,19 +429,17 @@ export default function OrdersPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant={cancelView === "OFF" ? "outline" : "default"}
-            onClick={() => handleCancelViewChange(cancelView === "OFF" ? "PENDING" : "OFF")}
-            className={cancelView !== "OFF" ? "bg-rose-600 hover:bg-rose-700" : ""}
-          >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            {cancelView === "OFF" ? "취소·반송 보기" : "일반 보기로 돌아가기"}
-            {cancelView === "OFF" && (cancelStats?.pending ?? 0) > 0 && (
-              <Badge className="ml-2 bg-red-600 text-white border-0">
-                {cancelStats?.pending}
-              </Badge>
-            )}
-          </Button>
+          <Link href="/dashboard/cancellations">
+            <Button variant="outline">
+              <RotateCcw className="h-4 w-4 mr-2" />
+              취소·반송 큐
+              {(cancelStats?.pending ?? 0) > 0 && (
+                <Badge className="ml-2 bg-red-600 text-white border-0">
+                  {cancelStats?.pending}
+                </Badge>
+              )}
+            </Button>
+          </Link>
           <Button onClick={loadOrders} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             새로고침

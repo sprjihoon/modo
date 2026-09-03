@@ -457,7 +457,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 </div>
-                <Link href="/dashboard/orders?cancelView=PENDING">
+                <Link href="/dashboard/cancellations">
                   <Button
                     size="sm"
                     variant={(cancelStats?.pending ?? 0) > 0 ? "destructive" : "outline"}

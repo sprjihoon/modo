@@ -76,7 +76,7 @@ const navGroups: NavGroup[] = [
     icon: Package,
     items: [
       { title: "주문 관리", href: "/dashboard/orders", icon: Package },
-      { title: "취소/반송 큐", href: "/dashboard/orders?cancelView=PENDING", icon: RotateCcw },
+      { title: "취소/반송 큐", href: "/dashboard/cancellations", icon: RotateCcw },
       { title: "수거/배송 관리", href: "/dashboard/shipments", icon: Truck },
       { title: "우체국 자유 테스트", href: "/dashboard/shipments/test", icon: Truck },
     ],
@@ -285,10 +285,11 @@ export function DashboardNav() {
 
   const isItemActive = useCallback(
     (href: string) => {
-      if (href === "/dashboard") {
-        return pathname === href;
+      const path = href.split("?")[0];
+      if (path === "/dashboard") {
+        return pathname === path;
       }
-      return pathname === href || pathname.startsWith(href + "/");
+      return pathname === path || pathname.startsWith(`${path}/`);
     },
     [pathname]
   );
