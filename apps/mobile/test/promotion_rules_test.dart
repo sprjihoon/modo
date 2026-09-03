@@ -226,6 +226,50 @@ void main() {
     );
   });
 
+  test('쿠폰 셀렉트 라벨은 코드와 할인액을 붙인다', () {
+    expect(
+      couponWalletOptionLabel(
+        code: 'WELCOME',
+        discountType: 'FIXED',
+        discountValue: 5000,
+      ),
+      'WELCOME · 5,000원 할인',
+    );
+    expect(
+      couponWalletOptionLabel(
+        code: 'SALE10',
+        discountType: 'PERCENTAGE',
+        discountValue: 10,
+      ),
+      'SALE10 · 10% 할인',
+    );
+  });
+
+  test('사용 가능한 지갑 쿠폰만 셀렉트에 남긴다', () {
+    final rows = [
+      {
+        'code': 'OK',
+        'is_active': true,
+        'used_count': 0,
+        'max_uses': 1,
+      },
+      {
+        'code': 'USED',
+        'is_active': true,
+        'used_count': 1,
+        'max_uses': 1,
+      },
+      {
+        'code': 'OFF',
+        'is_active': false,
+        'used_count': 0,
+        'max_uses': 1,
+      },
+    ];
+    final usable = usableWalletCoupons(rows, now: now);
+    expect(usable.map((e) => e['code']), ['OK']);
+  });
+
   test('전체 무제한 + 1인 1회는 선착순 제한 없이 1인 1번', () {
     final r = evaluatePromotionCode(
       base(maxUses: null, usedCount: 99, maxUsesPerUser: 1, userUsageCount: 0),

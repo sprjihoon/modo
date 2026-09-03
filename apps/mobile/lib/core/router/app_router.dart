@@ -382,17 +382,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/pickup-request',
         name: 'pickup-request',
         builder: (context, state) {
-          final data = state.extra as Map<String, dynamic>? ?? {};
+          final raw = state.extra;
+          final data = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+          final imagesWithPins = _extraMapList(data['imagesWithPins']);
+          final bundleItems = _extraMapList(data['bundleItems']);
+          final cartItemIds = _extraStringList(data['cartItemIds']);
           return PickupRequestPage(
-            repairItems: data['repairItems'] as List<Map<String, dynamic>>? ?? [],
-            imageUrls: data['imageUrls'] as List<String>? ?? [],
-            imagesWithPins: data['imagesWithPins'] as List<Map<String, dynamic>>?,
-            sourceCartItemIds:
-                (data['cartItemIds'] as List?)?.map((e) => e.toString()).toList(),
-            bundleItems: (data['bundleItems'] as List?)
-                ?.whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList(),
+            repairItems: _extraMapList(data['repairItems']),
+            imageUrls: _extraStringList(data['imageUrls']),
+            imagesWithPins: imagesWithPins.isEmpty ? null : imagesWithPins,
+            sourceCartItemIds: cartItemIds.isEmpty ? null : cartItemIds,
+            bundleItems: bundleItems.isEmpty ? null : bundleItems,
           );
         },
       ),
@@ -582,4 +582,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
+
+List<Map<String, dynamic>> _extraMapList(dynamic value) {
+  if (value is! List) return [];
+  return value
+      .whereType<Map>()
+      .map((e) => Map<String, dynamic>.from(e))
+      .toList();
+}
+
+List<String> _extraStringList(dynamic value) {
+  if (value is! List) return [];
+  return value.map((e) => e.toString()).toList();
+}
 

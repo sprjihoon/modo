@@ -46,8 +46,9 @@ class SystemNavInset extends StatelessWidget {
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final bottom = systemNavBottomInset(mq);
-    if (bottom <= 0) return child;
 
+    // 키보드가 열릴 때도 위젯 트리를 유지한다. 여기서 child만 반환하면
+    // MediaQuery 조상이 사라져 Navigator/입력창 오버레이가 깨질 수 있다.
     return ColoredBox(
       color: color ?? Theme.of(context).colorScheme.surface,
       child: Padding(

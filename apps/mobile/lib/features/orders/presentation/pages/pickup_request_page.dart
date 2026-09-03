@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/navigation/text_input_pop.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/address_service.dart';
 import '../../../../services/island_area_service.dart';
@@ -14,6 +15,7 @@ import '../../domain/repair_item_payload.dart';
 import '../../providers/repair_items_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../../../services/customer_event_service.dart';
+import '../widgets/coupon_select_field.dart';
 import '../widgets/order_flow_progress.dart';
 
 /// 수거신청 페이지
@@ -117,6 +119,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   // 프로모션 코드 관련
   Map<String, dynamic>? _appliedPromotion;
   String? _promotionErrorMessage;
+  List<Map<String, dynamic>> _walletCoupons = [];
+  bool _isLoadingCoupons = true;
 
   // 배송비 프로모션
   Map<String, dynamic>? _shippingPromo;
@@ -133,6 +137,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
     _loadDefaultAddress();
     _loadShippingSettings();
     _loadShippingPromotion();
+    _loadWalletCoupons();
   }
 
   /// 앱이 백그라운드/종료 시에는 자동 저장하지 않는다.
@@ -654,66 +659,37 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
     }
   }
   
-  Future<void> _pickMyCoupon() async {
-    final coupons = await _promotionService.getMyCoupons();
-    if (!mounted) return;
-    final now = DateTime.now();
-    final usable = coupons.where((row) {
-      return classifyWalletCoupon(
-            isActive: row['is_active'] as bool? ?? true,
-            now: now,
-            validUntil: row['valid_until'] != null
-                ? DateTime.parse(row['valid_until'] as String)
-                : null,
-            usedCount: row['used_count'] as int? ?? 0,
-            maxUses: row['max_uses'] as int? ?? 1,
-          ) ==
-          CouponWalletStatus.usable;
-    }).toList();
+  Future<void> _loadWalletCoupons() async {
+    try {
+      final rows = await _promotionService.getMyCoupons();
+      if (!mounted) return;
+      setState(() {
+        _walletCoupons = usableWalletCoupons(rows, now: DateTime.now());
+        _isLoadingCoupons = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingCoupons = false);
+    }
+  }
 
-    if (usable.isEmpty) {
+  Future<void> _pickMyCoupon() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (_walletCoupons.isEmpty) {
+      await _loadWalletCoupons();
+      if (!mounted) return;
+    }
+    if (_walletCoupons.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('사용 가능한 전용 쿠폰이 없습니다')),
       );
       return;
     }
 
-    final selected = await showModalBottomSheet<String>(
+    final selected = await showCouponSelectSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '내 쿠폰 선택',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              ...usable.map((row) {
-                final code = row['code'] as String? ?? '';
-                final type = row['discount_type'] as String? ?? 'FIXED';
-                final value = row['discount_value'] as int? ?? 0;
-                final label = type == 'PERCENTAGE'
-                    ? '$value% 할인'
-                    : '${_formatPrice(value)}원 할인';
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(code, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(label),
-                  onTap: () => Navigator.of(ctx).pop(code),
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
+      coupons: _walletCoupons,
+      selectedCode: _promotionCodeController.text.trim(),
     );
 
     if (selected == null || !mounted) return;
@@ -1077,16 +1053,29 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
     final remoteAreaFee = _remoteAreaFee;
     final totalPrice = repairItemsTotal + actualShippingFee + remoteAreaFee;
     
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        final action = textInputPopAction(
+          viewInsetsBottom: MediaQuery.viewInsetsOf(context).bottom,
+          hasEditableFocus:
+              hasEditableTextFocus(FocusManager.instance.primaryFocus),
+        );
+        if (action == TextInputPopAction.unfocus) {
+          FocusManager.instance.primaryFocus?.unfocus();
+          return;
+        }
+        if (action == TextInputPopAction.ignore) return;
         final navigator = Navigator.of(context);
         final canLeave = await _onWillPop();
         if (canLeave && mounted) navigator.pop();
       },
       child: Scaffold(
       backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
       appBar: ModoAppBar(
         title: const Text(
           '수거신청',
@@ -1111,11 +1100,13 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       ),
       body: SafeArea(
         top: false,
+        bottom: false,
         child: Column(
         children: [
-          const OrderFlowProgress(currentStep: 3),
+          if (!keyboardOpen) const OrderFlowProgress(currentStep: 3),
           Expanded(
             child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -1826,7 +1817,36 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                     // 프로모션 코드 입력 필드
                     else
                       Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text(
+                            '내 쿠폰',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          CouponSelectField(
+                            coupons: _walletCoupons,
+                            selectedCode: _promotionCodeController.text.trim().isEmpty
+                                ? null
+                                : _promotionCodeController.text.trim(),
+                            loading: _isLoadingCoupons,
+                            enabled: !_isValidatingPromoCode,
+                            onTap: _pickMyCoupon,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            '코드 직접 입력',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           Row(
                             children: [
                               Expanded(
@@ -1907,13 +1927,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                               ),
                             ],
                           ),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton(
-                              onPressed: _isValidatingPromoCode ? null : _pickMyCoupon,
-                              child: const Text('내 쿠폰 선택'),
-                            ),
-                          ),
+                          const SizedBox(height: 8),
                           Text(
                             '쿠폰과 포인트는 함께 사용할 수 없습니다.',
                             style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
@@ -2246,20 +2260,20 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
             ),
           ),
           
-          // 하단 버튼
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: SafeArea(
+          // 하단 버튼 — 키보드가 올라오면 숨겨 입력창이 흰 화면으로 밀리지 않게 한다.
+          if (!keyboardOpen)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
               child: ElevatedButton(
                 onPressed: (_addressController.text.isEmpty || _isLoading)
                     ? null
@@ -2294,7 +2308,6 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                       ),
               ),
             ),
-          ),
         ],
       ),
       ),

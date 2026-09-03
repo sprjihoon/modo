@@ -112,6 +112,33 @@ void main() {
       expect(tester.getRect(find.text('cta')).bottom, 800 - 48);
     });
 
+    testWidgets('키보드가 있어도 MediaQuery 하단 패딩을 0으로 유지한다', (tester) async {
+      setView(
+        tester: tester,
+        padding: const FakeViewPadding(bottom: 48),
+        viewPadding: const FakeViewPadding(bottom: 48),
+        viewInsets: const FakeViewPadding(bottom: 300),
+      );
+
+      late MediaQueryData inner;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SystemNavInset(
+            child: Builder(
+              builder: (context) {
+                inner = MediaQuery.of(context);
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(inner.padding.bottom, 0);
+      expect(inner.viewPadding.bottom, 0);
+      expect(inner.viewInsets.bottom, 300);
+    });
+
     testWidgets('키보드가 있으면 추가 하단 패딩을 넣지 않는다', (tester) async {
       setView(
         tester: tester,

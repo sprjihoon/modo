@@ -89,6 +89,36 @@ bool promotionCodesAllowedOnOrderSource(String? source) {
   return (source ?? '').toLowerCase().trim() != 'web';
 }
 
+String couponWalletOptionLabel({
+  required String code,
+  required String discountType,
+  required int discountValue,
+}) {
+  final discount = discountType == 'PERCENTAGE'
+      ? '$discountValue% 할인'
+      : '${formatPromotionPrice(discountValue)}원 할인';
+  if (code.isEmpty) return discount;
+  return '$code · $discount';
+}
+
+List<Map<String, dynamic>> usableWalletCoupons(
+  List<Map<String, dynamic>> rows, {
+  required DateTime now,
+}) {
+  return rows.where((row) {
+    return classifyWalletCoupon(
+          isActive: row['is_active'] as bool? ?? true,
+          now: now,
+          validUntil: row['valid_until'] != null
+              ? DateTime.parse(row['valid_until'] as String)
+              : null,
+          usedCount: row['used_count'] as int? ?? 0,
+          maxUses: row['max_uses'] as int? ?? 1,
+        ) ==
+        CouponWalletStatus.usable;
+  }).toList();
+}
+
 CouponWalletStatus classifyWalletCoupon({
   required bool isActive,
   required DateTime now,

@@ -361,17 +361,17 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `main`의 `1.0.7+46`. iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 46 제출**(45 심사 취소 후 교체). Play는 **38 게시** · **46 AAB 백업**(`Documents/modo-android-signing/app-release-1.0.7+46.aab`, Play Console에 직접 업로드). 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 `apps/mobile/README.md`에도 같다.
+**지금:** 코드는 `1.0.7+47` (수거정보 입력창 흰 화면 수정 · 쿠폰 셀렉트). iOS는 **`1.0.6` 판매 중** · **`1.0.7` 빌드 46 제출**. Play는 **38 게시** · 46 AAB는 백업만. **다음 스토어 빌드는 맥북에서 `1.0.7+47`**. 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 스토어에 `1.0.6`이 나와 있으니 최신을 **`1.0.6`**까지는 올려도 된다. **`1.0.7`은 양쪽 판매 뒤에만.** 명령은 아래 「맥북에서 `1.0.7+47`」과 `apps/mobile/README.md`에 같다.
 
-**스토어 빌드 규칙:** IPA/AAB는 너무 자주 올리지 않는다. **하루에 한 번만** 한다. 웹·어드민은 `main` push 시 Vercel 자동 배포라 이 제한과 무관하다.
+**스토어 빌드 규칙:** IPA/AAB는 너무 자주 올리지 않는다. **하루에 한 번만** · **맥북에서만** 한다. Windows에서는 검증만 한다. 웹·어드민은 `main` push 시 Vercel 자동 배포라 이 제한과 무관하다.
 
-**오늘(2026-09-02):** 스토어 빌드 `1.0.7+46` 재제출. 45 심사 취소. 수선 수치는 숫자만. 웹 결제는 푸터를 맨 아래, 결제하기는 그 위.
+**오늘(2026-09-03):** 수거정보 입력창 흰 화면 수정 · 내 쿠폰을 셀렉트박스로 선택. Windows에서 테스트 통과. **IPA/AAB는 맥북에서 `1.0.7+47`로 만든다.** (`main` pull 후 아래 명령)
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.7+46`**. iOS 심사 46 · Play 46 업로드 (수선 수치 숫자만) |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.7+47`**. iOS 심사 46 · 다음 맥북 빌드 47 · Play 38 게시 |
 | App Store Connect App ID | `6759492888` |
 | iOS 스토어 | **판매 중 `1.0.6`**. **`1.0.7` 빌드 46 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
@@ -379,7 +379,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Play 상태 | **프로덕션 게시** `1.0.6 (38)` · **46 AAB 백업·콘솔 업로드** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | `1.0.7+46` · 백업 `Documents/modo-android-signing/app-release-1.0.7+46.aab` |
+| Android AAB | 다음 맥북 빌드 `1.0.7+47` · 백업 `Documents/modo-android-signing/app-release-1.0.7+47.aab` |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -423,13 +423,52 @@ flutter build appbundle --release
 flutter build apk --release
 # → build/app/outputs/flutter-apk/app-release.apk
 
-# iOS (App Store / TestFlight)
-flutter build ipa --release --build-name=1.0.6 --build-number=37 \
+# iOS (App Store / TestFlight) — 맥북에서만
+flutter build ipa --release --build-name=1.0.7 --build-number=47 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 # 업로드: xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 #   --apiKey 5NS9QNDJUH --apiIssuer <issuerId>
 ```
+
+### 맥북에서 `1.0.7+47` (수거정보 입력창 · 쿠폰 셀렉트)
+
+Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.7+47`. `main`을 pull한 뒤 테스트하고 빌드한다.
+
+이 빌드에 포함된 앱 수정:
+- 수거정보 단계 입력창(상세주소·수선 메모·프로모코드·배송 요청)을 누르면 흰 화면이 뜨고, 뒤로 가면 이전 단계로 가던 문제
+- 키보드가 열릴 때 입력 화면이 유지되고, 입력 직후 뒤로가기로 페이지가 닫히지 않음
+- 내 쿠폰을 앱 디자인에 맞는 셀렉트박스로 선택 (공개 코드는 직접 입력 유지)
+
+```bash
+git checkout main
+git pull
+cd apps/mobile
+flutter pub get
+
+# 빌드 전 검증
+flutter test \
+  test/core/navigation/text_input_pop_test.dart \
+  test/core/widgets/system_nav_inset_test.dart \
+  test/features/orders/pickup_keyboard_layout_test.dart \
+  test/features/orders/coupon_select_field_test.dart \
+  test/pickup_delivery_address_test.dart \
+  test/promotion_rules_test.dart
+
+# Play AAB
+flutter build appbundle --release --build-name=1.0.7 --build-number=47
+# → build/app/outputs/bundle/release/app-release.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.7+47.aab
+
+# App Store / TestFlight IPA
+flutter build ipa --release --build-name=1.0.7 --build-number=47 \
+  --export-options-plist=ios/ExportOptions.plist
+# → build/ios/ipa/모두의수선.ipa
+```
+
+iOS **1.0.6** 판매 중 · **1.0.7 (46)** 제출됨. 이번은 **47**. Play는 **38** 게시. 스토어에 `1.0.6`이 나온 뒤에만 어드민 **앱 버전** 최신을 바꾼다.
+
+서명 키는 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (Play 업로드 SHA1 `10:90:55…`). Windows PC의 8/3 키(`AE:84:3D…`)로 만든 AAB는 Play에 올리지 않는다.
 
 ### 맥북에서 `1.0.6+38` (치수 가이드 · Play 사진 권한)
 
@@ -787,6 +826,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-03 | 수거정보·쿠폰 셀렉트 | 입력창 탭 시 흰 화면/이전 단계 튕김 수정. 내 쿠폰은 셀렉트박스. Windows 테스트 통과. 스토어는 맥북 `1.0.7+47` |
 | 2026-09-02 | 광고 성과 | 어드민 `/dashboard/analytics/ads`. 가입 CPA·주문 CPA·CAC. UTM 첫유입/결제 저장 · `ad_spend`. 마이그레이션 `20260902120000_ad_attribution.sql` |
 | 2026-09-02 | 웹 결제 푸터 | 사업자 푸터는 화면 맨 아래(접힌 아코디언). 결제하기는 푸터 바로 위. 웹 `modo.io.kr` 라이브 |
 | 2026-09-02 | 전용 탭 CTA · 웹 포인트 | 프로모션 **전용 발급**은 목록만. 공개 코드 만들기 버튼 제거. 포인트는 웹·앱 결제 모두 사용. 쿠폰 적용은 앱만. 어드민·웹·Edge 라이브 |

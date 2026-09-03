@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/navigation/text_input_pop.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/customer_event_service.dart';
 import '../../domain/models/order_draft.dart';
@@ -265,7 +266,47 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
   }
 
   void handleProceedToPickup() {
-    _pushMode(_FlowMode.pickup);
+    _openPickupRequest();
+  }
+
+  void _openPickupRequest() {
+    final repairItems = <Map<String, dynamic>>[];
+    final bundleItems = <Map<String, dynamic>>[];
+    final allImageUrls = <String>[];
+
+    for (final clothing in _draft.items) {
+      final clothingRepairItems = clothing.repairItems.map((r) => {
+        'name': r.name,
+        'repairPart': r.name,
+        'price': r.price,
+        'priceRange': r.priceRange,
+        'quantity': r.quantity,
+        if (r.detail != null) 'detail': r.detail,
+      }).toList();
+
+      repairItems.addAll(clothingRepairItems);
+
+      final imagesWithPins =
+          clothing.imagesWithPins.map((i) => i.toJson()).toList();
+      final imageUrls =
+          clothing.imagesWithPins.map((i) => i.imageUrl).toList();
+      allImageUrls.addAll(imageUrls);
+
+      bundleItems.add({
+        'clothingType': clothing.clothingType,
+        'repairItems': clothingRepairItems,
+        'imagesWithPins': imagesWithPins,
+      });
+    }
+
+    context.push('/pickup-request', extra: {
+      'repairItems': repairItems,
+      'imageUrls': allImageUrls,
+      'imagesWithPins': _draft.items
+          .expand((c) => c.imagesWithPins.map((i) => i.toJson()))
+          .toList(),
+      'bundleItems': bundleItems.isNotEmpty ? bundleItems : null,
+    });
   }
 
   void _showExitDialog() {
@@ -352,6 +393,16 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
+        final action = textInputPopAction(
+          viewInsetsBottom: MediaQuery.viewInsetsOf(context).bottom,
+          hasEditableFocus:
+              hasEditableTextFocus(FocusManager.instance.primaryFocus),
+        );
+        if (action == TextInputPopAction.unfocus) {
+          FocusManager.instance.primaryFocus?.unfocus();
+          return;
+        }
+        if (action == TextInputPopAction.ignore) return;
         final shouldPop = _handleBackNavigation();
         if (shouldPop) {
           context.pop();
@@ -515,55 +566,20 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
   }
 
   Widget _buildPickupStep() {
-    // Convert draft items to the format expected by PickupRequestPage
-    final repairItems = <Map<String, dynamic>>[];
-    final bundleItems = <Map<String, dynamic>>[];
-    final allImageUrls = <String>[];
-
-    for (final clothing in _draft.items) {
-      final clothingRepairItems = clothing.repairItems.map((r) => {
-        'name': r.name,
-        'repairPart': r.name,
-        'price': r.price,
-        'priceRange': r.priceRange,
-        'quantity': r.quantity,
-        if (r.detail != null) 'detail': r.detail,
-      }).toList();
-
-      repairItems.addAll(clothingRepairItems);
-
-      final imagesWithPins = clothing.imagesWithPins.map((i) => i.toJson()).toList();
-      final imageUrls = clothing.imagesWithPins.map((i) => i.imageUrl).toList();
-      allImageUrls.addAll(imageUrls);
-
-      bundleItems.add({
-        'clothingType': clothing.clothingType,
-        'repairItems': clothingRepairItems,
-        'imagesWithPins': imagesWithPins,
-      });
-    }
-
-    // Navigate to existing PickupRequestPage
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.push('/pickup-request', extra: {
-        'repairItems': repairItems,
-        'imageUrls': allImageUrls,
-        'imagesWithPins': _draft.items.expand((c) => c.imagesWithPins.map((i) => i.toJson())).toList(),
-        'bundleItems': bundleItems.isNotEmpty ? bundleItems : null,
-      });
-      // After navigating, go back to list mode so returning works
-      setState(() {
-        _modeHistory.clear();
-        _currentMode = _FlowMode.list;
-      });
+      if (_currentMode == _FlowMode.pickup) {
+        _openPickupRequest();
+        setState(() {
+          if (_modeHistory.isNotEmpty) {
+            _currentMode = _modeHistory.removeLast();
+          } else {
+            _currentMode = _FlowMode.list;
+          }
+        });
+      }
     });
-
-    return const Center(
-      child: CircularProgressIndicator(
-        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C896)),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }
 
