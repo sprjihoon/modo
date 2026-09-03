@@ -46,7 +46,7 @@
 ### 관련 (앱)
 - 네이버 SDK 상세: [`apps/mobile/NAVER_LOGIN_SETUP.md`](../apps/mobile/NAVER_LOGIN_SETUP.md)
 - 홈 팝업: 어드민 **콘텐츠 → 팝업 관리** (`popups`) · 웹·앱 홈 공통. 지금 **그랜드 오픈**. 웹은 확인 버튼 없음. 문구는 루트 README 「홈 팝업」
-- 스토어 버전/출시 상태: 루트 [`README.md`](../README.md) 「앱스토어 / Play 출시 준비」 (`1.0.8+50` 코드, iOS `1.0.7` 판매 중 · `1.0.8` 50 제출 · Play `1.0.7 (46)` 게시 · AAB 50, MinOS 15). **웹은 `main` 즉시 배포**. 스토어 빌드는 하루 1회 · 맥북에서만
+- 스토어 버전/출시 상태: 루트 [`README.md`](../README.md) 「앱스토어 / Play 출시 준비」 (`1.0.8+50` 코드, iOS `1.0.7` 판매 중 · `1.0.8` 50 심사 중 · Play `1.0.7 (46)` 게시 · AAB 50, MinOS 15). **웹은 `main` 즉시 배포**. 스토어 빌드는 하루 1회 · 맥북에서만
 - 앱 업데이트 안내: `app_versions` 최신·최소는 iOS/Android 모두 **`1.0.5`** · 어드민 설정 → 앱 버전
 - 수선 요청 메모: `orders.customer_memo` · 핀 메모·배송 요청(`notes`)과 별도 · **웹 `modo.io.kr` 라이브** · 앱 `1.0.7` 판매 중 · 작업지시서·어드민 주문상세 공통
 - 출고송장 배송요청사항: 해당 주문의 `orders.notes`만 송장·우체국 `delivMsg`에 출력. 레이아웃 필드 `delivery_request`. Edge `shipments-create-outbound` 배포됨

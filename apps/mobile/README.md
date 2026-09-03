@@ -183,7 +183,7 @@ flutter test --coverage
 
 ### 맥북에서 `1.0.8` (지금 이 빌드)
 
-Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.8+50`. iOS는 **49 심사 취소 후 50 제출**. Play AAB **50**. iOS·Play `1.0.7`이 이미 판매라 마케팅 버전을 올렸다. Windows에서 검증만 하고, 스토어 빌드는 맥북에서 한다.
+Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.8+50`. iOS는 **`1.0.8` (50) 심사 중**. Play AAB **50**. iOS·Play `1.0.7`이 이미 판매라 마케팅 버전을 올렸다. Windows에서 검증만 하고, 스토어 빌드는 맥북에서 한다.
 
 포함 내용: **수거정보 입력창 탭 시 흰 화면/이전 단계 튕김 수정** · **내 쿠폰 셀렉트박스** · **수치 입력 키패드 닫기가 이전 단계로 가던 문제(완료 바)** · **장바구니·중도 취소 시 주문 사진 즉시 삭제** · **리뷰 삭제 시 리뷰 사진 삭제** · **장바구니 5일 만료** · 수선 수치 숫자만 · 쿠폰함 앱 전용 안내 · 웹 쿠폰함 확인(적용은 앱만, 포인트는 웹·앱 결제 모두) · 홈 수거신청 버튼 뒤 흰 배경 제거 · 수선 요청 메모(`orders.customer_memo`) · 수거신청 홈 버튼 · 부위별 치수 칸(`허리+힙` 2칸) · 수거지/배송지 연락처 분리 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
 
@@ -214,7 +214,7 @@ flutter build ipa --release --build-name=1.0.8 --build-number=50 \
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS는 **1.0.7 판매 중** · **`1.0.8` 50 제출**. Play는 **`1.0.7 (46)` 게시** · 이번 AAB **`1.0.8 (50)`**. 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.7` 판매 중이라 최신은 **`1.0.7`까지** 올려도 된다. **`1.0.8`은 양쪽 판매 뒤에만.**
+iOS는 **1.0.7 판매 중** · **`1.0.8` 50 심사 중 (`WAITING_FOR_REVIEW`)**. Play는 **`1.0.7 (46)` 게시** · 이번 AAB **`1.0.8 (50)`**. 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.7` 판매 중이라 최신은 **`1.0.7`까지** 올려도 된다. **`1.0.8`은 양쪽 판매 뒤에만.**
 
 Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`10:90:55…`). Windows `AE:84:3D…` 키로 만든 AAB는 올리지 않는다.
 
@@ -258,7 +258,7 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.7` 판매 중**. **`1.0.8 (50)` 제출** |
+| 최신 업로드 | **`1.0.7` 판매 중**. **`1.0.8 (50)` `WAITING_FOR_REVIEW`** |
 | App Store | **판매 중 `1.0.7`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 | 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |
