@@ -23,5 +23,24 @@ void main() {
         TextInputPopAction.leave,
       );
     });
+
+    test('키패드가 방금 닫혔으면 페이지를 닫지 않는다', () {
+      expect(
+        textInputPopAction(
+          viewInsetsBottom: 0,
+          hasEditableFocus: false,
+          keyboardClosedRecently: true,
+        ),
+        TextInputPopAction.ignore,
+      );
+    });
+  });
+
+  test('KeyboardPopGuard는 열린 뒤 닫히면 justClosed다', () {
+    final guard = KeyboardPopGuard();
+    guard.update(320);
+    expect(guard.justClosed, isFalse);
+    guard.update(0);
+    expect(guard.justClosed, isTrue);
   });
 }

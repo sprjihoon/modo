@@ -121,6 +121,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   String? _promotionErrorMessage;
   List<Map<String, dynamic>> _walletCoupons = [];
   bool _isLoadingCoupons = true;
+  final _keyboardPopGuard = KeyboardPopGuard();
 
   // 배송비 프로모션
   Map<String, dynamic>? _shippingPromo;
@@ -1054,15 +1055,19 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
     final totalPrice = repairItemsTotal + actualShippingFee + remoteAreaFee;
     
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    _keyboardPopGuard.update(MediaQuery.viewInsetsOf(context).bottom);
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        final insets = MediaQuery.viewInsetsOf(context).bottom;
+        _keyboardPopGuard.update(insets);
         final action = textInputPopAction(
-          viewInsetsBottom: MediaQuery.viewInsetsOf(context).bottom,
+          viewInsetsBottom: insets,
           hasEditableFocus:
               hasEditableTextFocus(FocusManager.instance.primaryFocus),
+          keyboardClosedRecently: _keyboardPopGuard.justClosed,
         );
         if (action == TextInputPopAction.unfocus) {
           FocusManager.instance.primaryFocus?.unfocus();
@@ -1085,6 +1090,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
           ),
         ),
         onBack: () async {
+          if (dismissKeyboardIfOpen(context)) return;
           final navigator = Navigator.of(context);
           final canLeave = await _onWillPop();
           if (canLeave && mounted) navigator.pop();

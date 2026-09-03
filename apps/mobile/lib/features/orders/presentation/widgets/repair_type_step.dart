@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/measure_guide.dart';
+import '../../../../core/navigation/text_input_pop.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
 import '../../../../services/repair_service.dart';
 import '../../domain/measurement_input.dart';
@@ -919,7 +920,10 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _closeMeasureView,
+                      onPressed: () {
+                        if (dismissKeyboardIfOpen(context)) return;
+                        _closeMeasureView();
+                      },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.grey.shade500,
                         side: BorderSide(color: Colors.grey.shade200),
@@ -964,6 +968,7 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
             ],
           ),
         ),
+        const KeyboardDoneBar(),
       ],
     );
   }
@@ -978,6 +983,9 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
           const SizedBox(height: 6),
           TextField(
             keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            onEditingComplete: () =>
+                FocusManager.instance.primaryFocus?.unfocus(),
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
             ],

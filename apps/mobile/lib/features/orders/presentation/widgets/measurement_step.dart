@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/measure_guide.dart';
+import '../../../../core/navigation/text_input_pop.dart';
 import '../../domain/measurement_input.dart';
 import '../../../../core/widgets/category_icon_widget.dart';
 import 'measure_guide_accordion.dart';
@@ -117,7 +118,10 @@ class _MeasurementStepState extends State<MeasurementStep> {
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: widget.onBack,
+            onPressed: () {
+              if (dismissKeyboardIfOpen(context)) return;
+              widget.onBack();
+            },
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.grey.shade500,
               side: BorderSide(color: Colors.grey.shade200),
@@ -259,6 +263,16 @@ class _MeasurementStepState extends State<MeasurementStep> {
                       TextField(
                         controller: _controllers[index],
                         keyboardType: TextInputType.number,
+                        textInputAction: index == widget.config.labels.length - 1
+                            ? TextInputAction.done
+                            : TextInputAction.next,
+                        onEditingComplete: () {
+                          if (index == widget.config.labels.length - 1) {
+                            FocusManager.instance.primaryFocus?.unfocus();
+                          } else {
+                            FocusScope.of(context).nextFocus();
+                          }
+                        },
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
@@ -348,6 +362,7 @@ class _MeasurementStepState extends State<MeasurementStep> {
             ],
           ),
         ),
+        const KeyboardDoneBar(),
       ],
     );
   }

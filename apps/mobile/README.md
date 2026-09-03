@@ -185,7 +185,7 @@ flutter test --coverage
 
 Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.7+47`. Windows에서 검증만 하고, 스토어 빌드는 맥북에서 한다.
 
-포함 내용: **수거정보 입력창 탭 시 흰 화면/이전 단계 튕김 수정** · **내 쿠폰 셀렉트박스** · 수선 수치 숫자만 · 쿠폰함 앱 전용 안내 · 웹 쿠폰함 확인(적용은 앱만, 포인트는 웹·앱 결제 모두) · 홈 수거신청 버튼 뒤 흰 배경 제거 · 수선 요청 메모(`orders.customer_memo`) · 수거신청 홈 버튼 · 부위별 치수 칸(`허리+힙` 2칸) · 수거지/배송지 연락처 분리 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
+포함 내용: **수거정보 입력창 탭 시 흰 화면/이전 단계 튕김 수정** · **내 쿠폰 셀렉트박스** · **수치 입력 키패드 닫기가 이전 단계로 가던 문제(완료 바)** · 수선 수치 숫자만 · 쿠폰함 앱 전용 안내 · 웹 쿠폰함 확인(적용은 앱만, 포인트는 웹·앱 결제 모두) · 홈 수거신청 버튼 뒤 흰 배경 제거 · 수선 요청 메모(`orders.customer_memo`) · 수거신청 홈 버튼 · 부위별 치수 칸(`허리+힙` 2칸) · 수거지/배송지 연락처 분리 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
 
 ```bash
 git checkout main
@@ -199,6 +199,7 @@ flutter test \
   test/core/widgets/system_nav_inset_test.dart \
   test/features/orders/pickup_keyboard_layout_test.dart \
   test/features/orders/coupon_select_field_test.dart \
+  test/features/orders/measurement_keyboard_back_test.dart \
   test/pickup_delivery_address_test.dart \
   test/promotion_rules_test.dart
 

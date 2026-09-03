@@ -75,6 +75,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
   SubCategorySelection? _stagingSubCategory;
   MeasurementStepConfig? _measurementConfig;
   _SubCategoryPhase _subCategoryPhase = _SubCategoryPhase.pre;
+  final _keyboardPopGuard = KeyboardPopGuard();
 
   MeasurementStepConfig _buildMeasurementConfig(SubCategorySelection selection) {
     final labels = sub_cat.normalizeInputLabels(
@@ -389,14 +390,18 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
 
   @override
   Widget build(BuildContext context) {
+    _keyboardPopGuard.update(MediaQuery.viewInsetsOf(context).bottom);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
+        final insets = MediaQuery.viewInsetsOf(context).bottom;
+        _keyboardPopGuard.update(insets);
         final action = textInputPopAction(
-          viewInsetsBottom: MediaQuery.viewInsetsOf(context).bottom,
+          viewInsetsBottom: insets,
           hasEditableFocus:
               hasEditableTextFocus(FocusManager.instance.primaryFocus),
+          keyboardClosedRecently: _keyboardPopGuard.justClosed,
         );
         if (action == TextInputPopAction.unfocus) {
           FocusManager.instance.primaryFocus?.unfocus();
@@ -412,6 +417,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
         appBar: ModoAppBar(
           title: const Text('수거신청'),
           onBack: () {
+            if (dismissKeyboardIfOpen(context)) return;
             final shouldPop = _handleBackNavigation();
             if (shouldPop) {
               if (context.canPop()) {
