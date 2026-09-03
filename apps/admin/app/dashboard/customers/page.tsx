@@ -103,7 +103,7 @@ export default function CustomersPage() {
     retry: 1,
   });
 
-  const customers = data?.customers || [];
+  const customers: Customer[] = Array.isArray(data?.customers) ? data.customers : [];
   const stats = data?.stats;
   const isLoadingStats = isLoadingCustomers;
 
@@ -386,7 +386,7 @@ export default function CustomersPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredCustomers.map((customer: Customer) => {
+              {filteredCustomers.map((customer) => {
                 const status = getCustomerStatus(customer);
                 return (
                   <Link key={customer.id} href={`/dashboard/customers/${customer.id}`}>

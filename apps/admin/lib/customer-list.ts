@@ -64,8 +64,8 @@ function osRank(os?: string | null): number {
 }
 
 function compareNullableDate(
-  a?: string | null,
-  b?: string | null,
+  a: string | null | undefined,
+  b: string | null | undefined,
   dir: number
 ): number {
   if (!a && !b) return 0;
