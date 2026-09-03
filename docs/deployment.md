@@ -95,8 +95,8 @@ xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
 - Distribution 인증서 + 프로파일 `ModoRepair AppStore`
 - Xcode Accounts 미로그인 시 Automatic 대신 Manual (`ExportOptions.plist`)
 - iOS 배포 타깃 **15.0** (ITMS-90068 / 2027 봄부터 ASC 업로드 필수)
-- 최신 코드: **`1.0.7+47`**. iOS **`1.0.6` 판매 중** · **`1.0.7` 46 제출** · 다음 맥북 빌드 **47** — https://apps.apple.com/kr/app/모두의수선/id6759492888
-- Play: **프로덕션 게시** `1.0.6 (38)` · 다음 AAB **47** · 대한민국 — `compileSdk`/`targetSdk` **36**
+- 최신 코드: **`1.0.8+48`**. iOS **`1.0.7` 판매 중** · **`1.0.8` 47 `WAITING_FOR_REVIEW`** — https://apps.apple.com/kr/app/모두의수선/id6759492888
+- Play: **프로덕션 게시** `1.0.6 (38)` · AAB **`1.0.8+48`** 백업 · 대한민국 — `compileSdk`/`targetSdk` **36**
 - 카톡 OG: 라이브 `https://modo.io.kr/og.jpg` (62KB, 1200×600)
 - 앱 업데이트 안내: `app_versions` 최신·최소는 iOS/Android 모두 **`1.0.5`** · 어드민 `/dashboard/settings/app-versions`
 
