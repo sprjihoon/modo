@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/navigation/text_input_pop.dart';
 import '../../../../core/widgets/modo_app_bar.dart';
 import '../../../../services/customer_event_service.dart';
+import '../../../../services/image_service.dart';
 import '../../domain/models/order_draft.dart';
 import '../widgets/items_list_widget.dart';
 import '../widgets/clothing_type_step.dart';
@@ -260,10 +261,24 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
 
   void handleRemoveItem(int index) {
     if (index < 0 || index >= _draft.items.length) return;
+    final removed = _draft.items[index];
     setState(() {
       final updated = List<ClothingItem>.from(_draft.items)..removeAt(index);
       _draft = _draft.copyWith(items: updated);
     });
+    _deleteDraftPhotos(removed.imagesWithPins.map((i) => i.imageUrl));
+  }
+
+  void _deleteDraftPhotos(Iterable<String> urls) {
+    ImageService().deleteOrderImages(urls);
+  }
+
+  void _discardUnsavedPhotos() {
+    final urls = <String>[
+      ..._draft.items.expand((c) => c.imagesWithPins.map((i) => i.imageUrl)),
+      ..._stagingImages.map((i) => i.imageUrl),
+    ];
+    _deleteDraftPhotos(urls);
   }
 
   void handleProceedToPickup() {
@@ -347,6 +362,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
                   ),
                   onPressed: () {
                     Navigator.pop(ctx);
+                    _discardUnsavedPhotos();
                     context.go('/home');
                   },
                   child: const Text('홈으로 나가기'),

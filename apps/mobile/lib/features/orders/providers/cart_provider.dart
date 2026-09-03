@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../services/cart_service.dart';
 import '../../../../services/customer_event_service.dart';
+import '../../../../services/image_service.dart';
 import '../domain/cart_draft_items.dart';
 import '../domain/cart_item.dart';
 
@@ -103,12 +104,20 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
 
   /// 서버에 저장된 cart_drafts 행을 server id 로 직접 지운다.
   /// (장바구니에서 이어 작성 → 다시 담기 시 원본 중복 방지용)
-  Future<void> removeServerCartRow(String serverId) async {
+  /// 결제/재저장으로 옮길 때는 [deletePhotos]를 false 로 둔다.
+  Future<void> removeServerCartRow(
+    String serverId, {
+    bool deletePhotos = false,
+  }) async {
+    final leaving = state.where((i) => i.serverId == serverId).toList();
     if (_svc.isLoggedIn) {
       await _svc.removeItem(serverId);
     }
     state = state.where((i) => i.serverId != serverId).toList();
     await _saveLocalCache();
+    if (deletePhotos) {
+      await _deleteUnusedPhotos(leaving);
+    }
   }
 
   /// 서버에서 최신 장바구니를 다시 불러온다 (pull-to-refresh 등에서 호출).
@@ -233,6 +242,9 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
 
     state = state.where((i) => i.id != itemId).toList();
     await _saveLocalCache();
+    if (target.id.isNotEmpty) {
+      await _deleteUnusedPhotos([target]);
+    }
   }
 
   /// 장바구니를 전체 비운다.
@@ -247,12 +259,38 @@ class CartNotifier extends StateNotifier<List<CartItem>> {
         metadata: {'item_count': count},
       );
     }
+    final leaving = List<CartItem>.from(state);
     state = [];
     await _saveLocalCache();
+    await _deleteUnusedPhotos(leaving);
+  }
+
+  Future<void> _deleteUnusedPhotos(Iterable<CartItem> leaving) async {
+    final remaining = <String>{};
+    for (final item in state) {
+      remaining.addAll(_photoUrlsOf(item));
+    }
+    final toDelete = <String>{};
+    for (final item in leaving) {
+      for (final url in _photoUrlsOf(item)) {
+        if (!remaining.contains(url)) toDelete.add(url);
+      }
+    }
+    if (toDelete.isEmpty) return;
+    await ImageService().deleteOrderImages(toDelete);
   }
 
   int getTotalPrice() => state.fold(0, (s, i) => s + i.price);
   int getTotalItemCount() => state.length;
+}
+
+List<String> _photoUrlsOf(CartItem item) {
+  final urls = <String>[...item.imageUrls];
+  for (final row in item.imagesWithPins) {
+    final url = row['imageUrl']?.toString();
+    if (url != null && url.isNotEmpty) urls.add(url);
+  }
+  return urls;
 }
 
 /// Providers

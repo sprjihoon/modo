@@ -13,6 +13,10 @@
     {
       "path": "/api/admin/ops-reports/generate",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/admin/order-images/cleanup",
+      "schedule": "20 3 * * *"
     }
   ]
 }

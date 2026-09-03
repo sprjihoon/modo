@@ -18,11 +18,24 @@ import {
   Clock,
   Send,
   Smartphone,
+  Trash2,
+  Image as ImageIcon,
 } from "lucide-react";
 import Link from "next/link";
 
+type ImageCleanupSummary = {
+  total: number;
+  orderBound: number;
+  cartBound: number;
+  orphans: number;
+  expiredBound: number;
+  expiredOrphans: number;
+};
+
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const [imageSummary, setImageSummary] = useState<ImageCleanupSummary | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
 
   // 센터(입고 도착지) 설정
   const [centerSettings, setCenterSettings] = useState({
@@ -63,6 +76,16 @@ export default function SettingsPage() {
     isLimited: false,
   });
   const [isSendingNotification, setIsSendingNotification] = useState(false);
+
+  const loadImageCleanup = async () => {
+    try {
+      const res = await fetch("/api/admin/order-images/cleanup");
+      const json = await res.json();
+      if (json?.summary) setImageSummary(json.summary);
+    } catch (e) {
+      console.warn("주문 사진 정리 현황 로드 실패:", e);
+    }
+  };
 
   // 초기 데이터 로드
   useEffect(() => {
@@ -110,7 +133,33 @@ export default function SettingsPage() {
 
   loadCenter();
   loadOrderLimit();
+  loadImageCleanup();
   }, []);
+
+  const runImageCleanup = async (action: "orphans" | "expired") => {
+    const confirmMsg =
+      action === "orphans"
+        ? "주문·장바구니에 안 묶인 사진을 지금 삭제할까요?"
+        : "정상 주문 후 60일이 지난 사진을 지금 삭제할까요?";
+    if (!confirm(confirmMsg)) return;
+    try {
+      setImageBusy(true);
+      const res = await fetch("/api/admin/order-images/cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "정리 실패");
+      if (json.summary) setImageSummary(json.summary);
+      alert(`${json.deleted ?? 0}장을 삭제했습니다.`);
+      await loadImageCleanup();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "사진 정리에 실패했습니다.");
+    } finally {
+      setImageBusy(false);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -372,6 +421,45 @@ export default function SettingsPage() {
                 }
               </Button>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-amber-200 dark:border-amber-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ImageIcon className="h-5 w-5 text-amber-600" />
+            주문 사진 정리
+          </CardTitle>
+          <CardDescription>
+            장바구니 삭제·중도 취소는 즉시 삭제됩니다. 안 묶인 사진은 버튼으로, 정상 주문 사진은 60일 뒤 자동 삭제됩니다. 리뷰 사진은 이 정리에 넣지 않으며, 관리자 또는 고객이 리뷰를 삭제할 때만 함께 지워집니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-2 sm:grid-cols-2 text-sm">
+            <p>전체 {imageSummary?.total ?? "-"}장</p>
+            <p>주문에 묶임 {imageSummary?.orderBound ?? "-"}장</p>
+            <p>장바구니·결제중 {imageSummary?.cartBound ?? "-"}장</p>
+            <p>안 묶인 사진 {imageSummary?.orphans ?? "-"}장</p>
+            <p>60일 지난 주문 사진 {imageSummary?.expiredBound ?? "-"}장</p>
+            <p>7일 지난 고아 사진 {imageSummary?.expiredOrphans ?? "-"}장</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="destructive"
+              disabled={imageBusy || (imageSummary?.orphans ?? 0) === 0}
+              onClick={() => runImageCleanup("orphans")}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {imageBusy ? "정리 중..." : "안 묶인 사진 삭제"}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={imageBusy || (imageSummary?.expiredBound ?? 0) === 0}
+              onClick={() => runImageCleanup("expired")}
+            >
+              60일 지난 주문 사진 지금 삭제
+            </Button>
           </div>
         </CardContent>
       </Card>

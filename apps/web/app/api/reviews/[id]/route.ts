@@ -3,9 +3,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getRequestAuthUser } from "@/lib/auth-user";
 import {
   isWholeStarRating,
-  reviewImageStoragePaths,
+  removeReviewImages,
   sanitizeReviewPhotoUrls,
   toMyReview,
+  unusedReviewPhotoUrls,
 } from "@/lib/reviews";
 
 export const dynamic = "force-dynamic";
@@ -129,6 +130,11 @@ export async function PATCH(
       return NextResponse.json({ error: "리뷰 수정에 실패했습니다." }, { status: 500 });
     }
 
+    await removeReviewImages(
+      owner.admin.storage,
+      unusedReviewPhotoUrls(owner.review.photo_urls, photoUrls),
+    );
+
     return NextResponse.json({ review: toMyReview(updated) });
   } catch (e) {
     console.error("[reviews PATCH]", e);
@@ -145,10 +151,7 @@ export async function DELETE(
     const owner = await requireOwner(id, request);
     if (owner.error) return owner.error;
 
-    const paths = reviewImageStoragePaths(owner.review.photo_urls ?? []);
-    if (paths.length > 0) {
-      await owner.admin.storage.from("review-images").remove(paths);
-    }
+    await removeReviewImages(owner.admin.storage, owner.review.photo_urls);
 
     const { error } = await owner.admin
       .from("reviews")

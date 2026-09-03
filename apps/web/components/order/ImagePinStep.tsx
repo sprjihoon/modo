@@ -15,6 +15,7 @@ import {
   Move,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { deleteOrderImages } from "@/lib/order-image-storage";
 
 const MAX_PINS_PER_IMAGE = 5;
 const MAX_IMAGES = 5;
@@ -229,6 +230,8 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
   }
 
   function removeImage(idx: number) {
+    const url = images[idx]?.imageUrl;
+    if (url) void deleteOrderImages([url]);
     setImages((prev) => prev.filter((_, i) => i !== idx));
     if (activeImageIdx === idx) {
       setActiveImageIdx(null);

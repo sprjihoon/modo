@@ -379,7 +379,13 @@ class _ReviewWritePageState extends State<ReviewWritePage> {
                               top: -6,
                               right: -6,
                               child: GestureDetector(
-                                onTap: () => setState(() => _photos = _photos.where((p) => p != url).toList()),
+                                onTap: () {
+                                  final wasSaved = _existing?.photoUrls.contains(url) ?? false;
+                                  if (!wasSaved) {
+                                    _imageService.deleteImage(url: url, bucket: 'review-images');
+                                  }
+                                  setState(() => _photos = _photos.where((p) => p != url).toList());
+                                },
                                 child: Container(
                                   width: 24,
                                   height: 24,

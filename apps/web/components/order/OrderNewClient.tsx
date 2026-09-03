@@ -15,6 +15,7 @@ import {
   getOrderFlowStepIndex,
 } from "./OrderFlowProgress";
 import { addCartItem, removeCartItem } from "@/lib/cart";
+import { collectOrderImageUrls, deleteOrderImages } from "@/lib/order-image-storage";
 import { Analytics } from "@/lib/analytics";
 
 export interface ImageWithPins {
@@ -322,7 +323,7 @@ export function OrderNewClient() {
     if (d.items.length > 0) {
       await addCartItem(d);
       if (resumingCartId) {
-        try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
+        try { await removeCartItem(resumingCartId, { deletePhotos: false }); } catch { /* ignore */ }
       }
     }
     setShowExitDialog(false);
@@ -340,7 +341,7 @@ export function OrderNewClient() {
     if (next.items.length > 0) {
       await addCartItem(next);
       if (resumingCartId) {
-        try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
+        try { await removeCartItem(resumingCartId, { deletePhotos: false }); } catch { /* ignore */ }
       }
     }
     if (popstateHandlerRef.current) {
@@ -351,6 +352,13 @@ export function OrderNewClient() {
   }
 
   function handleExitWithoutSaving() {
+    if (!resumingCartId) {
+      const urls = [
+        ...collectOrderImageUrls(draftRef.current),
+        ...collectOrderImageUrls(stagingImagesWithPins),
+      ];
+      void deleteOrderImages(urls);
+    }
     setShowExitDialog(false);
     if (popstateHandlerRef.current) {
       window.removeEventListener("popstate", popstateHandlerRef.current);
@@ -529,6 +537,7 @@ export function OrderNewClient() {
   }
 
   function cancelAddClothing() {
+    void deleteOrderImages(collectOrderImageUrls(stagingImagesWithPins));
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
     setStagingIconName(undefined);
@@ -549,6 +558,8 @@ export function OrderNewClient() {
 
   // ── 의류 카드 삭제 ──────────────────────────────────────────────────────
   function handleRemoveItem(index: number) {
+    const removed = draftRef.current.items[index];
+    if (removed) void deleteOrderImages(collectOrderImageUrls(removed));
     setDraft((prev) => ({
       ...prev,
       items: prev.items.filter((_, i) => i !== index),
@@ -579,7 +590,7 @@ export function OrderNewClient() {
       const quote = await quoteRes.json() as { intentId: string; totalPrice: number };
 
       if (resumingCartId) {
-        try { await removeCartItem(resumingCartId); } catch { /* ignore */ }
+        try { await removeCartItem(resumingCartId, { deletePhotos: false }); } catch { /* ignore */ }
       }
       if (popstateHandlerRef.current) {
         window.removeEventListener("popstate", popstateHandlerRef.current);

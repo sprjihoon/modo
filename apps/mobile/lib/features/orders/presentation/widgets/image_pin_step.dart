@@ -51,6 +51,7 @@ class _ImagePinStepState extends State<ImagePinStep> {
     try {
       setState(() => _isUploading = true);
 
+      final previousUrl = _currentImageUrl;
       final imageUrl = await _imageService.pickAndUploadImage(
         source: source,
         bucket: 'order-images',
@@ -60,6 +61,10 @@ class _ImagePinStepState extends State<ImagePinStep> {
       if (imageUrl == null) {
         setState(() => _isUploading = false);
         return;
+      }
+
+      if (previousUrl != null && previousUrl != imageUrl) {
+        _imageService.deleteOrderImages([previousUrl]);
       }
 
       if (mounted) {

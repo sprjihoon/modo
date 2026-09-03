@@ -7,6 +7,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { OrderDraft } from "@/components/order/OrderNewClient";
 import { normalizeStoredDraft } from "./normalize-cart-draft";
+import { collectOrderImageUrls, deleteOrderImages } from "./order-image-storage";
 
 export { normalizeStoredDraft } from "./normalize-cart-draft";
 
@@ -148,9 +149,14 @@ export async function addCartItem(draft: OrderDraft): Promise<CartDraftItem> {
   return item;
 }
 
-/** 항목 하나를 삭제한다. */
-export async function removeCartItem(id: string): Promise<void> {
+/** 항목 하나를 삭제한다. 결제/재저장으로 옮길 때는 deletePhotos: false. */
+export async function removeCartItem(
+  id: string,
+  options?: { deletePhotos?: boolean },
+): Promise<void> {
+  const deletePhotos = options?.deletePhotos !== false;
   import("@/lib/analytics").then(({ Analytics }) => Analytics.cartRemove(id));
+  const leaving = localLoad().find((i) => i.id === id);
   try {
     const userId = await resolveUserId();
     if (userId) {
@@ -161,10 +167,16 @@ export async function removeCartItem(id: string): Promise<void> {
 
   const items = localLoad().filter((i) => i.id !== id);
   localSave(items);
+  if (deletePhotos && leaving) {
+    const remainingUrls = new Set(items.flatMap((i) => collectOrderImageUrls(i.draft)));
+    const toDelete = collectOrderImageUrls(leaving.draft).filter((url) => !remainingUrls.has(url));
+    await deleteOrderImages(toDelete);
+  }
 }
 
 /** 장바구니 전체 비우기. */
 export async function clearCartItems(): Promise<void> {
+  const leaving = localLoad();
   try {
     const userId = await resolveUserId();
     if (userId) {
@@ -176,6 +188,7 @@ export async function clearCartItems(): Promise<void> {
     }
   } catch { /* fallback */ }
   localSave([]);
+  await deleteOrderImages(leaving.flatMap((i) => collectOrderImageUrls(i.draft)));
 }
 
 /** 로컬 캐시 기반 즉시 카운트 (동기, SSR-safe). */

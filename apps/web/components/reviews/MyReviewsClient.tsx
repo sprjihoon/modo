@@ -26,7 +26,7 @@ export function MyReviewsClient() {
   }, []);
 
   async function handleDelete(review: MyReview) {
-    if (!confirm("이 리뷰를 삭제할까요? 삭제한 뒤에는 복구할 수 없습니다.")) return;
+    if (!confirm("이 리뷰를 삭제할까요? 첨부된 사진도 함께 삭제되며 복구할 수 없습니다.")) return;
     setBusyId(review.id);
     try {
       const res = await fetch(`/api/reviews/${review.id}`, { method: "DELETE" });

@@ -320,7 +320,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ## 고객 리뷰
 
-배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 iOS `1.0.7` 판매 중 · 수거정보·쿠폰·수치 키패드는 `1.0.8` (iOS·Play 모두 47 심사).
+배송완료(`DELIVERED`) 주문에 한해 고객이 리뷰를 남긴다. **웹은 라이브**. 앱은 iOS `1.0.7` 판매 중 · 수거정보·쿠폰·수치 키패드·사진 정리는 `1.0.8+49` (iOS 47 심사 취소 후 49 제출 · Play AAB 49).
 
 | 항목 | 내용 |
 |---|---|
@@ -331,7 +331,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 | 홈 | 웹·앱 모두 **가격표/쉬운가이드 → 내 주문 → 고객 리뷰**. 주문 없으면 「아직 주문 내역이 없어요」(비로그인: 「로그인하고 수선을 시작해 보세요」). 리뷰는 DB `reviews`만 (`/api/reviews?home=1`, 목업 없음). 관리자가 고른 순서(`is_featured`, `display_order`). 사진 2 + 글 2, 사진 없으면 글 4. 홈·전체 목록에 **총점·공개 개수는 안 냄**. 공개 리뷰 없으면 「아직 공개된 리뷰가 없습니다」. 운영에는 텍스트 4건이 들어가 있음 |
 | 배너 | 웹·앱 홈 배너 높이 **200** |
 | 전체 | `/reviews` 별점순·최신순·포토리뷰(`?photo=1`)·**수선 종류**(의류 대분류, `?clothing=바지`). 포토는 사진 리뷰가 있을 때만 목록에 나옴. 로그인 시 맨 위 **내 리뷰** |
-| 내 리뷰 | `/profile/reviews`에서 수정·삭제. 수정 시 다시 검수 대기 |
+| 내 리뷰 | `/profile/reviews`에서 수정·삭제. 수정 시 다시 검수 대기. 고객·관리자가 리뷰를 지우면 리뷰 사진도 함께 삭제. 주문 사진 정리에는 넣지 않음 |
 | 어드민 | `/dashboard/reviews` 승인·숨김·삭제·홈 노출 순서. 적립은 `/dashboard/points?tab=reviews` |
 | 앱 API | 쿠키 또는 `Authorization: Bearer` (`apps/web/lib/auth-user.ts`). 앱은 `https://modo.io.kr/api/...` |
 
@@ -361,25 +361,25 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 
 ## 앱스토어 / Play 출시 준비
 
-**지금:** 코드는 `1.0.8+48` (수거정보 입력창 · 쿠폰 셀렉트 · 수치 키패드 닫기). iOS는 **`1.0.7` 판매 중** · **`1.0.8` 빌드 47 `WAITING_FOR_REVIEW`**. Play는 **`1.0.7 (46)` 게시** · **`1.0.8 (47)` 검토 중**. 로컬 `1.0.8+48` AAB는 올리지 않는다. 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.7`이 판매 중이라 최신은 **`1.0.7`까지** 올려도 된다. **`1.0.8`은 양쪽 판매 뒤에만.** 명령은 아래 「맥북에서 `1.0.8`」과 `apps/mobile/README.md`에 같다.
+**지금:** 코드는 `1.0.8+49` (수거정보 입력창 · 쿠폰 셀렉트 · 수치 키패드 · 주문 사진 즉시삭제 · 리뷰 삭제 시 사진 삭제). iOS는 **`1.0.7` 판매 중** · **`1.0.8` 47 심사 취소 후 49 제출**. Play는 **`1.0.7 (46)` 게시** · 앱정보 **48** · 이번 AAB는 **49**. 어드민 `app_versions`는 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.7`이 판매 중이라 최신은 **`1.0.7`까지** 올려도 된다. **`1.0.8`은 양쪽 판매 뒤에만.** 명령은 아래 「맥북에서 `1.0.8`」과 `apps/mobile/README.md`에 같다.
 
 **스토어 빌드 규칙:** IPA/AAB는 너무 자주 올리지 않는다. **하루에 한 번만** · **맥북에서만** 한다. Windows에서는 검증만 한다. 웹·어드민은 `main` push 시 Vercel 자동 배포라 이 제한과 무관하다.
 
-**오늘(2026-09-03):** 수거정보 입력창 흰 화면 · 쿠폰 셀렉트 · 수치 입력에서 키패드 닫기가 이전 단계로 가던 문제. 테스트 통과. iOS·Play 모두 **`1.0.8 (47)` 심사/검토**. 로컬에만 있는 `1.0.8+48` AAB는 올리지 않는다.
+**오늘(2026-09-03):** 수거정보 입력창 · 주문 사진 즉시삭제 · 리뷰 삭제 시 사진 삭제. 테스트 통과. iOS **47 심사 취소 후 `1.0.8 (49)` 제출**. Play 앱정보 48 다음으로 **`1.0.8+49` AAB**.
 
 | 항목 | 값 |
 |---|---|
 | 앱 이름 | 모두의수선 |
 | Bundle / Application ID | `com.modurepair.app` |
-| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.8+48`**. 스토어에 올린 빌드는 iOS·Play 모두 **47**. 48 AAB는 로컬만 · 올리지 않음 |
+| 버전 | `apps/mobile/pubspec.yaml` → **`1.0.8+49`**. iOS 심사는 **49**. Play 이번 AAB는 **49**. 다음 Play는 **50** |
 | App Store Connect App ID | `6759492888` |
-| iOS 스토어 | **판매 중 `1.0.7`**. **`1.0.8` 빌드 47 `WAITING_FOR_REVIEW`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| iOS 스토어 | **판매 중 `1.0.7`**. **`1.0.8` 빌드 49 제출** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | Play 개발자 계정 | 틸리언 (개인) · Account ID `6272621754721589639` · 본인 확인 완료 |
 | Play App ID | `4975768727608817713` |
-| Play 상태 | **프로덕션 게시** `1.0.7 (46)` · **`1.0.8 (47)` 검토 중** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
+| Play 상태 | **프로덕션 게시** `1.0.7 (46)` · 앱정보 **48** · 이번 AAB **`1.0.8 (49)`** · 대한민국 · https://play.google.com/store/apps/details?id=com.modurepair.app · Alpha opt-in `https://play.google.com/apps/testing/com.modurepair.app` |
 | Play 내부 테스트 | 활성 · 링크 `https://play.google.com/apps/internaltest/4701702425484954622` · 테스터 목록「내부 테스터」 |
 | Play 비공개 테스트 | Alpha 트랙 `4700584948698883440` · 국가 ~176 · 동일 테스터 목록 |
-| Android AAB | 콘솔에 올린 것 **`1.0.8+47`**. 로컬 48은 백업만 (`Documents/modo-android-signing/app-release-1.0.8+48.aab`) · 올리지 않음 |
+| Android AAB | 이번 빌드 **`1.0.8+49`**. 백업 `Documents/modo-android-signing/app-release-1.0.8+49.aab`. 다음 업로드는 **50** |
 | Android 업로드 서명 | 로컬 JKS SHA1 `10:90:55…` (Play 업로드 키 재설정 완료) · 기기 배포 서명 SHA1 `D7:A9:03…` · `key.properties`+`upload-keystore.jks` Git 제외 |
 | 스토어 문구 | `apps/mobile/STORE_LISTING_KR.md` |
 | 스토어 그래픽 | `apps/mobile/store_screenshots/play/` (아이콘·피처·폰 스크린샷) |
@@ -393,7 +393,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud Flutter | `ios/ci_scripts/ci_post_clone.sh` 핀 **3.35.7** — 공식 macOS zip 설치 (`pubspec.lock` `>=3.35.0`). `*.sh`는 LF 고정 (`.gitattributes`) |
 | Xcode Cloud 서명 | Runner Manual(`ModoRepair AppStore`) + Team `6R7TSV8PV4`. `AppFrameworkInfo.plist` `MinimumOSVersion=15.0` |
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
-| App Store 현재 빌드 | 판매 중 **`1.0.7`**. **`1.0.8` 빌드 47 `WAITING_FOR_REVIEW`** |
+| App Store 현재 빌드 | 판매 중 **`1.0.7`**. **`1.0.8` 빌드 49 제출** |
 | 웹 배포 | `main` push 즉시 `modo-web` (modo.io.kr). 수선 요청 메모 **라이브**. 스토어 빌드와 무관 |
 | 앱 업데이트 안내 | `app_versions`. 지금 최신·최소는 iOS/Android 모두 **`1.0.5`** (강제 업데이트 끔). 양쪽 `1.0.7` 판매 중이라 최신은 **`1.0.7`까지** 올려도 된다. **`1.0.8`은 양쪽 판매 뒤에만.** |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
@@ -415,17 +415,17 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 ```bash
 cd apps/mobile
 
-# Android (Play용 AAB). 콘솔에 올린 것은 47. 48은 로컬만 · 올리지 않음
-flutter build appbundle --release --build-name=1.0.8 --build-number=47
+# Android (Play용 AAB). 이번 빌드 49. 다음 업로드는 50
+flutter build appbundle --release --build-name=1.0.8 --build-number=49
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.8+47.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.8+49.aab
 
 # Android (직접 설치용 APK — Play Protect 경고가 날 수 있음, 신규 서명 키는 흔함)
 flutter build apk --release
 # → build/app/outputs/flutter-apk/app-release.apk
 
-# iOS (App Store / TestFlight) — 맥북에서만. 제출된 빌드는 47
-flutter build ipa --release --build-name=1.0.8 --build-number=47 \
+# iOS (App Store / TestFlight) — 맥북에서만. 제출 빌드는 49
+flutter build ipa --release --build-name=1.0.8 --build-number=49 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 # 업로드: xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
@@ -434,13 +434,15 @@ flutter build ipa --release --build-name=1.0.8 --build-number=47 \
 
 ### 맥북에서 `1.0.8` (수거정보 입력창 · 쿠폰 셀렉트 · 수치 키패드)
 
-Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.8+48`. iOS·Play에 올린 빌드는 둘 다 **47**. 로컬 48 AAB는 올리지 않는다. `1.0.7`이 iOS·Play 판매 중이라 마케팅 버전을 올렸다.
+Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.8+49`. iOS는 **47 심사 취소 후 49 제출**. Play 앱정보 48 다음 **49**. `1.0.7`이 iOS·Play 판매 중이라 마케팅 버전을 올렸다.
 
 이 빌드에 포함된 앱 수정:
 - 수거정보 단계 입력창(상세주소·수선 메모·프로모코드·배송 요청)을 누르면 흰 화면이 뜨고, 뒤로 가면 이전 단계로 가던 문제
 - 키보드가 열릴 때 입력 화면이 유지되고, 입력 직후 뒤로가기로 페이지가 닫히지 않음
 - 내 쿠폰을 앱 디자인에 맞는 셀렉트박스로 선택 (공개 코드는 직접 입력 유지)
 - 수치 입력에서 키패드를 내리려다 `이전`/뒤로가기가 전 단계로 가던 문제. 키패드가 떠 있으면 닫기만 하고, 키패드 위에 **완료**를 둔다
+- 장바구니 삭제·수거 중도 취소 시 주문 사진을 바로 지운다. 리뷰 사진은 리뷰를 지울 때만 함께 삭제
+- 어드민에서 안 묶인 주문 사진 삭제 · 정상 주문 사진은 60일 뒤 정리. 리뷰 사진은 이 정리에 넣지 않음
 
 ```bash
 git checkout main
@@ -456,20 +458,21 @@ flutter test \
   test/features/orders/coupon_select_field_test.dart \
   test/features/orders/measurement_keyboard_back_test.dart \
   test/pickup_delivery_address_test.dart \
-  test/promotion_rules_test.dart
+  test/promotion_rules_test.dart \
+  test/order_image_storage_test.dart
 
-# Play AAB (콘솔에 올린 것 = 47. 48은 만들지 말고 올리지 않음)
-flutter build appbundle --release --build-name=1.0.8 --build-number=47
+# Play AAB (이번 빌드 49. 다음 업로드는 50)
+flutter build appbundle --release --build-name=1.0.8 --build-number=49
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.8+47.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.8+49.aab
 
 # App Store / TestFlight IPA
-flutter build ipa --release --build-name=1.0.8 --build-number=47 \
+flutter build ipa --release --build-name=1.0.8 --build-number=49 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS **1.0.7** 판매 중 · **1.0.8 (47)** `WAITING_FOR_REVIEW`. Play는 **`1.0.7 (46)` 게시** · **`1.0.8 (47)` 검토 중**. 어드민 **앱 버전** 최신은 **`1.0.7`까지**. `1.0.8`은 양쪽 판매 뒤에만.
+iOS **1.0.7** 판매 중 · **1.0.8 (49)** 제출. Play는 **`1.0.7 (46)` 게시** · 이번 AAB **`1.0.8 (49)`**. 어드민 **앱 버전** 최신은 **`1.0.7`까지**. `1.0.8`은 양쪽 판매 뒤에만.
 
 서명 키는 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (Play 업로드 SHA1 `10:90:55…`). Windows PC의 8/3 키(`AE:84:3D…`)로 만든 AAB는 Play에 올리지 않는다.
 
@@ -549,7 +552,7 @@ iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토�
 43. **`1.0.7+44` 홈 수거신청 버튼 투명** — 푸터 위 가운데 캡슐은 유지. 뒤 흰 띠를 없애고 콘텐츠 위에 겹침. 시뮬 확인. 43 심사 교체
 44. **`1.0.7+45` 웹 쿠폰함 · 앱 전용 적용** — 웹에서 쿠폰 확인. 웹 주문은 쿠폰·프로모 없음. 적용은 앱만. 44 심사 교체
 45. ~~**`1.0.7+46` 수선 수치 숫자만**~~ — **iOS `1.0.7` 판매 중**. 부호·소수점 불가. 웹 결제는 푸터를 맨 아래, 결제하기는 그 위
-47. **`1.0.8` 수거정보·쿠폰·수치 키패드** — 입력창 흰 화면 수정. 쿠폰 셀렉트. 수치 키패드 닫기가 이전 단계로 가던 문제. iOS 47 심사 · Play **`1.0.7 (46)` 게시** · **`1.0.8 (47)` 검토 중**. 48 AAB는 올리지 않음
+47. **`1.0.8` 수거정보·쿠폰·수치 키패드·사진 정리** — 입력창 흰 화면 수정. 쿠폰 셀렉트. 수치 키패드 닫기. 주문 사진 즉시삭제·60일 정리. 리뷰 삭제시 사진 삭제. iOS 47 취소 후 **49 제출** · Play AAB **49**
 39. **출고송장 배송요청사항** — 고객 `orders.notes`를 그 주문 출고송장·우체국 `delivMsg`에 출력. 레이아웃 에디터에서 위치 저장. 어드민 `main` 배포
 40. **배송완료 자동 반영** — 우체국 배달완료면 `DELIVERED`. 폴링은 월~토 9·11·13·15·17시. 일·공휴일 제외. 어드민 주문 상세를 열어도 동기화. 어드민·Edge 라이브
 41. **마케팅 인사이트** — 어드민 **분석 → 마케팅 인사이트**. 결제·가입·접속이 몰리는 요일·시간, 히트맵, 푸시 타이밍, 인기 의류/수선, 앱/웹 유입. 고객 목록·상세에 **마지막 접속**. 고객 행동 분석 시간 탭에 요일별 접속
@@ -830,7 +833,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-09-03 | `1.0.8` 심사 | iOS `1.0.7` 판매 후 다음 버전. 수거정보 흰 화면·쿠폰 셀렉트·수치 키패드. iOS 47 `WAITING_FOR_REVIEW`. Play `1.0.7 (46)` 게시 · `1.0.8 (47)` 검토 중. 로컬 48 AAB는 올리지 않음 |
+| 2026-09-03 | `1.0.8+49` | 수거정보 흰 화면·쿠폰 셀렉트·수치 키패드. 주문 사진 즉시삭제·60일 정리. 리뷰 삭제시 사진 삭제. iOS 47 취소 후 49 제출. Play AAB 49 |
 | 2026-09-02 | 광고 성과 | 어드민 `/dashboard/analytics/ads`. 가입 CPA·주문 CPA·CAC. UTM 첫유입/결제 저장 · `ad_spend`. 마이그레이션 `20260902120000_ad_attribution.sql` |
 | 2026-09-02 | 웹 결제 푸터 | 사업자 푸터는 화면 맨 아래(접힌 아코디언). 결제하기는 푸터 바로 위. 웹 `modo.io.kr` 라이브 |
 | 2026-09-02 | 전용 탭 CTA · 웹 포인트 | 프로모션 **전용 발급**은 목록만. 공개 코드 만들기 버튼 제거. 포인트는 웹·앱 결제 모두 사용. 쿠폰 적용은 앱만. 어드민·웹·Edge 라이브 |

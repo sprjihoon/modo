@@ -55,7 +55,7 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('리뷰 삭제'),
-        content: const Text('이 리뷰를 삭제할까요? 삭제한 뒤에는 복구할 수 없습니다.'),
+        content: const Text('이 리뷰를 삭제할까요? 첨부된 사진도 함께 삭제되며 복구할 수 없습니다.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
           TextButton(

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Plus, Scissors, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Analytics } from "@/lib/analytics";
-import { REVIEW_PHOTO_MAX, type MyReview, type ReviewSettings } from "@/lib/reviews";
+import { removeReviewImages, REVIEW_PHOTO_MAX, type MyReview, type ReviewSettings } from "@/lib/reviews";
 import { StarRating } from "./StarRating";
 import { ReviewCard } from "./ReviewCard";
 
@@ -265,7 +265,13 @@ export function ReviewWriteClient({
                 <img src={url} alt="" className="w-full h-full object-cover rounded-2xl bg-gray-100" />
                 <button
                   type="button"
-                  onClick={() => setPhotos((prev) => prev.filter((p) => p !== url))}
+                  onClick={() => {
+                    if (!existing?.photo_urls?.includes(url)) {
+                      const supabase = createClient();
+                      void removeReviewImages(supabase.storage, [url]);
+                    }
+                    setPhotos((prev) => prev.filter((p) => p !== url));
+                  }}
                   className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-[#00C896] text-white rounded-full flex items-center justify-center shadow-sm"
                   aria-label="사진 삭제"
                 >

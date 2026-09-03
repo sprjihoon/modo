@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:modu_repair/core/navigation/text_input_pop.dart';
 
@@ -42,5 +43,25 @@ void main() {
     expect(guard.justClosed, isFalse);
     guard.update(0);
     expect(guard.justClosed, isTrue);
+  });
+
+  testWidgets('CollapseWhen은 접혀도 형제 자리를 유지한다', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Column(
+          children: [
+            CollapseWhen(collapsed: true, child: Text('진행')),
+            Expanded(child: Text('본문')),
+            CollapseWhen(collapsed: false, child: Text('완료')),
+          ],
+        ),
+      ),
+    );
+
+    expect(find.text('진행'), findsNothing);
+    expect(find.text('본문'), findsOneWidget);
+    expect(find.text('완료'), findsOneWidget);
+    expect(find.byType(CollapseWhen), findsNWidgets(2));
+    expect(find.byType(Expanded), findsOneWidget);
   });
 }

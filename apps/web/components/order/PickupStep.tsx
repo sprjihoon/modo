@@ -407,9 +407,6 @@ export function PickupStep({ draft, onNext, onBack, onSaveToCart }: PickupStepPr
           )}
           <div className="mt-1 pt-2 border-t border-[#00C896]/15">
             <p className="text-xs text-[#00C896] font-semibold">
-              💡 여러 벌 동시 접수 시 더 경제적입니다!
-            </p>
-            <p className="text-xs text-gray-500 mt-0.5">
               왕복배송비는 수량과 관계없이 1회 {SHIPPING_FEE.toLocaleString()}원으로 동일합니다.
             </p>
           </div>

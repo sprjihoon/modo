@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/ops-auth";
+import { removeReviewImages } from "@/lib/review-image-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -117,14 +118,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "리뷰를 찾을 수 없습니다." }, { status: 404 });
     }
 
-    const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-    const prefix = `${base}/storage/v1/object/public/review-images/`;
-    const paths = (row.photo_urls ?? [])
-      .filter((url: string) => typeof url === "string" && url.startsWith(prefix))
-      .map((url: string) => url.slice(prefix.length));
-    if (paths.length > 0) {
-      await supabaseAdmin.storage.from("review-images").remove(paths);
-    }
+    await removeReviewImages(supabaseAdmin.storage, row.photo_urls);
 
     const { error } = await supabaseAdmin.from("reviews").delete().eq("id", id);
     if (error) {

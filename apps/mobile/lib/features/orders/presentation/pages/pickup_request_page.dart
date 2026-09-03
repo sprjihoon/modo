@@ -15,6 +15,7 @@ import '../../domain/repair_item_payload.dart';
 import '../../providers/repair_items_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../../../services/customer_event_service.dart';
+import '../../../../services/image_service.dart';
 import '../widgets/coupon_select_field.dart';
 import '../widgets/order_flow_progress.dart';
 
@@ -214,6 +215,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                 child: TextButton(
                   onPressed: () {
                     Navigator.of(ctx).pop();
+                    _discardUnsavedPhotos();
                     onConfirmExit();
                   },
                   child: Text('저장 없이 나가기', style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
@@ -249,6 +251,18 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
     } catch (e) {
       debugPrint('배송비 프로모션 확인 실패: $e');
     }
+  }
+
+  void _discardUnsavedPhotos() {
+    final fromCart = (widget.sourceCartItemIds ?? []).isNotEmpty;
+    if (fromCart) return;
+    final urls = <String>[
+      ...widget.imageUrls,
+      ...?widget.imagesWithPins
+          ?.map((row) => row['imageUrl']?.toString() ?? '')
+          .where((url) => url.isNotEmpty),
+    ];
+    ImageService().deleteOrderImages(urls);
   }
   
   @override
@@ -1109,7 +1123,10 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
         bottom: false,
         child: Column(
         children: [
-          if (!keyboardOpen) const OrderFlowProgress(currentStep: 3),
+          CollapseWhen(
+            collapsed: keyboardOpen,
+            child: const OrderFlowProgress(currentStep: 3),
+          ),
           Expanded(
             child: SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -2047,7 +2064,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '왕복배송비(${_formatPrice(_shippingFee)}원)는 수량과 관계없이 1회 동일합니다. 여러 벌을 한 번에 맡기시면 더 경제적입니다!',
+                              '왕복배송비(${_formatPrice(_shippingFee)}원)는 수량과 관계없이 1회 동일합니다.',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF00A07A),
@@ -2266,9 +2283,11 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
             ),
           ),
           
-          // 하단 버튼 — 키보드가 올라오면 숨겨 입력창이 흰 화면으로 밀리지 않게 한다.
-          if (!keyboardOpen)
-            Container(
+          // 하단 버튼 — 키보드는 숨기되 Column 자리는 유지한다.
+          // if 로 빼면 입력창이 다시 만들어져 키패드가 바로 닫힌다.
+          CollapseWhen(
+            collapsed: keyboardOpen,
+            child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -2314,6 +2333,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                       ),
               ),
             ),
+          ),
         ],
       ),
       ),

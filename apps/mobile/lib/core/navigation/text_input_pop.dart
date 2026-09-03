@@ -81,6 +81,26 @@ bool dismissKeyboardIfOpen(BuildContext context) {
   return true;
 }
 
+/// Column에서 키보드가 열릴 때 형제를 `if`로 빼면 Expanded 인덱스가
+/// 바뀌고 입력창 State가 다시 만들어져 키패드가 바로 닫힌다.
+/// 자리는 유지하고 높이만 접는다.
+class CollapseWhen extends StatelessWidget {
+  const CollapseWhen({
+    super.key,
+    required this.collapsed,
+    required this.child,
+  });
+
+  final bool collapsed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (collapsed) return const SizedBox.shrink();
+    return child;
+  }
+}
+
 /// 숫자 키패드처럼 닫기 키가 없을 때 바로 위에 두는 완료 바.
 class KeyboardDoneBar extends StatelessWidget {
   const KeyboardDoneBar({super.key});

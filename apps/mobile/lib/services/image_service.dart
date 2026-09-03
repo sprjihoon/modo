@@ -187,16 +187,46 @@ class ImageService {
     required String url,
     String bucket = 'order-images',
   }) async {
-    try {
-      // URL에서 파일 경로 추출
-      final uri = Uri.parse(url);
-      final path = uri.pathSegments.last;
+    await deleteOrderImages([url], bucket: bucket);
+  }
 
-      await _supabase.storage.from(bucket).remove([path]);
-      _logger.i('이미지 삭제 성공: $path');
+  /// 장바구니 삭제·중도 취소 시 업로드된 사진을 바로 지운다.
+  Future<void> deleteOrderImages(
+    Iterable<String> urls, {
+    String bucket = 'order-images',
+  }) async {
+    final paths = urls
+        .map((url) => orderImageStoragePath(url, bucket: bucket))
+        .whereType<String>()
+        .toSet()
+        .toList();
+    if (paths.isEmpty) return;
+    try {
+      await _supabase.storage.from(bucket).remove(paths);
+      _logger.i('이미지 삭제 성공: $paths');
     } catch (e) {
       _logger.e('이미지 삭제 실패', error: e);
-      rethrow;
     }
   }
+}
+
+/// public/sign URL 또는 `repairs/` · `orders/` 경로에서 Storage 경로를 뽑는다.
+String? orderImageStoragePath(String url, {String bucket = 'order-images'}) {
+  final raw = url.trim();
+  if (raw.isEmpty) return null;
+  for (final marker in [
+    '/object/public/$bucket/',
+    '/object/sign/$bucket/',
+    '/object/authenticated/$bucket/',
+  ]) {
+    final idx = raw.indexOf(marker);
+    if (idx >= 0) {
+      return Uri.decodeComponent(raw.substring(idx + marker.length).split('?').first);
+    }
+  }
+  if (!raw.startsWith('http') &&
+      (raw.startsWith('repairs/') || raw.startsWith('orders/'))) {
+    return raw.split('?').first;
+  }
+  return null;
 }
