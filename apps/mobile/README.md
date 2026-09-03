@@ -181,11 +181,11 @@ flutter test --coverage
 
 스토어 빌드(IPA/AAB)는 **하루에 한 번만** 한다. 웹은 기다리지 않고 `modo.io.kr`에 바로 적용한다.
 
-### 맥북에서 `1.0.8` (지금 이 빌드)
+### 맥북에서 `1.0.9` (지금 이 빌드)
 
-Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.8+50`. iOS는 **`1.0.8` (50) 심사 중**. Play AAB **50**. iOS·Play `1.0.7`이 이미 판매라 마케팅 버전을 올렸다. Windows에서 검증만 하고, 스토어 빌드는 맥북에서 한다.
+Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.9+51`. iOS는 **`1.0.8` (50) 판매 중** · **`1.0.9` (51) 심사 중**. Play AAB **51**. Windows에서 검증만 하고, 스토어 빌드는 맥북에서 한다.
 
-포함 내용: **수거정보 입력창 탭 시 흰 화면/이전 단계 튕김 수정** · **내 쿠폰 셀렉트박스** · **수치 입력 키패드 닫기가 이전 단계로 가던 문제(완료 바)** · **장바구니·중도 취소 시 주문 사진 즉시 삭제** · **리뷰 삭제 시 리뷰 사진 삭제** · **장바구니 5일 만료** · 수선 수치 숫자만 · 쿠폰함 앱 전용 안내 · 웹 쿠폰함 확인(적용은 앱만, 포인트는 웹·앱 결제 모두) · 홈 수거신청 버튼 뒤 흰 배경 제거 · 수선 요청 메모(`orders.customer_memo`) · 수거신청 홈 버튼 · 부위별 치수 칸(`허리+힙` 2칸) · 수거지/배송지 연락처 분리 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
+포함 내용: **쿠폰·프로모 왕복 기본 배송비 무료** · 수거정보 입력창 탭 시 흰 화면/이전 단계 튕김 수정 · 내 쿠폰 셀렉트박스 · 수치 입력 키패드 닫기가 이전 단계로 가던 문제(완료 바) · 장바구니·중도 취소 시 주문 사진 즉시 삭제 · 리뷰 삭제 시 리뷰 사진 삭제 · 장바구니 5일 만료 · 수선 수치 숫자만 · 쿠폰함 앱 전용 안내 · 웹 쿠폰함 확인(적용은 앱만, 포인트는 웹·앱 결제 모두) · 홈 수거신청 버튼 뒤 흰 배경 제거 · 수선 요청 메모(`orders.customer_memo`) · 수거신청 홈 버튼 · 부위별 치수 칸(`허리+힙` 2칸) · 수거지/배송지 연락처 분리 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
 
 ```bash
 git checkout main
@@ -203,18 +203,18 @@ flutter test \
   test/pickup_delivery_address_test.dart \
   test/promotion_rules_test.dart
 
-# Play AAB (이번 빌드 50. 다음 업로드는 51)
-flutter build appbundle --release --build-name=1.0.8 --build-number=50
+# Play AAB (이번 빌드 51)
+flutter build appbundle --release --build-name=1.0.9 --build-number=51
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.8+50.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.9+51.aab
 
 # App Store / TestFlight IPA
-flutter build ipa --release --build-name=1.0.8 --build-number=50 \
+flutter build ipa --release --build-name=1.0.9 --build-number=51 \
   --export-options-plist=ios/ExportOptions.plist
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS는 **1.0.7 판매 중** · **`1.0.8` 50 심사 중 (`WAITING_FOR_REVIEW`)**. Play는 **`1.0.7 (46)` 게시** · 이번 AAB **`1.0.8 (50)`**. 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.7` 판매 중이라 최신은 **`1.0.7`까지** 올려도 된다. **`1.0.8`은 양쪽 판매 뒤에만.**
+iOS는 **`1.0.8` (50) 판매 중** · **`1.0.9` (51) 심사 중**. Play는 **`1.0.7 (46)` 게시** · 이번 AAB **`1.0.9 (51)`**. 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. Android 최신 안내는 Play 게시 뒤에.
 
 Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`10:90:55…`). Windows `AE:84:3D…` 키로 만든 AAB는 올리지 않는다.
 
@@ -224,10 +224,10 @@ Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`1
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | **프로덕션 게시** `1.0.7 (46)` · 이번 AAB **`1.0.8 (50)`** · 대한민국 · Alpha opt-in은 유지 |
-| 버전 | `pubspec.yaml` → `1.0.8+50` · Play/iOS 이번 빌드 50 · 다음 Play는 51 |
+| 현재 트랙 | **프로덕션 게시** `1.0.7 (46)` · 이번 AAB **`1.0.9 (51)`** · 대한민국 · Alpha opt-in은 유지 |
+| 버전 | `pubspec.yaml` → `1.0.9+51` · Play/iOS 이번 빌드 51 |
 | 최근 UX | 부위별 치수 칸 · 수거지/배송지 연락처 분리 · 네이티브 치수 가이드 |
-| AAB | 이번 빌드 **`1.0.8+50`** · `~/Documents/modo-android-signing/app-release-1.0.8+50.aab`. 다음 업로드는 **51** |
+| AAB | 이번 빌드 **`1.0.9+51`** · `~/Documents/modo-android-signing/app-release-1.0.9+51.aab` |
 | targetSdk | **36** (Android 16) — `android/app/build.gradle.kts` 고정 · Play 2026-08-31 정책 |
 | ProGuard | `android/app/proguard-rules.pro` — Retrofit + `com.navercorp.nid` (릴리즈 minify 필수) |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
@@ -258,14 +258,14 @@ flutter build apk --release
 | 스크립트 | `ci_post_clone.sh` / `ci_pre_xcodebuild.sh` — LF 필수 (`.gitattributes`) |
 | 서명 | Release/Profile **Manual** · 프로파일 `ModoRepair AppStore` · Team `6R7TSV8PV4` (`ExportOptions.plist`) |
 | iOS 배포 타깃 | **15.0** (`Podfile` · `IPHONEOS_DEPLOYMENT_TARGET` · `AppFrameworkInfo.plist`) — ITMS-90068 대응 |
-| 최신 업로드 | **`1.0.7` 판매 중**. **`1.0.8 (50)` `WAITING_FOR_REVIEW`** |
-| App Store | **판매 중 `1.0.7`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
+| 최신 업로드 | **`1.0.9` (51) 심사 중** · 판매 중은 **`1.0.8` (50)** |
+| App Store | **판매 중 `1.0.8`** · https://apps.apple.com/kr/app/모두의수선/id6759492888 |
 | IPA | `build/ios/ipa/모두의수선.ipa` |
 | 시뮬 참고 | Sign in with Apple은 시뮬에서 `AuthorizationError 1000`이 흔함 → **실기기/TestFlight**로 확인 |
 
 ```bash
 # App Store용 (수동 서명 — Xcode Accounts 없어도 Distribution 인증서+프로파일만 있으면 가능)
-flutter build ipa --release --build-name=1.0.8 --build-number=50 \
+flutter build ipa --release --build-name=1.0.9 --build-number=51 \
   --export-options-plist=ios/ExportOptions.plist
 
 # 업로드 (API Key: secrets/asc-api.json, 커밋 금지)
