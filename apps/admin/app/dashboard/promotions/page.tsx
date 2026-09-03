@@ -27,6 +27,7 @@ interface PromotionCode {
   assigned_user_name?: string | null;
   assigned_user_email?: string | null;
   source?: string;
+  includes_free_shipping?: boolean;
 }
 
 export default function PromotionsPage() {
@@ -258,6 +259,9 @@ export default function PromotionsPage() {
                             최대 할인: {promo.max_discount_amount.toLocaleString()}원
                           </div>
                         )}
+                        {promo.includes_free_shipping && (
+                          <div className="text-xs text-teal-700 mt-1">왕복 배송비 무료</div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -373,6 +377,7 @@ function PromotionCodeModal({ promotion, onClose, onSuccess }: PromotionCodeModa
       : '',
     description: promotion?.description || '',
     is_active: promotion?.is_active ?? true,
+    includes_free_shipping: promotion?.includes_free_shipping ?? false,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -394,6 +399,7 @@ function PromotionCodeModal({ promotion, onClose, onSuccess }: PromotionCodeModa
         valid_until: formData.valid_until ? new Date(formData.valid_until).toISOString() : null,
         description: formData.description || null,
         is_active: formData.is_active,
+        includes_free_shipping: formData.includes_free_shipping,
       };
 
       const response = await fetch(
@@ -611,6 +617,21 @@ function PromotionCodeModal({ promotion, onClose, onSuccess }: PromotionCodeModa
               rows={3}
             />
           </div>
+
+          <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={formData.includes_free_shipping}
+              onChange={(e) => setFormData({ ...formData, includes_free_shipping: e.target.checked })}
+              className="mt-1"
+            />
+            <div>
+              <div className="text-sm font-medium">왕복 배송비 무료 포함</div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                수선 할인과 별도로 왕복 기본 배송비를 0원으로 합니다. 도서산간 추가비는 그대로입니다.
+              </p>
+            </div>
+          </label>
 
           <div className="flex items-center">
             <input

@@ -657,9 +657,14 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       });
       
       if (mounted) {
+        final shippingNote = promoData['includes_free_shipping'] == true
+            ? ' · 왕복 배송비 무료'
+            : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('프로모션 코드가 적용되었습니다 (${_formatPrice(promoData['discount_amount'] as int)}원 할인)'),
+            content: Text(
+              '프로모션 코드가 적용되었습니다 (${_formatPrice(promoData['discount_amount'] as int)}원 할인$shippingNote)',
+            ),
             backgroundColor: const Color(0xFF00C896),
             duration: const Duration(seconds: 2),
           ),
@@ -872,9 +877,8 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
       debugPrint('📦 결제 견적 준비 중...');
 
       // 클라이언트 추정값 (서버 가격과 비교용 — 실제 결제는 서버가 권위적으로 계산)
-      final baseShippingFee = _shippingSettings.baseShippingFee;
-      final actualShippingFee =
-          (_shippingPromo?['finalShippingFee'] as int?) ?? baseShippingFee;
+      final shipping = _resolvedShipping();
+      final actualShippingFee = shipping.actualShippingFee;
       final pickupZip = _resolvedPickupDelivery.pickupZipcode;
       final deliveryZip = _resolvedPickupDelivery.deliveryZipcode;
       final remoteAreaFee = IslandAreaService().calculateAdditionalFee(
@@ -1051,6 +1055,20 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   }
 
   
+  ({int actualShippingFee, int shippingDiscountAmt, bool couponWaivesShipping})
+      _resolvedShipping() {
+    final resolved = resolveShippingDiscount(
+      shippingPromoDiscount: (_shippingPromo?['discountAmount'] as int?) ?? 0,
+      couponFreeShipping: _appliedPromotion?['includes_free_shipping'] == true,
+      baseShippingFee: _shippingFee,
+    );
+    return (
+      actualShippingFee: _shippingFee - resolved.shippingDiscountAmount,
+      shippingDiscountAmt: resolved.shippingDiscountAmount,
+      couponWaivesShipping: resolved.couponWaivesShipping,
+    );
+  }
+
   // 가격 포맷팅
   String _formatPrice(int price) {
     return price.toString().replaceAllMapped(
@@ -1062,9 +1080,12 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
   @override
   Widget build(BuildContext context) {
     final repairItemsTotal = _calculateRepairItemsTotal();
-    final actualShippingFee = (_shippingPromo?['finalShippingFee'] as int?) ?? _shippingFee;
-    final shippingDiscountAmt = (_shippingPromo?['discountAmount'] as int?) ?? 0;
-    final shippingPromoName = _shippingPromo?['promotionName'] as String?;
+    final shipping = _resolvedShipping();
+    final actualShippingFee = shipping.actualShippingFee;
+    final shippingDiscountAmt = shipping.shippingDiscountAmt;
+    final shippingPromoName = shipping.couponWaivesShipping
+        ? '쿠폰 · 왕복배송비 무료'
+        : _shippingPromo?['promotionName'] as String?;
     final remoteAreaFee = _remoteAreaFee;
     final totalPrice = repairItemsTotal + actualShippingFee + remoteAreaFee;
     
@@ -2264,7 +2285,7 @@ class _PickupRequestPageState extends ConsumerState<PickupRequestPage>
                               ),
                               Text(
                                 '${_formatPrice(_appliedPromotion != null
-                                  ? ((_appliedPromotion!['final_amount'] as int) + actualShippingFee)
+                                  ? ((_appliedPromotion!['final_amount'] as int) + actualShippingFee + remoteAreaFee)
                                   : totalPrice)}원~',
                                 style: const TextStyle(
                                   fontSize: 18,

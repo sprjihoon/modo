@@ -12,6 +12,7 @@ export type PromotionWritePayload = {
   valid_until?: string | null;
   description?: string | null;
   is_active?: boolean;
+  includes_free_shipping?: boolean;
 };
 
 export type PromotionInsertPayload = {
@@ -26,6 +27,7 @@ export type PromotionInsertPayload = {
   valid_until: string | null;
   description: string | null;
   is_active: boolean;
+  includes_free_shipping: boolean;
 };
 
 function asNumber(value: unknown): number | null {
@@ -36,6 +38,10 @@ function asNumber(value: unknown): number | null {
 
 function asDiscountType(value: unknown): DiscountType | null {
   return value === "PERCENTAGE" || value === "FIXED" ? value : null;
+}
+
+export function asIncludesFreeShipping(value: unknown): boolean {
+  return value === true || value === "true" || value === 1 || value === "1";
 }
 
 function validateDiscount(type: DiscountType, value: number): string | null {
@@ -92,6 +98,7 @@ export function buildPromotionInsert(
     valid_until: body.valid_until ? new Date(String(body.valid_until)).toISOString() : null,
     description: body.description ? String(body.description).trim() || null : null,
     is_active: body.is_active !== false,
+    includes_free_shipping: asIncludesFreeShipping(body.includes_free_shipping),
   };
 }
 
@@ -176,6 +183,9 @@ export function buildPromotionUpdate(
   }
   if (body.is_active !== undefined) {
     payload.is_active = Boolean(body.is_active);
+  }
+  if (body.includes_free_shipping !== undefined) {
+    payload.includes_free_shipping = asIncludesFreeShipping(body.includes_free_shipping);
   }
 
   return payload;

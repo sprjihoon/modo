@@ -67,6 +67,7 @@ export async function POST(
       p_milestone_threshold: null,
       p_description: payload.issued_note || "CS 전용 쿠폰",
       p_valid_until: payload.valid_until,
+      p_includes_free_shipping: payload.includes_free_shipping,
     });
 
     if (error) {

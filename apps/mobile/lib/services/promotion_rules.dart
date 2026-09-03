@@ -93,12 +93,30 @@ String couponWalletOptionLabel({
   required String code,
   required String discountType,
   required int discountValue,
+  bool includesFreeShipping = false,
 }) {
   final discount = discountType == 'PERCENTAGE'
       ? '$discountValue% 할인'
       : '${formatPromotionPrice(discountValue)}원 할인';
-  if (code.isEmpty) return discount;
-  return '$code · $discount';
+  final shipping = includesFreeShipping ? ' · 배송비 무료' : '';
+  if (code.isEmpty) return '$discount$shipping';
+  return '$code · $discount$shipping';
+}
+
+/// 쿠폰 플래그 ON이면 왕복 기본 배송비 전액. 배송 프로모와는 더 큰 쪽만.
+({int shippingDiscountAmount, bool couponWaivesShipping}) resolveShippingDiscount({
+  required int shippingPromoDiscount,
+  required bool couponFreeShipping,
+  required int baseShippingFee,
+}) {
+  final base = baseShippingFee < 0 ? 0 : baseShippingFee;
+  final promoRaw = shippingPromoDiscount < 0 ? 0 : shippingPromoDiscount;
+  final promoAmt = promoRaw > base ? base : promoRaw;
+  final couponAmt = couponFreeShipping ? base : 0;
+  return (
+    shippingDiscountAmount: promoAmt > couponAmt ? promoAmt : couponAmt,
+    couponWaivesShipping: couponAmt > promoAmt,
+  );
 }
 
 List<Map<String, dynamic>> usableWalletCoupons(

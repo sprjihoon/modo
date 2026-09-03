@@ -7,6 +7,7 @@ import {
   isPaidPromoOrder,
   promotionCodesAllowedOnOrderSource,
   resolvePromoUsageCounts,
+  resolveShippingDiscount,
 } from "./promotion-eval";
 
 function assert(cond: unknown, msg: string) {
@@ -130,6 +131,36 @@ assert(ok.ok && ok.discountAmount === 5000, "본인 전용 적용");
 assert(!couponBlocksPoints({}), "쿠폰 없으면 포인트 가능");
 assert(couponBlocksPoints({ promotionDiscountAmount: 5000 }), "할인액 있으면 포인트 불가");
 assert(couponBlocksPoints({ promotionCodeId: "CSA53BA4" }), "코드만 있어도 포인트 불가");
+
+assert(
+  resolveShippingDiscount({
+    shippingPromoDiscount: 0,
+    couponFreeShipping: false,
+    baseShippingFee: 7000,
+  }).shippingDiscountAmount === 0,
+  "플래그 OFF면 배송비 그대로"
+);
+assert(
+  resolveShippingDiscount({
+    shippingPromoDiscount: 3500,
+    couponFreeShipping: true,
+    baseShippingFee: 7000,
+  }).shippingDiscountAmount === 7000 &&
+    resolveShippingDiscount({
+      shippingPromoDiscount: 3500,
+      couponFreeShipping: true,
+      baseShippingFee: 7000,
+    }).couponWaivesShipping,
+  "쿠폰 배송무료가 배송 프로모보다 크면 쿠폰이 이김"
+);
+assert(
+  resolveShippingDiscount({
+    shippingPromoDiscount: 7000,
+    couponFreeShipping: true,
+    baseShippingFee: 7000,
+  }).couponWaivesShipping === false,
+  "둘 다 전액이면 배송 프로모 귀속 유지"
+);
 
 assert(!promotionCodesAllowedOnOrderSource("web"), "웹은 쿠폰 적용 불가");
 assert(!promotionCodesAllowedOnOrderSource("WEB"), "웹 대소문자");

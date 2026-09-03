@@ -115,6 +115,21 @@ export function couponBlocksPoints(input: {
   return (input.promotionDiscountAmount ?? 0) > 0 || Boolean(input.promotionCodeId);
 }
 
+/** 쿠폰 플래그 ON이면 왕복 기본 배송비 전액. 배송 프로모와는 더 큰 쪽만. */
+export function resolveShippingDiscount(input: {
+  shippingPromoDiscount: number;
+  couponFreeShipping: boolean;
+  baseShippingFee: number;
+}): { shippingDiscountAmount: number; couponWaivesShipping: boolean } {
+  const base = Math.max(0, input.baseShippingFee);
+  const promoAmt = Math.min(base, Math.max(0, input.shippingPromoDiscount));
+  const couponAmt = input.couponFreeShipping ? base : 0;
+  return {
+    shippingDiscountAmount: Math.max(promoAmt, couponAmt),
+    couponWaivesShipping: couponAmt > promoAmt,
+  };
+}
+
 /** 웹 주문은 쿠폰·프로모 적용 불가. 앱(ios/android 포함)만 적용. */
 export function promotionCodesAllowedOnOrderSource(source?: string | null): boolean {
   const value = String(source ?? "").toLowerCase().trim();

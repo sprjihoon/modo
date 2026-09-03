@@ -67,6 +67,7 @@ class PromotionService {
         'discount_amount': result.discountAmount,
         'original_amount': orderAmount,
         'final_amount': orderAmount - result.discountAmount,
+        'includes_free_shipping': promoCode['includes_free_shipping'] == true,
       };
     } catch (e) {
       rethrow;

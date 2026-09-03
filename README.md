@@ -296,6 +296,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 - CS 발급은 사용기한 날짜를 직접 고를 수 있다.
 - **공개 코드 · 내 쿠폰 · 포인트는 한 주문에 하나만.** 쿠폰이 있으면 포인트 칸을 막고, `apply_points_to_payment_intent`도 `COUPON_APPLIED`로 거절한다.
 - **포인트는 웹·앱 결제 모두 사용 가능.** 웹은 쿠폰을 적용하지 않으므로 포인트만 쓴다. 앱은 쿠폰을 쓰면 포인트를 못 쓴다.
+- **왕복 배송비 무료 포함** (`includes_free_shipping`): 공개 코드·CS 전용·미션 쿠폰 발행 시 체크할 수 있다. ON이면 수선 할인과 별도로 **왕복 기본 배송비를 0원**. 도서산간 추가비는 그대로. 이미 있는 배송 프로모와 겹치면 **더 큰 쪽만**. 청구는 `orders-quote`가 계산하므로 구버전 앱도 결제 금액은 맞다. 수거신청 미리보기·쿠폰함 문구는 다음 스토어 빌드.
 
 ### 어드민
 
@@ -305,16 +306,16 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 
 ### DB / RPC
 
-- `promotion_codes.assigned_user_id` · `source`(`public` \| `cs` \| `invite_milestone`) · `milestone_id`
-- `invite_coupon_milestones` (`threshold`, `min_paid_orders`, `min_photo_reviews`, `valid_days`)
+- `promotion_codes.assigned_user_id` · `source`(`public` \| `cs` \| `invite_milestone`) · `milestone_id` · `includes_free_shipping`
+- `invite_coupon_milestones` (`threshold`, `min_paid_orders`, `min_photo_reviews`, `valid_days`, `includes_free_shipping`)
 - RPC: `issue_exclusive_promotion_code`, `try_issue_invite_milestone_coupons`, `coupon_mission_progress`
-- 마이그레이션: `20260901030000` ~ `20260901080000` (전용 쿠폰 · 포인트 중복 불가 · 조합 미션 · 발급 후 일수 · 사용 횟수 가드)
+- 마이그레이션: `20260901030000` ~ `20260901080000` (전용 쿠폰 · 포인트 중복 불가 · 조합 미션 · 발급 후 일수 · 사용 횟수 가드). `20260904010000` (왕복 배송비 무료 플래그)
 
 ### 검증 (2026-09-02)
 
-- `apps/admin/lib/exclusive-coupon.test.ts` — 소유권, 조합 조건 AND, 미션은 발급 후 일수
-- `apps/mobile/test/promotion_rules_test.dart` — 웹은 쿠폰 적용 불가 · 한도 · 전용 코드 본인만 · 쿠폰/포인트 중복 불가
-- `apps/web/lib/promotion-eval.test.ts` — 견적 규칙 · 쿠폰함 상태. 웹 견적·웹 주문은 쿠폰을 적용하지 않음. 포인트는 웹 결제에서 사용
+- `apps/admin/lib/exclusive-coupon.test.ts` — 소유권, 조합 조건 AND, 미션은 발급 후 일수, 왕복 배송비 무료 플래그
+- `apps/mobile/test/promotion_rules_test.dart` — 웹은 쿠폰 적용 불가 · 한도 · 전용 코드 본인만 · 쿠폰/포인트 중복 불가 · 배송무료 중첩
+- `apps/web/lib/promotion-eval.test.ts` — 견적 규칙 · 쿠폰함 상태 · 배송무료 중첩. 웹 견적·웹 주문은 쿠폰을 적용하지 않음. 포인트는 웹 결제에서 사용
 
 ---
 
@@ -835,6 +836,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-04 | 쿠폰 배송비 무료 | 공개 코드·CS·미션 발행 시 `includes_free_shipping`. ON이면 왕복 기본 배송비 0원(도서산간 제외). 배송 프로모와는 더 큰 쪽만. 청구는 Edge `orders-quote`. 어드민·웹 쿠폰함 문구. 앱 미리보기는 다음 스토어. SQL `20260904010000` |
 | 2026-09-04 | `1.0.8+50` | 장바구니 5일 만료. 수거정보 흰 화면·쿠폰 셀렉트·수치 키패드. 주문 사진 즉시삭제·60일 정리. 리뷰 삭제시 사진 삭제. iOS 49 취소 후 50 `WAITING_FOR_REVIEW`. Play AAB 50 |
 | 2026-09-02 | 광고 성과 | 어드민 `/dashboard/analytics/ads`. 가입 CPA·주문 CPA·CAC. UTM 첫유입/결제 저장 · `ad_spend`. 마이그레이션 `20260902120000_ad_attribution.sql` |
 | 2026-09-02 | 웹 결제 푸터 | 사업자 푸터는 화면 맨 아래(접힌 아코디언). 결제하기는 푸터 바로 위. 웹 `modo.io.kr` 라이브 |

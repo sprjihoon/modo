@@ -85,6 +85,7 @@ export function validateExclusiveIssueBody(body: Record<string, unknown>):
       min_order_amount: number;
       max_discount_amount: number | null;
       issued_note: string | null;
+      includes_free_shipping: boolean;
     }
   | { error: string } {
   const discount_type =
@@ -127,6 +128,11 @@ export function validateExclusiveIssueBody(body: Record<string, unknown>):
     }
   }
   const issued_note = body.issued_note ? String(body.issued_note).trim() || null : null;
+  const includes_free_shipping =
+    body.includes_free_shipping === true ||
+    body.includes_free_shipping === "true" ||
+    body.includes_free_shipping === 1 ||
+    body.includes_free_shipping === "1";
   return {
     discount_type,
     discount_value,
@@ -135,6 +141,7 @@ export function validateExclusiveIssueBody(body: Record<string, unknown>):
     min_order_amount,
     max_discount_amount,
     issued_note,
+    includes_free_shipping,
   };
 }
 
@@ -150,6 +157,7 @@ export function validateInviteMilestoneBody(body: Record<string, unknown>):
       min_order_amount: number;
       description: string | null;
       is_active: boolean;
+      includes_free_shipping: boolean;
     }
   | { error: string } {
   const asCount = (value: unknown, fallback: number) => {
@@ -186,5 +194,6 @@ export function validateInviteMilestoneBody(body: Record<string, unknown>):
     min_order_amount: issued.min_order_amount,
     description: body.description ? String(body.description).trim() || null : null,
     is_active: body.is_active !== false,
+    includes_free_shipping: issued.includes_free_shipping,
   };
 }

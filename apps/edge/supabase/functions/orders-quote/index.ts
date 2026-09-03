@@ -9,7 +9,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveOrderSourceFromRequest } from '../_shared/order-source.ts'
 import { toQuoteRepairItem } from '../_shared/repair-parts.ts'
-import { evaluatePromotionCode, promotionCodesAllowedOnOrderSource, resolvePromoUsageCounts } from '../_shared/promotion-eval.ts'
+import { evaluatePromotionCode, promotionCodesAllowedOnOrderSource, resolvePromoUsageCounts, resolveShippingDiscount } from '../_shared/promotion-eval.ts'
 
 interface RepairPart { name?: string; price?: number; quantity?: number; detail?: string }
 interface InputItem {
@@ -178,6 +178,7 @@ serve(async (req) => {
     // 프로모션 코드 검증 (앱만. 웹 소스는 무시)
     let promotionDiscountAmount = 0
     let verifiedPromotionCodeId: string | null = null
+    let includesFreeShipping = false
     if (promotionCodesAllowedOnOrderSource(orderSource) && body.promotionCodeId) {
       try {
         const pr = await admin
@@ -218,6 +219,7 @@ serve(async (req) => {
           if (evaluated.ok) {
             promotionDiscountAmount = evaluated.discountAmount
             verifiedPromotionCodeId = promo.id
+            includesFreeShipping = Boolean(promo.includes_free_shipping)
           } else {
             console.warn('프로모션 코드 거절:', promo.code, evaluated.error)
           }
@@ -225,6 +227,17 @@ serve(async (req) => {
       } catch (e) {
         console.warn('프로모션 코드 검증 실패:', e)
       }
+    }
+
+    const shippingResolved = resolveShippingDiscount({
+      shippingPromoDiscount: shippingDiscountAmount,
+      couponFreeShipping: includesFreeShipping,
+      baseShippingFee: BASE_SHIPPING_FEE,
+    })
+    shippingDiscountAmount = shippingResolved.shippingDiscountAmount
+    shippingFee = BASE_SHIPPING_FEE - shippingDiscountAmount
+    if (shippingResolved.couponWaivesShipping) {
+      shippingPromotionId = null
     }
 
     const repairFinalPrice = repairItemsTotal - promotionDiscountAmount

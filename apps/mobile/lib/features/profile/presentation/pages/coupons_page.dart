@@ -47,9 +47,10 @@ class _CouponsPageState extends State<CouponsPage> {
   String _discountLabel(Map<String, dynamic> row) {
     final type = row['discount_type'] as String? ?? 'FIXED';
     final value = row['discount_value'] as int? ?? 0;
+    final shipping = row['includes_free_shipping'] == true ? ' · 배송비 무료' : '';
     return type == 'PERCENTAGE'
-        ? '$value% 할인'
-        : '${formatPromotionPrice(value)}원 할인';
+        ? '$value% 할인$shipping'
+        : '${formatPromotionPrice(value)}원 할인$shipping';
   }
 
   @override

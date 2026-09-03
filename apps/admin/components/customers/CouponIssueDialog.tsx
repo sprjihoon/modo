@@ -38,6 +38,7 @@ export default function CouponIssueDialog({
   const [validUntil, setValidUntil] = useState(defaultCouponValidUntilDate());
   const [minOrderAmount, setMinOrderAmount] = useState("0");
   const [issuedNote, setIssuedNote] = useState("");
+  const [includesFreeShipping, setIncludesFreeShipping] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,6 +49,7 @@ export default function CouponIssueDialog({
     setValidUntil(defaultCouponValidUntilDate());
     setMinOrderAmount("0");
     setIssuedNote("");
+    setIncludesFreeShipping(false);
     setError("");
   };
 
@@ -66,6 +68,7 @@ export default function CouponIssueDialog({
           valid_until: validUntil || null,
           min_order_amount: Number(minOrderAmount),
           issued_note: issuedNote.trim() || null,
+          includes_free_shipping: includesFreeShipping,
         }),
       });
       const data = await response.json();
@@ -159,6 +162,20 @@ export default function CouponIssueDialog({
               />
             </div>
           </div>
+          <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={includesFreeShipping}
+              onChange={(e) => setIncludesFreeShipping(e.target.checked)}
+            />
+            <div>
+              <div className="text-sm font-medium">왕복 배송비 무료 포함</div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                수선 할인과 별도로 왕복 기본 배송비를 0원으로 합니다. 도서산간 추가비는 그대로입니다.
+              </p>
+            </div>
+          </label>
           <div>
             <Label>CS 사유</Label>
             <Textarea

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.promotion_codes (
   -- 설명 및 상태
   description TEXT,  -- 프로모션 설명
   is_active BOOLEAN NOT NULL DEFAULT true,  -- 활성 여부
+  includes_free_shipping BOOLEAN NOT NULL DEFAULT false,  -- 왕복 기본 배송비 면제 (도서산간 제외)
   
   -- 메타데이터
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

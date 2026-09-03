@@ -20,6 +20,7 @@ interface WalletCoupon {
   max_uses: number | null;
   valid_until: string | null;
   min_order_amount?: number | null;
+  includes_free_shipping?: boolean | null;
 }
 
 const STATUS_LABEL: Record<CouponWalletStatus, string> = {
@@ -40,9 +41,10 @@ function couponStatus(row: WalletCoupon, now: Date): CouponWalletStatus {
 }
 
 function discountLabel(row: WalletCoupon): string {
-  return row.discount_type === "PERCENTAGE"
+  const base = row.discount_type === "PERCENTAGE"
     ? `${row.discount_value}% 할인`
     : `${formatPrice(row.discount_value)} 할인`;
+  return row.includes_free_shipping ? `${base} · 왕복 배송비 무료` : base;
 }
 
 export function CouponsClient() {
@@ -75,7 +77,7 @@ export function CouponsClient() {
       const { data } = await supabase
         .from("promotion_codes")
         .select(
-          "id, code, description, discount_type, discount_value, is_active, used_count, max_uses, valid_until, min_order_amount"
+          "id, code, description, discount_type, discount_value, is_active, used_count, max_uses, valid_until, min_order_amount, includes_free_shipping"
         )
         .eq("assigned_user_id", userRow.id)
         .order("created_at", { ascending: false });

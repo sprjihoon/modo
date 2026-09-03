@@ -243,6 +243,42 @@ void main() {
       ),
       'SALE10 · 10% 할인',
     );
+    expect(
+      couponWalletOptionLabel(
+        code: 'FREEALL',
+        discountType: 'PERCENTAGE',
+        discountValue: 100,
+        includesFreeShipping: true,
+      ),
+      'FREEALL · 100% 할인 · 배송비 무료',
+    );
+  });
+
+  test('쿠폰 배송무료는 배송 프로모와 더 큰 쪽만 쓴다', () {
+    expect(
+      resolveShippingDiscount(
+        shippingPromoDiscount: 0,
+        couponFreeShipping: false,
+        baseShippingFee: 7000,
+      ).shippingDiscountAmount,
+      0,
+    );
+    expect(
+      resolveShippingDiscount(
+        shippingPromoDiscount: 3500,
+        couponFreeShipping: true,
+        baseShippingFee: 7000,
+      ),
+      (shippingDiscountAmount: 7000, couponWaivesShipping: true),
+    );
+    expect(
+      resolveShippingDiscount(
+        shippingPromoDiscount: 7000,
+        couponFreeShipping: true,
+        baseShippingFee: 7000,
+      ).couponWaivesShipping,
+      isFalse,
+    );
   });
 
   test('사용 가능한 지갑 쿠폰만 셀렉트에 남긴다', () {

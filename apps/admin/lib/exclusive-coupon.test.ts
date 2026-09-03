@@ -72,7 +72,24 @@ const ok = validateExclusiveIssueBody({
   discount_value: 5000,
   valid_days: 30,
 });
-assert(!("error" in ok) && ok.discount_value === 5000 && ok.valid_days === 30, "CS 발급 payload");
+assert(
+  !("error" in ok) &&
+    ok.discount_value === 5000 &&
+    ok.valid_days === 30 &&
+    ok.includes_free_shipping === false,
+  "CS 발급 payload"
+);
+
+const withShip = validateExclusiveIssueBody({
+  discount_type: "PERCENTAGE",
+  discount_value: 100,
+  valid_days: 14,
+  includes_free_shipping: true,
+});
+assert(
+  !("error" in withShip) && withShip.includes_free_shipping,
+  "왕복 배송비 무료 플래그"
+);
 
 const until = parseCouponValidUntil("2026-12-31");
 assert(typeof until === "string" && until.startsWith("2026-12-31"), "사용기한 파싱");
@@ -115,7 +132,8 @@ assert(
     milestone.min_paid_orders === 1 &&
     milestone.min_photo_reviews === 1 &&
     milestone.valid_days === 14 &&
-    milestone.valid_until === null,
+    milestone.valid_until === null &&
+    milestone.includes_free_shipping === false,
   "미션은 발급 후 일수만 쓰고 고정 날짜는 무시"
 );
 const badDays = validateInviteMilestoneBody({

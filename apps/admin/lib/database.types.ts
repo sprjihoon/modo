@@ -1718,6 +1718,7 @@ export type Database = {
           is_active: boolean
           created_at: string
           updated_at: string
+          includes_free_shipping: boolean
         }
         Insert: {
           id?: string
@@ -1734,6 +1735,7 @@ export type Database = {
           is_active?: boolean
           created_at?: string
           updated_at?: string
+          includes_free_shipping?: boolean
         }
         Update: {
           id?: string
@@ -1750,6 +1752,7 @@ export type Database = {
           is_active?: boolean
           created_at?: string
           updated_at?: string
+          includes_free_shipping?: boolean
         }
         Relationships: []
       }
@@ -1832,6 +1835,7 @@ export type Database = {
           issued_note: string | null
           milestone_threshold: number | null
           milestone_id: string | null
+          includes_free_shipping: boolean
         }
         Insert: {
           code: string
@@ -1856,6 +1860,7 @@ export type Database = {
           issued_note?: string | null
           milestone_threshold?: number | null
           milestone_id?: string | null
+          includes_free_shipping?: boolean
         }
         Update: {
           code?: string
@@ -1880,6 +1885,7 @@ export type Database = {
           issued_note?: string | null
           milestone_threshold?: number | null
           milestone_id?: string | null
+          includes_free_shipping?: boolean
         }
         Relationships: []
       }
@@ -3103,6 +3109,7 @@ export type Database = {
           p_description?: string
           p_milestone_id?: string
           p_valid_until?: string
+          p_includes_free_shipping?: boolean
         }
         Returns: Json
       }

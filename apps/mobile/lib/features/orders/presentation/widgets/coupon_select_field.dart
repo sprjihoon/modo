@@ -38,6 +38,7 @@ class CouponSelectField extends StatelessWidget {
       code: match['code'] as String? ?? selectedCode!,
       discountType: match['discount_type'] as String? ?? 'FIXED',
       discountValue: match['discount_value'] as int? ?? 0,
+      includesFreeShipping: match['includes_free_shipping'] == true,
     );
   }
 
@@ -158,6 +159,7 @@ Future<String?> showCouponSelectSheet({
                       code: code,
                       discountType: row['discount_type'] as String? ?? 'FIXED',
                       discountValue: row['discount_value'] as int? ?? 0,
+                      includesFreeShipping: row['includes_free_shipping'] == true,
                     );
                     final description = row['description'] as String?;
                     return InkWell(

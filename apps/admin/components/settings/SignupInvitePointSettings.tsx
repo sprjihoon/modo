@@ -198,6 +198,7 @@ type Milestone = {
   min_order_amount: number;
   description: string | null;
   is_active: boolean;
+  includes_free_shipping?: boolean;
 };
 
 function formatMissionExpiry(row: Milestone) {
@@ -212,6 +213,7 @@ function InviteCouponMilestoneSettings() {
   const [discountType, setDiscountType] = useState<"FIXED" | "PERCENTAGE">("FIXED");
   const [discountValue, setDiscountValue] = useState(5000);
   const [validDays, setValidDays] = useState(30);
+  const [includesFreeShipping, setIncludesFreeShipping] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -241,6 +243,7 @@ function InviteCouponMilestoneSettings() {
           discount_type: discountType,
           discount_value: discountValue,
           valid_days: validDays,
+          includes_free_shipping: includesFreeShipping,
           is_active: true,
         }),
       });
@@ -251,6 +254,7 @@ function InviteCouponMilestoneSettings() {
       setMinPhotoReviews(1);
       setDiscountValue(5000);
       setValidDays(30);
+      setIncludesFreeShipping(false);
       await load();
     } catch (error) {
       alert(error instanceof Error ? error.message : "저장 중 오류가 발생했습니다.");
@@ -355,6 +359,20 @@ function InviteCouponMilestoneSettings() {
               onChange={(e) => setValidDays(Number(e.target.value))}
             />
           </div>
+          <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer md:col-span-3">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={includesFreeShipping}
+              onChange={(e) => setIncludesFreeShipping(e.target.checked)}
+            />
+            <div>
+              <div className="text-sm font-medium">왕복 배송비 무료 포함</div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                미션으로 나가는 쿠폰에도 왕복 기본 배송비를 면제합니다. 도서산간 추가비는 그대로입니다.
+              </p>
+            </div>
+          </label>
           <div className="flex items-end md:col-span-2">
             <Button onClick={addRow} disabled={saving} className="w-full">
               {saving ? "추가 중..." : "미션 추가"}
@@ -381,6 +399,7 @@ function InviteCouponMilestoneSettings() {
                   {row.discount_type === "PERCENTAGE"
                     ? `${row.discount_value}%`
                     : `${row.discount_value.toLocaleString()}원`}
+                  {row.includes_free_shipping ? " · 배송비 무료" : ""}
                   <span className="text-muted-foreground"> · {formatMissionExpiry(row)}</span>
                 </div>
                 <div className="flex gap-2">
