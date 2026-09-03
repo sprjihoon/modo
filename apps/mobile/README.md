@@ -183,7 +183,7 @@ flutter test --coverage
 
 ### 맥북에서 `1.0.8` (지금 이 빌드)
 
-Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.8+48`. iOS는 47 제출. Play는 47 버전 코드가 이미 있어 48. iOS `1.0.7`이 이미 판매라 마케팅 버전을 올렸다. Windows에서 검증만 하고, 스토어 빌드는 맥북에서 한다.
+Windows에서는 IPA/AAB를 만들지 않는다. `pubspec.yaml`은 `1.0.8+48`. iOS·Play에 올린 빌드는 둘 다 **47**. 로컬 48 AAB는 올리지 않는다. iOS·Play `1.0.7`이 이미 판매라 마케팅 버전을 올렸다. Windows에서 검증만 하고, 스토어 빌드는 맥북에서 한다.
 
 포함 내용: **수거정보 입력창 탭 시 흰 화면/이전 단계 튕김 수정** · **내 쿠폰 셀렉트박스** · **수치 입력 키패드 닫기가 이전 단계로 가던 문제(완료 바)** · 수선 수치 숫자만 · 쿠폰함 앱 전용 안내 · 웹 쿠폰함 확인(적용은 앱만, 포인트는 웹·앱 결제 모두) · 홈 수거신청 버튼 뒤 흰 배경 제거 · 수선 요청 메모(`orders.customer_memo`) · 수거신청 홈 버튼 · 부위별 치수 칸(`허리+힙` 2칸) · 수거지/배송지 연락처 분리 · 상단 로그인 버튼 제거 · 네이티브 치수 가이드 · Play `READ_MEDIA_*` 제거.
 
@@ -203,10 +203,10 @@ flutter test \
   test/pickup_delivery_address_test.dart \
   test/promotion_rules_test.dart
 
-# Play AAB
-flutter build appbundle --release --build-name=1.0.8 --build-number=48
+# Play AAB (콘솔에 올린 것 = 47. 48은 올리지 않음)
+flutter build appbundle --release --build-name=1.0.8 --build-number=47
 # → build/app/outputs/bundle/release/app-release.aab
-# 백업: ~/Documents/modo-android-signing/app-release-1.0.8+48.aab
+# 백업: ~/Documents/modo-android-signing/app-release-1.0.8+47.aab
 
 # App Store / TestFlight IPA
 flutter build ipa --release --build-name=1.0.8 --build-number=47 \
@@ -214,7 +214,7 @@ flutter build ipa --release --build-name=1.0.8 --build-number=47 \
 # → build/ios/ipa/모두의수선.ipa
 ```
 
-iOS는 **1.0.7 판매 중** · **`1.0.8` 47 `WAITING_FOR_REVIEW`**. Play는 **38 게시** · **`1.0.8+48` AAB 백업**. 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.6` 판매 중이라 최신은 **`1.0.6`까지** 올려도 된다. **`1.0.7`·`1.0.8`은 양쪽 판매 뒤에만.**
+iOS는 **1.0.7 판매 중** · **`1.0.8` 47 `WAITING_FOR_REVIEW`**. Play는 **`1.0.7 (46)` 게시** · **`1.0.8 (47)` 검토 중**. 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. 양쪽 `1.0.7` 판매 중이라 최신은 **`1.0.7`까지** 올려도 된다. **`1.0.8`은 양쪽 판매 뒤에만.**
 
 Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`10:90:55…`). Windows `AE:84:3D…` 키로 만든 AAB는 올리지 않는다.
 
@@ -224,10 +224,10 @@ Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`1
 |---|---|
 | Application ID | `com.modurepair.app` |
 | Play App ID | `4975768727608817713` |
-| 현재 트랙 | **프로덕션 게시** `1.0.6 (38)` · 대한민국 · **`1.0.8+48` AAB 업로드 준비** · Alpha opt-in은 유지 |
-| 버전 | `pubspec.yaml` → `1.0.8+48` · 프로덕션 게시는 아직 38 · AAB는 48 |
+| 현재 트랙 | **프로덕션 게시** `1.0.7 (46)` · **`1.0.8 (47)` 검토 중** · 대한민국 · Alpha opt-in은 유지 |
+| 버전 | `pubspec.yaml` → `1.0.8+48` · 콘솔에 올린 빌드는 47 · 48은 로컬만 |
 | 최근 UX | 부위별 치수 칸 · 수거지/배송지 연락처 분리 · 네이티브 치수 가이드 |
-| AAB | `build/app/outputs/bundle/release/app-release.aab` · 백업 `~/Documents/modo-android-signing/app-release-1.0.8+48.aab` |
+| AAB | 콘솔 **`1.0.8+47`**. 로컬 48 백업은 올리지 않음 · `~/Documents/modo-android-signing/app-release-1.0.8+47.aab` |
 | targetSdk | **36** (Android 16) — `android/app/build.gradle.kts` 고정 · Play 2026-08-31 정책 |
 | ProGuard | `android/app/proguard-rules.pro` — Retrofit + `com.navercorp.nid` (릴리즈 minify 필수) |
 | 스토어 문구 | [`STORE_LISTING_KR.md`](./STORE_LISTING_KR.md) |
