@@ -314,6 +314,7 @@ RPC: `grant_signup_reward` / 마이그레이션: `add_signup_reward.sql`
 ### 검증 (2026-09-02)
 
 - `apps/admin/lib/exclusive-coupon.test.ts` — 소유권, 조합 조건 AND, 미션은 발급 후 일수, 왕복 배송비 무료 플래그
+- `apps/admin/lib/promotion-code-payload.test.ts` — 공개 코드 생성/수정 시 `includes_free_shipping` 저장·부분 수정
 - `apps/mobile/test/promotion_rules_test.dart` — 웹은 쿠폰 적용 불가 · 한도 · 전용 코드 본인만 · 쿠폰/포인트 중복 불가 · 배송무료 중첩
 - `apps/web/lib/promotion-eval.test.ts` — 견적 규칙 · 쿠폰함 상태 · 배송무료 중첩. 웹 견적·웹 주문은 쿠폰을 적용하지 않음. 포인트는 웹 결제에서 사용
 
@@ -838,7 +839,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 | 날짜 | 항목 | 내용 |
 |---|---|---|
 | 2026-09-04 | iOS `1.0.9` 심사 | 빌드 51 업로드. 버전 `f0c974a4-…` · 제출 `06fe8070-188c-4a91-bcfa-f941808ca52a` (2026-09-03 22:22 UTC). `WAITING_FOR_REVIEW`. Play AAB `1.0.9+51` |
-| 2026-09-04 | 쿠폰 배송비 무료 | 공개 코드·CS·미션 발행 시 `includes_free_shipping`. ON이면 왕복 기본 배송비 0원(도서산간 제외). 배송 프로모와는 더 큰 쪽만. 청구는 Edge `orders-quote`. 어드민·웹 쿠폰함 문구. 앱 미리보기는 `1.0.9`. SQL `20260904010000` · Edge `orders-quote` **라이브** (`modoo` / `rzrwediccbamxluegnex`) |
+| 2026-09-04 | 쿠폰 배송비 무료 | 공개 코드·CS·미션 발행 시 `includes_free_shipping`. ON이면 왕복 기본 배송비 0원(도서산간 제외). 배송 프로모와는 더 큰 쪽만. 청구는 Edge `orders-quote`. 어드민·웹 쿠폰함 문구. 앱 미리보기는 `1.0.9`. SQL `20260904010000` · Edge `orders-quote` **라이브**. 어드민 JSX 배포 수정 + payload 테스트. |
 | 2026-09-04 | iOS `1.0.8` 판매 | 빌드 50 심사 통과. 제출 `bcdfc2ce-2d32-4a52-abf7-a04da3ac162a` (2026-09-03 08:34 PDT). `READY_FOR_SALE`. 쿠폰 왕복배송 무료는 다음 `1.0.9+51` |
 | 2026-09-04 | `1.0.8+50` | 장바구니 5일 만료. 수거정보 흰 화면·쿠폰 셀렉트·수치 키패드. 주문 사진 즉시삭제·60일 정리. 리뷰 삭제시 사진 삭제. iOS 49 취소 후 50 심사 → **판매**. Play AAB 50 |
 | 2026-09-02 | 광고 성과 | 어드민 `/dashboard/analytics/ads`. 가입 CPA·주문 CPA·CAC. UTM 첫유입/결제 저장 · `ad_spend`. 마이그레이션 `20260902120000_ad_attribution.sql` |

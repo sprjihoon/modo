@@ -136,6 +136,17 @@ assert(
     milestone.includes_free_shipping === false,
   "미션은 발급 후 일수만 쓰고 고정 날짜는 무시"
 );
+const milestoneShip = validateInviteMilestoneBody({
+  threshold: 5,
+  discount_type: "PERCENTAGE",
+  discount_value: 100,
+  valid_days: 14,
+  includes_free_shipping: true,
+});
+assert(
+  !("error" in milestoneShip) && milestoneShip.includes_free_shipping,
+  "미션에도 왕복 배송비 무료 플래그"
+);
 const badDays = validateInviteMilestoneBody({
   threshold: 10,
   discount_type: "FIXED",
