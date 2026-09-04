@@ -283,7 +283,7 @@ export default function CustomerDetailClient({
                             ? `${coupon.discount_value}% 할인`
                             : `${coupon.discount_value.toLocaleString()}원 할인`}
                           {coupon.includes_free_shipping ? " · 왕복 배송비 무료" : ""}
-                          {coupon.valid_until}
+                          {coupon.valid_until
                             ? ` · ${new Date(coupon.valid_until).toLocaleDateString("ko-KR")}까지`
                             : " · 기한 없음"}
                           {coupon.issued_note ? ` · ${coupon.issued_note}` : ""}

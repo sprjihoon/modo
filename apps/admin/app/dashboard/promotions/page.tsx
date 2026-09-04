@@ -513,6 +513,21 @@ function PromotionCodeModal({ promotion, onClose, onSuccess }: PromotionCodeModa
             )}
           </div>
 
+          <label className="flex items-start gap-3 rounded-lg border border-teal-200 bg-teal-50 p-3 cursor-pointer hover:bg-teal-100/70">
+            <input
+              type="checkbox"
+              checked={formData.includes_free_shipping}
+              onChange={(e) => setFormData({ ...formData, includes_free_shipping: e.target.checked })}
+              className="mt-1"
+            />
+            <div>
+              <div className="text-sm font-medium text-teal-900">왕복 배송비 무료 포함</div>
+              <p className="text-xs text-teal-800/80 mt-0.5">
+                수선 할인과 별도로 왕복 기본 배송비를 0원으로 합니다. 도서산간 추가비는 그대로입니다.
+              </p>
+            </div>
+          </label>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">최소 주문 금액 (원)</label>
@@ -617,21 +632,6 @@ function PromotionCodeModal({ promotion, onClose, onSuccess }: PromotionCodeModa
               rows={3}
             />
           </div>
-
-          <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-gray-50">
-            <input
-              type="checkbox"
-              checked={formData.includes_free_shipping}
-              onChange={(e) => setFormData({ ...formData, includes_free_shipping: e.target.checked })}
-              className="mt-1"
-            />
-            <div>
-              <div className="text-sm font-medium">왕복 배송비 무료 포함</div>
-              <p className="text-xs text-gray-500 mt-0.5">
-                수선 할인과 별도로 왕복 기본 배송비를 0원으로 합니다. 도서산간 추가비는 그대로입니다.
-              </p>
-            </div>
-          </label>
 
           <div className="flex items-center">
             <input

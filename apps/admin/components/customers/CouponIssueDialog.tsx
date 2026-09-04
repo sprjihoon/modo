@@ -97,7 +97,7 @@ export default function CouponIssueDialog({
         }
       }}
     >
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>전용 쿠폰 발급</DialogTitle>
           <DialogDescription>
@@ -132,6 +132,22 @@ export default function CouponIssueDialog({
                 onChange={(e) => setDiscountValue(e.target.value)}
               />
             </div>
+          </div>
+          <label className="flex items-start gap-3 rounded-md border border-teal-200 bg-teal-50 p-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={includesFreeShipping}
+              onChange={(e) => setIncludesFreeShipping(e.target.checked)}
+            />
+            <div>
+              <div className="text-sm font-medium text-teal-900">왕복 배송비 무료 포함</div>
+              <p className="text-xs text-teal-800/80 mt-0.5">
+                수선 할인과 별도로 왕복 기본 배송비를 0원으로 합니다. 도서산간 추가비는 그대로입니다.
+              </p>
+            </div>
+          </label>
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>사용기한</Label>
               <Input
@@ -162,20 +178,6 @@ export default function CouponIssueDialog({
               />
             </div>
           </div>
-          <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={includesFreeShipping}
-              onChange={(e) => setIncludesFreeShipping(e.target.checked)}
-            />
-            <div>
-              <div className="text-sm font-medium">왕복 배송비 무료 포함</div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                수선 할인과 별도로 왕복 기본 배송비를 0원으로 합니다. 도서산간 추가비는 그대로입니다.
-              </p>
-            </div>
-          </label>
           <div>
             <Label>CS 사유</Label>
             <Textarea
