@@ -43,33 +43,40 @@ class PinData {
 class ImageWithPins {
   final String imageUrl;
   final List<PinData> pins;
+  /// image: 사진 픽셀 기준. 없으면 예전 컨테이너 비율 좌표.
+  final String? coordSpace;
 
   const ImageWithPins({
     required this.imageUrl,
     this.pins = const [],
+    this.coordSpace,
   });
 
   ImageWithPins copyWith({
     String? imageUrl,
     List<PinData>? pins,
+    String? coordSpace,
   }) {
     return ImageWithPins(
       imageUrl: imageUrl ?? this.imageUrl,
       pins: pins ?? this.pins,
+      coordSpace: coordSpace ?? this.coordSpace,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'imageUrl': imageUrl,
         'pins': pins.map((p) => p.toJson()).toList(),
+        if (coordSpace != null) 'coordSpace': coordSpace,
       };
 
   factory ImageWithPins.fromJson(Map<String, dynamic> json) => ImageWithPins(
-        imageUrl: json['imageUrl'] as String,
+        imageUrl: (json['imageUrl'] ?? json['imagePath'] ?? json['url']) as String,
         pins: (json['pins'] as List<dynamic>?)
                 ?.map((p) => PinData.fromJson(p as Map<String, dynamic>))
                 .toList() ??
             [],
+        coordSpace: json['coordSpace'] as String?,
       );
 }
 

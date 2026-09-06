@@ -246,7 +246,12 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
     });
   }
 
+  void handlePhotoImagesChanged(List<ImageWithPins> images) {
+    _stagingImages = images;
+  }
+
   void cancelAddClothing() {
+    _deleteDraftPhotos(_stagingImages.map((i) => i.imageUrl));
     setState(() {
       _stagingClothingType = '';
       _stagingCategoryId = null;
@@ -557,6 +562,7 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
       clothingType: _stagingClothingType,
       existingImages: _stagingImages,
       onComplete: handlePhotoDone,
+      onImagesChanged: handlePhotoImagesChanged,
     );
   }
 

@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../domain/models/image_pin.dart';
+import '../../domain/image_pin_geometry.dart';
 import 'pin_marker.dart';
 import 'pin_memo_bottom_sheet.dart';
 import '../../../../../core/utils/snackbar_util.dart';
+
+const kOrderPinImageFit = BoxFit.contain;
 
 /// 이미지 핀 에디터 위젯
 /// 이미지 위에 핀을 추가하고, 드래그로 이동하고, 메모를 달 수 있는 기능 제공
@@ -133,36 +136,28 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
       return;
     }
 
-    // 실제 이미지가 그려지는 영역 계산 (BoxFit.cover)
-    final FittedSizes sizes = applyBoxFit(
-      BoxFit.cover,
-      _imageSize!,
-      constraints.biggest,
+    final relative = tapToImageRelative(
+      localPosition: details.localPosition,
+      imageSize: _imageSize!,
+      containerSize: constraints.biggest,
+      fit: kOrderPinImageFit,
     );
-    
-    final dstSize = sizes.destination;
-    final dx = (constraints.maxWidth - dstSize.width) / 2;
-    final dy = (constraints.maxHeight - dstSize.height) / 2;
-    
-    // 탭 위치를 상대 좌표로 변환
-    final relativeX = (details.localPosition.dx - dx) / dstSize.width;
-    final relativeY = (details.localPosition.dy - dy) / dstSize.height;
-    
-    // 범위를 0.0 ~ 1.0 으로 제한 (BoxFit.cover는 모든 영역이 이미지)
-    final clampedX = relativeX.clamp(0.0, 1.0);
-    final clampedY = relativeY.clamp(0.0, 1.0);
-    
-    debugPrint('📍 탭: (${details.localPosition.dx.toInt()}, ${details.localPosition.dy.toInt()}) → (${clampedX.toStringAsFixed(2)}, ${clampedY.toStringAsFixed(2)})');
+    if (relative == null) return;
+
+    debugPrint(
+      '📍 탭: (${details.localPosition.dx.toInt()}, ${details.localPosition.dy.toInt()}) → (${relative.dx.toStringAsFixed(2)}, ${relative.dy.toStringAsFixed(2)})',
+    );
 
     final newPin = ImagePin(
-      relativePosition: Offset(clampedX, clampedY),
+      relativePosition: relative,
       memo: '',
     );
 
     setState(() {
       _pins.add(newPin);
-      _lastPinAddTime = now; // 핀 추가 시각 기록 (실제 추가된 경우에만)
+      _lastPinAddTime = now;
     });
+    widget.onPinsChanged?.call(List<ImagePin>.from(_pins));
     
     debugPrint('📍 핀 추가됨: ${newPin.id}');
 
@@ -204,30 +199,27 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
   ) {
     if (_imageSize == null || _draggingPinId != pin.id) return;
 
-    // 실제 이미지가 그려지는 영역 계산
-    final FittedSizes sizes = applyBoxFit(
-      BoxFit.cover,
+    final sizes = applyBoxFit(
+      kOrderPinImageFit,
       _imageSize!,
       constraints.biggest,
     );
-    
     final dstSize = sizes.destination;
+    if (dstSize.width <= 0 || dstSize.height <= 0) return;
 
     setState(() {
       final index = _pins.indexWhere((p) => p.id == pin.id);
       if (index != -1) {
         final currentRelativePos = _pins[index].relativePosition;
-        
-        // delta를 상대 좌표로 변환
         final deltaX = details.delta.dx / dstSize.width;
         final deltaY = details.delta.dy / dstSize.height;
-        
-        // 새 상대 좌표 계산 및 경계 제한
-        final newRelativeX = (currentRelativePos.dx + deltaX).clamp(0.0, 1.0);
-        final newRelativeY = (currentRelativePos.dy + deltaY).clamp(0.0, 1.0);
-        
         _pins[index] = pin.copyWith(
-          relativePosition: Offset(newRelativeX, newRelativeY),
+          relativePosition: clampImageRelative(
+            Offset(
+              currentRelativePos.dx + deltaX,
+              currentRelativePos.dy + deltaY,
+            ),
+          ),
         );
       }
     });
@@ -375,7 +367,7 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
     if (isUrl) {
       return CachedNetworkImage(
         imageUrl: widget.imagePath,
-        fit: BoxFit.cover, // contain → cover로 변경 (화면 가득 채우기)
+        fit: kOrderPinImageFit,
         width: double.infinity,
         height: double.infinity,
         placeholder: (context, url) => const Center(
@@ -388,7 +380,7 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
     } else {
       return Image.file(
         File(widget.imagePath),
-        fit: BoxFit.cover, // contain → cover로 변경 (화면 가득 채우기)
+        fit: kOrderPinImageFit,
         width: double.infinity,
         height: double.infinity,
         errorBuilder: (context, error, stackTrace) => const Center(
@@ -402,20 +394,14 @@ class _ImagePinEditorState extends State<ImagePinEditor> {
   Widget _buildPin(ImagePin pin, BoxConstraints constraints) {
     if (_imageSize == null) return const SizedBox.shrink();
 
-    // 실제 이미지가 그려지는 영역 계산
-    final FittedSizes sizes = applyBoxFit(
-      BoxFit.cover,
-      _imageSize!,
-      constraints.biggest,
+    final local = imageRelativeToLocal(
+      relative: pin.relativePosition,
+      imageSize: _imageSize!,
+      containerSize: constraints.biggest,
+      fit: kOrderPinImageFit,
     );
-    
-    final dstSize = sizes.destination;
-    final dx = (constraints.maxWidth - dstSize.width) / 2;
-    final dy = (constraints.maxHeight - dstSize.height) / 2;
-
-    // 상대 좌표를 절대 좌표로 변환
-    final absoluteX = dx + pin.relativePosition.dx * dstSize.width;
-    final absoluteY = dy + pin.relativePosition.dy * dstSize.height;
+    final absoluteX = local.dx;
+    final absoluteY = local.dy;
 
     final isSelected = _selectedPinId == pin.id;
     final isDragging = _draggingPinId == pin.id;
