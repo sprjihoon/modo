@@ -16,9 +16,23 @@ import {
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { deleteOrderImages } from "@/lib/order-image-storage";
+import {
+  clamp01,
+  clientToImageRelative,
+  clientToImageRelativeClamped,
+  containRect,
+  containerRelativeToImageRelative,
+  imageRelativeToContainerPercent,
+} from "@/lib/image-pin-geometry";
+import {
+  MAX_ORDER_IMAGES,
+  MAX_PINS_PER_IMAGE,
+  isAllowedOrderImageFile,
+  orderImageExtension,
+  planOrderImageUpload,
+} from "@/lib/order-image-upload";
 
-const MAX_PINS_PER_IMAGE = 5;
-const MAX_IMAGES = 5;
+const MAX_IMAGES = MAX_ORDER_IMAGES;
 const DRAG_THRESHOLD_PX = 5;
 
 interface PinData {
@@ -31,6 +45,9 @@ interface PinData {
 interface ImageEntry {
   imageUrl: string;
   pins: PinData[];
+  coordSpace?: "image" | "container";
+  naturalWidth?: number;
+  naturalHeight?: number;
 }
 
 interface Props {
@@ -38,6 +55,7 @@ interface Props {
   initialImages: ImageWithPins[];
   onNext: (imagesWithPins: ImageWithPins[]) => void;
   onBack: () => void;
+  onImagesChange?: (imagesWithPins: ImageWithPins[]) => void;
 }
 
 interface Toast {
@@ -46,12 +64,27 @@ interface Toast {
   text: string;
 }
 
-export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Props) {
+function toPayload(list: ImageEntry[]): ImageWithPins[] {
+  return list.map((img) => ({
+    imageUrl: img.imageUrl,
+    pins: img.pins,
+    coordSpace: img.coordSpace ?? "image",
+  }));
+}
+
+export function ImagePinStep({
+  clothingType,
+  initialImages,
+  onNext,
+  onBack,
+  onImagesChange,
+}: Props) {
   const [images, setImages] = useState<ImageEntry[]>(
     initialImages.length > 0
       ? initialImages.map((i) => ({
           imageUrl: i.imageUrl,
           pins: i.pins,
+          coordSpace: i.coordSpace,
         }))
       : []
   );
@@ -63,6 +96,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
   const [editingPinId, setEditingPinId] = useState<string | null>(null);
   const [draggingPinId, setDraggingPinId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [editorBox, setEditorBox] = useState({ w: 0, h: 0 });
 
   const imageRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +107,10 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
     moved: boolean;
   } | null>(null);
   const suppressNextContainerClickRef = useRef(false);
+  const imagesRef = useRef(images);
+  imagesRef.current = images;
+  const reservedUploadsRef = useRef(0);
+  const aliveRef = useRef(true);
 
   function pushToast(type: Toast["type"], text: string) {
     const id = Date.now() + Math.random();
@@ -82,40 +120,74 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
     }, 2200);
   }
 
-  const uploadImages = useCallback(
-    async (files: FileList) => {
-      setUploadError(null);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
 
-      const remainingSlots = MAX_IMAGES - images.length;
-      if (remainingSlots <= 0) {
-        pushToast("warning", `사진은 최대 ${MAX_IMAGES}장까지 첨부할 수 있어요`);
-        return;
-      }
+  const onImagesChangeRef = useRef(onImagesChange);
+  onImagesChangeRef.current = onImagesChange;
+  useEffect(() => {
+    onImagesChangeRef.current?.(toPayload(images));
+  }, [images]);
 
-      const fileList = Array.from(files);
-      const limitedFiles = fileList.slice(0, remainingSlots);
-      if (fileList.length > limitedFiles.length) {
-        pushToast(
-          "warning",
-          `최대 ${MAX_IMAGES}장까지만 가능해요 · ${limitedFiles.length}장만 업로드합니다`
-        );
-      }
+  function resetPinDraft() {
+    setPendingPin(null);
+    setEditingPinId(null);
+    setMemoInput("");
+  }
 
-      setUploading(true);
-      const supabase = createClient();
-      const uploaded: ImageEntry[] = [];
+  function selectImage(idx: number) {
+    setActiveImageIdx(idx);
+    resetPinDraft();
+  }
 
-      for (const file of limitedFiles) {
-        const ext = file.name.split(".").pop() ?? "jpg";
+  const uploadImages = useCallback(async (files: FileList) => {
+    setUploadError(null);
+
+    const plan = planOrderImageUpload(
+      Array.from(files),
+      imagesRef.current.length,
+      reservedUploadsRef.current
+    );
+
+    if (plan.rejectedType > 0) {
+      pushToast("warning", "이미지 파일만 첨부할 수 있어요 (최대 10MB)");
+    }
+    if (plan.remainingSlots <= 0) {
+      pushToast("warning", `사진은 최대 ${MAX_IMAGES}장까지 첨부할 수 있어요`);
+      return;
+    }
+    if (plan.accepted.length === 0) {
+      return;
+    }
+    if (plan.rejectedExtra > 0) {
+      pushToast(
+        "warning",
+        `최대 ${MAX_IMAGES}장까지만 가능해요 · ${plan.accepted.length}장만 업로드합니다`
+      );
+    }
+
+    reservedUploadsRef.current += plan.accepted.length;
+    setUploading(true);
+    const supabase = createClient();
+    const uploaded: ImageEntry[] = [];
+
+    try {
+      for (const file of plan.accepted) {
+        if (!isAllowedOrderImageFile(file)) continue;
+        const ext = orderImageExtension(file.name);
         const fileName = `${Date.now()}-${uuidv4()}.${ext}`;
         const storagePath = `orders/${fileName}`;
 
         const { error } = await supabase.storage
           .from("order-images")
-          .upload(storagePath, file, { contentType: file.type });
+          .upload(storagePath, file, { contentType: file.type || `image/${ext}` });
 
         if (error) {
-          setUploadError("일부 이미지 업로드에 실패했습니다.");
+          if (aliveRef.current) setUploadError("일부 이미지 업로드에 실패했습니다.");
           continue;
         }
 
@@ -123,24 +195,68 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
           .from("order-images")
           .getPublicUrl(storagePath);
 
-        uploaded.push({ imageUrl: urlData.publicUrl, pins: [] });
+        uploaded.push({
+          imageUrl: urlData.publicUrl,
+          pins: [],
+          coordSpace: "image",
+        });
       }
 
-      setImages((prev) => [...prev, ...uploaded]);
-      setUploading(false);
+      if (!aliveRef.current) {
+        void deleteOrderImages(uploaded.map((img) => img.imageUrl));
+        return;
+      }
 
       if (uploaded.length > 0) {
-        setActiveImageIdx((prev) => (prev === null ? images.length : prev));
+        setImages((prev) => {
+          const next = [...prev, ...uploaded];
+          imagesRef.current = next;
+          return next;
+        });
+        setActiveImageIdx((prev) =>
+          prev === null ? imagesRef.current.length - uploaded.length : prev
+        );
       }
-    },
-    [images.length]
-  );
+    } catch {
+      if (aliveRef.current) {
+        setUploadError("이미지 업로드에 실패했습니다.");
+        if (uploaded.length > 0) {
+          void deleteOrderImages(uploaded.map((img) => img.imageUrl));
+        }
+      } else {
+        void deleteOrderImages(uploaded.map((img) => img.imageUrl));
+      }
+    } finally {
+      reservedUploadsRef.current = Math.max(
+        0,
+        reservedUploadsRef.current - plan.accepted.length
+      );
+      if (aliveRef.current) {
+        setUploading(reservedUploadsRef.current > 0);
+      }
+    }
+  }, []);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
       uploadImages(e.target.files);
     }
     e.target.value = "";
+  }
+
+  function measureEditor() {
+    const el = imageRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  }
+
+  function imageContainBox(image: ImageEntry, box: { width: number; height: number }) {
+    if (!image.naturalWidth || !image.naturalHeight) return null;
+    return containRect(box, {
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+    });
   }
 
   function handleImageClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -163,9 +279,22 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
     }
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    setPendingPin({ x, y });
+    const contain = imageContainBox(activeImage, { width: rect.width, height: rect.height });
+    if (contain) {
+      const rel = clientToImageRelative(
+        e.clientX,
+        e.clientY,
+        { left: rect.left, top: rect.top },
+        contain
+      );
+      if (!rel) return;
+      setPendingPin(rel);
+    } else {
+      setPendingPin({
+        x: clamp01((e.clientX - rect.left) / rect.width),
+        y: clamp01((e.clientY - rect.top) / rect.height),
+      });
+    }
     setMemoInput("");
     setEditingPinId(null);
   }
@@ -182,7 +311,9 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
 
     setImages((prev) =>
       prev.map((img, idx) =>
-        idx === activeImageIdx ? { ...img, pins: [...img.pins, newPin] } : img
+        idx === activeImageIdx
+          ? { ...img, coordSpace: "image", pins: [...img.pins, newPin] }
+          : img
       )
     );
     setPendingPin(null);
@@ -235,9 +366,55 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
     setImages((prev) => prev.filter((_, i) => i !== idx));
     if (activeImageIdx === idx) {
       setActiveImageIdx(null);
+      resetPinDraft();
     } else if (activeImageIdx !== null && activeImageIdx > idx) {
       setActiveImageIdx((prev) => (prev !== null ? prev - 1 : null));
     }
+  }
+
+  function handleEditorImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    if (activeImageIdx === null) return;
+    const img = e.currentTarget;
+    const nw = img.naturalWidth;
+    const nh = img.naturalHeight;
+    if (!nw || !nh) return;
+    const box = measureEditor();
+    setImages((prev) =>
+      prev.map((entry, idx) => {
+        if (idx !== activeImageIdx) return entry;
+        if (
+          entry.naturalWidth === nw &&
+          entry.naturalHeight === nh &&
+          (entry.coordSpace === "image" || entry.pins.length === 0)
+        ) {
+          return entry;
+        }
+        const next: ImageEntry = {
+          ...entry,
+          naturalWidth: nw,
+          naturalHeight: nh,
+        };
+        if (entry.coordSpace === "image" || !box || box.width <= 0) {
+          return { ...next, coordSpace: entry.coordSpace ?? "image" };
+        }
+        const contain = containRect(
+          { width: box.width, height: box.height },
+          { width: nw, height: nh }
+        );
+        return {
+          ...next,
+          coordSpace: "image",
+          pins: entry.pins.map((p) => {
+            const rel = containerRelativeToImageRelative(
+              { x: p.relative_x, y: p.relative_y },
+              { width: box.width, height: box.height },
+              contain
+            );
+            return { ...p, relative_x: rel.x, relative_y: rel.y };
+          }),
+        };
+      })
+    );
   }
 
   function handlePinPointerDown(
@@ -272,19 +449,33 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
     }
 
     if (activeImageIdx === null) return;
+    const activeImage = imagesRef.current[activeImageIdx];
+    if (!activeImage) return;
 
     const rect = imageRef.current.getBoundingClientRect();
-    const relX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const relY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const contain = imageContainBox(activeImage, { width: rect.width, height: rect.height });
+    const rel = contain
+      ? clientToImageRelativeClamped(
+          e.clientX,
+          e.clientY,
+          { left: rect.left, top: rect.top },
+          contain
+        )
+      : {
+          x: clamp01((e.clientX - rect.left) / rect.width),
+          y: clamp01((e.clientY - rect.top) / rect.height),
+        };
+    if (!rel) return;
 
     setImages((prev) =>
       prev.map((img, idx) =>
         idx === activeImageIdx
           ? {
               ...img,
+              coordSpace: "image",
               pins: img.pins.map((p) =>
                 p.id === state.pinId
-                  ? { ...p, relative_x: relX, relative_y: relY }
+                  ? { ...p, relative_x: rel.x, relative_y: rel.y }
                   : p
               ),
             }
@@ -347,18 +538,42 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
   }, []);
 
   function handleNext() {
-    onNext(
-      images.map((img) => ({
-        imageUrl: img.imageUrl,
-        pins: img.pins,
-      }))
-    );
+    onNext(toPayload(images));
   }
+
+  useEffect(() => {
+    const el = imageRef.current;
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      setEditorBox({ w: r.width, h: r.height });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [activeImageIdx, activeImageIdx !== null ? images[activeImageIdx]?.imageUrl : null]);
 
   const activeImage = activeImageIdx !== null ? images[activeImageIdx] : null;
   const reachedImageLimit = images.length >= MAX_IMAGES;
   const reachedPinLimit =
     activeImage !== null && activeImage.pins.length >= MAX_PINS_PER_IMAGE;
+  const editorContain =
+    activeImage && editorBox.w > 0 && editorBox.h > 0
+      ? imageContainBox(activeImage, { width: editorBox.w, height: editorBox.h })
+      : null;
+
+  function pinStyle(x: number, y: number) {
+    if (editorContain && editorBox.w > 0 && editorBox.h > 0) {
+      const pos = imageRelativeToContainerPercent(
+        { x, y },
+        { width: editorBox.w, height: editorBox.h },
+        editorContain
+      );
+      return { left: `${pos.leftPct}%`, top: `${pos.topPct}%` };
+    }
+    return { left: `${x * 100}%`, top: `${y * 100}%` };
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -380,11 +595,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
             className={`relative aspect-square rounded-xl overflow-hidden border-2 cursor-pointer ${
               activeImageIdx === idx ? "border-[#00C896]" : "border-gray-200"
             }`}
-            onClick={() => {
-              setActiveImageIdx(idx);
-              setPendingPin(null);
-              setEditingPinId(null);
-            }}
+            onClick={() => selectImage(idx)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -471,9 +682,9 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
               </span>
               <button
                 onClick={() =>
-                  setActiveImageIdx((prev) =>
-                    prev !== null && prev > 0 ? prev - 1 : prev
-                  )
+                  activeImageIdx !== null &&
+                  activeImageIdx > 0 &&
+                  selectImage(activeImageIdx - 1)
                 }
                 disabled={activeImageIdx === 0}
                 className="p-1 rounded text-gray-400 disabled:opacity-30"
@@ -485,9 +696,9 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
               </span>
               <button
                 onClick={() =>
-                  setActiveImageIdx((prev) =>
-                    prev !== null && prev < images.length - 1 ? prev + 1 : prev
-                  )
+                  activeImageIdx !== null &&
+                  activeImageIdx < images.length - 1 &&
+                  selectImage(activeImageIdx + 1)
                 }
                 disabled={activeImageIdx === images.length - 1}
                 className="p-1 rounded text-gray-400 disabled:opacity-30"
@@ -512,6 +723,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
               alt="주석 이미지"
               className="w-full h-full object-contain pointer-events-none"
               draggable={false}
+              onLoad={handleEditorImageLoad}
             />
 
             {/* 기존 핀들 */}
@@ -524,8 +736,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
                   key={pin.id}
                   className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
                   style={{
-                    left: `${pin.relative_x * 100}%`,
-                    top: `${pin.relative_y * 100}%`,
+                    ...pinStyle(pin.relative_x, pin.relative_y),
                     zIndex: isDragging || isEditing ? 30 : 20,
                   }}
                 >
@@ -567,10 +778,7 @@ export function ImagePinStep({ clothingType, initialImages, onNext, onBack }: Pr
             {pendingPin && (
               <div
                 className="absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-orange-400 flex items-center justify-center shadow-lg border-2 border-white animate-pulse pointer-events-none"
-                style={{
-                  left: `${pendingPin.x * 100}%`,
-                  top: `${pendingPin.y * 100}%`,
-                }}
+                style={pinStyle(pendingPin.x, pendingPin.y)}
               >
                 <Pin className="w-3.5 h-3.5 text-white" />
               </div>

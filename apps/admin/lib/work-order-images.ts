@@ -1,4 +1,5 @@
 import type { WorkOrderImage, WorkOrderPin } from "@/components/ops/work-order-sheet";
+import type { PinCoordSpace } from "@/lib/image-pin-geometry";
 
 function toCoord(value: unknown, fallback = 0.5): number {
   const n = typeof value === "number" ? value : Number(value);
@@ -56,6 +57,7 @@ export function parseWorkOrderImages(order: {
       return {
         url: imageUrlFrom(img),
         pins: parsePins(img.pins),
+        coordSpace: img.coordSpace === "image" ? "image" as PinCoordSpace : undefined,
       };
     })
     .filter((img) => img.url);

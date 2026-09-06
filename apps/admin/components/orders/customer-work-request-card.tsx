@@ -7,6 +7,7 @@ import { WorkOrderPrintDialog } from "@/components/orders/work-order-print-dialo
 import { parseWorkOrderImages } from "@/lib/work-order-images";
 import { measurementLinesFromParts } from "@/lib/repair-parts";
 import { formatOrderDate } from "@/lib/missing-pickup";
+import { ContainPinnedImage } from "@/components/ops/contain-pinned-image";
 
 interface CustomerWorkRequestCardProps {
   order: any;
@@ -129,20 +130,15 @@ export function CustomerWorkRequestCard({ order }: CustomerWorkRequestCardProps)
                   className="relative aspect-square overflow-hidden rounded-lg border bg-gray-50 text-left"
                   onClick={() => setPreviewIndex(idx)}
                 >
-                  <img
+                  <ContainPinnedImage
                     src={image.url}
                     alt={`접수 사진 ${idx + 1}`}
-                    className="h-full w-full object-contain"
+                    pins={image.pins}
+                    coordSpace={image.coordSpace}
+                    className="h-full w-full"
+                    imageClassName="h-full w-full object-contain"
+                    pinClassName="w-5 h-5"
                   />
-                  {image.pins?.map((pin, pinIdx) => (
-                    <span
-                      key={pinIdx}
-                      className="absolute w-5 h-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 border-2 border-white text-[10px] font-bold text-white flex items-center justify-center shadow"
-                      style={{ left: `${pin.x * 100}%`, top: `${pin.y * 100}%` }}
-                    >
-                      {pinIdx + 1}
-                    </span>
-                  ))}
                   <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">
                     사진 {idx + 1}
                     {(image.pins?.length ?? 0) > 0 ? ` · 핀 ${image.pins?.length}` : ""}
@@ -196,27 +192,15 @@ export function CustomerWorkRequestCard({ order }: CustomerWorkRequestCardProps)
               </button>
             </div>
             <div className="relative bg-gray-50">
-              <img
+              <ContainPinnedImage
                 src={preview.url}
                 alt={`접수 사진 ${previewIndex! + 1}`}
-                className="w-full max-h-[75vh] object-contain"
+                pins={preview.pins}
+                coordSpace={preview.coordSpace}
+                className="w-full"
+                imageClassName="w-full max-h-[75vh] object-contain"
+                showMemo
               />
-              {preview.pins?.map((pin, pinIdx) => (
-                <div
-                  key={pinIdx}
-                  className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${pin.x * 100}%`, top: `${pin.y * 100}%` }}
-                >
-                  <div className="w-7 h-7 rounded-full bg-red-500 border-2 border-white text-white text-xs font-bold flex items-center justify-center shadow-lg">
-                    {pinIdx + 1}
-                  </div>
-                  {pin.memo && (
-                    <div className="absolute left-8 top-0 bg-black/80 text-white text-xs px-2 py-1 rounded whitespace-nowrap max-w-[220px] truncate">
-                      {pin.memo}
-                    </div>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
         </div>

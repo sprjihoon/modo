@@ -2,6 +2,8 @@
 
 import { MapPin, Ruler } from "lucide-react";
 import { measurementLinesFromParts, parseRepairPart } from "@/lib/repair-parts";
+import type { PinCoordSpace } from "@/lib/image-pin-geometry";
+import { ContainPinnedImage } from "./contain-pinned-image";
 
 export interface ExtraChargeInfo {
   status: string;          // PENDING_CUSTOMER | COMPLETED | SKIPPED | RETURN_REQUESTED
@@ -34,6 +36,7 @@ export function formatRepairPart(raw: unknown): { label: string; sub?: string; p
 export interface WorkOrderImage {
   url: string;
   pins?: WorkOrderPin[];
+  coordSpace?: PinCoordSpace;
 }
 
 export interface WorkOrderPin {
@@ -125,38 +128,20 @@ export function WorkOrderSheet({
                 className="relative bg-gray-50 overflow-hidden"
                 style={{ width: "100%", height: "100%" }}
               >
-                <img
+                <ContainPinnedImage
                   src={image.url}
                   alt={`사진 ${idx + 1}`}
-                  style={{
+                  pins={image.pins}
+                  coordSpace={image.coordSpace}
+                  className="h-full w-full"
+                  imageStyle={{
                     width: "100%",
                     height: "100%",
                     objectFit: "contain",
                     display: "block",
                   }}
+                  showMemo
                 />
-                {image.pins?.map((pin, pinIdx) => (
-                  <div
-                    key={pinIdx}
-                    className="absolute"
-                    style={{
-                      left: `${pin.x * 100}%`,
-                      top: `${pin.y * 100}%`,
-                      transform: "translate(-50%, -50%)",
-                    }}
-                  >
-                    <div className="relative">
-                      <div className="w-6 h-6 bg-red-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">{pinIdx + 1}</span>
-                      </div>
-                      {pin.memo && (
-                        <div className="absolute left-8 top-0 bg-black bg-opacity-80 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                          {pin.memo}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
                 <div className="absolute bottom-1 left-1 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
                   사진 {idx + 1}
                 </div>

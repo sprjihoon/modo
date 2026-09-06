@@ -26,6 +26,8 @@ export interface ImageWithPins {
     relative_y: number;
     memo: string;
   }>;
+  /** image: 사진 픽셀 기준. 없으면 예전 컨테이너 비율 좌표 */
+  coordSpace?: "image" | "container";
 }
 
 export interface RepairItem {
@@ -355,7 +357,7 @@ export function OrderNewClient() {
     if (!resumingCartId) {
       const urls = [
         ...collectOrderImageUrls(draftRef.current),
-        ...collectOrderImageUrls(stagingImagesWithPins),
+        ...collectOrderImageUrls(stagingRef.current.stagingImagesWithPins),
       ];
       void deleteOrderImages(urls);
     }
@@ -393,6 +395,10 @@ export function OrderNewClient() {
     setSubCategoryPhase("pre");
     setSubCategoryDirection("forward");
     pushMode("addSubCategory");
+  }
+
+  function handlePhotoImagesChange(imagesWithPins: ImageWithPins[]) {
+    setStagingImagesWithPins(imagesWithPins);
   }
 
   function handlePhotoDone(imagesWithPins: ImageWithPins[]) {
@@ -537,7 +543,7 @@ export function OrderNewClient() {
   }
 
   function cancelAddClothing() {
-    void deleteOrderImages(collectOrderImageUrls(stagingImagesWithPins));
+    void deleteOrderImages(collectOrderImageUrls(stagingRef.current.stagingImagesWithPins));
     setStagingClothingType("");
     setStagingClothingCategoryId(undefined);
     setStagingIconName(undefined);
@@ -664,6 +670,7 @@ export function OrderNewClient() {
             initialImages={stagingImagesWithPins}
             onNext={handlePhotoDone}
             onBack={popMode}
+            onImagesChange={handlePhotoImagesChange}
           />
         )}
 
