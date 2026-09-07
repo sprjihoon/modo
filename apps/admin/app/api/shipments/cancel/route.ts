@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${supabaseAnonKey}`,
         },
-        body: JSON.stringify({ order_id, delete_after_cancel: false }),
+        body: JSON.stringify({ order_id, delete_after_cancel: true }),
       }
     );
 

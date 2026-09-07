@@ -1148,6 +1148,7 @@ Deno.serve(async (req) => {
       isIsland: isIsland, // 도서산간 여부 (실제 부가이용료가 있을 때만 true)
       isSaturdayClosed: isSaturdayClosed, // 토요배송 휴무지역 여부
       saturdayClosedMessage: saturdayClosedMessage || undefined, // 토요휴무 안내 메시지
+      resDate: epostResponse.resDate || undefined, // 취소 시 reqYmd 용
     };
 
     if (existingShipment) {
@@ -1182,6 +1183,7 @@ Deno.serve(async (req) => {
             apprNo: epostParams.apprNo, // 취소 시 사용할 승인번호 저장
             reqType: epostParams.reqType, // 취소 시 사용할 소포신청 구분 (1:일반소포, 2:반품소포)
             payType: epostParams.payType, // 취소 시 사용할 요금 납부 구분 (1:일반, 2:착불)
+            reqYmd: epostResponse.resDate ? epostResponse.resDate.substring(0, 8) : undefined,
           }],
         })
         .eq('order_id', order_id)
@@ -1223,6 +1225,7 @@ Deno.serve(async (req) => {
             apprNo: epostParams.apprNo, // 취소 시 사용할 승인번호 저장
             reqType: epostParams.reqType, // 취소 시 사용할 소포신청 구분 (1:일반소포, 2:반품소포)
             payType: epostParams.payType, // 취소 시 사용할 요금 납부 구분 (1:일반, 2:착불)
+            reqYmd: epostResponse.resDate ? epostResponse.resDate.substring(0, 8) : undefined,
           }],
         })
         .select()

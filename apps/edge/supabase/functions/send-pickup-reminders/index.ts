@@ -40,6 +40,19 @@ function formatKoreanDate(dateStr: string): string {
 }
 
 // 템플릿 변수 치환 함수
+const INACTIVE_ORDER_STATUSES = new Set([
+  'CANCELLED',
+  'RETURN_PENDING',
+  'RETURN_SHIPPING',
+  'RETURN_DONE',
+]);
+
+function isInactiveOrder(target: { orders?: { status?: string } | { status?: string }[] | null }): boolean {
+  const raw = target.orders;
+  const status = Array.isArray(raw) ? raw[0]?.status : raw?.status;
+  return !!status && INACTIVE_ORDER_STATUSES.has(status);
+}
+
 function replaceTemplateVariables(template: string, variables: Record<string, string>): string {
   let result = template;
   for (const [key, value] of Object.entries(variables)) {
@@ -143,7 +156,8 @@ Deno.serve(async (req) => {
           customer_name,
           pickup_address,
           orders!inner (
-            user_id
+            user_id,
+            status
           )
         `)
         .eq('pickup_scheduled_date', tomorrowStr)
@@ -157,6 +171,10 @@ Deno.serve(async (req) => {
 
         for (const target of d1Targets || []) {
           try {
+            if (isInactiveOrder(target as any)) {
+              console.log('⏭️ 취소된 주문 D-1 알림 스킵:', target.order_id);
+              continue;
+            }
             const userId = (target.orders as any)?.user_id;
             
             // user의 fcm_token 별도 조회
@@ -248,7 +266,8 @@ Deno.serve(async (req) => {
           customer_name,
           pickup_address,
           orders!inner (
-            user_id
+            user_id,
+            status
           )
         `)
         .eq('pickup_scheduled_date', today)
@@ -262,6 +281,10 @@ Deno.serve(async (req) => {
 
         for (const target of todayTargets || []) {
           try {
+            if (isInactiveOrder(target as any)) {
+              console.log('⏭️ 취소된 주문 당일 알림 스킵:', target.order_id);
+              continue;
+            }
             const userId = (target.orders as any)?.user_id;
             
             // user의 fcm_token 별도 조회

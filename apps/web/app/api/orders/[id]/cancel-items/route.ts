@@ -266,7 +266,7 @@ export async function POST(
             "Content-Type": "application/json",
             Authorization: `Bearer ${supabaseAnonKey}`,
           },
-          body: JSON.stringify({ order_id: orderId, delete_after_cancel: false }),
+          body: JSON.stringify({ order_id: orderId, delete_after_cancel: true }),
         }
       ).catch(() => null);
 

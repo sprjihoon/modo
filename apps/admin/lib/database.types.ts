@@ -3496,6 +3496,7 @@ export const Constants = {
         "READY_TO_SHIP",
         "OUT_FOR_DELIVERY",
         "DELIVERED",
+        "CANCELLED",
       ],
       user_role: ["SUPER_ADMIN", "ADMIN", "MANAGER", "WORKER", "CUSTOMER"],
       work_item_status: ["PENDING", "IN_PROGRESS", "COMPLETED"],

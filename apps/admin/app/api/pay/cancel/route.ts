@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
                   "Content-Type": "application/json",
                   Authorization: `Bearer ${serviceRoleKey}`,
                 },
-                body: JSON.stringify({ order_id: existingOrder.id, delete_after_cancel: false }),
+                body: JSON.stringify({ order_id: existingOrder.id, delete_after_cancel: true }),
               }
             );
             if (!shipmentCancelRes.ok) {

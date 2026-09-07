@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getShippingSettings } from "@/lib/shipping-settings";
 import { restoreOrderPointsUsed } from "@/lib/restore-order-points";
+import {
+  PICKUP_NOTIFICATION_TYPES,
+  buildCustomerCancelNotification,
+} from "@/lib/cancel-notifications";
 
 const PAID_STATUSES = new Set(["PAID", "COMPLETED", "DONE"]);
 // BOOKED: 수거 전 → 수거 취소 + 전액 환불
@@ -306,55 +310,45 @@ export async function POST(
     // ② 수거 전 취소 (PENDING / PAID / BOOKED / PENDING_PAYMENT): 우체국 수거 취소 + 전액 환불
     // ───────────────────────────────────────────────
 
-    // 1) 우체국 수거 취소 — tracking_no 가 있을 때만 시도
-    //    송장 자체가 없는 경우(좀비 PENDING_PAYMENT, 결제 전 PENDING 등)는 호출 자체를 스킵.
-    //    호출하더라도 shipments-cancel 이 404 (SHIPMENT_NOT_FOUND) 를 주면 "취소할 게 없음 = 정상"
-    //    으로 간주하고 다음 단계로 진행한다.
-    const orderTrackingNo = (order as { tracking_no: string | null }).tracking_no;
+    // 1) 우체국 수거 취소
+    //    송장이 없으면 shipments-cancel 이 404 (SHIPMENT_NOT_FOUND) → 정상 진행.
     let shipmentResult: Record<string, unknown> = {};
     let shipmentCanceled = false;
 
-    if (orderTrackingNo) {
-      const shipmentRes = await fetch(
-        `${supabaseUrl}/functions/v1/shipments-cancel`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({ order_id: orderId, delete_after_cancel: false }),
-        }
-      );
-      shipmentResult = await shipmentRes.json().catch(() => ({}));
+    const shipmentRes = await fetch(
+      `${supabaseUrl}/functions/v1/shipments-cancel`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({ order_id: orderId, delete_after_cancel: true }),
+      }
+    );
+    shipmentResult = await shipmentRes.json().catch(() => ({}));
 
-      if (shipmentRes.ok) {
-        shipmentCanceled = true;
-      } else {
-        const code = (shipmentResult as { code?: string })?.code;
-        const errMsg = (shipmentResult as { error?: string })?.error ?? "";
-        const isNoShipment =
-          code === "SHIPMENT_NOT_FOUND" ||
-          shipmentRes.status === 404 ||
-          /Shipment not found/i.test(errMsg);
-        if (!isNoShipment) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: errMsg || "수거 취소에 실패했습니다.",
-              step: "shipment",
-            },
-            { status: 500 }
-          );
-        }
-        // 송장 없음 → 정상 진행 (취소할 게 없는 좀비 주문)
-        console.log(
-          `[orders/cancel] shipment 없음 — 우체국 취소 스킵 (orderId=${orderId})`
+    if (shipmentRes.ok) {
+      shipmentCanceled = true;
+    } else {
+      const code = (shipmentResult as { code?: string })?.code;
+      const errMsg = (shipmentResult as { error?: string })?.error ?? "";
+      const isNoShipment =
+        code === "SHIPMENT_NOT_FOUND" ||
+        shipmentRes.status === 404 ||
+        /Shipment not found/i.test(errMsg);
+      if (!isNoShipment) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: errMsg || "수거 취소에 실패했습니다.",
+            step: "shipment",
+          },
+          { status: 500 }
         );
       }
-    } else {
       console.log(
-        `[orders/cancel] tracking_no 없음 — 우체국 취소 스킵 (orderId=${orderId})`
+        `[orders/cancel] shipment 없음 — 우체국 취소 스킵 (orderId=${orderId})`
       );
     }
 
@@ -422,18 +416,65 @@ export async function POST(
     }
 
     // ───────────────────────────────────────────────
-    // ③ 관리자/매니저들에게 알림 fan-out (수거 전 취소도 모니터링 필요)
+    // ③ 수거 알림 정리 + 고객/관리자 취소 알림
     // ───────────────────────────────────────────────
+    const orderNumber =
+      (order as { order_number: string | null }).order_number ?? null;
+    const itemName =
+      (order as { item_name: string | null }).item_name ?? "수선 의류";
+    const customerUserId = (order as { user_id: string }).user_id;
+
+    try {
+      await admin
+        .from("notifications")
+        .delete()
+        .eq("order_id", orderId)
+        .in("type", [...PICKUP_NOTIFICATION_TYPES]);
+    } catch (pickupNotifErr) {
+      console.warn("수거 알림 삭제 실패 (무시):", pickupNotifErr);
+    }
+
+    try {
+      const customerNotif = buildCustomerCancelNotification({
+        userId: customerUserId,
+        orderId,
+        orderNumber,
+        refundAmount: totalPrice,
+        refunded: !!paymentCancelResult,
+      });
+      await admin.from("notifications").insert(customerNotif);
+
+      const { data: customer } = await admin
+        .from("users")
+        .select("fcm_token")
+        .eq("id", customerUserId)
+        .maybeSingle();
+      if (customer?.fcm_token && supabaseUrl) {
+        await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey}`,
+          },
+          body: JSON.stringify({
+            userId: customerUserId,
+            orderId,
+            title: customerNotif.title,
+            body: customerNotif.body,
+            data: { type: "order_cancelled", order_id: orderId },
+          }),
+        }).catch((e) => console.warn("고객 취소 푸시 실패 (무시):", e));
+      }
+    } catch (customerNotifErr) {
+      console.warn("고객 취소 알림 실패 (무시):", customerNotifErr);
+    }
+
     try {
       const { data: managers } = await admin
         .from("users")
         .select("id")
         .in("role", ["ADMIN", "MANAGER", "SUPER_ADMIN"]);
       if (managers && managers.length > 0) {
-        const orderNumber =
-          (order as { order_number: string | null }).order_number ?? null;
-        const itemName =
-          (order as { item_name: string | null }).item_name ?? "수선 의류";
         const rows = managers.map((m: { id: string }) => ({
           user_id: m.id,
           type: "ORDER_PRE_PICKUP_CANCEL",
@@ -451,7 +492,7 @@ export async function POST(
             paymentCanceled: !!paymentCancelResult,
             paymentCancelError,
             hasValidPayment,
-            customer_user_id: (order as { user_id: string }).user_id,
+            customer_user_id: customerUserId,
           },
         }));
         await admin.from("notifications").insert(rows);

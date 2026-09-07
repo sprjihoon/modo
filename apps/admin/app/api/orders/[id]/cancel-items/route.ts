@@ -137,7 +137,7 @@ export async function POST(
             "Content-Type": "application/json",
             Authorization: `Bearer ${serviceRoleKey}`,
           },
-          body: JSON.stringify({ order_id: orderId, delete_after_cancel: false }),
+          body: JSON.stringify({ order_id: orderId, delete_after_cancel: true }),
         }).catch(() => null);
         shipmentCanceled = !!res?.ok;
       }

@@ -129,7 +129,7 @@ export async function cancelShipment(orderId: string, deleteAfterCancel?: boolea
     },
     body: JSON.stringify({
       order_id: orderId,
-      delete_after_cancel: deleteAfterCancel || false,
+      delete_after_cancel: deleteAfterCancel !== false,
     }),
   });
 

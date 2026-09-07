@@ -8,7 +8,7 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { cancelOrder } from '../_shared/epost/index.ts';
+import { cancelOrder, resolveCancelReqYmds, isEpostNoReservationError } from '../_shared/epost/index.ts';
 
 interface ShipmentCancelRequest {
   order_id: string;
@@ -88,117 +88,123 @@ Deno.serve(async (req) => {
       warning: payType ? '✅ payType이 설정되었습니다' : '⚠️ payType이 없습니다 (이전 데이터일 수 있음)',
     });
 
-    // reqYmd: 소포신청 등록일자 (YYYYMMDD 형식)
-    // pickup_requested_at 또는 created_at에서 가져오기
-    let reqYmd = '';
-    if (shipment.pickup_requested_at) {
-      const date = new Date(shipment.pickup_requested_at);
-      reqYmd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-    } else if (shipment.created_at) {
-      const date = new Date(shipment.created_at);
-      reqYmd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-    } else {
-      // 기본값: 오늘 날짜
-      const today = new Date();
-      reqYmd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-    }
+    const deliveryInfo = (shipment.delivery_info as Record<string, unknown> | null) || {};
+    const reqYmdCandidates = resolveCancelReqYmds({
+      storedReqYmd: typeof firstEvent.reqYmd === 'string' ? firstEvent.reqYmd : undefined,
+      resDate: typeof deliveryInfo.resDate === 'string' ? deliveryInfo.resDate : undefined,
+      reqNo,
+      pickupRequestedAt: shipment.pickup_requested_at,
+      createdAt: shipment.created_at,
+    });
 
-    console.log('📅 신청일자(reqYmd):', reqYmd);
+    console.log('📅 신청일자 후보(reqYmd):', reqYmdCandidates);
 
     // 우체국 API 취소 호출
     // ⚠️ 중요: reqType과 payType은 수거 신청 시 사용한 값과 동일해야 함
     // 수거지시는 reqType='2' (반품소포), payType='2' (착불)로 신청되므로
     // 취소 시에도 동일한 값을 사용해야 함
+    const regiNo = shipment.pickup_tracking_no || shipment.tracking_no;
     let cancelResult;
-    try {
-      cancelResult = await cancelOrder({
-        custNo,
-        apprNo, // tracking_events에서 가져온 승인번호 사용
-        reqType, // tracking_events에서 가져온 reqType 사용 (수거 신청 시와 동일)
-        payType, // tracking_events에서 가져온 payType 사용 (수거 신청 시와 동일) - API 매뉴얼에 맞게 추가
-        reqNo,
-        resNo,
-        regiNo: shipment.pickup_tracking_no || shipment.tracking_no,
-        reqYmd, // 소포신청 등록일자 추가
-        delYn: delete_after_cancel ? 'Y' : 'N',
-      });
+    let lastNoReservationError = '';
 
-      // canceledYn 값 해석
-      const cancelStatus = 
-        cancelResult.canceledYn === 'Y' ? '✅ 취소됨 (새 송장 발급)' :
-        cancelResult.canceledYn === 'D' ? '✅ 삭제됨 (완전 삭제)' :
-        cancelResult.canceledYn === 'N' ? '❌ 미취소' :
-        `⚠️ 알 수 없음 (${cancelResult.canceledYn})`;
-      
-      console.log(`${cancelStatus}`, {
-        canceledYn: cancelResult.canceledYn,
-        delYn: delete_after_cancel ? 'Y (완전 삭제 요청)' : 'N (취소만 요청)',
-        cancelRegiNo: cancelResult.cancelRegiNo,
-        newRegiNo: cancelResult.regiNo || '없음 (완전 삭제)',
-      });
-      
-      // 우체국 API 응답 확인
-      if (!cancelResult || !cancelResult.canceledYn) {
-        console.warn('⚠️ 우체국 API 응답에 canceledYn이 없습니다:', cancelResult);
-      }
-      
-      // 성공 여부 확인
-      const isSuccess = cancelResult.canceledYn === 'Y' || cancelResult.canceledYn === 'D';
-      if (!isSuccess) {
-        console.warn('⚠️ 취소가 완료되지 않았습니다:', cancelResult.canceledYn);
-      }
-      
-      // 새 송장번호 경고
-      if (delete_after_cancel && cancelResult.regiNo) {
-        console.warn('⚠️ delYn=Y인데 새 송장번호가 발급되었습니다:', cancelResult.regiNo);
-      }
-    } catch (e) {
-      console.error('❌ 우체국 취소 실패:', e.message);
-      
-      // ERR-123: 예약 정보가 없는 경우 (Mock 또는 testYn=Y로 생성된 경우)
-      // 이 경우 DB만 업데이트하고 성공으로 처리
-      const isNoReservationError = e.message?.includes('ERR-123') || 
-                                    e.message?.includes('예약된 정보가 없습니다') ||
-                                    e.message?.includes('접수정보로 예약된 정보가 없');
-      
-      if (isNoReservationError) {
-        console.warn('⚠️ 우체국에 예약 정보가 없습니다. DB만 업데이트합니다.');
-        console.warn('   이는 테스트 모드나 Mock으로 생성된 주문일 수 있습니다.');
-        cancelResult = {
-          canceledYn: 'Y',
-          note: '우체국 예약 정보 없음 (DB만 업데이트)'
-        };
-      } else {
-        // 다른 에러의 경우 실패 처리
+    for (const reqYmd of reqYmdCandidates) {
+      try {
+        cancelResult = await cancelOrder({
+          custNo,
+          apprNo,
+          reqType,
+          payType,
+          reqNo,
+          resNo,
+          regiNo,
+          reqYmd,
+          delYn: delete_after_cancel ? 'Y' : 'N',
+        });
+        lastNoReservationError = '';
+        console.log('📥 우체국 취소 응답:', { reqYmd, ...cancelResult });
+        break;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.error('❌ 우체국 취소 실패:', { reqYmd, message });
+
+        if (isEpostNoReservationError(message)) {
+          lastNoReservationError = message;
+          continue;
+        }
+
         return errorResponse(
-          `우체국 전산 취소 실패: ${e.message || '알 수 없는 오류'}`,
+          `우체국 전산 취소 실패: ${message || '알 수 없는 오류'}`,
           500,
           'EPOST_CANCEL_FAILED'
         );
       }
     }
 
-    // shipments 테이블 업데이트
-    if (delete_after_cancel) {
-      // 완전 삭제
-      await supabase
+    if (lastNoReservationError) {
+      return errorResponse(
+        `우체국에서 수거 예약을 찾지 못했습니다. 송장 ${regiNo} 접수가 남아 있을 수 있습니다.`,
+        500,
+        'EPOST_CANCEL_FAILED'
+      );
+    }
+
+    const isSuccess = cancelResult?.canceledYn === 'Y' || cancelResult?.canceledYn === 'D';
+    if (!cancelResult || !isSuccess) {
+      const reason = cancelResult?.notCancelReason || `canceledYn=${cancelResult?.canceledYn ?? '없음'}`;
+      return errorResponse(
+        `우체국 수거 접수가 취소되지 않았습니다. (${reason})`,
+        500,
+        'EPOST_CANCEL_FAILED'
+      );
+    }
+
+    if (delete_after_cancel && cancelResult.regiNo) {
+      console.warn('⚠️ delYn=Y인데 새 송장번호가 발급되었습니다:', cancelResult.regiNo);
+    }
+
+    const pickupNotificationTypes = [
+      'pickup_today',
+      'pickup_reminder',
+      'pickup_reminder_d1',
+      'pickup_reminder_today',
+      'SHIPMENT_BOOKED',
+    ];
+
+    const { error: shipmentUpdateError } = await supabase
+      .from('shipments')
+      .update({
+        status: 'CANCELLED',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('order_id', order_id);
+
+    if (shipmentUpdateError) {
+      console.error('❌ shipments CANCELLED 업데이트 실패, 삭제로 폴백:', shipmentUpdateError);
+      const { error: shipmentDeleteError } = await supabase
         .from('shipments')
         .delete()
         .eq('order_id', order_id);
-    } else {
-      // 상태만 취소로 변경
-      await supabase
-        .from('shipments')
-        .update({
-          status: 'CANCELLED',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('order_id', order_id);
+      if (shipmentDeleteError) {
+        return errorResponse(
+          `우체국 취소는 됐지만 송장 상태 갱신에 실패했습니다: ${shipmentDeleteError.message}`,
+          500,
+          'SHIPMENT_UPDATE_FAILED'
+        );
+      }
+    }
+
+    const { error: pickupNotifError } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('order_id', order_id)
+      .in('type', pickupNotificationTypes);
+    if (pickupNotifError) {
+      console.error('❌ 수거 알림 삭제 실패:', pickupNotifError);
     }
 
     // orders 테이블도 업데이트
     // payment_status는 결제 취소 API에서 갱신. 여기서는 주문 취소 표시만 맞춤.
-    await supabase
+    const { error: orderUpdateError } = await supabase
       .from('orders')
       .update({
         status: 'CANCELLED',
@@ -206,6 +212,9 @@ Deno.serve(async (req) => {
         canceled_at: new Date().toISOString(),
       })
       .eq('id', order_id);
+    if (orderUpdateError) {
+      console.error('❌ orders 취소 상태 업데이트 실패:', orderUpdateError);
+    }
 
     // 성공 응답
     const actuallyDeleted = cancelResult?.canceledYn === 'D' || delete_after_cancel;

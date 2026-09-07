@@ -193,17 +193,16 @@ serve(async (req) => {
     }
 
     // ── 수거 전 취소 (PENDING / PAID / BOOKED) ──
-    const orderTrackingNo = (order as any).tracking_no as string | null
     let shipmentResult: Record<string, unknown> = {}
     let shipmentCanceled = false
 
-    if (orderTrackingNo) {
+    {
       const shipmentRes = await fetch(
         `${SUPABASE_URL}/functions/v1/shipments-cancel`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
-          body: JSON.stringify({ order_id: orderId, delete_after_cancel: false }),
+          body: JSON.stringify({ order_id: orderId, delete_after_cancel: true }),
         }
       )
       shipmentResult = await shipmentRes.json().catch(() => ({}))

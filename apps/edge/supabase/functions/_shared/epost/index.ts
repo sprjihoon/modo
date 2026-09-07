@@ -40,6 +40,7 @@ export type {
 
 // 설정
 export { getEPostConfig, getEPostBaseUrl } from './config.ts';
+export { toKstYmd, resolveCancelReqYmds, isEpostNoReservationError } from './dates.ts';
 
 // 클라이언트 (내부용, 필요시 export)
 export { callEPostAPI, parseXmlValue } from './client.ts';

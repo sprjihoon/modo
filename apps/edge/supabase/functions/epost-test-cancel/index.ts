@@ -99,6 +99,23 @@ Deno.serve(async (req) => {
         delYn: delete_after_cancel ? 'Y' : 'N',
       });
       console.log('✅ [epost-test-cancel] 응답:', cancelResult);
+
+      const canceled = cancelResult?.canceledYn === 'Y' || cancelResult?.canceledYn === 'D';
+      if (!canceled) {
+        const reason = cancelResult?.notCancelReason || `canceledYn=${cancelResult?.canceledYn ?? '없음'}`;
+        await supabase
+          .from('epost_test_logs')
+          .update({
+            status: 'CANCEL_FAILED',
+            cancel_response: cancelResult as any,
+          })
+          .eq('id', log_id);
+        return errorResponse(
+          `우체국 수거 접수가 취소되지 않았습니다. (${reason})`,
+          500,
+          'EPOST_CANCEL_FAILED'
+        );
+      }
     } catch (e: any) {
       console.error('❌ [epost-test-cancel] 우체국 취소 실패:', e);
       cancelError = e?.message || String(e);
