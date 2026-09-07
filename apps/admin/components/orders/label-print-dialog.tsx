@@ -374,8 +374,8 @@ export function LabelPrintDialog({
         deliveryMessage: resolveDeliveryRequestMessage(order.notes ?? fullOrder?.notes),
         
         // 기타
-        weight: fullOrder?.weight ? `${fullOrder.weight}kg` : "2kg",
-        volume: fullOrder?.volume ? `${fullOrder.volume}cm` : "60cm",
+        weight: fullOrder?.weight ? `${fullOrder.weight}kg` : "1kg",
+        volume: fullOrder?.volume ? `${fullOrder.volume}cm` : "50cm",
         
         // 우체국 분류 코드 (deliveryInfo가 있으면 사용)
         deliveryPlaceCode: deliveryInfo?.arrCnpoNm || "",

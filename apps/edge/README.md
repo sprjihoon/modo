@@ -8,6 +8,11 @@ Supabase Edge Functions로 구현한 백엔드 API
 - **POST** `/shipments-book`
 - 우체국 API 연동
 - 송장번호(`tracking_no`) 생성
+- 기본 규격: 초소형 1kg / 세 변 합 50cm / `microYn=Y` (`EPOST_MICRO_PACKAGE`)
+
+### 출고 송장
+- **POST** `/shipments-create-outbound`
+- 같은 초소형 규격으로 우체국 일반소포 접수
 
 ### 결제 검증
 - **POST** `/payments-verify`
@@ -81,6 +86,8 @@ apps/edge/
 ## 📚 API 명세
 
 ### 1. 수거예약 (`/shipments-book`)
+
+우체국 초소형 감액 계약. 중량·크기를 안 넘기면 **1kg / 50cm / `microYn=Y`**.
 
 **Request:**
 ```json

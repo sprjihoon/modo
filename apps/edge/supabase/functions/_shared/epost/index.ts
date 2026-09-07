@@ -19,6 +19,8 @@
  * ```
  */
 
+export { EPOST_MICRO_PACKAGE } from './types.ts';
+
 // 타입 export
 export type {
   EPostConfig,

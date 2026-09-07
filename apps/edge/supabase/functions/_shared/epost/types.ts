@@ -9,6 +9,15 @@ export interface EPostConfig {
 }
 
 /**
+ * 초소형 감액 계약 기본 규격 (2019.9.1 이후: 1kg / 50cm, microYn=Y)
+ */
+export const EPOST_MICRO_PACKAGE = {
+  weight: 1,
+  volume: 50,
+  microYn: 'Y',
+} as const;
+
+/**
  * 소포신청(픽업요청) 파라미터
  * API ID: SHPAPI-C02-01
  */
@@ -34,9 +43,10 @@ export interface InsertOrderParams {
   goodsNm: string;          // 상품명
   
   // 선택사항
-  weight?: number;          // 중량(kg) default: 2
-  volume?: number;          // 크기(cm) default: 60
-  microYn?: 'Y' | 'N';      // 초소형 여부 default: N
+  weight?: number;          // 중량(kg) default: 1 (초소형)
+  volume?: number;          // 크기(cm, 세 변 합) default: 50 (초소형)
+  microYn?: 'Y' | 'N';      // 초소형 여부 default: Y (초소형 감액 계약)
+
   ordCompNm?: string;       // 주문처명
   ordNm?: string;           // 주문자명
   ordZip?: string;          // 주문자 우편번호

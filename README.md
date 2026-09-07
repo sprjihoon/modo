@@ -28,7 +28,7 @@ modo/
 | 결제 | **PortOne V2** (`@portone/browser-sdk`, `@portone/server-sdk`, WebView 기반 모바일) |
 | 배포 | Vercel (web · admin), Supabase (edge functions) |
 | 인증 | Supabase Auth (Google · Naver · Apple · 이메일) |
-| 물류 | 우체국 택배 API (수거 예약 / 취소) |
+| 물류 | 우체국 택배 API (초소형 감액 계약 · 수거/출고 1kg·50cm) |
 | 이메일 | **Resend** (주문 상태 · 운영 아침 리포트 · 신규 주문/가입 알림) |
 
 ---
@@ -559,6 +559,7 @@ iOS **1.0.6(37)** 심사 중. Play는 **38** AAB(`READ_MEDIA_*` 제거). 스토�
 47. ~~**`1.0.8` 수거정보·쿠폰·수치 키패드·사진 정리·장바구니 5일**~~ — **iOS `1.0.8` (50) 판매 중**. 심사 완료 2026-09-03 08:34 PDT (`bcdfc2ce-…`). Play AAB **50** (업로드는 아직)
 48. **`1.0.9+51` 쿠폰 왕복배송 무료** — `includes_free_shipping`. iOS **`1.0.9` (51) 판매 중** (`06fe8070-…`)
 49. **`1.0.10+52` 주문 사진 핀** — 최대 5장, 사진마다 수선 위치 핀. iOS **`1.0.10` (52) 심사 중** (`9e0da0fd-…` 2026-09-07). Play AAB **52** (콘솔 업로드는 아직)
+50. **우체국 초소형 접수** — 수거·출고를 1kg / 50cm / `microYn=Y`로. 초소형 감액 계약. Edge `shipments-book`·`shipments-create-outbound`
 39. **출고송장 배송요청사항** — 고객 `orders.notes`를 그 주문 출고송장·우체국 `delivMsg`에 출력. 레이아웃 에디터에서 위치 저장. 어드민 `main` 배포
 40. **배송완료 자동 반영** — 우체국 배달완료면 `DELIVERED`. 폴링은 월~토 9·11·13·15·17시. 일·공휴일 제외. 어드민 주문 상세를 열어도 동기화. 어드민·Edge 라이브
 41. **마케팅 인사이트** — 어드민 **분석 → 마케팅 인사이트**. 결제·가입·접속이 몰리는 요일·시간, 히트맵, 푸시 타이밍, 인기 의류/수선, 앱/웹 유입. 고객 목록·상세에 **마지막 접속**. 고객 행동 분석 시간 탭에 요일별 접속
@@ -650,6 +651,22 @@ SQL: `apps/sql/migrations/20260819_update_damage_compensation.sql` (라이브 �
 고객 지표: 가입은 `users` CUSTOMER(탈퇴 이메일 제외). 탈퇴는 `deleted_%@deleted.modorepair.com` 의 그날 `updated_at`. 활성은 그날 기준 최근 30일 `PAID` 결제 고객(`count_active_customers`). 그날 접속은 `auth.users.last_sign_in_at`(`count_customer_signins`). 웹 탈퇴는 행을 지우지 않고 앱과 같이 익명화한다.
 
 SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), `add_ops_customer_report_rpcs.sql` (2026-08-27 라이브 반영), `create_ops_report_settings.sql` (2026-08-28 라이브 반영).
+
+---
+
+## 우체국 초소형 접수
+
+초소형 감액 계약. 수거·출고 모두 **중량 1kg / 세 변 합 50cm / `microYn=Y`**. 상수 `EPOST_MICRO_PACKAGE`.
+
+| 경로 | 동작 |
+|---|---|
+| 수거 예약 | `shipments-book` — 호출에서 중량·크기를 안 넘기면 초소형 기본값 |
+| 출고 예약 | `shipments-create-outbound` — 초소형 고정 |
+| 송장 인쇄 | 중량/용적 표시 기본값도 1kg / 50cm |
+
+이미 접수한 건은 그대로. 새로 접수하는 수거·출고부터 적용. 테스트 페이지(`/dashboard/shipments/test`)의 초소형 프리셋도 같은 규격.
+
+코드: Edge `_shared/epost/types.ts`
 
 ---
 
@@ -839,6 +856,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-07 | 우체국 초소형 접수 | 수거·출고를 2kg/60cm/`microYn=N`에서 초소형 1kg/50cm/`microYn=Y`로. Edge `shipments-book`·`shipments-create-outbound`. 송장 기본 중량/용적 표시도 맞춤 |
 | 2026-09-07 | iOS `1.0.10` 심사 | 빌드 52 업로드. 버전 `62fb8aa4-…` · 제출 `9e0da0fd-df9a-46b6-96d1-1ac18f7bae5f` (2026-09-07 02:55 UTC). `WAITING_FOR_REVIEW`. Play AAB `1.0.10+52` |
 | 2026-09-04 | iOS `1.0.9` 판매 | 빌드 51 심사 통과. 제출 `06fe8070-188c-4a91-bcfa-f941808ca52a`. `READY_FOR_SALE`. 다음은 `1.0.10+52` |
 | 2026-09-04 | 쿠폰 배송비 무료 | 공개 코드·CS·미션 발행 시 `includes_free_shipping`. ON이면 왕복 기본 배송비 0원(도서산간 제외). 배송 프로모와는 더 큰 쪽만. 청구는 Edge `orders-quote`. 어드민·웹 쿠폰함 문구. 앱 미리보기는 `1.0.9`. SQL `20260904010000` · Edge `orders-quote` **라이브**. 어드민 JSX 배포 수정 + payload 테스트. |

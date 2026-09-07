@@ -50,6 +50,7 @@
 - 앱 업데이트 안내: `app_versions` 최신·최소는 iOS/Android 모두 **`1.0.5`** · 어드민 설정 → 앱 버전
 - 수선 요청 메모: `orders.customer_memo` · 핀 메모·배송 요청(`notes`)과 별도 · **웹 `modo.io.kr` 라이브** · 앱 `1.0.7` 판매 중 · 작업지시서·어드민 주문상세 공통
 - 출고송장 배송요청사항: 해당 주문의 `orders.notes`만 송장·우체국 `delivMsg`에 출력. 레이아웃 필드 `delivery_request`. Edge `shipments-create-outbound` 배포됨
+- 우체국 초소형 접수: 수거·출고 기본 규격 1kg / 세 변 합 50cm / `microYn=Y` (초소형 감액 계약). 상수 `EPOST_MICRO_PACKAGE`. Edge `shipments-book`·`shipments-create-outbound`
 - 어드민 CS: 주문 상세에서 재작업·수선비 환불·전손 보상 (`order_cs_events`)
 - 광고 성과: 어드민 `/dashboard/analytics/ads` · 가입 CPA·주문 CPA·CAC · 루트 README 「광고 성과」
 - 배포 절차 상세: [`deployment.md`](deployment.md)

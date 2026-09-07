@@ -5,15 +5,16 @@
 
 import { getEPostConfig } from './config.ts';
 import { callEPostAPI, parseXmlValue } from './client.ts';
-import type {
-  InsertOrderParams,
-  InsertOrderResponse,
-  GetResInfoParams,
-  GetResInfoResponse,
-  CancelOrderParams,
-  CancelOrderResponse,
-  DeliveryCodeParams,
-  DeliveryCodeResponse,
+import {
+  EPOST_MICRO_PACKAGE,
+  type InsertOrderParams,
+  type InsertOrderResponse,
+  type GetResInfoParams,
+  type GetResInfoResponse,
+  type CancelOrderParams,
+  type CancelOrderResponse,
+  type DeliveryCodeParams,
+  type DeliveryCodeResponse,
 } from './types.ts';
 
 /**
@@ -40,22 +41,22 @@ export async function insertOrder(params: InsertOrderParams): Promise<InsertOrde
   const requestParams: Record<string, any> = {
     ...params,
     custNo: custNo, // 검증된 고객번호 사용
-    weight: typeof params.weight === 'number' ? params.weight : (params.weight || 2),
-    volume: typeof params.volume === 'number' ? params.volume : (params.volume || 60),
-    microYn: params.microYn === 'Y' || params.microYn === 'N' ? params.microYn : 'N',
+    weight: typeof params.weight === 'number' ? params.weight : (params.weight || EPOST_MICRO_PACKAGE.weight),
+    volume: typeof params.volume === 'number' ? params.volume : (params.volume || EPOST_MICRO_PACKAGE.volume),
+    microYn: params.microYn === 'Y' || params.microYn === 'N' ? params.microYn : EPOST_MICRO_PACKAGE.microYn,
     testYn: params.testYn === 'Y' || params.testYn === 'N' ? params.testYn : 'N',
     printYn: params.printYn === 'Y' || params.printYn === 'N' ? params.printYn : 'Y',
   };
   
   // 숫자 필드 검증 및 정수 변환
   if (typeof requestParams.weight !== 'number' || requestParams.weight <= 0) {
-    requestParams.weight = 2;
+    requestParams.weight = EPOST_MICRO_PACKAGE.weight;
   } else {
     requestParams.weight = Math.floor(requestParams.weight);
   }
   
   if (typeof requestParams.volume !== 'number' || requestParams.volume <= 0) {
-    requestParams.volume = 60;
+    requestParams.volume = EPOST_MICRO_PACKAGE.volume;
   } else {
     requestParams.volume = Math.floor(requestParams.volume);
   }

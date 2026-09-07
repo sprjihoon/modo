@@ -1181,8 +1181,8 @@ export default function InboundPage() {
                     deliveryMessage: resolveDeliveryRequestMessage(orderData.notes),
                     
                     // 기타 (주문 정보에서 가져오기, 없으면 기본값)
-                    weight: orderData.weight ? `${orderData.weight}kg` : "2kg",
-                    volume: orderData.volume ? `${orderData.volume}cm` : "60cm",
+                    weight: orderData.weight ? `${orderData.weight}kg` : "1kg",
+                    volume: orderData.volume ? `${orderData.volume}cm` : "50cm",
                     
                     // 우체국 분류 코드
                     deliveryPlaceCode: deliveryCode.arrCnpoNm || "",

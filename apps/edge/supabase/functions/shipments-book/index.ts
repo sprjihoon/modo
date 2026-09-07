@@ -9,7 +9,7 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { insertOrder, mockInsertOrder, getApprovalNumber, getResInfo, type InsertOrderParams } from '../_shared/epost/index.ts';
+import { insertOrder, mockInsertOrder, getApprovalNumber, getResInfo, EPOST_MICRO_PACKAGE, type InsertOrderParams } from '../_shared/epost/index.ts';
 import { createPickupBookingLock, isPickupBookingLock, isStalePickupBookingLock } from '../_shared/book-pickup.ts';
 import { flushPendingNotifications } from '../_shared/flush-notifications.ts';
 
@@ -661,9 +661,9 @@ Deno.serve(async (req) => {
       goodsNm: goods_name || '의류 수선',
       
       // 선택사항 (타입 명시적으로 변환)
-      weight: typeof weight === 'number' ? weight : (typeof weight === 'string' ? parseFloat(weight) || 2 : 2),
-      volume: typeof volume === 'number' ? volume : (typeof volume === 'string' ? parseFloat(volume) || 60 : 60),
-      microYn: 'N' as const,
+      weight: typeof weight === 'number' ? weight : (typeof weight === 'string' ? parseFloat(weight) || EPOST_MICRO_PACKAGE.weight : EPOST_MICRO_PACKAGE.weight),
+      volume: typeof volume === 'number' ? volume : (typeof volume === 'string' ? parseFloat(volume) || EPOST_MICRO_PACKAGE.volume : EPOST_MICRO_PACKAGE.volume),
+      microYn: EPOST_MICRO_PACKAGE.microYn,
       delivMsg: delivery_message,
       testYn: (test_mode ? 'Y' : 'N') as const,
       printYn: 'Y' as const,
@@ -695,13 +695,13 @@ Deno.serve(async (req) => {
     
     // 숫자 필드 최종 검증 및 정수 변환
     if (typeof epostParams.weight !== 'number' || isNaN(epostParams.weight) || epostParams.weight <= 0) {
-      epostParams.weight = 2;
+      epostParams.weight = EPOST_MICRO_PACKAGE.weight;
     } else {
       epostParams.weight = Math.floor(epostParams.weight);
     }
     
     if (typeof epostParams.volume !== 'number' || isNaN(epostParams.volume) || epostParams.volume <= 0) {
-      epostParams.volume = 60;
+      epostParams.volume = EPOST_MICRO_PACKAGE.volume;
     } else {
       epostParams.volume = Math.floor(epostParams.volume);
     }

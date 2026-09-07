@@ -96,10 +96,10 @@ interface SizeOption {
 const SIZE_PRESETS: SizeOption[] = [
   {
     id: "micro",
-    label: "극소형",
-    description: "세 변 합 80cm 이하 / 2kg 이하",
-    weight: 2,
-    volume: 80,
+    label: "초소형",
+    description: "세 변 합 50cm 이하 / 1kg 이하 (microYn=Y)",
+    weight: 1,
+    volume: 50,
     microYn: "Y",
   },
   {

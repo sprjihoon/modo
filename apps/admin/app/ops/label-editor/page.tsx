@@ -101,7 +101,7 @@ const DEFAULT_FIELDS: FieldConfig[] = [
   {
     fieldKey: "package_info",
     label: "중량/용적/요금",
-    exampleValue: "중량:2kg 용적:60cm 요금: 신용 0",
+    exampleValue: "중량:1kg 용적:50cm 요금: 신용 0",
     fontSize: 11,
     isBold: false,
     type: "text",
@@ -246,7 +246,7 @@ const getInitialLayout = (canvasWidth: number, canvasHeight: number, companyInfo
     { fieldKey: "orderer_name", label: "주문인", exampleValue: "주문인: 테스트", x: 10, y: 55, width: 150, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
     { fieldKey: "customer_order_source", label: "고객 주문처", exampleValue: `고객 주문처: ${senderName} 수기`, x: 10, y: 78, width: 200, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
     { fieldKey: "order_number", label: "주문번호", exampleValue: "주문번호: 645675", x: 10, y: 101, width: 150, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
-    { fieldKey: "package_info", label: "중량/용적/요금", exampleValue: "중량:2kg 용적:60cm 요금: 신용 0", x: 10, y: 124, width: 250, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
+    { fieldKey: "package_info", label: "중량/용적/요금", exampleValue: "중량:1kg 용적:50cm 요금: 신용 0", x: 10, y: 124, width: 250, height: 18, fontSize: scaleFont(11), isBold: false, type: "text" },
     { fieldKey: "zipcode_barcode", label: "우편번호 바코드", exampleValue: "41100", x: 10, y: 150, width: 120, height: 60, fontSize: scaleFont(12), isBold: false, type: "barcode" },
     { fieldKey: "total_quantity", label: "총 개수", exampleValue: "[총 1개]", x: 140, y: 155, width: 80, height: 20, fontSize: scaleFont(12), isBold: false, type: "text" },
     { fieldKey: "items_list", label: "상품 리스트", exampleValue: "1. 거래물품-1개", x: 10, y: 220, width: 250, height: 150, fontSize: scaleFont(13), isBold: false, type: "text" },

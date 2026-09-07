@@ -10,7 +10,7 @@
 
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { insertOrder, getApprovalNumber, getDeliveryCode, type InsertOrderParams } from '../_shared/epost/index.ts';
+import { insertOrder, getApprovalNumber, getDeliveryCode, EPOST_MICRO_PACKAGE, type InsertOrderParams } from '../_shared/epost/index.ts';
 import { lookupDeliveryCode } from '../_shared/epost/delivery-code-file-lookup.ts';
 import { lookupDeliveryCodeFromDB } from '../_shared/epost/delivery-code-db-lookup.ts';
 
@@ -174,9 +174,9 @@ Deno.serve(async (req) => {
       goodsNm: order.item_name || `${order.clothing_type} ${order.repair_type}`,
       
       // 기타
-      weight: 2,
-      volume: 60,
-      microYn: 'N',
+      weight: EPOST_MICRO_PACKAGE.weight,
+      volume: EPOST_MICRO_PACKAGE.volume,
+      microYn: EPOST_MICRO_PACKAGE.microYn,
       delivMsg: (() => {
         const notes = String(order.notes ?? '').trim();
         if (notes) return notes.length > 200 ? notes.slice(0, 200) : notes;
