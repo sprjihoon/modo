@@ -397,7 +397,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 | Xcode Cloud 기기 | Developer 계정에 **iPhone 1대 이상** 등록 필수. 없으면 Dev/Ad Hoc export가 실패해 Archive 전체가 FAILED로 표시되고 TestFlight 자동 업로드가 막힘 ([Devices](https://developer.apple.com/account/resources/devices/list)) |
 | App Store 현재 빌드 | 판매 중 **`1.0.9` (51)** · 심사 **`1.0.10` (52)** |
 | 웹 배포 | `main` push 즉시 `modo-web` (modo.io.kr). 수선 요청 메모 **라이브**. 스토어 빌드와 무관 |
-| 앱 업데이트 안내 | `app_versions`. 지금 최신·최소는 iOS/Android 모두 **`1.0.5`** (강제 업데이트 끔). iOS 판매는 `1.0.8`. Android 최신 안내는 Play 게시 뒤에. |
+| 앱 업데이트 안내 | `app_versions`. 지금 최신·최소는 iOS/Android 모두 **`1.0.5`** (강제 업데이트 끔). iOS 판매는 `1.0.9`. Android 최신 안내는 Play 게시 뒤에. |
 | 알림 설정 이동 | 로그인 후 알림이 꺼져 있으면 안내. Android는 앱 알림 설정, iOS는 해당 앱 설정 |
 
 ### 심사용 테스트 계정
