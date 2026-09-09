@@ -143,28 +143,56 @@ export async function PUT(
         }
 
         if (Object.keys(authUpdates).length > 0) {
-          // 이메일 변경 시: Auth 호출 전에 DB에서 중복 확인 (Auth의 "Error updating user" 방지)
+          // 이메일 변경 시: 이미 존재하는 계정이면 해당 auth_id로 staff를 재연결
           if (authUpdates.email) {
-            const [{ data: usersDup }, { data: staffDup }] = await Promise.all([
-              supabaseAdmin
-                .from("users")
-                .select("auth_id")
-                .eq("email", newEmail)
-                .neq("auth_id", existingStaff.auth_id)
-                .maybeSingle(),
-              supabaseAdmin
-                .from("staff")
-                .select("auth_id")
-                .eq("email", newEmail)
-                .neq("auth_id", existingStaff.auth_id)
-                .maybeSingle(),
-            ]);
+            const { data: existingAuthOwner } = await supabaseAdmin
+              .from("users")
+              .select("auth_id")
+              .eq("email", newEmail)
+              .neq("auth_id", existingStaff.auth_id)
+              .maybeSingle();
 
-            if (usersDup || staffDup) {
-              return NextResponse.json(
-                { success: false, error: "이미 다른 계정에서 사용 중인 이메일입니다." },
-                { status: 400 }
-              );
+            if (existingAuthOwner?.auth_id) {
+              // 다른 직원이 이미 이 이메일 사용 중이면 차단
+              const { data: alreadyStaff } = await supabaseAdmin
+                .from("staff")
+                .select("id")
+                .eq("auth_id", existingAuthOwner.auth_id)
+                .eq("is_active", true)
+                .maybeSingle();
+
+              if (alreadyStaff) {
+                return NextResponse.json(
+                  { success: false, error: "해당 이메일은 이미 다른 직원으로 등록되어 있습니다." },
+                  { status: 400 }
+                );
+              }
+
+              // 고객 계정 재사용: 기존 Auth 계정에 직원 메타데이터 부여 후 staff 재연결
+              console.log("🔄 기존 Auth 계정 재사용으로 이메일 변경:", newEmail);
+              await supabaseAdmin.auth.admin.updateUserById(existingAuthOwner.auth_id, {
+                password,
+                user_metadata: { name, phone, role, is_staff: true },
+              });
+
+              // staff 레코드의 auth_id를 새 계정으로 교체
+              await supabaseAdmin
+                .from("staff")
+                .update({ auth_id: existingAuthOwner.auth_id, email: newEmail, name, phone, role, updated_at: new Date().toISOString() })
+                .eq("id", id);
+
+              // users 테이블 동기화
+              await supabaseAdmin
+                .from("users")
+                .update({ name, phone, role })
+                .eq("auth_id", existingAuthOwner.auth_id);
+
+              console.log("✅ 기존 Auth 계정으로 이메일 변경 완료:", newEmail);
+
+              return NextResponse.json({
+                success: true,
+                message: "직원 정보가 수정되었습니다.",
+              });
             }
 
             authUpdates.email_confirm = true;
@@ -176,14 +204,12 @@ export async function PUT(
           );
           if (authUpdateError) {
             console.error("❌ Auth 계정 업데이트 실패:", authUpdateError.message);
-
-            // 비밀번호 전용 실패는 경고만 (DB 업데이트는 계속)
             if (!authUpdates.email) {
               console.warn("⚠️ 비밀번호 변경 실패, DB는 계속 업데이트");
             } else {
               return NextResponse.json(
-                { success: false, error: "이미 다른 계정에서 사용 중인 이메일입니다." },
-                { status: 400 }
+                { success: false, error: `이메일 변경 실패: ${authUpdateError.message}` },
+                { status: 500 }
               );
             }
           } else {
