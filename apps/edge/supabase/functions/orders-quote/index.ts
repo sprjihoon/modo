@@ -102,7 +102,7 @@ serve(async (req) => {
       .maybeSingle()
       .then((r) => r.data)
     const BASE_SHIPPING_FEE = (shipSettingsRow?.base_shipping_fee as number | undefined) ?? 7000
-    const REMOTE_AREA_FEE = (shipSettingsRow?.remote_area_fee as number | undefined) ?? 0
+    const REMOTE_AREA_FEE = (shipSettingsRow?.remote_area_fee as number | undefined) ?? 400
 
     // 수선비 합계
     const repairItemsTotal = repairItems.reduce(
