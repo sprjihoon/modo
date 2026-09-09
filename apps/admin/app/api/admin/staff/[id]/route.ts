@@ -143,29 +143,43 @@ export async function PUT(
         }
 
         if (Object.keys(authUpdates).length > 0) {
+          // 이메일 변경 시 자동 확인 처리
+          if (authUpdates.email) {
+            authUpdates.email_confirm = true;
+          }
+
           const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
             existingStaff.auth_id,
             authUpdates
           );
           if (authUpdateError) {
-            console.error("❌ Auth 계정 업데이트 실패:", authUpdateError);
+            // 전체 에러 구조 로그 (디버깅)
+            console.error("❌ Auth 계정 업데이트 실패 (full):", JSON.stringify(authUpdateError));
 
             const msg = authUpdateError.message?.toLowerCase() ?? "";
             const isEmailConflict =
-              msg.includes("already") || msg.includes("exists") || msg.includes("duplicate");
+              msg.includes("already") || msg.includes("exists") || msg.includes("duplicate") || msg.includes("unique");
 
-            return NextResponse.json(
-              {
-                success: false,
-                error: isEmailConflict
-                  ? "이미 다른 계정에서 사용 중인 이메일입니다."
-                  : `Auth 계정 업데이트 실패: ${authUpdateError.message}`,
-              },
-              { status: 400 }
-            );
+            if (isEmailConflict) {
+              return NextResponse.json(
+                { success: false, error: "이미 다른 계정에서 사용 중인 이메일입니다." },
+                { status: 400 }
+              );
+            }
+
+            // Auth 업데이트 실패해도 DB는 계속 업데이트 (비밀번호 변경 실패는 경고만)
+            if (authUpdates.password && !authUpdates.email) {
+              console.warn("⚠️ 비밀번호 변경 실패 (DB는 계속 업데이트):", authUpdateError.message);
+            } else {
+              return NextResponse.json(
+                { success: false, error: `이메일 변경 실패: ${authUpdateError.message}` },
+                { status: 500 }
+              );
+            }
+          } else {
+            if (authUpdates.email) console.log("✅ Auth 이메일 변경 완료:", newEmail);
+            if (authUpdates.password) console.log("✅ 비밀번호 변경 완료");
           }
-          if (authUpdates.email) console.log("✅ Auth 이메일 변경 완료:", newEmail);
-          if (authUpdates.password) console.log("✅ 비밀번호 변경 완료");
         }
       }
     }
