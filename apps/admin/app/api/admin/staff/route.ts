@@ -138,23 +138,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 이메일 중복 체크 (staff 테이블)
-    const { data: existingStaff } = await supabaseAdmin
-      .from("staff")
-      .select("email")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (existingStaff) {
-      return NextResponse.json(
-        { success: false, error: "이미 사용 중인 이메일입니다." },
-        { status: 400 }
-      );
-    }
-
     console.log("📝 직원 계정 생성 시작:", { email, name, role });
 
-    // 1. Supabase Auth에 사용자 생성
+    // 1. Supabase Auth에 사용자 생성 (이미 존재하면 기존 계정 재사용)
+    let authUserId: string;
+
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -167,33 +155,83 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (authError || !authData.user) {
-      console.error("❌ Auth 계정 생성 실패:", authError);
-      return NextResponse.json(
-        { success: false, error: authError?.message || "Auth 계정 생성 실패" },
-        { status: 500 }
-      );
+    if (authError) {
+      // 이메일이 이미 존재하는 경우 → 기존 Auth 계정 재사용
+      const isAlreadyExists =
+        authError.message?.toLowerCase().includes("already") ||
+        authError.message?.toLowerCase().includes("exists") ||
+        (authError as any).status === 422;
+
+      if (!isAlreadyExists) {
+        console.error("❌ Auth 계정 생성 실패:", authError);
+        return NextResponse.json(
+          { success: false, error: authError.message || "Auth 계정 생성 실패" },
+          { status: 500 }
+        );
+      }
+
+      // 기존 사용자 auth_id 조회 (users 테이블 → staff 테이블 순으로 확인)
+      const { data: existingUser } = await supabaseAdmin
+        .from("users")
+        .select("auth_id")
+        .eq("email", email)
+        .maybeSingle();
+
+      let resolvedAuthId = existingUser?.auth_id;
+
+      if (!resolvedAuthId) {
+        const { data: existingStaff } = await supabaseAdmin
+          .from("staff")
+          .select("auth_id")
+          .eq("email", email)
+          .maybeSingle();
+        resolvedAuthId = existingStaff?.auth_id;
+      }
+
+      if (!resolvedAuthId) {
+        console.error("❌ 기존 사용자 auth_id 조회 실패 (email:", email, ")");
+        return NextResponse.json(
+          { success: false, error: "기존 사용자 정보를 찾을 수 없습니다." },
+          { status: 500 }
+        );
+      }
+
+      // 비밀번호 및 메타데이터 업데이트
+      await supabaseAdmin.auth.admin.updateUserById(resolvedAuthId, {
+        password,
+        user_metadata: { name, phone, role, is_staff: true },
+      });
+
+      authUserId = resolvedAuthId;
+      console.log("✅ 기존 Auth 계정 재사용 (직원 등록):", authUserId);
+    } else {
+      authUserId = authData.user.id;
+      console.log("✅ 새 Auth 계정 생성 완료:", authUserId);
     }
 
-    console.log("✅ Auth 계정 생성 완료:", authData.user.id);
-
-    // 2. staff 테이블에 프로필 생성
+    // 2. staff 테이블에 프로필 생성 (이미 있으면 업데이트)
     const { data: staffData, error: staffError } = await supabaseAdmin
       .from("staff")
-      .insert({
-        auth_id: authData.user.id,
-        email,
-        name,
-        phone,
-        role,
-        is_active: true,
-      })
+      .upsert(
+        {
+          auth_id: authUserId,
+          email,
+          name,
+          phone,
+          role,
+          is_active: true,
+        },
+        { onConflict: "email" }
+      )
       .select()
       .single();
 
     if (staffError) {
       console.error("❌ 직원 프로필 생성 실패:", staffError);
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      // Auth 계정을 새로 만든 경우에만 롤백
+      if (!authError) {
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
+      }
       return NextResponse.json(
         { success: false, error: staffError.message },
         { status: 500 }
@@ -204,7 +242,7 @@ export async function POST(request: NextRequest) {
     const { error: usersError } = await supabaseAdmin
       .from("users")
       .upsert(
-        { auth_id: authData.user.id, email, name, phone, role },
+        { auth_id: authUserId, email, name, phone, role },
         { onConflict: "auth_id" }
       );
 
