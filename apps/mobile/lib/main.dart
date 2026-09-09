@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:provider/provider.dart' as provider_pkg;
 import 'package:supabase_flutter/supabase_flutter.dart';
 // Firebase Core - 푸시 알림용 (Google 로그인 비활성화 상태)
@@ -23,6 +25,15 @@ import 'services/customer_event_service.dart';
 /// 모두의수선 메인 엔트리포인트
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Play 정책: 갤러리는 READ_MEDIA_* 대신 시스템 Photo Picker
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    final ImagePickerPlatform imagePickerImplementation =
+        ImagePickerPlatform.instance;
+    if (imagePickerImplementation is ImagePickerAndroid) {
+      imagePickerImplementation.useAndroidPhotoPicker = true;
+    }
+  }
   
   // 🔥 Firebase 초기화 (Google 로그인, 푸시 알림에 필요)
   try {

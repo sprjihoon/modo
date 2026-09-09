@@ -76,7 +76,7 @@ class ProfilePage extends ConsumerWidget {
                   _MenuItem(
                     icon: Icons.rate_review_outlined,
                     title: '내 리뷰',
-                    subtitle: '작성한 리뷰 수정·삭제',
+                    subtitle: '작성·수정·삭제',
                     onTap: () => context.push('/profile/reviews'),
                   ),
                 ],

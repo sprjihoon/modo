@@ -23,6 +23,7 @@ export type NotificationType =
   | 'order_processing'
   | 'order_hold'
   | 'order_ready_to_ship'
+  | 'order_out_for_delivery'
   | 'order_delivered'
   | 'order_cancelled'
   | 'extra_charge_pending'
@@ -80,6 +81,7 @@ const NOTIFICATION_TO_ALIMTALK_TEMPLATE: Record<NotificationType, string | null>
   order_processing: ALIMTALK_TEMPLATES.ORDER_PROCESSING,
   order_hold: null, // 알림톡 없음
   order_ready_to_ship: ALIMTALK_TEMPLATES.ORDER_READY_TO_SHIP,
+  order_out_for_delivery: null,
   order_delivered: ALIMTALK_TEMPLATES.ORDER_DELIVERED,
   order_cancelled: ALIMTALK_TEMPLATES.ORDER_CANCELLED,
   extra_charge_pending: ALIMTALK_TEMPLATES.EXTRA_CHARGE_REQUEST,
@@ -100,6 +102,7 @@ export function orderStatusToNotificationType(status: string): NotificationType 
     PROCESSING: 'order_processing',
     HOLD: 'order_hold',
     READY_TO_SHIP: 'order_ready_to_ship',
+    OUT_FOR_DELIVERY: 'order_out_for_delivery',
     DELIVERED: 'order_delivered',
     CANCELLED: 'order_cancelled',
   };

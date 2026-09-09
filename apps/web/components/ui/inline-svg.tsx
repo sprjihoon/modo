@@ -58,6 +58,9 @@ function toIconSrc(iconName: string): string | null {
 
 export function preloadAllSvgs() {
   if (preloaded) return;
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return;
+  }
   preloaded = true;
 
   const supabase = createClient();

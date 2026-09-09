@@ -201,7 +201,7 @@ export function ProfilePageClient() {
         <MenuItem
           icon={<Star className="w-5 h-5" />}
           title="내 리뷰"
-          subtitle="작성한 리뷰 수정·삭제"
+          subtitle="작성·수정·삭제"
           href="/profile/reviews"
         />
       </MenuSection>

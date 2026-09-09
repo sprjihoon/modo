@@ -130,6 +130,33 @@ class ReviewListResult {
   final List<String> categories;
 }
 
+class PendingReviewOrder {
+  const PendingReviewOrder({
+    required this.id,
+    required this.itemName,
+  });
+
+  final String id;
+  final String itemName;
+
+  factory PendingReviewOrder.fromJson(Map<String, dynamic> json) {
+    return PendingReviewOrder(
+      id: json['id'] as String,
+      itemName: json['item_name'] as String? ?? '수선',
+    );
+  }
+}
+
+class MyReviewsPageData {
+  const MyReviewsPageData({
+    required this.reviews,
+    this.pendingOrders = const [],
+  });
+
+  final List<MyReview> reviews;
+  final List<PendingReviewOrder> pendingOrders;
+}
+
 class OrderReviewInfo {
   const OrderReviewInfo({
     required this.canWrite,
@@ -153,4 +180,48 @@ String formatReviewDate(DateTime date) {
 
 String formatPoints(int points) {
   return '${points.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}P';
+}
+
+const kReviewInviteDismissKey = 'review_invite_dismissed';
+
+bool shouldAutoShowReviewInvite({
+  required bool dismissed,
+  String? pendingOrderId,
+}) {
+  return !dismissed && pendingOrderId != null && pendingOrderId.isNotEmpty;
+}
+
+enum MyReviewsViewKind { loading, error, empty, list }
+
+MyReviewsViewKind resolveMyReviewsViewKind({
+  bool loading = false,
+  String? error,
+  List<MyReview> reviews = const [],
+  List<PendingReviewOrder> pendingOrders = const [],
+}) {
+  if (loading) return MyReviewsViewKind.loading;
+  if (error != null && error.isNotEmpty) return MyReviewsViewKind.error;
+  if (reviews.isEmpty && pendingOrders.isEmpty) return MyReviewsViewKind.empty;
+  return MyReviewsViewKind.list;
+}
+
+MyReviewsPageData applyWriteSuccess(MyReviewsPageData current, MyReview written) {
+  return MyReviewsPageData(
+    reviews: [written, ...current.reviews.where((r) => r.id != written.id)],
+    pendingOrders: current.pendingOrders.where((o) => o.id != written.orderId).toList(),
+  );
+}
+
+MyReviewsPageData applyDeleteSuccess(
+  MyReviewsPageData current,
+  MyReview deleted, {
+  String itemName = '수선',
+}) {
+  final reviews = current.reviews.where((r) => r.id != deleted.id).toList();
+  final pending = [
+    if (!current.pendingOrders.any((o) => o.id == deleted.orderId))
+      PendingReviewOrder(id: deleted.orderId, itemName: itemName),
+    ...current.pendingOrders,
+  ];
+  return MyReviewsPageData(reviews: reviews, pendingOrders: pending);
 }

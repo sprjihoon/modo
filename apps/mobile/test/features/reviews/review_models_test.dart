@@ -90,6 +90,94 @@ void main() {
       expect(formatPoints(1500), '1,500P');
     });
   });
+
+  group('PendingReviewOrder.fromJson', () {
+    test('작성 가능한 주문과 기본 이름을 파싱한다', () {
+      expect(
+        PendingReviewOrder.fromJson({'id': 'o9', 'item_name': '바지 · 기장수선'}).itemName,
+        '바지 · 기장수선',
+      );
+      expect(
+        PendingReviewOrder.fromJson({'id': 'o10'}).itemName,
+        '수선',
+      );
+    });
+  });
+
+  group('마이페이지 내 리뷰', () {
+    final written = MyReview.fromJson({
+      ..._baseMine,
+      'id': 'r1',
+      'order_id': 'o1',
+      'content': '기장이 딱 맞게 줄여졌어요.',
+      'points_awarded': 200,
+    });
+    final pending = const PendingReviewOrder(id: 'o2', itemName: '셔츠 · 소매기장');
+
+    test('빈 화면·작성·수정 상태를 구분한다', () {
+      expect(resolveMyReviewsViewKind(loading: true), MyReviewsViewKind.loading);
+      expect(resolveMyReviewsViewKind(error: '서버 오류'), MyReviewsViewKind.error);
+      expect(resolveMyReviewsViewKind(), MyReviewsViewKind.empty);
+      expect(
+        resolveMyReviewsViewKind(pendingOrders: [pending]),
+        MyReviewsViewKind.list,
+      );
+      expect(
+        resolveMyReviewsViewKind(reviews: [written]),
+        MyReviewsViewKind.list,
+      );
+    });
+
+    test('작성하면 작성 목록에서 빠지고 내 리뷰에 생긴다', () {
+      final after = applyWriteSuccess(
+        MyReviewsPageData(
+          reviews: const [],
+          pendingOrders: [
+            PendingReviewOrder(id: 'o1', itemName: '바지 · 기장수선'),
+            pending,
+          ],
+        ),
+        written,
+      );
+      expect(after.reviews.single.id, 'r1');
+      expect(after.pendingOrders.map((o) => o.id), ['o2']);
+    });
+
+    test('삭제하면 다시 작성할 수 있다', () {
+      final after = applyDeleteSuccess(
+        MyReviewsPageData(reviews: [written], pendingOrders: [pending]),
+        written,
+        itemName: '바지 · 기장수선',
+      );
+      expect(after.reviews, isEmpty);
+      expect(after.pendingOrders.map((o) => o.id), ['o1', 'o2']);
+      expect(
+        resolveMyReviewsViewKind(reviews: after.reviews, pendingOrders: after.pendingOrders),
+        MyReviewsViewKind.list,
+      );
+    });
+  });
+
+  group('shouldAutoShowReviewInvite', () {
+    test('한 번 닫으면 다시 열지 않는다', () {
+      expect(
+        shouldAutoShowReviewInvite(dismissed: false, pendingOrderId: 'o1'),
+        isTrue,
+      );
+      expect(
+        shouldAutoShowReviewInvite(dismissed: true, pendingOrderId: 'o1'),
+        isFalse,
+      );
+      expect(
+        shouldAutoShowReviewInvite(dismissed: false, pendingOrderId: null),
+        isFalse,
+      );
+      expect(
+        shouldAutoShowReviewInvite(dismissed: false, pendingOrderId: ''),
+        isFalse,
+      );
+    });
+  });
 }
 
 const _baseMine = {

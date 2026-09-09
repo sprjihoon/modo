@@ -19,6 +19,7 @@ import '../../../orders/presentation/widgets/order_limit_dialog.dart';
 import '../../../app_update/app_update_dialog.dart';
 import '../../../notifications/presentation/widgets/notification_permission_prompt.dart';
 import '../../../reviews/presentation/widgets/home_reviews_preview.dart';
+import '../../../reviews/presentation/widgets/review_invite_dialog.dart';
 
 /// 배너 인덱스 관리를 위한 ValueNotifier
 final bannerIndexProvider =
@@ -77,6 +78,8 @@ class _HomePageState extends ConsumerState<HomePage>
       await LaunchAnnouncementPopup.maybeShow(context);
       if (!mounted) return;
       if (ref.read(isLoggedInProvider)) {
+        await ReviewInviteDialog.maybeShow(context);
+        if (!mounted) return;
         await NotificationPermissionPrompt.maybeShow(context);
       }
     });

@@ -58,6 +58,7 @@ type CreateStaffData = {
 };
 
 type UpdateStaffData = {
+  email: string;
   name: string;
   phone: string;
   role: StaffRole;
@@ -650,6 +651,7 @@ function EditStaffDialog({
   allowedRoles: StaffRole[];
 }) {
   const [formData, setFormData] = useState<UpdateStaffData>({
+    email: staff.email,
     name: staff.name,
     phone: staff.phone,
     role: staff.role,
@@ -660,8 +662,8 @@ function EditStaffDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.phone) {
-      alert("이름과 전화번호를 입력해주세요.");
+    if (!formData.email || !formData.name || !formData.phone) {
+      alert("이메일, 이름, 전화번호를 입력해주세요.");
       return;
     }
 
@@ -707,9 +709,15 @@ function EditStaffDialog({
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>이메일 (ID)</Label>
-              <Input value={staff.email} disabled className="bg-gray-100 dark:bg-gray-800" />
-              <p className="text-xs text-muted-foreground">이메일은 변경할 수 없습니다.</p>
+              <Label htmlFor="edit-email">이메일 (로그인 ID) *</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="staff@example.com"
+                required
+              />
             </div>
 
             <div className="space-y-2">

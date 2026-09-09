@@ -78,7 +78,7 @@ export async function PUT(
     const resolvedParams = await Promise.resolve(params);
     const { id } = resolvedParams;
     const body = await request.json();
-    const { name, phone, role, password } = body;
+    const { name, phone, role, password, email } = body;
 
     // 입력 검증
     if (!name || !phone || !role) {
@@ -116,29 +116,43 @@ export async function PUT(
       );
     }
 
-    // 전화번호가 변경된 경우 중복 체크
-    if (phone !== existingStaff.phone) {
-      const { data: phoneCheck } = await supabaseAdmin
-        .from("staff")
-        .select("id")
-        .eq("phone", phone)
-        .neq("id", id)
-        .maybeSingle();
-
-      if (phoneCheck) {
-        return NextResponse.json(
-          { success: false, error: "이미 사용 중인 전화번호입니다." },
-          { status: 400 }
-        );
-      }
-    }
+    const newEmail = email?.trim() || existingStaff.email;
 
     console.log("📝 직원 정보 수정 시작:", existingStaff.email);
 
-    // 2. staff 테이블 업데이트
+    // 2. Auth 계정 업데이트 (이메일·비밀번호 변경)
+    if (existingStaff.auth_id) {
+      const authUpdates: Record<string, any> = {};
+
+      if (newEmail !== existingStaff.email) {
+        authUpdates.email = newEmail;
+      }
+      if (password && password.length >= 6) {
+        authUpdates.password = password;
+      }
+
+      if (Object.keys(authUpdates).length > 0) {
+        const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+          existingStaff.auth_id,
+          authUpdates
+        );
+        if (authUpdateError) {
+          console.error("❌ Auth 계정 업데이트 실패:", authUpdateError);
+          return NextResponse.json(
+            { success: false, error: authUpdateError.message },
+            { status: 500 }
+          );
+        }
+        if (authUpdates.email) console.log("✅ Auth 이메일 변경 완료:", newEmail);
+        if (authUpdates.password) console.log("✅ 비밀번호 변경 완료");
+      }
+    }
+
+    // 3. staff 테이블 업데이트
     const { data: updatedStaff, error: updateError } = await supabaseAdmin
       .from("staff")
       .update({
+        email: newEmail,
         name,
         phone,
         role,
@@ -156,28 +170,15 @@ export async function PUT(
       );
     }
 
+    // 4. users 테이블 동기화
     if (existingStaff.auth_id) {
       const { error: usersSyncError } = await supabaseAdmin
         .from("users")
-        .update({ name, phone, role })
+        .update({ email: newEmail, name, phone, role })
         .eq("auth_id", existingStaff.auth_id);
 
       if (usersSyncError) {
-        console.error("⚠️ users.role 동기화 실패:", usersSyncError);
-      }
-    }
-
-    // 3. 비밀번호 변경 요청이 있는 경우
-    if (password && password.length >= 6 && existingStaff.auth_id) {
-      const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(
-        existingStaff.auth_id,
-        { password }
-      );
-
-      if (passwordError) {
-        console.error("⚠️ 비밀번호 변경 실패:", passwordError);
-      } else {
-        console.log("✅ 비밀번호 변경 완료");
+        console.error("⚠️ users 테이블 동기화 실패:", usersSyncError);
       }
     }
 

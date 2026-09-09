@@ -15,10 +15,14 @@ class ReviewWritePage extends StatefulWidget {
     super.key,
     this.orderId,
     this.reviewId,
+    this.embedded = false,
+    this.onClose,
   });
 
   final String? orderId;
   final String? reviewId;
+  final bool embedded;
+  final VoidCallback? onClose;
 
   @override
   State<ReviewWritePage> createState() => _ReviewWritePageState();
@@ -201,13 +205,24 @@ class _ReviewWritePageState extends State<ReviewWritePage> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _loading
+        ? const SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator(color: kReviewBrand)),
+          )
+        : _buildBody();
+
+    if (widget.embedded) {
+      return body;
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: ModoAppBar(title: Text(_isEdit ? '리뷰 수정' : '리뷰 작성')),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: kReviewBrand))
           : SingleChildScrollView(
-              child: _buildBody(),
+              child: body,
             ),
     );
   }
@@ -260,7 +275,7 @@ class _ReviewWritePageState extends State<ReviewWritePage> {
             ),
             const SizedBox(height: 16),
             ReviewCard(review: shown, showStatus: true),
-            if (_existing != null && _done == null) ...[
+            if (_existing != null && _done == null && !widget.embedded) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -279,7 +294,13 @@ class _ReviewWritePageState extends State<ReviewWritePage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => context.go(_isEdit ? '/profile/reviews' : '/reviews'),
+                onPressed: () {
+                  if (widget.onClose != null) {
+                    widget.onClose!();
+                    return;
+                  }
+                  context.go(_isEdit ? '/profile/reviews' : '/reviews');
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kReviewBrand,
                   foregroundColor: Colors.white,
@@ -287,7 +308,10 @@ class _ReviewWritePageState extends State<ReviewWritePage> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                child: Text(_isEdit ? '내 리뷰로' : '전체 리뷰 보기', style: const TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(
+                  widget.embedded ? '확인' : (_isEdit ? '내 리뷰로' : '전체 리뷰 보기'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
@@ -313,30 +337,40 @@ class _ReviewWritePageState extends State<ReviewWritePage> {
 
     return Column(
       children: [
-        Container(
-          width: double.infinity,
-          color: const Color(0xFFF4FBF8),
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-          child: Column(
-            children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: const BoxDecoration(
-                  color: Color(0x2600C896),
-                  shape: BoxShape.circle,
+        if (widget.embedded)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+            child: Text(
+              _itemName,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+            ),
+          )
+        else
+          Container(
+            width: double.infinity,
+            color: const Color(0xFFF4FBF8),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+            child: Column(
+              children: [
+                Container(
+                  width: 96,
+                  height: 96,
+                  decoration: const BoxDecoration(
+                    color: Color(0x2600C896),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.content_cut, size: 40, color: kReviewBrand),
                 ),
-                child: const Icon(Icons.content_cut, size: 40, color: kReviewBrand),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _itemName,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Text(
+                  _itemName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                ),
+              ],
+            ),
           ),
-        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
           child: Column(

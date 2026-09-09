@@ -3,26 +3,42 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { MyReview } from "@/lib/reviews";
+import type { PendingReviewOrder } from "@/lib/pending-reviews";
+import {
+  editReviewHref,
+  mineErrorMessage,
+  resolveMyReviewsView,
+  reviewOrderHref,
+  writeReviewHref,
+} from "@/lib/my-reviews-flow";
 import { ReviewCard } from "./ReviewCard";
 
 export function MyReviewsClient() {
   const [reviews, setReviews] = useState<MyReview[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<PendingReviewOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/reviews/mine")
+  function load() {
+    return fetch("/api/reviews/mine")
       .then((res) => res.json())
       .then((json) => {
         if (json.error) {
-          setError(json.error === "Unauthorized" ? "로그인 후 내 리뷰를 볼 수 있습니다." : json.error);
+          setError(mineErrorMessage(json.error) ?? json.error);
+          setReviews([]);
+          setPendingOrders([]);
           return;
         }
+        setError(null);
         setReviews(json.reviews ?? []);
+        setPendingOrders(json.pendingOrders ?? []);
       })
-      .catch(() => setError("리뷰를 불러오지 못했습니다."))
-      .finally(() => setLoading(false));
+      .catch(() => setError("리뷰를 불러오지 못했습니다."));
+  }
+
+  useEffect(() => {
+    load().finally(() => setLoading(false));
   }, []);
 
   async function handleDelete(review: MyReview) {
@@ -32,7 +48,7 @@ export function MyReviewsClient() {
       const res = await fetch(`/api/reviews/${review.id}`, { method: "DELETE" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "삭제에 실패했습니다.");
-      setReviews((prev) => prev.filter((item) => item.id !== review.id));
+      await load();
     } catch (e) {
       alert(e instanceof Error ? e.message : "삭제에 실패했습니다.");
     } finally {
@@ -40,7 +56,9 @@ export function MyReviewsClient() {
     }
   }
 
-  if (loading) {
+  const view = resolveMyReviewsView({ loading, error, reviews, pendingOrders });
+
+  if (view.kind === "loading") {
     return (
       <div className="px-4 mt-4 space-y-3">
         {Array.from({ length: 3 }).map((_, i) => (
@@ -50,20 +68,15 @@ export function MyReviewsClient() {
     );
   }
 
-  if (error) {
+  if (view.kind === "error") {
     return (
       <div className="px-5 py-16 text-center">
-        <p className="text-sm text-gray-500">{error}</p>
-        {error.includes("로그인") && (
-          <Link href="/login?redirectTo=/profile/reviews" className="inline-block mt-4 text-sm font-semibold text-[#00C896]">
-            로그인
-          </Link>
-        )}
+        <p className="text-sm text-gray-500">{view.message}</p>
       </div>
     );
   }
 
-  if (reviews.length === 0) {
+  if (view.kind === "empty") {
     return (
       <div className="px-5 py-16 text-center">
         <p className="text-sm text-gray-500">아직 작성한 리뷰가 없습니다.</p>
@@ -76,36 +89,63 @@ export function MyReviewsClient() {
   }
 
   return (
-    <div className="px-4 mt-4 pb-10 space-y-3">
-      <p className="text-xs text-gray-400 px-1">
-        홈 노출이나 전체 공개 여부와 상관없이, 작성한 리뷰는 여기서 항상 볼 수 있습니다.
-      </p>
-      {reviews.map((review) => (
-        <div key={review.id} className="space-y-2">
-          <ReviewCard review={review} showStatus />
-          <div className="flex items-center justify-between px-1">
-            <Link href={`/orders/${review.order_id}`} className="text-xs text-gray-400">
-              주문 상세 보기
-            </Link>
-            <div className="flex items-center gap-3">
+    <div className="px-4 mt-4 pb-10 space-y-6">
+      {view.pendingOrders.length > 0 && (
+        <section className="space-y-3">
+          <p className="text-xs text-gray-400 px-1">작성할 리뷰</p>
+          {view.pendingOrders.map((order) => (
+            <div
+              key={order.id}
+              className="flex items-center justify-between gap-3 p-4 bg-white border border-gray-100 rounded-2xl"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-900 truncate">{order.item_name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">배송 완료 · 리뷰 작성 시 포인트 지급</p>
+              </div>
               <Link
-                href={`/profile/reviews/${review.id}/edit`}
-                className="text-xs font-semibold text-[#00C896]"
+                href={writeReviewHref(order.id)}
+                className="shrink-0 px-3.5 py-2 rounded-xl bg-[#00C896] text-white text-xs font-bold"
               >
-                수정
+                작성하기
               </Link>
-              <button
-                type="button"
-                disabled={busyId === review.id}
-                onClick={() => handleDelete(review)}
-                className="text-xs font-semibold text-red-500 disabled:opacity-50"
-              >
-                {busyId === review.id ? "삭제 중..." : "삭제"}
-              </button>
             </div>
-          </div>
-        </div>
-      ))}
+          ))}
+        </section>
+      )}
+
+      {view.reviews.length > 0 && (
+        <section className="space-y-3">
+          <p className="text-xs text-gray-400 px-1">
+            홈 노출이나 전체 공개 여부와 상관없이, 작성한 리뷰는 여기서 항상 볼 수 있습니다.
+          </p>
+          {view.reviews.map((item) => (
+            <div key={item.id} className="space-y-2">
+              <ReviewCard review={item} showStatus />
+              <div className="flex items-center justify-between px-1">
+                <Link href={reviewOrderHref(item.order_id)} className="text-xs text-gray-400">
+                  주문 상세 보기
+                </Link>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href={editReviewHref(item.id)}
+                    className="text-xs font-semibold text-[#00C896]"
+                  >
+                    수정
+                  </Link>
+                  <button
+                    type="button"
+                    disabled={busyId === item.id}
+                    onClick={() => handleDelete(item)}
+                    className="text-xs font-semibold text-red-500 disabled:opacity-50"
+                  >
+                    {busyId === item.id ? "삭제 중..." : "삭제"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

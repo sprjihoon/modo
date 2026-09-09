@@ -11,6 +11,7 @@ import { OrderStartDialog } from "./OrderStartDialog";
 import { LaunchAnnouncementPopup } from "./LaunchAnnouncementPopup";
 import { AppDownloadLinks } from "./AppDownloadLinks";
 import { HomeReviewsPreview } from "@/components/reviews/HomeReviewsPreview";
+import { ReviewInvitePopup } from "@/components/reviews/ReviewInvitePopup";
 
 interface UserProfile {
   name?: string;
@@ -247,6 +248,7 @@ export function HomePageClient() {
 
       {/* 정식 오픈 안내 팝업 */}
       <LaunchAnnouncementPopup />
+      <ReviewInvitePopup />
     </>
   );
 }

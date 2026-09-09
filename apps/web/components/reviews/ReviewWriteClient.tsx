@@ -7,6 +7,7 @@ import { Plus, Scissors, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Analytics } from "@/lib/analytics";
 import { removeReviewImages, REVIEW_PHOTO_MAX, type MyReview, type ReviewSettings } from "@/lib/reviews";
+import { validateReviewDraft } from "@/lib/my-reviews-flow";
 import { StarRating } from "./StarRating";
 import { ReviewCard } from "./ReviewCard";
 
@@ -14,10 +15,16 @@ export function ReviewWriteClient({
   orderId,
   reviewId,
   preview = false,
+  compact = false,
+  onSubmitted,
+  onClose,
 }: {
   orderId?: string;
   reviewId?: string;
   preview?: boolean;
+  compact?: boolean;
+  onSubmitted?: () => void;
+  onClose?: () => void;
 }) {
   const router = useRouter();
   const isEdit = Boolean(reviewId);
@@ -133,13 +140,14 @@ export function ReviewWriteClient({
       setError("디자인 미리보기에서는 등록되지 않습니다.");
       return;
     }
-    if (rating < 1) {
-      setError("별점을 선택해 주세요.");
-      return;
-    }
-    const minLen = settings?.min_content_length ?? 10;
-    if (content.trim().length < minLen) {
-      setError(`리뷰는 ${minLen}자 이상 작성해 주세요.`);
+    const draft = validateReviewDraft({
+      rating,
+      content,
+      photoCount: photos.length,
+      minLength: settings?.min_content_length ?? 10,
+    });
+    if (!draft.ok) {
+      setError(draft.error);
       return;
     }
 
@@ -163,6 +171,7 @@ export function ReviewWriteClient({
       }
       setDone(json.review);
       setCanWrite(false);
+      onSubmitted?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : isEdit ? "리뷰 수정에 실패했습니다." : "리뷰 등록에 실패했습니다.");
     } finally {
@@ -171,15 +180,15 @@ export function ReviewWriteClient({
   }
 
   if (loading) {
-    return <div className="h-72 bg-gray-50 animate-pulse" />;
+    return <div className={`${compact ? "h-40 mx-5" : "h-72"} bg-gray-50 animate-pulse rounded-2xl`} />;
   }
 
   const shown = done ?? (isEdit ? null : existing);
   if (shown) {
     const points = shown.points_awarded ?? 0;
     return (
-      <div className="px-5 pb-10">
-        <div className="mt-5 p-5 bg-[#00C896]/5 rounded-2xl">
+      <div className={compact ? "px-5 pb-5" : "px-5 pb-10"}>
+        <div className={`${compact ? "mt-2" : "mt-5"} p-5 bg-[#00C896]/5 rounded-2xl`}>
           <p className="text-base font-bold text-gray-900">
             {done
               ? isEdit
@@ -202,10 +211,12 @@ export function ReviewWriteClient({
             </p>
           )}
         </div>
-        <div className="mt-4">
-          <ReviewCard review={shown} showStatus />
-        </div>
-        {existing && !done && (
+        {!compact && (
+          <div className="mt-4">
+            <ReviewCard review={shown} showStatus />
+          </div>
+        )}
+        {existing && !done && !compact && (
           <Link
             href="/profile/reviews"
             className="mt-3 block w-full py-3.5 rounded-2xl border border-gray-200 text-center text-sm font-bold text-gray-700"
@@ -215,10 +226,16 @@ export function ReviewWriteClient({
         )}
         <button
           type="button"
-          onClick={() => router.push(isEdit ? "/profile/reviews" : "/reviews")}
+          onClick={() => {
+            if (onClose) {
+              onClose();
+              return;
+            }
+            router.push(isEdit ? "/profile/reviews" : "/reviews");
+          }}
           className="mt-5 w-full py-3.5 rounded-2xl bg-[#00C896] text-white font-bold text-sm"
         >
-          {isEdit ? "내 리뷰로" : "전체 리뷰 보기"}
+          {compact ? "확인" : isEdit ? "내 리뷰로" : "전체 리뷰 보기"}
         </button>
       </div>
     );
@@ -240,19 +257,24 @@ export function ReviewWriteClient({
     : "수선 결과를 알려 주세요.";
 
   return (
-    <div className="pb-8">
-      <section className="bg-[#F4FBF8] px-5 pt-6 pb-7 text-center">
-        <div className="mx-auto w-24 h-24 rounded-full bg-[#00C896]/15 flex items-center justify-center">
-          <Scissors className="w-10 h-10 text-[#00C896]" strokeWidth={1.6} />
-        </div>
-        <p className="mt-4 text-[15px] font-bold text-gray-900 leading-snug">{itemName}</p>
-      </section>
+    <div className={compact ? "pb-4" : "pb-8"}>
+      {!compact && (
+        <section className="bg-[#F4FBF8] px-5 pt-6 pb-7 text-center">
+          <div className="mx-auto w-24 h-24 rounded-full bg-[#00C896]/15 flex items-center justify-center">
+            <Scissors className="w-10 h-10 text-[#00C896]" strokeWidth={1.6} />
+          </div>
+          <p className="mt-4 text-[15px] font-bold text-gray-900 leading-snug">{itemName}</p>
+        </section>
+      )}
+      {compact && (
+        <p className="px-5 pt-1 text-sm font-bold text-gray-900 text-center leading-snug">{itemName}</p>
+      )}
 
-      <div className="px-5 pt-7 space-y-7">
+      <div className={`px-5 ${compact ? "pt-4 space-y-5" : "pt-7 space-y-7"}`}>
         <section className="text-center">
           <p className="text-[15px] font-bold text-gray-800">수선을 평가해 주세요!</p>
           <div className="mt-4">
-            <StarRating value={rating} onChange={setRating} size="xl" color="brand" />
+            <StarRating value={rating} onChange={setRating} size={compact ? "lg" : "xl"} color="brand" />
           </div>
         </section>
 
@@ -307,10 +329,10 @@ export function ReviewWriteClient({
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            rows={6}
+            rows={compact ? 4 : 6}
             maxLength={1000}
             placeholder={placeholder}
-            className="mt-3 w-full min-h-[140px] p-4 border border-gray-200 rounded-2xl text-sm leading-relaxed resize-none placeholder:text-gray-400 focus:outline-none focus:border-[#00C896]"
+            className={`mt-3 w-full ${compact ? "min-h-[100px]" : "min-h-[140px]"} p-4 border border-gray-200 rounded-2xl text-sm leading-relaxed resize-none placeholder:text-gray-400 focus:outline-none focus:border-[#00C896]`}
           />
         </section>
 

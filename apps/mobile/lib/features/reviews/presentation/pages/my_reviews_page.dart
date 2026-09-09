@@ -16,6 +16,7 @@ class MyReviewsPage extends StatefulWidget {
 class _MyReviewsPageState extends State<MyReviewsPage> {
   final _service = ReviewService();
   List<MyReview> _reviews = const [];
+  List<PendingReviewOrder> _pendingOrders = const [];
   bool _loading = true;
   String? _error;
   String? _busyId;
@@ -32,19 +33,18 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
       _error = null;
     });
     try {
-      final reviews = await _service.fetchMine();
+      final data = await _service.fetchMine();
       if (!mounted) return;
       setState(() {
-        _reviews = reviews;
+        _reviews = data.reviews;
+        _pendingOrders = data.pendingOrders;
         _loading = false;
+        _busyId = null;
       });
     } catch (e) {
       if (!mounted) return;
-      final message = e.toString();
       setState(() {
-        _error = message.contains('Unauthorized') || message.contains('로그인')
-            ? '로그인 후 내 리뷰를 볼 수 있습니다.'
-            : '리뷰를 불러오지 못했습니다.';
+        _error = '리뷰를 불러오지 못했습니다.';
         _loading = false;
       });
     }
@@ -70,10 +70,7 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
     try {
       await _service.deleteReview(review.id);
       if (!mounted) return;
-      setState(() {
-        _reviews = _reviews.where((r) => r.id != review.id).toList();
-        _busyId = null;
-      });
+      await _load();
     } catch (e) {
       if (!mounted) return;
       setState(() => _busyId = null);
@@ -111,18 +108,11 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(_error!, style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
-                        if (_error!.contains('로그인')) ...[
-                          const SizedBox(height: 16),
-                          TextButton(
-                            onPressed: () => context.push('/login?from=${Uri.encodeComponent('/profile/reviews')}'),
-                            child: const Text('로그인', style: TextStyle(color: kReviewBrand, fontWeight: FontWeight.w600)),
-                          ),
-                        ],
                       ],
                     ),
                   ),
                 )
-              : _reviews.isEmpty
+              : _reviews.isEmpty && _pendingOrders.isEmpty
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
@@ -147,53 +137,117 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                       children: [
-                        const Text(
-                          '홈 노출이나 전체 공개 여부와 상관없이, 작성한 리뷰는 여기서 항상 볼 수 있습니다.',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
-                        ),
-                        const SizedBox(height: 12),
-                        ..._reviews.map((review) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Column(
-                              children: [
-                                ReviewCard(review: review, showStatus: true),
-                                const SizedBox(height: 8),
-                                Row(
+                        if (_pendingOrders.isNotEmpty) ...[
+                          const Text(
+                            '작성할 리뷰',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                          ),
+                          const SizedBox(height: 12),
+                          ..._pendingOrders.map((order) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: const Color(0xFFF3F4F6)),
+                                ),
+                                child: Row(
                                   children: [
-                                    GestureDetector(
-                                      onTap: () => context.push('/orders/${review.orderId}'),
-                                      child: const Text('주문 상세 보기', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
-                                    ),
-                                    const Spacer(),
-                                    GestureDetector(
-                                      onTap: () async {
-                                        await context.push('/profile/reviews/${review.id}/edit');
-                                        if (mounted) _load();
-                                      },
-                                      child: const Text(
-                                        '수정',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kReviewBrand),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            order.itemName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF111827),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          const Text(
+                                            '배송 완료 · 리뷰 작성 시 포인트 지급',
+                                            style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    GestureDetector(
-                                      onTap: _busyId == review.id ? null : () => _delete(review),
-                                      child: Text(
-                                        _busyId == review.id ? '삭제 중...' : '삭제',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.red.shade500,
-                                        ),
+                                    ElevatedButton(
+                                      onPressed: () async {
+                                        await context.push('/orders/${order.id}/review');
+                                        if (mounted) _load();
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: kReviewBrand,
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                       ),
+                                      child: const Text('작성하기', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
-                          );
-                        }),
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 8),
+                        ],
+                        if (_reviews.isNotEmpty) ...[
+                          const Text(
+                            '홈 노출이나 전체 공개 여부와 상관없이, 작성한 리뷰는 여기서 항상 볼 수 있습니다.',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                          ),
+                          const SizedBox(height: 12),
+                          ..._reviews.map((review) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Column(
+                                children: [
+                                  ReviewCard(review: review, showStatus: true),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () => context.push('/orders/${review.orderId}'),
+                                        child: const Text('주문 상세 보기', style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+                                      ),
+                                      const Spacer(),
+                                      GestureDetector(
+                                        onTap: () async {
+                                          await context.push('/profile/reviews/${review.id}/edit');
+                                          if (mounted) _load();
+                                        },
+                                        child: const Text(
+                                          '수정',
+                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kReviewBrand),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      GestureDetector(
+                                        onTap: _busyId == review.id ? null : () => _delete(review),
+                                        child: Text(
+                                          _busyId == review.id ? '삭제 중...' : '삭제',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.red.shade500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
                       ],
                     ),
     );

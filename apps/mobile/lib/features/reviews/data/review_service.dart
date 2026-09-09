@@ -74,14 +74,29 @@ class ReviewService {
     );
   }
 
-  Future<List<MyReview>> fetchMine() async {
+  Future<MyReviewsPageData> fetchMine() async {
     final uri = Uri.parse('$apiBase/api/reviews/mine');
     final res = await http.get(uri, headers: await _headers());
     final json = await _json(res);
-    return (json['reviews'] as List? ?? [])
-        .whereType<Map>()
-        .map((e) => MyReview.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
+    return MyReviewsPageData(
+      reviews: (json['reviews'] as List? ?? [])
+          .whereType<Map>()
+          .map((e) => MyReview.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      pendingOrders: (json['pendingOrders'] as List? ?? [])
+          .whereType<Map>()
+          .map((e) => PendingReviewOrder.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+    );
+  }
+
+  Future<PendingReviewOrder?> fetchPending() async {
+    final uri = Uri.parse('$apiBase/api/reviews/pending');
+    final res = await http.get(uri, headers: await _headers());
+    final json = await _json(res);
+    final order = json['order'];
+    if (order is! Map) return null;
+    return PendingReviewOrder.fromJson(Map<String, dynamic>.from(order));
   }
 
   Future<OrderReviewInfo> fetchOrderReview(String orderId) async {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getRequestAuthUser } from "@/lib/auth-user";
 import { toMyReview } from "@/lib/reviews";
+import { listPendingReviewOrders } from "@/lib/pending-reviews";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +36,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const pendingOrders = await listPendingReviewOrders(admin, userRow.id);
+
     return NextResponse.json({
       reviews: (data ?? []).map(toMyReview),
+      pendingOrders,
     });
   } catch (e) {
     console.error("[reviews/mine]", e);
