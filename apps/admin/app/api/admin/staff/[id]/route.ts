@@ -122,29 +122,51 @@ export async function PUT(
 
     // 2. Auth 계정 업데이트 (이메일·비밀번호 변경)
     if (existingStaff.auth_id) {
-      const authUpdates: Record<string, any> = {};
+      // Auth에 해당 유저가 실제 존재하는지 확인
+      const { data: authUser, error: authLookupError } = await supabaseAdmin.auth.admin.getUserById(
+        existingStaff.auth_id
+      );
 
-      if (newEmail !== existingStaff.email) {
-        authUpdates.email = newEmail;
-      }
-      if (password && password.length >= 6) {
-        authUpdates.password = password;
-      }
+      if (authLookupError || !authUser?.user) {
+        // Auth에 없는 계정 → Auth 업데이트 스킵, DB만 업데이트
+        console.warn("⚠️ Auth에 해당 유저 없음, DB만 업데이트:", existingStaff.auth_id);
+      } else {
+        const authUpdates: Record<string, any> = {};
 
-      if (Object.keys(authUpdates).length > 0) {
-        const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
-          existingStaff.auth_id,
-          authUpdates
-        );
-        if (authUpdateError) {
-          console.error("❌ Auth 계정 업데이트 실패:", authUpdateError);
-          return NextResponse.json(
-            { success: false, error: authUpdateError.message },
-            { status: 500 }
-          );
+        // Auth에서는 email을 소문자로 저장하므로 비교 시 소문자 정규화
+        const authEmail = authUser.user.email?.toLowerCase() ?? "";
+        if (newEmail.toLowerCase() !== authEmail) {
+          authUpdates.email = newEmail;
         }
-        if (authUpdates.email) console.log("✅ Auth 이메일 변경 완료:", newEmail);
-        if (authUpdates.password) console.log("✅ 비밀번호 변경 완료");
+        if (password && password.length >= 6) {
+          authUpdates.password = password;
+        }
+
+        if (Object.keys(authUpdates).length > 0) {
+          const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+            existingStaff.auth_id,
+            authUpdates
+          );
+          if (authUpdateError) {
+            console.error("❌ Auth 계정 업데이트 실패:", authUpdateError);
+
+            const msg = authUpdateError.message?.toLowerCase() ?? "";
+            const isEmailConflict =
+              msg.includes("already") || msg.includes("exists") || msg.includes("duplicate");
+
+            return NextResponse.json(
+              {
+                success: false,
+                error: isEmailConflict
+                  ? "이미 다른 계정에서 사용 중인 이메일입니다."
+                  : `Auth 계정 업데이트 실패: ${authUpdateError.message}`,
+              },
+              { status: 400 }
+            );
+          }
+          if (authUpdates.email) console.log("✅ Auth 이메일 변경 완료:", newEmail);
+          if (authUpdates.password) console.log("✅ 비밀번호 변경 완료");
+        }
       }
     }
 
