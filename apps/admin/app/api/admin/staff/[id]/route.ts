@@ -10,6 +10,41 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * users 레코드에서 직원 권한 제거
+ * - 주문이 없으면 users 레코드 삭제 (고객 목록에 나타나지 않음)
+ * - 주문이 있으면 CUSTOMER로 다운그레이드 (실제 고객이므로 유지)
+ */
+async function removeStaffFromUsers(usersId: string | null, authId: string | null) {
+  // users 레코드 조회
+  let query = supabaseAdmin.from("users").select("id, auth_id");
+  if (usersId) {
+    query = query.eq("id", usersId) as any;
+  } else if (authId) {
+    query = query.eq("auth_id", authId) as any;
+  } else {
+    return;
+  }
+  const { data: userRow } = await (query as any).maybeSingle();
+  if (!userRow) return;
+
+  // 주문 존재 여부 확인
+  const { count: orderCount } = await supabaseAdmin
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userRow.id);
+
+  if (orderCount && orderCount > 0) {
+    // 주문 있음 → 실제 고객이므로 CUSTOMER로 유지
+    await supabaseAdmin.from("users").update({ role: "CUSTOMER" }).eq("id", userRow.id);
+    console.log("⚠️ 주문 있는 고객 계정 → CUSTOMER 유지:", userRow.id);
+  } else {
+    // 주문 없음 → users 레코드 삭제 (고객 목록에 나타나지 않음)
+    await supabaseAdmin.from("users").delete().eq("id", userRow.id);
+    console.log("✅ 순수 직원 계정 → users 레코드 삭제:", userRow.id);
+  }
+}
+
 // Supabase Admin Client (Service Role Key 사용)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -290,7 +325,7 @@ export async function DELETE(
       .maybeSingle();
 
     if (staffError || !staff) {
-      // users 테이블 출처 항목일 수 있음 (id 또는 auth_id 기준으로 검색)
+      // users 테이블 출처 항목 (id 또는 auth_id 기준)
       const { data: userRecord } = await supabaseAdmin
         .from("users")
         .select("id, auth_id, role")
@@ -302,27 +337,7 @@ export async function DELETE(
         if (isStaffRole(targetRole) && !canDeleteStaff(auth.user.role, targetRole as any)) {
           return NextResponse.json({ success: false, error: "이 계정을 삭제할 권한이 없습니다." }, { status: 403 });
         }
-        // users.role을 CUSTOMER로 다운그레이드 (직원 목록에서 제거)
-        await supabaseAdmin
-          .from("users")
-          .update({ role: "CUSTOMER" })
-          .eq("id", userRecord.id);
-        console.log("✅ users 출처 직원 → CUSTOMER 처리:", userRecord.auth_id);
-        return NextResponse.json({ success: true, message: "직원 계정이 삭제되었습니다." });
-      }
-
-      // staff 테이블에서 email 기준으로도 시도 (비활성 포함)
-      const { data: inactiveStaff } = await supabaseAdmin
-        .from("staff")
-        .select("auth_id, email, role")
-        .eq("id", id)
-        .maybeSingle();
-
-      if (inactiveStaff) {
-        await supabaseAdmin.from("staff").update({ is_active: false }).eq("id", id);
-        if (inactiveStaff.auth_id) {
-          await supabaseAdmin.from("users").update({ role: "CUSTOMER" }).eq("auth_id", inactiveStaff.auth_id);
-        }
+        await removeStaffFromUsers(userRecord.id, userRecord.auth_id);
         return NextResponse.json({ success: true, message: "직원 계정이 삭제되었습니다." });
       }
 
@@ -341,7 +356,7 @@ export async function DELETE(
 
     console.log("🗑️ 직원 계정 삭제 시작:", staff.email);
 
-    // 2. staff 테이블에서 비활성화 (soft delete)
+    // 2. staff 테이블 비활성화 (soft delete)
     const { error: deactivateError } = await supabaseAdmin
       .from("staff")
       .update({ is_active: false })
@@ -355,19 +370,16 @@ export async function DELETE(
       );
     }
 
-    // 3. users 테이블 role도 CUSTOMER로 다운그레이드
+    // 3. users 레코드 정리 (주문 없으면 삭제, 있으면 CUSTOMER 유지)
     if (staff.auth_id) {
-      await supabaseAdmin
-        .from("users")
-        .update({ role: "CUSTOMER" })
-        .eq("auth_id", staff.auth_id);
+      await removeStaffFromUsers(null, staff.auth_id);
     }
 
-    // 4. Auth 계정도 삭제 (선택적)
+    // 4. Auth 계정 삭제 (users 레코드가 삭제된 경우만 - 주문 없는 순수 직원)
     if (staff.auth_id) {
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(staff.auth_id);
       if (deleteError) {
-        console.error("⚠️ Auth 계정 삭제 실패:", deleteError);
+        console.error("⚠️ Auth 계정 삭제 실패 (주문 있는 고객일 수 있음):", deleteError.message);
       }
     }
 
