@@ -168,19 +168,27 @@ export async function PUT(
               .maybeSingle();
 
             if (existingOwner?.auth_id && existingOwner.auth_id !== existingStaff.auth_id) {
+              // 새 Auth 계정에 직원 권한 부여
               await supabaseAdmin.auth.admin.updateUserById(existingOwner.auth_id, {
                 ...(password ? { password } : {}),
                 user_metadata: { name, phone, role, is_staff: true },
               });
+              // staff 레코드를 새 auth_id로 재연결
               await supabaseAdmin
                 .from("staff")
                 .update({ auth_id: existingOwner.auth_id, email: newEmail, name, phone, role, updated_at: new Date().toISOString() })
                 .eq("id", id);
+              // 새 auth_id의 users 레코드 동기화
               await supabaseAdmin
                 .from("users")
                 .update({ name, phone, role })
                 .eq("auth_id", existingOwner.auth_id);
-              console.log("✅ 기존 Auth 계정으로 이메일 변경 완료:", newEmail);
+              // 이전 auth_id의 users 레코드는 CUSTOMER로 다운그레이드 (목록 중복 방지)
+              await supabaseAdmin
+                .from("users")
+                .update({ role: "CUSTOMER" })
+                .eq("auth_id", existingStaff.auth_id);
+              console.log("✅ 기존 Auth 계정으로 이메일 변경 완료, 이전 계정 CUSTOMER 처리:", newEmail);
               return NextResponse.json({ success: true, message: "직원 정보가 수정되었습니다." });
             }
 
@@ -274,7 +282,7 @@ export async function DELETE(
     const resolvedParams = await Promise.resolve(params);
     const { id } = resolvedParams;
 
-    // 1. staff 테이블에서 auth_id 조회
+    // 1. staff 테이블에서 조회 (없으면 users 테이블에서 찾아 role 다운그레이드)
     const { data: staff, error: staffError } = await supabaseAdmin
       .from("staff")
       .select("auth_id, email, role")
@@ -282,6 +290,25 @@ export async function DELETE(
       .maybeSingle();
 
     if (staffError || !staff) {
+      // users 테이블 출처 항목일 수 있음 → auth_id로 users.role을 CUSTOMER로 변경
+      const { data: userRecord } = await supabaseAdmin
+        .from("users")
+        .select("auth_id, role")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (userRecord) {
+        if (!canDeleteStaff(auth.user.role, userRecord.role as any)) {
+          return NextResponse.json({ success: false, error: "이 계정을 삭제할 권한이 없습니다." }, { status: 403 });
+        }
+        await supabaseAdmin
+          .from("users")
+          .update({ role: "CUSTOMER" })
+          .eq("id", id);
+        console.log("✅ users 출처 직원 → CUSTOMER 처리:", id);
+        return NextResponse.json({ success: true, message: "직원 계정이 삭제되었습니다." });
+      }
+
       return NextResponse.json(
         { success: false, error: "직원을 찾을 수 없습니다." },
         { status: 404 }
@@ -311,12 +338,19 @@ export async function DELETE(
       );
     }
 
-    // 3. Auth 계정도 삭제 (선택적)
+    // 3. users 테이블 role도 CUSTOMER로 다운그레이드
+    if (staff.auth_id) {
+      await supabaseAdmin
+        .from("users")
+        .update({ role: "CUSTOMER" })
+        .eq("auth_id", staff.auth_id);
+    }
+
+    // 4. Auth 계정도 삭제 (선택적)
     if (staff.auth_id) {
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(staff.auth_id);
       if (deleteError) {
         console.error("⚠️ Auth 계정 삭제 실패:", deleteError);
-        // Auth 삭제 실패해도 계속 진행
       }
     }
 
