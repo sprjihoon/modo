@@ -138,100 +138,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 이메일 중복 체크: 고객 계정 (users 테이블)
+    const { data: customerWithEmail } = await supabaseAdmin
+      .from("users")
+      .select("auth_id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (customerWithEmail) {
+      return NextResponse.json(
+        { success: false, error: "이미 고객으로 등록된 이메일입니다. 직원 전용 이메일을 사용하세요." },
+        { status: 400 }
+      );
+    }
+
+    // 이메일 중복 체크: 직원 계정 (staff 테이블)
+    const { data: staffWithEmail } = await supabaseAdmin
+      .from("staff")
+      .select("id")
+      .eq("email", email)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (staffWithEmail) {
+      return NextResponse.json(
+        { success: false, error: "이미 등록된 직원 이메일입니다." },
+        { status: 400 }
+      );
+    }
+
     console.log("📝 직원 계정 생성 시작:", { email, name, role });
 
-    // 1. Supabase Auth에 사용자 생성 (이미 존재하면 기존 계정 재사용)
-    let authUserId: string;
-
+    // 1. Supabase Auth에 사용자 생성
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: {
+      user_metadata: { name, phone, role, is_staff: true },
+    });
+
+    if (authError || !authData.user) {
+      console.error("❌ Auth 계정 생성 실패:", authError);
+      return NextResponse.json(
+        { success: false, error: authError?.message || "Auth 계정 생성 실패" },
+        { status: 500 }
+      );
+    }
+
+    const authUserId = authData.user.id;
+    console.log("✅ Auth 계정 생성 완료:", authUserId);
+
+    // 2. staff 테이블에 프로필 생성
+    const { data: staffData, error: staffError } = await supabaseAdmin
+      .from("staff")
+      .insert({
+        auth_id: authUserId,
+        email,
         name,
         phone,
         role,
-        is_staff: true,
-      },
-    });
-
-    if (authError) {
-      // 이메일이 이미 존재하는 경우 → 기존 Auth 계정 재사용
-      const isAlreadyExists =
-        authError.message?.toLowerCase().includes("already") ||
-        authError.message?.toLowerCase().includes("exists") ||
-        (authError as any).status === 422;
-
-      if (!isAlreadyExists) {
-        console.error("❌ Auth 계정 생성 실패:", authError);
-        return NextResponse.json(
-          { success: false, error: authError.message || "Auth 계정 생성 실패" },
-          { status: 500 }
-        );
-      }
-
-      // 기존 사용자 auth_id 조회 (users 테이블 → staff 테이블 순으로 확인)
-      const { data: existingUser } = await supabaseAdmin
-        .from("users")
-        .select("auth_id")
-        .eq("email", email)
-        .maybeSingle();
-
-      let resolvedAuthId = existingUser?.auth_id;
-
-      if (!resolvedAuthId) {
-        const { data: existingStaff } = await supabaseAdmin
-          .from("staff")
-          .select("auth_id")
-          .eq("email", email)
-          .maybeSingle();
-        resolvedAuthId = existingStaff?.auth_id;
-      }
-
-      if (!resolvedAuthId) {
-        console.error("❌ 기존 사용자 auth_id 조회 실패 (email:", email, ")");
-        return NextResponse.json(
-          { success: false, error: "기존 사용자 정보를 찾을 수 없습니다." },
-          { status: 500 }
-        );
-      }
-
-      // 비밀번호 및 메타데이터 업데이트
-      await supabaseAdmin.auth.admin.updateUserById(resolvedAuthId, {
-        password,
-        user_metadata: { name, phone, role, is_staff: true },
-      });
-
-      authUserId = resolvedAuthId;
-      console.log("✅ 기존 Auth 계정 재사용 (직원 등록):", authUserId);
-    } else {
-      authUserId = authData.user.id;
-      console.log("✅ 새 Auth 계정 생성 완료:", authUserId);
-    }
-
-    // 2. staff 테이블에 프로필 생성 (이미 있으면 업데이트)
-    const { data: staffData, error: staffError } = await supabaseAdmin
-      .from("staff")
-      .upsert(
-        {
-          auth_id: authUserId,
-          email,
-          name,
-          phone,
-          role,
-          is_active: true,
-        },
-        { onConflict: "email" }
-      )
+        is_active: true,
+      })
       .select()
       .single();
 
     if (staffError) {
       console.error("❌ 직원 프로필 생성 실패:", staffError);
-      // Auth 계정을 새로 만든 경우에만 롤백
-      if (!authError) {
-        await supabaseAdmin.auth.admin.deleteUser(authUserId);
-      }
+      await supabaseAdmin.auth.admin.deleteUser(authUserId);
       return NextResponse.json(
         { success: false, error: staffError.message },
         { status: 500 }

@@ -143,56 +143,36 @@ export async function PUT(
         }
 
         if (Object.keys(authUpdates).length > 0) {
-          // 이메일 변경 시: 이미 존재하는 계정이면 해당 auth_id로 staff를 재연결
+          // 이메일 변경 시: 고객·직원 분리 원칙에 따라 중복 차단
           if (authUpdates.email) {
-            const { data: existingAuthOwner } = await supabaseAdmin
+            // 고객 계정과 중복 체크
+            const { data: customerDup } = await supabaseAdmin
               .from("users")
               .select("auth_id")
               .eq("email", newEmail)
-              .neq("auth_id", existingStaff.auth_id)
               .maybeSingle();
 
-            if (existingAuthOwner?.auth_id) {
-              // 다른 직원이 이미 이 이메일 사용 중이면 차단
-              const { data: alreadyStaff } = await supabaseAdmin
-                .from("staff")
-                .select("id")
-                .eq("auth_id", existingAuthOwner.auth_id)
-                .eq("is_active", true)
-                .maybeSingle();
+            if (customerDup) {
+              return NextResponse.json(
+                { success: false, error: "이미 고객으로 등록된 이메일입니다. 직원 전용 이메일을 사용하세요." },
+                { status: 400 }
+              );
+            }
 
-              if (alreadyStaff) {
-                return NextResponse.json(
-                  { success: false, error: "해당 이메일은 이미 다른 직원으로 등록되어 있습니다." },
-                  { status: 400 }
-                );
-              }
+            // 다른 직원과 중복 체크
+            const { data: staffDup } = await supabaseAdmin
+              .from("staff")
+              .select("id")
+              .eq("email", newEmail)
+              .eq("is_active", true)
+              .neq("id", id)
+              .maybeSingle();
 
-              // 고객 계정 재사용: 기존 Auth 계정에 직원 메타데이터 부여 후 staff 재연결
-              console.log("🔄 기존 Auth 계정 재사용으로 이메일 변경:", newEmail);
-              await supabaseAdmin.auth.admin.updateUserById(existingAuthOwner.auth_id, {
-                password,
-                user_metadata: { name, phone, role, is_staff: true },
-              });
-
-              // staff 레코드의 auth_id를 새 계정으로 교체
-              await supabaseAdmin
-                .from("staff")
-                .update({ auth_id: existingAuthOwner.auth_id, email: newEmail, name, phone, role, updated_at: new Date().toISOString() })
-                .eq("id", id);
-
-              // users 테이블 동기화
-              await supabaseAdmin
-                .from("users")
-                .update({ name, phone, role })
-                .eq("auth_id", existingAuthOwner.auth_id);
-
-              console.log("✅ 기존 Auth 계정으로 이메일 변경 완료:", newEmail);
-
-              return NextResponse.json({
-                success: true,
-                message: "직원 정보가 수정되었습니다.",
-              });
+            if (staffDup) {
+              return NextResponse.json(
+                { success: false, error: "이미 다른 직원이 사용 중인 이메일입니다." },
+                { status: 400 }
+              );
             }
 
             authUpdates.email_confirm = true;
