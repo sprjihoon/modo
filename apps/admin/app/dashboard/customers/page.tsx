@@ -14,8 +14,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Mail, Phone, Calendar, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Mail, Phone, Calendar, Loader2, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { type Customer } from "@/lib/api/customers";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { DeviceOsBadge } from "@/components/customers/DeviceOsBadge";
 import { deviceOsInfo, formatLastSeenAt } from "@/lib/customer-device-os";
 import {
@@ -50,8 +60,31 @@ export default function CustomersPage() {
   const [sortDir, setSortDir] = useState<CustomerSortDir>("desc");
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
+  const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const resetPage = () => setCurrentPage(1);
+
+  const handleDeleteCustomer = async () => {
+    if (!deletingCustomer) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/customers/${deletingCustomer.id}`, { method: "DELETE" });
+      const result = await res.json();
+      if (result.success) {
+        alert(`✅ ${result.message}`);
+        setDeletingCustomer(null);
+        // 목록 새로고침
+        window.location.reload();
+      } else {
+        alert(`❌ ${result.error}`);
+      }
+    } catch {
+      alert("❌ 삭제 중 오류가 발생했습니다.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // 날짜 프리셋 변경
   const handleDatePreset = (preset: string) => {
@@ -496,6 +529,17 @@ export default function CustomersPage() {
                             </p>
                           </div>
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDeletingCustomer(customer);
+                          }}
+                          className="ml-2 p-2 rounded-md text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"
+                          title="고객 삭제"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   </Link>
@@ -552,6 +596,35 @@ export default function CustomersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 고객 삭제 확인 다이얼로그 */}
+      <AlertDialog open={!!deletingCustomer} onOpenChange={(open) => !open && setDeletingCustomer(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>고객 계정 삭제</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                <strong>{deletingCustomer?.name}</strong> ({deletingCustomer?.email}) 계정을 삭제하시겠습니까?
+              </span>
+              <span className="block text-sm">
+                • 주문 이력이 있으면 이력은 보존되고 개인정보만 익명화됩니다.<br />
+                • 주문 이력이 없으면 계정이 완전히 삭제됩니다.<br />
+                • 삭제 후 해당 이메일로 재가입이 가능합니다.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCustomer}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? "삭제 중..." : "삭제"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
