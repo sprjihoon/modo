@@ -290,22 +290,39 @@ export async function DELETE(
       .maybeSingle();
 
     if (staffError || !staff) {
-      // users 테이블 출처 항목일 수 있음 → auth_id로 users.role을 CUSTOMER로 변경
+      // users 테이블 출처 항목일 수 있음 (id 또는 auth_id 기준으로 검색)
       const { data: userRecord } = await supabaseAdmin
         .from("users")
-        .select("auth_id, role")
-        .eq("id", id)
+        .select("id, auth_id, role")
+        .or(`id.eq.${id},auth_id.eq.${id}`)
         .maybeSingle();
 
       if (userRecord) {
-        if (!canDeleteStaff(auth.user.role, userRecord.role as any)) {
+        const targetRole = userRecord.role as string;
+        if (isStaffRole(targetRole) && !canDeleteStaff(auth.user.role, targetRole as any)) {
           return NextResponse.json({ success: false, error: "이 계정을 삭제할 권한이 없습니다." }, { status: 403 });
         }
+        // users.role을 CUSTOMER로 다운그레이드 (직원 목록에서 제거)
         await supabaseAdmin
           .from("users")
           .update({ role: "CUSTOMER" })
-          .eq("id", id);
-        console.log("✅ users 출처 직원 → CUSTOMER 처리:", id);
+          .eq("id", userRecord.id);
+        console.log("✅ users 출처 직원 → CUSTOMER 처리:", userRecord.auth_id);
+        return NextResponse.json({ success: true, message: "직원 계정이 삭제되었습니다." });
+      }
+
+      // staff 테이블에서 email 기준으로도 시도 (비활성 포함)
+      const { data: inactiveStaff } = await supabaseAdmin
+        .from("staff")
+        .select("auth_id, email, role")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (inactiveStaff) {
+        await supabaseAdmin.from("staff").update({ is_active: false }).eq("id", id);
+        if (inactiveStaff.auth_id) {
+          await supabaseAdmin.from("users").update({ role: "CUSTOMER" }).eq("auth_id", inactiveStaff.auth_id);
+        }
         return NextResponse.json({ success: true, message: "직원 계정이 삭제되었습니다." });
       }
 
