@@ -143,23 +143,8 @@ export async function PUT(
         }
 
         if (Object.keys(authUpdates).length > 0) {
-          // 이메일 변경 시: 고객·직원 분리 원칙에 따라 중복 차단
+          // 이메일 변경 시: 다른 직원과의 중복만 체크 (고객과는 공유 가능)
           if (authUpdates.email) {
-            // 고객 계정과 중복 체크
-            const { data: customerDup } = await supabaseAdmin
-              .from("users")
-              .select("auth_id")
-              .eq("email", newEmail)
-              .maybeSingle();
-
-            if (customerDup) {
-              return NextResponse.json(
-                { success: false, error: "이미 고객으로 등록된 이메일입니다. 직원 전용 이메일을 사용하세요." },
-                { status: 400 }
-              );
-            }
-
-            // 다른 직원과 중복 체크
             const { data: staffDup } = await supabaseAdmin
               .from("staff")
               .select("id")
@@ -173,6 +158,30 @@ export async function PUT(
                 { success: false, error: "이미 다른 직원이 사용 중인 이메일입니다." },
                 { status: 400 }
               );
+            }
+
+            // 새 이메일이 이미 Auth에 존재(고객 등)하면 해당 auth_id로 staff 재연결
+            const { data: existingOwner } = await supabaseAdmin
+              .from("users")
+              .select("auth_id")
+              .eq("email", newEmail)
+              .maybeSingle();
+
+            if (existingOwner?.auth_id && existingOwner.auth_id !== existingStaff.auth_id) {
+              await supabaseAdmin.auth.admin.updateUserById(existingOwner.auth_id, {
+                ...(password ? { password } : {}),
+                user_metadata: { name, phone, role, is_staff: true },
+              });
+              await supabaseAdmin
+                .from("staff")
+                .update({ auth_id: existingOwner.auth_id, email: newEmail, name, phone, role, updated_at: new Date().toISOString() })
+                .eq("id", id);
+              await supabaseAdmin
+                .from("users")
+                .update({ name, phone, role })
+                .eq("auth_id", existingOwner.auth_id);
+              console.log("✅ 기존 Auth 계정으로 이메일 변경 완료:", newEmail);
+              return NextResponse.json({ success: true, message: "직원 정보가 수정되었습니다." });
             }
 
             authUpdates.email_confirm = true;

@@ -138,21 +138,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 이메일 중복 체크: 고객 계정 (users 테이블)
-    const { data: customerWithEmail } = await supabaseAdmin
-      .from("users")
-      .select("auth_id")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (customerWithEmail) {
-      return NextResponse.json(
-        { success: false, error: "이미 고객으로 등록된 이메일입니다. 직원 전용 이메일을 사용하세요." },
-        { status: 400 }
-      );
-    }
-
-    // 이메일 중복 체크: 직원 계정 (staff 테이블)
+    // 직원 이메일 중복 체크 (staff 테이블만 — 고객과는 이메일 공유 가능)
     const { data: staffWithEmail } = await supabaseAdmin
       .from("staff")
       .select("id")
@@ -169,7 +155,9 @@ export async function POST(request: NextRequest) {
 
     console.log("📝 직원 계정 생성 시작:", { email, name, role });
 
-    // 1. Supabase Auth에 사용자 생성
+    // 1. Supabase Auth 계정 생성 (이미 존재하면 기존 계정 재사용)
+    let authUserId: string;
+
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -177,34 +165,61 @@ export async function POST(request: NextRequest) {
       user_metadata: { name, phone, role, is_staff: true },
     });
 
-    if (authError || !authData.user) {
-      console.error("❌ Auth 계정 생성 실패:", authError);
-      return NextResponse.json(
-        { success: false, error: authError?.message || "Auth 계정 생성 실패" },
-        { status: 500 }
-      );
+    if (authError) {
+      // 이메일이 이미 Auth에 존재 (고객 등) → 기존 auth_id 재사용
+      const isAlreadyExists =
+        authError.message?.toLowerCase().includes("already") ||
+        authError.message?.toLowerCase().includes("exists") ||
+        (authError as any).status === 422;
+
+      if (!isAlreadyExists) {
+        console.error("❌ Auth 계정 생성 실패:", authError);
+        return NextResponse.json(
+          { success: false, error: authError.message || "Auth 계정 생성 실패" },
+          { status: 500 }
+        );
+      }
+
+      // 기존 auth_id 조회
+      const { data: existingUser } = await supabaseAdmin
+        .from("users")
+        .select("auth_id")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (!existingUser?.auth_id) {
+        return NextResponse.json(
+          { success: false, error: "기존 계정 정보를 찾을 수 없습니다." },
+          { status: 500 }
+        );
+      }
+
+      // 비밀번호·메타데이터 업데이트
+      await supabaseAdmin.auth.admin.updateUserById(existingUser.auth_id, {
+        password,
+        user_metadata: { name, phone, role, is_staff: true },
+      });
+
+      authUserId = existingUser.auth_id;
+      console.log("✅ 기존 Auth 계정 재사용:", authUserId);
+    } else {
+      authUserId = authData.user.id;
+      console.log("✅ 새 Auth 계정 생성 완료:", authUserId);
     }
 
-    const authUserId = authData.user.id;
-    console.log("✅ Auth 계정 생성 완료:", authUserId);
-
-    // 2. staff 테이블에 프로필 생성
+    // 2. staff 테이블에 프로필 생성 (이미 있으면 재활성화)
     const { data: staffData, error: staffError } = await supabaseAdmin
       .from("staff")
-      .insert({
-        auth_id: authUserId,
-        email,
-        name,
-        phone,
-        role,
-        is_active: true,
-      })
+      .upsert(
+        { auth_id: authUserId, email, name, phone, role, is_active: true },
+        { onConflict: "email" }
+      )
       .select()
       .single();
 
     if (staffError) {
       console.error("❌ 직원 프로필 생성 실패:", staffError);
-      await supabaseAdmin.auth.admin.deleteUser(authUserId);
+      if (!authError) await supabaseAdmin.auth.admin.deleteUser(authUserId);
       return NextResponse.json(
         { success: false, error: staffError.message },
         { status: 500 }
