@@ -246,9 +246,10 @@ class _MeasurementStepState extends State<MeasurementStep> {
               ...config.labels.asMap().entries.map((entry) {
                 final index = entry.key;
                 final label = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Column(
+                return _KeepAlive(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -261,6 +262,7 @@ class _MeasurementStepState extends State<MeasurementStep> {
                       ),
                       const SizedBox(height: 6),
                       TextField(
+                        key: ValueKey('measurement-field-$index'),
                         controller: _controllers[index],
                         keyboardType: TextInputType.number,
                         textInputAction: index == widget.config.labels.length - 1
@@ -319,6 +321,7 @@ class _MeasurementStepState extends State<MeasurementStep> {
                         ),
                       ),
                     ],
+                    ),
                   ),
                 );
               }),
@@ -365,5 +368,26 @@ class _MeasurementStepState extends State<MeasurementStep> {
         const KeyboardDoneBar(),
       ],
     );
+  }
+}
+
+class _KeepAlive extends StatefulWidget {
+  const _KeepAlive({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlive> createState() => _KeepAliveState();
+}
+
+class _KeepAliveState extends State<_KeepAlive>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

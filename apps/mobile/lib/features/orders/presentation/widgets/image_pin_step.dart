@@ -12,13 +12,11 @@ import 'image_pin_editor.dart';
 const _brandColor = Color(0xFF00C896);
 
 class ImagePinStep extends StatefulWidget {
-  final String clothingType;
   final List<ImageWithPins> existingImages;
   final void Function(List<ImageWithPins> images) onComplete;
   final void Function(List<ImageWithPins> images)? onImagesChanged;
 
   const ImagePinStep({
-    required this.clothingType,
     required this.existingImages,
     required this.onComplete,
     this.onImagesChanged,
@@ -330,23 +328,6 @@ class _ImagePinStepState extends State<ImagePinStep> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.clothingType.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _brandColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        widget.clothingType,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: _brandColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 12),
                   const Text(
                     '수선할 부위를 사진으로 보여주세요',
                     style: TextStyle(
@@ -363,10 +344,10 @@ class _ImagePinStepState extends State<ImagePinStep> {
                 ],
               ),
             ),
-            if (_images.isNotEmpty) _buildThumbnails(),
             Expanded(
               child: active == null ? _buildEmptyState() : _buildEditor(active),
             ),
+            if (_images.isNotEmpty) _buildThumbnails(),
             _buildBottomBar(),
           ],
         ),
@@ -393,7 +374,7 @@ class _ImagePinStepState extends State<ImagePinStep> {
   Widget _buildThumbnails() {
     final canAdd = _images.length < kMaxOrderImages;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
       child: SizedBox(
         height: 76,
         child: ListView.separated(

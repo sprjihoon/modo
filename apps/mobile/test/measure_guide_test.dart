@@ -374,6 +374,46 @@ void main() {
       );
       expect(enabled.onPressed, isNotNull);
     });
+
+    testWidgets('scroll away and back keeps entered measurement visible',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MeasurementStep(
+              config: const MeasurementStepConfig(
+                itemName: '기장 줄임',
+                labels: ['줄일 길이 (cm)'],
+                notes: '첫번째 안내\n두번째 안내\n세번째 안내\n네번째 안내\n다섯번째 안내',
+                measureGuideKey: 'total-length-bottom',
+              ),
+              onConfirm: (_) {},
+              onBack: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(TextField), '28');
+      await tester.pump();
+      expect(find.text('28'), findsOneWidget);
+
+      final list = find.byType(ListView);
+      await tester.drag(list, const Offset(0, -500));
+      await tester.pumpAndSettle();
+      await tester.drag(list, const Offset(0, 500));
+      await tester.pumpAndSettle();
+
+      expect(find.text('28'), findsOneWidget);
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.controller?.text, '28');
+
+      final confirmBtn = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, '확인'),
+      );
+      expect(confirmBtn.onPressed, isNotNull);
+    });
   });
 
   group('MeasureGuideAccordion', () {

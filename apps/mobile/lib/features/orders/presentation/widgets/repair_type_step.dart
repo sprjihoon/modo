@@ -189,13 +189,30 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
   _RepairType? _measureRepairType;
   List<_SubPart>? _measureChosenParts;
   int? _measureOverridePrice;
-  List<String> _measureValues = [];
+  List<TextEditingController> _measureControllers = [];
 
   @override
   void initState() {
     super.initState();
     _loadRepairTypes();
   }
+
+  @override
+  void dispose() {
+    _disposeMeasureControllers();
+    super.dispose();
+  }
+
+  void _disposeMeasureControllers() {
+    for (final controller in _measureControllers) {
+      controller.dispose();
+    }
+    _measureControllers = [];
+  }
+
+  List<String> get _measureValues => _measureControllers
+      .map((c) => sanitizeMeasurementInput(c.text.trim()))
+      .toList();
 
   Future<void> _loadRepairTypes() async {
     try {
@@ -402,11 +419,11 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
       repairTypeCount: _repairTypes.length,
       hasSubPartsView: _subPartsRepairType != null,
     );
+    _disposeMeasureControllers();
     setState(() {
       _measureRepairType = null;
       _measureChosenParts = null;
       _measureOverridePrice = null;
-      _measureValues = [];
     });
     if (leave) widget.onBack?.call();
   }
@@ -421,11 +438,15 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
   void _openMeasureView(_RepairType type, {List<_SubPart>? chosenParts, int? overridePrice}) {
     final groups = _measureGroupsFor(type, chosenParts);
     final fieldCount = sub_cat.measureFieldCount(groups);
+    _disposeMeasureControllers();
+    _measureControllers = List.generate(
+      fieldCount,
+      (_) => TextEditingController(),
+    );
     setState(() {
       _measureRepairType = type;
       _measureChosenParts = chosenParts;
       _measureOverridePrice = overridePrice;
-      _measureValues = List.filled(fieldCount, '');
     });
   }
 
@@ -498,11 +519,11 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
       }
     }
 
+    _disposeMeasureControllers();
     setState(() {
       _measureRepairType = null;
       _measureChosenParts = null;
       _measureOverridePrice = null;
-      _measureValues = [];
       _subPartsRepairType = null;
       _subParts = [];
     });
@@ -974,43 +995,54 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
   }
 
   Widget _buildInputField(String label, int index) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          TextField(
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.done,
-            onEditingComplete: () =>
-                FocusManager.instance.primaryFocus?.unfocus(),
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-            decoration: InputDecoration(
-              hintText: '예: 30',
-              hintStyle: TextStyle(color: Colors.grey.shade400),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade200, width: 2),
+    return _KeepAlive(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            TextField(
+              key: ValueKey('repair-measure-$index'),
+              controller: _measureControllers[index],
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              onEditingComplete: () =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ],
+              decoration: InputDecoration(
+                hintText: '예: 30',
+                hintStyle: TextStyle(color: Colors.grey.shade400),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade200, width: 2),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade200, width: 2),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _brandColor, width: 2),
+                ),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey.shade200, width: 2),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: _brandColor, width: 2),
-              ),
+              onChanged: (v) {
+                final digits = sanitizeMeasurementInput(v);
+                if (digits != v) {
+                  _measureControllers[index].value = TextEditingValue(
+                    text: digits,
+                    selection: TextSelection.collapsed(offset: digits.length),
+                  );
+                }
+                setState(() {});
+              },
             ),
-            onChanged: (v) => setState(() {
-              _measureValues[index] = sanitizeMeasurementInput(v);
-            }),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1294,5 +1326,26 @@ class _RepairTypeStepWidgetState extends State<RepairTypeStepWidget> {
         ],
       ),
     );
+  }
+}
+
+class _KeepAlive extends StatefulWidget {
+  const _KeepAlive({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlive> createState() => _KeepAliveState();
+}
+
+class _KeepAliveState extends State<_KeepAlive>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

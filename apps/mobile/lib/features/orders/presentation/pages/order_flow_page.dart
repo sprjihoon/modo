@@ -559,7 +559,6 @@ class _OrderFlowPageState extends ConsumerState<OrderFlowPage> {
 
   Widget _buildPhotoStep() {
     return ImagePinStep(
-      clothingType: _stagingClothingType,
       existingImages: _stagingImages,
       onComplete: handlePhotoDone,
       onImagesChanged: handlePhotoImagesChanged,

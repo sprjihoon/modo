@@ -10,7 +10,6 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: ImagePinStep(
-            clothingType: '바지',
             existingImages: const [],
             onComplete: (images) => completed = images,
           ),
@@ -32,7 +31,6 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: ImagePinStep(
-            clothingType: '셔츠',
             existingImages: const [
               ImageWithPins(
                 imageUrl: 'https://example.com/a.jpg',
@@ -69,7 +67,6 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: ImagePinStep(
-            clothingType: '코트',
             existingImages: List.generate(
               5,
               (i) => ImageWithPins(imageUrl: 'https://example.com/$i.jpg'),
@@ -83,5 +80,44 @@ void main() {
 
     expect(find.text('5/5'), findsNothing);
     expect(find.text('사진 5장 첨부 → 다음'), findsOneWidget);
+  });
+
+  testWidgets('수선항목 칩을 보여주지 않는다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ImagePinStep(
+            existingImages: const [],
+            onComplete: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('청바지'), findsNothing);
+    expect(find.text('수선할 부위를 사진으로 보여주세요'), findsOneWidget);
+  });
+
+  testWidgets('등록된 사진 썸네일은 다음 버튼 위에 있다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ImagePinStep(
+            existingImages: const [
+              ImageWithPins(
+                imageUrl: 'https://example.com/a.jpg',
+                coordSpace: 'image',
+              ),
+            ],
+            onComplete: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final addThumb = tester.getTopLeft(find.text('1/5'));
+    final nextButton = tester.getTopLeft(find.text('사진 1장 첨부 → 다음'));
+    expect(addThumb.dy, lessThan(nextButton.dy));
   });
 }
