@@ -360,6 +360,7 @@ SQL: `19_reviews.sql`, `20260829000000_add_reviews.sql`, `20260830000000_review_
 - RPC: `apply_points_to_payment_intent`, `restore_order_points_used(p_order_id, p_amount?)`
 - 마이그레이션: `add_points_use_enum.sql`, `add_points_use_at_checkout.sql`, `20260901040000_coupon_points_exclusive.sql`, `20260910000000_restore_points_partial.sql` (**운영 DB 반영**)
 - UI: `PaymentClient` · 앱 `payment_page.dart` 「포인트 사용」 카드 · 어드민 포인트 내역 `USE_RESTORE` = 복구
+- 검증: RPC 부분/전액/중복 복구 통과. 기존 실주문 `ORD1788952187223-LTO1N`(BOOKED · 1,000P)은 유지. **이후 취소 건부터** 자동 복구
 
 ---
 
@@ -857,7 +858,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-09-10 | 취소 시 포인트 자동 복구 | 앱 취소·관리자 결제/항목 취소·반송·부분 취소에도 `USE_RESTORE`. 전액은 잔여 전액, 부분은 취소 금액 비율. SQL `20260910000000_restore_points_partial.sql` · Edge `orders-cancel`·`orders-return-and-refund` 라이브. 웹·어드민은 `main` 배포 |
+| 2026-09-10 | 취소 시 포인트 자동 복구 | 앱 취소·관리자 결제/항목 취소·반송·부분 취소에도 `USE_RESTORE`. 전액은 잔여 전액, 부분은 취소 금액 비율. SQL·Edge 라이브. RPC 검증 통과. 기존 `ORD1788952187223-LTO1N`은 유지하고 **이후 발생 건부터** 적용 |
 | 2026-09-10 | iOS `1.0.11` 심사 | 빌드 53 업로드. 버전 `e7e17a91-…` · 제출 `499a5656-4c59-4b95-81f4-a64f835fafe8` (2026-09-10 05:49 UTC). `WAITING_FOR_REVIEW`. Play AAB `1.0.11+53`. 사진촬영 칩 제거·썸네일 하단·치수 스크롤 유지 |
 | 2026-09-10 | iOS `1.0.10` 판매 | 빌드 52 심사 통과. `READY_FOR_SALE`. 다음은 `1.0.11+53` |
 | 2026-09-07 | 우체국 초소형 접수 | 수거·출고를 2kg/60cm/`microYn=N`에서 초소형 1kg/50cm/`microYn=Y`로. Edge `shipments-book`·`shipments-create-outbound`. 송장 기본 중량/용적 표시도 맞춤. **앱 새 빌드 불필요**(중량·크기는 앱이 안 넘김) |
