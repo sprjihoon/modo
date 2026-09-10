@@ -218,6 +218,8 @@ flutter build ipa --release --build-name=1.0.11 --build-number=53 \
 
 iOS는 **`1.0.10` (52) 판매 중** · **`1.0.11` (53) 심사 중**. Play는 **`1.0.7 (46)` 게시** · 이번 AAB **`1.0.11 (53)`**. 어드민 `app_versions`는 지금 iOS/Android 모두 **`1.0.5`**. Android 최신 안내는 Play 게시 뒤에.
 
+**다음 스토어 빌드(`1.0.12`)에 넣을 것:** 주문 상세 「주문 정보」에 쿠폰·배송비 할인·포인트 사용 표시 (`order_detail_page.dart`, `order_service.dart`). `1.0.11+53`에는 없음. 지금 따로 빌드하지 않는다. 웹·어드민은 이미 라이브.
+
 Play 서명은 맥북 `~/Documents/modo-android-signing/upload-keystore.jks` (`10:90:55…`). Windows `AE:84:3D…` 키로 만든 AAB는 올리지 않는다.
 
 ### Android (Play)
