@@ -3156,6 +3156,10 @@ export type Database = {
         }
         Returns: Json
       }
+      restore_order_points_used: {
+        Args: { p_order_id: string; p_amount?: number }
+        Returns: boolean
+      }
     }
     Enums: {
       action_type:
@@ -3249,6 +3253,7 @@ export type Database = {
         | "ADMIN_SUB"
         | "EXPIRED"
         | "EARN_CANCEL"
+        | "USE_RESTORE"
       repair_type: "LENGTH" | "WIDTH" | "ZIPPER" | "BUTTON" | "HOLE" | "OTHER"
       shipment_status:
         | "BOOKED"
@@ -3485,6 +3490,7 @@ export const Constants = {
         "ADMIN_SUB",
         "EXPIRED",
         "EARN_CANCEL",
+        "USE_RESTORE",
       ],
       repair_type: ["LENGTH", "WIDTH", "ZIPPER", "BUTTON", "HOLE", "OTHER"],
       shipment_status: [

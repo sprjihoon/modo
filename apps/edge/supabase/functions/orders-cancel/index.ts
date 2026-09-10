@@ -1,5 +1,6 @@
 ﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { restoreOrderPointsUsed } from '../_shared/restore-order-points.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -168,6 +169,8 @@ serve(async (req) => {
             await admin.from('notifications').insert(rows)
           }
         } catch (e) { console.warn('알림 fan-out 실패:', e) }
+
+        await restoreOrderPointsUsed(admin, orderId)
       }
 
       const deductionDesc = remoteAreaFee > 0
@@ -284,6 +287,10 @@ serve(async (req) => {
         await admin.from('notifications').insert(rows)
       }
     } catch (e) { console.warn('알림 fan-out 실패:', e) }
+
+    if (paymentCancelResult || !hasValidPayment) {
+      await restoreOrderPointsUsed(admin, orderId)
+    }
 
     return json({
       success: true,

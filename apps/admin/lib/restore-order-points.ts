@@ -30,7 +30,10 @@ export async function restoreOrderPointsUsed(
     if (amount != null) {
       args.p_amount = Math.floor(amount);
     }
-    const { error } = await admin.rpc("restore_order_points_used", args);
+    const { error } = await (admin as SupabaseClient).rpc(
+      "restore_order_points_used",
+      args
+    );
     if (error) {
       console.warn("[restoreOrderPointsUsed]", orderId, error.message);
     }

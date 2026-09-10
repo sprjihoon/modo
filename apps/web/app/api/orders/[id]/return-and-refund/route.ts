@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { restoreOrderPointsUsed } from "@/lib/restore-order-points";
 
 // 정책: 추가요금 거절 → 반송(RETURN) 시 자동 부분환불.
 // 환불액 = total_price - returnFee - orders.remote_area_fee
@@ -262,6 +263,10 @@ export async function POST(
     // 반송 요청(RETURN_PENDING) 자체는 고객의 정당한 결정이므로 유지하되,
     // 환불 실패 사실을 응답과 관리자 알림에 명확히 노출해 수동 환불을 유도한다.
     const refundFailed = !!paymentId && refundAmount > 0 && !refundResult;
+
+    if (refundResult || noRefundRequired) {
+      await restoreOrderPointsUsed(admin, orderId);
+    }
 
     const successMessage = refundResult
       ? `반송 요청 완료. ${deductionDesc} 을(를) 차감하고 ${refundAmount.toLocaleString()}원이 환불됩니다.`

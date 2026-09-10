@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import {
   buildPrePickupCancelUpdate,
@@ -6,6 +7,10 @@ import {
   isPostInboundOrderStatus,
   wasInboundOrder,
 } from "@/lib/order-return-flow";
+import {
+  calcPartialRestorePoints,
+  restoreOrderPointsUsed,
+} from "@/lib/restore-order-points";
 
 export const dynamic = "force-dynamic";
 
@@ -97,7 +102,7 @@ export async function POST(request: NextRequest) {
     if (!extraChargeReq) {
       const { data: existingOrder } = await supabase
         .from("orders")
-        .select("id, user_id, order_number, total_price, status, extra_charge_data")
+        .select("id, user_id, order_number, total_price, status, extra_charge_data, points_used")
         .eq("payment_id", paymentId)
         .maybeSingle();
 
@@ -176,6 +181,21 @@ export async function POST(request: NextRequest) {
           .select("id, user_id, order_number, total_price, status, extra_charge_data")
           .maybeSingle();
         affectedOrder = updatedOrder;
+
+        const admin = getSupabaseAdmin();
+        if (isTotalCancel) {
+          await restoreOrderPointsUsed(admin, existingOrder.id);
+        } else if (cancelAmount && cancelAmount > 0) {
+          await restoreOrderPointsUsed(
+            admin,
+            existingOrder.id,
+            calcPartialRestorePoints(
+              Number((existingOrder as { points_used?: number }).points_used ?? 0),
+              Number(existingOrder.total_price ?? 0),
+              cancelAmount
+            )
+          );
+        }
       }
     }
 

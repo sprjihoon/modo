@@ -8,7 +8,7 @@ Supabase Edge Functions로 구현한 백엔드 API
 - **POST** `/shipments-book`
 - 우체국 API 연동
 - 송장번호(`tracking_no`) 생성
-- 기본 규격: 초소형 1kg / 세 변 합 50cm / `microYn=Y` (`EPOST_MICRO_PACKAGE`)
+- 기본 규격: 초소형 1kg / 세 변 합 50cm / `microYn=Y` (`EPOST_MICRO_PACKAGE`). 앱은 중량·크기를 안 넘김 → **스토어 새 빌드 불필요**
 
 ### 출고 송장
 - **POST** `/shipments-create-outbound`
@@ -18,6 +18,11 @@ Supabase Edge Functions로 구현한 백엔드 API
 - **POST** `/payments-verify`
 - PortOne(아임포트) 결제 검증
 - 결제 정보 저장
+
+### 주문 취소 / 반송
+- **POST** `/orders-cancel` · `/orders-return-and-refund`
+- 환불 성공 시 `restore_order_points_used`로 사용 포인트 자동 복구 (`USE_RESTORE`)
+- 전액 취소는 잔여 전액, 부분 취소는 취소 금액 비율. RPC `20260910000000_restore_points_partial.sql`
 
 ### 영상 업로드
 - **POST** `/videos-upload`

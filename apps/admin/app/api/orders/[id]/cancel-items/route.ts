@@ -3,6 +3,10 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/ops-auth";
 import { getShippingSettings } from "@/lib/shipping-settings";
 import { calcItemCancelAmount } from "@/lib/repair-parts";
+import {
+  calcPartialRestorePoints,
+  restoreOrderPointsUsed,
+} from "@/lib/restore-order-points";
 
 const PAID_STATUSES = new Set(["PAID", "COMPLETED", "DONE"]);
 const PRE_PICKUP_STATUSES = new Set(["PENDING", "PAID", "BOOKED", "PENDING_PAYMENT"]);
@@ -50,7 +54,7 @@ export async function POST(
     const { data: order, error: orderErr } = await supabase
       .from("orders")
       .select(
-        "id, status, payment_status, payment_id, total_price, remote_area_fee, user_id, repair_parts, canceled_repair_parts, item_name, order_number, tracking_no, extra_charge_data"
+        "id, status, payment_status, payment_id, total_price, remote_area_fee, user_id, repair_parts, canceled_repair_parts, item_name, order_number, tracking_no, extra_charge_data, points_used"
       )
       .eq("id", orderId)
       .maybeSingle();
@@ -185,6 +189,7 @@ export async function POST(
           canceled_at: new Date().toISOString(),
           cancellation_reason: reason || "관리자 - 전 항목 취소 (수거 전)",
         } as any).eq("id", orderId);
+        await restoreOrderPointsUsed(supabase, orderId);
       }
 
       return NextResponse.json({
@@ -262,6 +267,7 @@ export async function POST(
             refundAmount,
           },
         } as any).eq("id", orderId);
+        await restoreOrderPointsUsed(supabase, orderId);
       }
 
       return NextResponse.json({
@@ -328,6 +334,15 @@ export async function POST(
         payment_status: hasValidPayment && cancelAmount > 0 ? "PARTIAL_CANCELED" : paymentStatus,
         canceled_at: new Date().toISOString(),
       } as any).eq("id", orderId);
+      await restoreOrderPointsUsed(
+        supabase,
+        orderId,
+        calcPartialRestorePoints(
+          Number((order as any).points_used ?? 0),
+          totalPrice,
+          cancelAmount
+        )
+      );
     }
 
     const canceledNames = itemIndices

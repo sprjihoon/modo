@@ -20,6 +20,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { restoreOrderPointsUsed } from '../_shared/restore-order-points.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -236,6 +237,11 @@ serve(async (req) => {
       deductionDescParts.push(`도서산간 ${remoteAreaFee.toLocaleString()}원`)
     }
     const deductionDesc = deductionDescParts.join(' + ')
+
+    const noRefundRequired = refundAmount === 0 || !paymentId
+    if (refundResult || noRefundRequired) {
+      await restoreOrderPointsUsed(admin, orderId)
+    }
 
     return json({
       success: true,

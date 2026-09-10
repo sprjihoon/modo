@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { getShippingSettings } from "@/lib/shipping-settings";
 import { calcItemCancelAmount } from "@/lib/repair-parts";
+import {
+  calcPartialRestorePoints,
+  restoreOrderPointsUsed,
+} from "@/lib/restore-order-points";
 
 const PAID_STATUSES = new Set(["PAID", "COMPLETED", "DONE"]);
 const PRE_PICKUP_STATUSES = new Set(["PENDING", "PAID", "BOOKED", "PENDING_PAYMENT"]);
@@ -73,7 +77,7 @@ export async function POST(
     const { data: order, error: orderErr } = await admin
       .from("orders")
       .select(
-        "id, status, payment_status, payment_id, total_price, remote_area_fee, shipping_fee, user_id, repair_parts, canceled_repair_parts, item_name, order_number, tracking_no, extra_charge_data"
+        "id, status, payment_status, payment_id, total_price, remote_area_fee, shipping_fee, user_id, repair_parts, canceled_repair_parts, item_name, order_number, tracking_no, extra_charge_data, points_used"
       )
       .eq("id", orderId)
       .maybeSingle();
@@ -240,6 +244,8 @@ export async function POST(
             );
           }
         } catch {}
+
+        await restoreOrderPointsUsed(admin, orderId);
       }
 
       return NextResponse.json({
@@ -318,6 +324,7 @@ export async function POST(
           canceled_at: new Date().toISOString(),
           cancellation_reason: reason || "고객 요청 - 전 항목 취소 (수거 전)",
         }).eq("id", orderId);
+        await restoreOrderPointsUsed(admin, orderId);
       }
 
       return NextResponse.json({
@@ -386,6 +393,15 @@ export async function POST(
         payment_status: hasValidPayment && cancelAmount > 0 ? "PARTIAL_CANCELED" : paymentStatus,
         canceled_at: new Date().toISOString(),
       }).eq("id", orderId);
+      await restoreOrderPointsUsed(
+        admin,
+        orderId,
+        calcPartialRestorePoints(
+          Number((order as { points_used?: number }).points_used ?? 0),
+          totalPrice,
+          cancelAmount
+        )
+      );
     }
 
     const canceledNames = itemIndices.map((i) => parsedParts[i]?.name ?? `항목 ${i + 1}`).join(", ");
