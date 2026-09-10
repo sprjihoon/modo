@@ -129,8 +129,8 @@ export async function GET(
         `)
         .eq('id', orderId)
         .maybeSingle();
-      if (payRow) {
-        finalOrder = { ...finalOrder, ...payRow };
+      if (payRow && typeof payRow === "object") {
+        finalOrder = { ...finalOrder, ...(payRow as Record<string, unknown>) };
       }
     }
     if (!order.user_id && order.customer_email) {
