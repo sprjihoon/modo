@@ -1592,6 +1592,29 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
             ),
             _buildInfoRow('왕복배송비', _formatPrice(_orderData?['shipping_fee'])),
           ],
+          if (((_orderData?['promotion_discount_amount'] as num?)?.toInt() ?? 0) > 0 ||
+              (_orderData?['promotion_code']?.toString().isNotEmpty ?? false))
+            _buildInfoRow(
+              (_orderData?['promotion_code']?.toString().isNotEmpty ?? false)
+                  ? '쿠폰 (${_orderData?['promotion_code']})'
+                  : '쿠폰 할인',
+              ((_orderData?['promotion_discount_amount'] as num?)?.toInt() ?? 0) > 0
+                  ? '-${_formatPrice(_orderData?['promotion_discount_amount'])}'
+                  : '적용',
+              isDiscount: true,
+            ),
+          if (((_orderData?['shipping_discount_amount'] as num?)?.toInt() ?? 0) > 0)
+            _buildInfoRow(
+              '배송비 할인',
+              '-${_formatPrice(_orderData?['shipping_discount_amount'])}',
+              isDiscount: true,
+            ),
+          if (((_orderData?['points_used'] as num?)?.toInt() ?? 0) > 0)
+            _buildInfoRow(
+              '포인트 사용',
+              '-${((_orderData?['points_used'] as num?)?.toInt() ?? 0).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}P',
+              isDiscount: true,
+            ),
           _buildInfoRow('결제금액', _formatPrice(_orderData?['total_price']),
               isHighlight: true),
           _buildInfoRow(
@@ -1645,7 +1668,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     ];
   }
 
-  Widget _buildInfoRow(String label, String value, {bool isHighlight = false}) {
+  Widget _buildInfoRow(
+    String label,
+    String value, {
+    bool isHighlight = false,
+    bool isDiscount = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -1668,8 +1696,11 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
               style: TextStyle(
                 fontSize: isHighlight ? 16 : 14,
                 fontWeight: isHighlight ? FontWeight.bold : FontWeight.w500,
-                color:
-                    isHighlight ? Colors.grey.shade900 : Colors.grey.shade800,
+                color: isDiscount
+                    ? const Color(0xFF059669)
+                    : isHighlight
+                        ? Colors.grey.shade900
+                        : Colors.grey.shade800,
               ),
             ),
           ),

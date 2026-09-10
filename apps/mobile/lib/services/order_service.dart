@@ -466,6 +466,22 @@ class OrderService {
         // 타입 안전하게 변환
         final order = Map<String, dynamic>.from(response as Map);
 
+        final promoId = order['promotion_code_id']?.toString();
+        if (promoId != null && promoId.isNotEmpty) {
+          try {
+            final promo = await _supabase
+                .from('promotion_codes')
+                .select('code')
+                .eq('id', promoId)
+                .maybeSingle();
+            if (promo != null) {
+              order['promotion_code'] = promo['code'];
+            }
+          } catch (e) {
+            debugPrint('⚠️ 쿠폰 코드 조회 실패 (계속 진행): $e');
+          }
+        }
+
         // shipments 테이블에서 실제 데이터 조회
         List<Map<String, dynamic>> shipments = [];
         try {

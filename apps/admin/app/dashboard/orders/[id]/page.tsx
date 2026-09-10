@@ -542,6 +542,14 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
       return s;
     })(),
     createdAt: new Date(order.created_at).toLocaleString('ko-KR'),
+    pointsUsed: Number((order as { points_used?: number }).points_used ?? 0),
+    promoDiscount: Number((order as { promotion_discount_amount?: number }).promotion_discount_amount ?? 0),
+    shippingDiscount: Number((order as { shipping_discount_amount?: number }).shipping_discount_amount ?? 0),
+    promoCode: (() => {
+      const raw = (order as { promotion_codes?: { code?: string } | { code?: string }[] | null }).promotion_codes;
+      if (Array.isArray(raw)) return raw[0]?.code ?? "";
+      return raw?.code ?? "";
+    })(),
     pickupAddress: [order.pickup_address, order.pickup_address_detail].filter(Boolean).join(' ') || '주소 없음',
     deliveryAddress: [order.delivery_address, order.delivery_address_detail].filter(Boolean).join(' ') || '주소 없음',
     deliveryZipcode: order.delivery_zipcode || '',
@@ -958,6 +966,38 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
               <p className="text-sm text-muted-foreground">결제 금액</p>
               <p className="text-2xl font-bold">₩{displayOrder.amount.toLocaleString()}</p>
             </div>
+            {(displayOrder.pointsUsed > 0 || displayOrder.promoDiscount > 0 || displayOrder.shippingDiscount > 0 || displayOrder.promoCode) && (
+              <div className="rounded-md border bg-muted/40 px-3 py-2 space-y-1.5 text-sm">
+                {(displayOrder.promoCode || displayOrder.promoDiscount > 0) && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">
+                      쿠폰{displayOrder.promoCode ? ` (${displayOrder.promoCode})` : ""}
+                    </span>
+                    <span className="text-green-600 font-medium">
+                      {displayOrder.promoDiscount > 0
+                        ? `−₩${displayOrder.promoDiscount.toLocaleString()}`
+                        : "적용"}
+                    </span>
+                  </div>
+                )}
+                {displayOrder.shippingDiscount > 0 && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">배송비 할인</span>
+                    <span className="text-green-600 font-medium">
+                      −₩{displayOrder.shippingDiscount.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {displayOrder.pointsUsed > 0 && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">포인트 사용</span>
+                    <span className="text-green-600 font-medium">
+                      −{displayOrder.pointsUsed.toLocaleString()}P
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
             <div>
               <p className="text-sm text-muted-foreground">결제 방법</p>
               <p className="font-medium">{displayOrder.paymentMethod}</p>

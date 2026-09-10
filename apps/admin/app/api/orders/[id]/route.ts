@@ -113,6 +113,26 @@ export async function GET(
         finalOrder = { ...finalOrder, ...pickupRow };
       }
     }
+    {
+      const { data: payRow } = await supabaseAdmin
+        .from('orders')
+        .select(`
+          points_used,
+          promotion_code_id,
+          promotion_discount_amount,
+          shipping_discount_amount,
+          original_total_price,
+          base_price,
+          shipping_fee,
+          remote_area_fee,
+          promotion_codes:promotion_code_id (code, discount_type, discount_value, includes_free_shipping)
+        `)
+        .eq('id', orderId)
+        .maybeSingle();
+      if (payRow) {
+        finalOrder = { ...finalOrder, ...payRow };
+      }
+    }
     if (!order.user_id && order.customer_email) {
       console.log('⚠️ [API] user_id 없는 주문:', orderId, '- email:', order.customer_email);
       

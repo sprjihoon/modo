@@ -43,6 +43,13 @@ interface OrderData {
   repair_type?: string;
   total_price?: number;
   remote_area_fee?: number;
+  points_used?: number;
+  promotion_code_id?: string | null;
+  promotion_discount_amount?: number;
+  shipping_discount_amount?: number;
+  shipping_fee?: number;
+  base_price?: number;
+  promotion_code?: string | null;
   payment_method?: string;
   created_at?: string;
   pickup_address?: string;
@@ -280,7 +287,17 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         .single();
 
       if (data) {
-        setOrder(data);
+        let next = data as OrderData;
+        const promoId = (data as { promotion_code_id?: string | null }).promotion_code_id;
+        if (promoId) {
+          const { data: promo } = await supabase
+            .from("promotion_codes")
+            .select("code")
+            .eq("id", promoId)
+            .maybeSingle();
+          next = { ...next, promotion_code: promo?.code ?? null };
+        }
+        setOrder(next);
         const { data: s } = await supabase
           .from("shipments")
           .select("tracking_no, pickup_tracking_no, delivery_tracking_no, carrier, status")
@@ -988,6 +1005,31 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           {order.payment_method && (
             <InfoRow label="결제 방법" value={getPaymentMethodLabel(order.payment_method)} />
           )}
+          {(order.promotion_code || (order.promotion_discount_amount ?? 0) > 0) && (
+            <InfoRow
+              label={order.promotion_code ? `쿠폰 (${order.promotion_code})` : "쿠폰 할인"}
+              value={
+                (order.promotion_discount_amount ?? 0) > 0
+                  ? `-${formatPrice(order.promotion_discount_amount ?? 0)}`
+                  : "적용"
+              }
+              discount
+            />
+          )}
+          {(order.shipping_discount_amount ?? 0) > 0 && (
+            <InfoRow
+              label="배송비 할인"
+              value={`-${formatPrice(order.shipping_discount_amount ?? 0)}`}
+              discount
+            />
+          )}
+          {(order.points_used ?? 0) > 0 && (
+            <InfoRow
+              label="포인트 사용"
+              value={`-${(order.points_used ?? 0).toLocaleString()}P`}
+              discount
+            />
+          )}
           <div className="border-t border-gray-100 pt-3 mt-1">
             <InfoRow
               label="결제 금액"
@@ -1533,10 +1575,12 @@ function InfoRow({
   label,
   value,
   highlight = false,
+  discount = false,
 }: {
   label: string;
   value: string;
   highlight?: boolean;
+  discount?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
@@ -1546,7 +1590,8 @@ function InfoRow({
       <span
         className={cn(
           "text-sm text-right",
-          highlight ? "font-bold text-gray-900 text-base" : "font-medium text-gray-700"
+          highlight ? "font-bold text-gray-900 text-base" : "font-medium text-gray-700",
+          discount && "text-green-600 font-medium"
         )}
       >
         {value}
