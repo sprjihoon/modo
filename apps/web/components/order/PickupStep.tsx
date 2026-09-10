@@ -134,11 +134,13 @@ export function PickupStep({ draft, onNext, onBack, onSaveToCart }: PickupStepPr
 
   const SHIPPING_FEE = shippingSettings.baseShippingFee;
 
-  // 도서산간 여부 (수거지 기준) — 왕복 = 편도 단가 × 2.
-  // 정책: 의류는 들어오고 반드시 나가야 하므로 모든 배송비는 왕복 기준.
-  const remoteAreaFee = isRemoteArea(pickupZipcode, address)
-    ? shippingSettings.remoteAreaFee * 2
-    : 0;
+  // 도서산간 추가비: 수거지·배송지 각각 편도 단가를 합산한다.
+  // 배송지가 수거지와 같은 경우(sameAsPickup) 배송지도 수거지 기준으로 판단.
+  const effectiveDeliveryZip = sameAsPickup ? pickupZipcode : deliveryZipcode;
+  const effectiveDeliveryAddr = sameAsPickup ? address : deliveryAddress;
+  const remoteAreaFee =
+    (isRemoteArea(pickupZipcode, address) ? shippingSettings.remoteAreaFee : 0) +
+    (isRemoteArea(effectiveDeliveryZip, effectiveDeliveryAddr) ? shippingSettings.remoteAreaFee : 0);
 
   // items[] 기반 집계
   const allRepairItems = draft.items.flatMap((it) => it.repairItems);
@@ -401,7 +403,9 @@ export function PickupStep({ draft, onNext, onBack, onSaveToCart }: PickupStepPr
                 🏝 도서산간 지역 추가 배송비 안내
               </p>
               <p className="text-xs text-orange-600 mt-0.5">
-                해당 주소는 우체국 지정 도서산간 지역으로, 왕복 배송비 {remoteAreaFee.toLocaleString()}원이 추가됩니다.
+                {isRemoteArea(pickupZipcode, address) && isRemoteArea(effectiveDeliveryZip, effectiveDeliveryAddr)
+                  ? `수거지·배송지 모두 도서산간으로, 왕복 ${remoteAreaFee.toLocaleString()}원이 추가됩니다.`
+                  : `${isRemoteArea(pickupZipcode, address) ? '수거지' : '배송지'}가 도서산간으로, 편도 ${remoteAreaFee.toLocaleString()}원이 추가됩니다.`}
               </p>
             </div>
           )}

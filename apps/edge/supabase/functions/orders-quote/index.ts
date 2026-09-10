@@ -168,12 +168,14 @@ serve(async (req) => {
       console.warn('배송비 프로모션 확인 실패:', e)
     }
 
-    // 도서산간 추가비 (왕복 = 편도 단가 × 2).
-    // 정책: 의류는 들어오고 반드시 나가야 하므로 모든 배송비는 왕복 기준이다.
-    // shipping_settings.remote_area_fee 는 우체국 편도 단가로 저장되며,
-    // 결제/취소 차감 시 모두 왕복(×2) 기준으로 사용한다.
-    const remoteAreaOneWay = isRemoteArea(body.pickupZipcode || '') ? REMOTE_AREA_FEE : 0
-    const remoteAreaFee = remoteAreaOneWay * 2
+    // 도서산간 추가비: 수거지·배송지 각각 편도 단가(REMOTE_AREA_FEE)를 적용한 뒤 합산.
+    // - 수거=도서산간, 배송=도서산간 → 400 + 400 = 800
+    // - 수거=도서산간, 배송=일반     → 400 + 0   = 400
+    // - 수거=일반,     배송=도서산간 → 0   + 400 = 400
+    const effectiveDeliveryZip = body.deliveryZipcode || body.pickupZipcode || ''
+    const remoteAreaFee =
+      (isRemoteArea(body.pickupZipcode || '') ? REMOTE_AREA_FEE : 0) +
+      (isRemoteArea(effectiveDeliveryZip) ? REMOTE_AREA_FEE : 0)
 
     // 프로모션 코드 검증 (앱만. 웹 소스는 무시)
     let promotionDiscountAmount = 0

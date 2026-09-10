@@ -167,16 +167,17 @@ class IslandAreaService {
     };
   }
 
-  /// 도서산간 추가 배송비 계산 (왕복 = 편도 단가 × 2).
+  /// 도서산간 추가 배송비 계산 (수거지·배송지 각각 편도 단가 합산).
   ///
-  /// 정책: 의류는 들어오고 반드시 나가야 하므로 모든 배송비는 왕복 기준이다.
-  /// [feeAmount] 는 우체국 편도 단가(예: 400)로 저장되며,
-  /// 결제/취소 차감 시 모두 왕복(×2)으로 사용한다.
+  /// - 수거=도서산간, 배송=도서산간 → feeAmount × 2 (왕복)
+  /// - 수거=도서산간, 배송=일반     → feeAmount × 1 (수거 편도)
+  /// - 수거=일반,     배송=도서산간 → feeAmount × 1 (배송 편도)
+  /// - 둘 다 일반                  → 0
   ///
   /// [pickupZipcode] 수거지 우편번호
-  /// [deliveryZipcode] 배송지 우편번호 (없으면 수거지와 동일하다고 간주)
+  /// [deliveryZipcode] 배송지 우편번호 (null이면 수거지와 동일하다고 간주)
   /// [feeAmount] 편도 단가 (관리자 설정값, 기본 [additionalFee])
-  /// Returns: 왕복 추가 배송비 (원)
+  /// Returns: 총 도서산간 추가 배송비 (원)
   int calculateAdditionalFee({
     String? pickupZipcode,
     String? deliveryZipcode,
@@ -185,7 +186,8 @@ class IslandAreaService {
     final isPickupIsland = isIslandArea(pickupZipcode);
     final isDeliveryIsland = isIslandArea(deliveryZipcode ?? pickupZipcode);
 
-    return (isPickupIsland || isDeliveryIsland) ? feeAmount * 2 : 0;
+    final islandTripCount = (isPickupIsland ? 1 : 0) + (isDeliveryIsland ? 1 : 0);
+    return islandTripCount * feeAmount;
   }
 
   /// 전체 도서산간 우편번호 개수
