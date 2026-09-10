@@ -20,7 +20,8 @@ class ReviewInviteDialog {
       if (prefs.getBool(_dismissKey) == true) return;
 
       final pending = await ReviewService().fetchPending();
-      if (!shouldAutoShowReviewInvite(dismissed: false, pendingOrderId: pending?.id) ||
+      if (pending == null ||
+          !shouldAutoShowReviewInvite(dismissed: false, pendingOrderId: pending.id) ||
           !context.mounted) {
         return;
       }
