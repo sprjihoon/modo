@@ -36,18 +36,28 @@ export function isPickupBookingEvent(event?: { status?: string | null; descripti
   return status === "BOOKED" || description.includes("수거예약");
 }
 
+export function asTrackingEvents(
+  value: unknown
+): Array<{ status?: string | null; description?: string | null }> {
+  if (!Array.isArray(value)) return [];
+  return value.filter((event): event is { status?: string | null; description?: string | null } =>
+    !!event && typeof event === "object"
+  );
+}
+
 export function trackingEventsShowFailedPickup(
-  events?: Array<{ status?: string | null; description?: string | null }> | null
+  events?: unknown
 ): boolean {
-  if (!events?.length) return false;
+  const list = asTrackingEvents(events);
+  if (!list.length) return false;
   let bookingIdx = -1;
-  for (let i = events.length - 1; i >= 0; i--) {
-    if (isPickupBookingEvent(events[i])) {
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (isPickupBookingEvent(list[i])) {
       bookingIdx = i;
       break;
     }
   }
-  const relevant = bookingIdx >= 0 ? events.slice(bookingIdx + 1) : events;
+  const relevant = bookingIdx >= 0 ? list.slice(bookingIdx + 1) : list;
   return relevant.some(
     (event) => isFailedPickupStatus(event.status) || isFailedPickupStatus(event.description)
   );
@@ -75,7 +85,7 @@ export function shouldOfferCustomerRebook(opts: {
   scheduledDate?: string | null;
   pickupCompletedAt?: string | null;
   shipmentStatus?: string | null;
-  trackingEvents?: Array<{ status?: string | null; description?: string | null }> | null;
+  trackingEvents?: unknown;
   todayYmd?: string;
 }): boolean {
   if (!canRebookPickup(opts)) return false;
