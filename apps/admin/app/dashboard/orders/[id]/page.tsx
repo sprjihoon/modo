@@ -15,6 +15,7 @@ import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
 import { OrderCsCard } from "@/components/orders/order-cs-card";
 import { formatOrderDate, isPastOrderDate, isPickupBookingLock, isRealTrackingNo, todayYmdKst } from "@/lib/missing-pickup";
+import { canRebookPickup, nextAvailablePickupDate, trackingEventsShowFailedPickup } from "@/lib/rebook-pickup";
 import { HLSVideoPlayer } from "@/components/video/hls-video-player";
 import {
   adminMediaPlaybackUrl,
@@ -65,11 +66,14 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
     cancellations: { amount: { total: number }; reason: string; cancelledAt: string }[];
   } | null>(null);
 
-  const handleBookPickup = async () => {
+  const handleBookPickup = async (forceRebook = false) => {
     if (!order?.id) return;
     const nextDate = rebookPickupDate || order.pickup_date || "";
     const dateLabel = formatOrderDate(nextDate) || "우체국 기본일(내일)";
-    if (!confirm(`우체국 수거예약을 다시 시도할까요?\n수거일: ${dateLabel}`)) {
+    const confirmMsg = forceRebook
+      ? `미수거 건을 새 수거일로 재접수할까요?\n기존 송장은 우체국에서 취소되고 새 송장이 발급됩니다.\n수거일: ${dateLabel}`
+      : `우체국 수거예약을 다시 시도할까요?\n수거일: ${dateLabel}`;
+    if (!confirm(confirmMsg)) {
       return;
     }
     setIsBookingPickup(true);
@@ -77,7 +81,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
       const res = await fetch(`/api/orders/${order.id}/book-pickup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pickupDate: nextDate || undefined }),
+        body: JSON.stringify({ pickupDate: nextDate || undefined, forceRebook }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "수거예약 실패");
@@ -153,7 +157,7 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
           setOrder(data.order);
           setVideos(data.order.videos || []);
           const requested = String(data.order.pickup_date ?? "").slice(0, 10);
-          setRebookPickupDate(isPastOrderDate(requested) ? todayYmdKst() : requested);
+          setRebookPickupDate(isPastOrderDate(requested) ? nextAvailablePickupDate() : (requested || nextAvailablePickupDate()));
 
           // Load barcodes and photos
           loadBarcodes(params.id);
@@ -704,11 +708,61 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
                 </div>
               </div>
               <Button
-                onClick={handleBookPickup}
+                onClick={() => handleBookPickup(false)}
                 disabled={isBookingPickup}
                 className="bg-amber-600 hover:bg-amber-700"
               >
                 {isBookingPickup ? "예약 중..." : "수거송장 재발행"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {order && displayOrder.trackingNo && canRebookPickup({
+        status: order.status,
+        canceled_at: order.canceled_at,
+        shipmentStatus: order.shipment?.status,
+        pickupCompletedAt: order.shipment?.pickup_completed_at,
+      }) && (
+        <Card className="border-orange-400 bg-orange-50/70">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="font-semibold text-orange-800">미수거 재접수</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  현재 수거 송장: <strong className="font-mono">{displayOrder.trackingNo}</strong>
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  희망 수거일: <strong>{formatOrderDate(order.pickup_date) || "미지정"}</strong>
+                  {isPastOrderDate(order.pickup_date) ? " (이미 지난 날짜)" : ""}
+                </p>
+                {trackingEventsShowFailedPickup(order.shipment?.tracking_events) && (
+                  <p className="text-sm text-orange-700 mt-1 font-medium">
+                    우체국 추적에 송화인 부재/미수거 이력이 있습니다.
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground mt-1">
+                  고객이 자리에 없어 수거되지 않은 경우, 기존 송장을 취소하고 새 수거일로 재접수하세요.
+                </p>
+                <div className="mt-3 flex items-center gap-2">
+                  <Label htmlFor="rebook-failed-pickup-date" className="text-sm">재접수 수거일</Label>
+                  <input
+                    id="rebook-failed-pickup-date"
+                    type="date"
+                    className="h-9 rounded-md border px-2 text-sm"
+                    min={nextAvailablePickupDate()}
+                    value={rebookPickupDate}
+                    onChange={(e) => setRebookPickupDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={() => handleBookPickup(true)}
+                disabled={isBookingPickup}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {isBookingPickup ? "재접수 중..." : "수거 재접수"}
               </Button>
             </div>
           </CardContent>

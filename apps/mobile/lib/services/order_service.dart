@@ -747,6 +747,38 @@ class OrderService {
     }
   }
 
+  /// 송화인 부재 등 미수거 건 재접수
+  Future<Map<String, dynamic>> rebookPickup({
+    required String orderId,
+    required String pickupDate,
+  }) async {
+    try {
+      final response = await _supabase.functions.invoke(
+        'shipments-book',
+        body: {
+          'order_id': orderId,
+          'force_rebook': true,
+          'pickup_date': pickupDate,
+        },
+      );
+
+      final data = response.data;
+      if (data is! Map || data['success'] != true) {
+        throw Exception(
+          (data is Map ? data['error'] : null)?.toString() ?? '수거 재접수 실패',
+        );
+      }
+
+      final inner = data['data'];
+      if (inner is Map) {
+        return Map<String, dynamic>.from(inner);
+      }
+      return {'success': true};
+    } catch (e) {
+      throw Exception('수거 재접수 실패: $e');
+    }
+  }
+
   /// 배송비 프로모션 확인
   /// 현재 사용자에게 적용 가능한 최대 배송비 할인을 반환합니다.
   /// [baseShippingFee]를 명시하지 않으면 [ShippingSettingsService]에서 가져온 값을 사용합니다.

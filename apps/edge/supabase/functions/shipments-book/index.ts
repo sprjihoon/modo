@@ -9,9 +9,10 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { insertOrder, mockInsertOrder, getApprovalNumber, getResInfo, EPOST_MICRO_PACKAGE, type InsertOrderParams } from '../_shared/epost/index.ts';
+import { insertOrder, mockInsertOrder, getApprovalNumber, getResInfo, EPOST_MICRO_PACKAGE, cancelExistingPickupReservation, canForceRebookPickup, type InsertOrderParams } from '../_shared/epost/index.ts';
 import { createPickupBookingLock, isPickupBookingLock, isStalePickupBookingLock } from '../_shared/book-pickup.ts';
 import { flushPendingNotifications } from '../_shared/flush-notifications.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 interface ShipmentBookRequest {
   order_id: string;
@@ -34,6 +35,8 @@ interface ShipmentBookRequest {
   volume?: number;              // 크기(cm)
   delivery_message?: string;    // 배송 메시지
   test_mode?: boolean;          // 테스트 모드
+  force_rebook?: boolean;       // 송화인부재 등 미수거 시 기존 송장 취소 후 재접수
+  pickup_date?: string;         // 재접수 수거일 (YYYY-MM-DD)
 }
 
 /** orders.pickup_date → 우체국 retVisitYmd (YYYYMMDD)
@@ -114,6 +117,8 @@ Deno.serve(async (req) => {
       volume,
       delivery_message,
       test_mode,
+      force_rebook,
+      pickup_date: requestedPickupDate,
     } = body;
 
     // 명시적 플래그 로깅
@@ -158,6 +163,8 @@ Deno.serve(async (req) => {
         delivery_address_detail,
         delivery_zipcode,
         delivery_phone,
+        status,
+        canceled_at,
         updated_at
       `)
       .eq('id', order_id)
@@ -187,7 +194,116 @@ Deno.serve(async (req) => {
     } catch {
       console.warn('⚠️ pickup_date 조회 실패 (컬럼 없음?) - retVisitYmd 미전송');
     }
-    const existingOrderWithDate = { ...existingOrder, pickup_date: pickupDateValue };
+    const existingOrderWithDate: typeof existingOrder & { pickup_date: string | null } = {
+      ...existingOrder,
+      pickup_date: pickupDateValue,
+    };
+
+    if (force_rebook && shipment_type === 'pickup') {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+      const authHeader = req.headers.get('Authorization') || '';
+      const accessToken = authHeader.startsWith('Bearer ')
+        ? authHeader.substring('Bearer '.length).trim()
+        : '';
+      const isServiceRole = !!accessToken && accessToken === serviceRoleKey;
+
+      if (!isServiceRole) {
+        if (!accessToken) {
+          return errorResponse('로그인이 필요합니다.', 401, 'UNAUTHORIZED');
+        }
+        const userClient = createClient(supabaseUrl, anonKey || serviceRoleKey, {
+          global: { headers: { Authorization: `Bearer ${accessToken}` } },
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+        const { data: userData } = await userClient.auth.getUser();
+        if (!userData?.user) {
+          return errorResponse('로그인이 필요합니다.', 401, 'UNAUTHORIZED');
+        }
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_id', userData.user.id)
+          .maybeSingle();
+        const ownerIds = [userRow?.id, userData.user.id].filter(Boolean);
+        if (!ownerIds.includes(existingOrder.user_id)) {
+          return errorResponse('본인 주문만 재접수할 수 있습니다.', 403, 'FORBIDDEN');
+        }
+      }
+
+      const { data: currentShipment } = await supabase
+        .from('shipments')
+        .select('id, pickup_tracking_no, tracking_no, tracking_events, delivery_info, pickup_requested_at, created_at, status, pickup_completed_at')
+        .eq('order_id', order_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const eligibility = canForceRebookPickup({
+        orderStatus: existingOrder.status,
+        canceledAt: existingOrder.canceled_at,
+        shipmentStatus: currentShipment?.status,
+        pickupCompletedAt: currentShipment?.pickup_completed_at,
+      });
+      if (!eligibility.ok) {
+        return errorResponse(eligibility.error, 400, eligibility.code);
+      }
+
+      if (requestedPickupDate) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedPickupDate)) {
+          return errorResponse('수거일 형식이 올바르지 않습니다.', 400, 'INVALID_PICKUP_DATE');
+        }
+        const { error: dateErr } = await supabase
+          .from('orders')
+          .update({ pickup_date: requestedPickupDate })
+          .eq('id', order_id);
+        if (dateErr) {
+          return errorResponse(dateErr.message, 500, 'DB_ERROR');
+        }
+        pickupDateValue = requestedPickupDate;
+        existingOrderWithDate.pickup_date = requestedPickupDate;
+      }
+
+      console.log('🔄 미수거 재접수: 기존 우체국 예약을 취소합니다', {
+        order_id,
+        tracking_no: existingOrder.tracking_no || currentShipment?.pickup_tracking_no,
+      });
+
+      const cancelResult = await cancelExistingPickupReservation(currentShipment);
+      if (!cancelResult.ok) {
+        return errorResponse(
+          cancelResult.error,
+          cancelResult.blocked ? 400 : 502,
+          cancelResult.blocked ? 'ALREADY_PICKED_UP' : 'EPOST_CANCEL_FAILED',
+        );
+      }
+
+      const { error: clearOrderErr } = await supabase
+        .from('orders')
+        .update({ tracking_no: null })
+        .eq('id', order_id);
+      if (clearOrderErr) {
+        return errorResponse(`기존 송장 초기화에 실패했습니다: ${clearOrderErr.message}`, 500, 'DB_ERROR');
+      }
+      existingOrder.tracking_no = null;
+
+      if (currentShipment?.id) {
+        const { error: clearShipErr } = await supabase
+          .from('shipments')
+          .update({
+            pickup_tracking_no: null,
+            tracking_no: null,
+            status: 'CANCELLED',
+          })
+          .eq('id', currentShipment.id);
+        if (clearShipErr) {
+          console.warn('⚠️ 기존 shipment 송장 초기화 실패(계속 진행):', clearShipErr.message);
+        }
+      }
+
+      console.log('✅ 미수거 재접수: 기존 송장을 지웠습니다. 새 수거예약을 진행합니다.');
+    }
 
     // 이미 실제 송장이 있으면 우체국에 다시 넣지 않는다
     if (existingOrder.tracking_no && !isPickupBookingLock(existingOrder.tracking_no)) {
@@ -216,7 +332,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const existingPickupNo = [existingShipmentBefore?.pickup_tracking_no, existingShipmentBefore?.tracking_no]
       .find((value) => value && !isPickupBookingLock(value));
-    if (existingPickupNo) {
+    if (existingPickupNo && !(force_rebook && shipment_type === 'pickup')) {
       await supabase.from('orders').update({ tracking_no: existingPickupNo }).eq('id', order_id);
       return successResponse({
         tracking_no: existingPickupNo,

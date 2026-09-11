@@ -19,6 +19,10 @@ import {
   type RepairPhotoItem,
 } from "@/lib/repair-photos";
 import { RepairPhotosCompare } from "@/components/orders/RepairPhotosCompare";
+import {
+  nextAvailablePickupDate,
+  shouldOfferCustomerRebook,
+} from "@/lib/rebook-pickup";
 
 interface RepairItem {
   name: string;
@@ -75,6 +79,9 @@ interface ShipmentData {
   delivery_tracking_no?: string;
   carrier?: string;
   status?: string;
+  pickup_completed_at?: string | null;
+  pickup_scheduled_date?: string | null;
+  tracking_events?: Array<{ status?: string | null; description?: string | null }> | null;
 }
 
 // 7단계 타임라인
@@ -183,6 +190,9 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
   const [editAddressDetail, setEditAddressDetail] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [isSavingDelivery, setIsSavingDelivery] = useState(false);
+  const [rebookPickupDate, setRebookPickupDate] = useState(nextAvailablePickupDate());
+  const [isRebookingPickup, setIsRebookingPickup] = useState(false);
+  const [rebookError, setRebookError] = useState<string | null>(null);
   const [isAddressSearchOpen, setIsAddressSearchOpen] = useState(false);
   const addressContainerRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
@@ -300,7 +310,7 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         setOrder(next);
         const { data: s } = await supabase
           .from("shipments")
-          .select("tracking_no, pickup_tracking_no, delivery_tracking_no, carrier, status")
+          .select("tracking_no, pickup_tracking_no, delivery_tracking_no, carrier, status, pickup_completed_at, pickup_scheduled_date, tracking_events")
           .eq("order_id", orderId)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -372,6 +382,31 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
       alert("저장 중 오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setIsSavingDelivery(false);
+    }
+  }
+
+  async function handleRebookPickup() {
+    if (!order?.id || isRebookingPickup) return;
+    setIsRebookingPickup(true);
+    setRebookError(null);
+    try {
+      const res = await fetch(`/api/orders/${order.id}/rebook-pickup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pickupDate: rebookPickupDate }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "수거 재접수에 실패했습니다.");
+      }
+      alert(data.trackingNo
+        ? `새 수거 송장 ${data.trackingNo} 이(가) 발급되었습니다.`
+        : "수거가 다시 예약되었습니다.");
+      await loadOrder();
+    } catch (e) {
+      setRebookError(e instanceof Error ? e.message : "수거 재접수에 실패했습니다.");
+    } finally {
+      setIsRebookingPickup(false);
     }
   }
 
@@ -1373,6 +1408,44 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
         </div>
       )}
 
+      {order && shouldOfferCustomerRebook({
+        status: order.status,
+        pickupDate: order.pickup_date,
+        scheduledDate: shipment?.pickup_scheduled_date,
+        pickupCompletedAt: shipment?.pickup_completed_at,
+        shipmentStatus: shipment?.status,
+        trackingEvents: shipment?.tracking_events,
+      }) && (
+        <div className="mx-4 mt-3 p-5 bg-orange-50 border border-orange-200 rounded-2xl">
+          <p className="text-sm font-bold text-orange-900">수거가 완료되지 않았습니다</p>
+          <p className="text-sm text-orange-800 mt-1 leading-relaxed">
+            방문 당시 자리에 없으셨거나 수거가 이뤄지지 않았습니다. 새 수거일을 고르고 다시 예약해 주세요.
+          </p>
+          <div className="mt-3">
+            <label htmlFor="customer-rebook-date" className="text-xs font-semibold text-orange-800">
+              다시 방문할 수거일
+            </label>
+            <input
+              id="customer-rebook-date"
+              type="date"
+              min={nextAvailablePickupDate()}
+              value={rebookPickupDate}
+              onChange={(e) => setRebookPickupDate(e.target.value)}
+              className="mt-1 w-full px-3 py-2.5 text-sm border border-orange-200 rounded-xl bg-white outline-none focus:border-[#00C896]"
+            />
+          </div>
+          {rebookError && (
+            <p className="text-xs text-red-600 mt-2">{rebookError}</p>
+          )}
+          <button
+            onClick={handleRebookPickup}
+            disabled={isRebookingPickup}
+            className="mt-3 w-full py-3.5 bg-orange-600 text-white text-sm font-bold rounded-xl active:opacity-90 disabled:opacity-50"
+          >
+            {isRebookingPickup ? "재접수 중..." : "수거 다시 예약하기"}
+          </button>
+        </div>
+      )}
 
       {/* ── 하단 액션 ── */}
       <div className="mx-4 mt-4 space-y-2.5">

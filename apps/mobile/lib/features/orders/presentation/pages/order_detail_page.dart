@@ -65,6 +65,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
   /// 배송추적 treatStusCd (00:신청준비, 01:소포신청, 02:운송장출력, 03:집하완료, 04:배송중, 05:배송완료)
   /// 00~02: 수거준비(취소 가능), 03~05: 접수/발송/도착(취소 불가 → 문의하기)
   String? _pickupTreatStusCd;
+  bool _failedPickup = false;
+  bool _isRebookingPickup = false;
 
   // 입고/출고 영상 URL (단일) — CS 내부 전용, 고객에게 직접 표시 안 함
   String? _inboundVideoUrl;
@@ -216,6 +218,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
         // BOOKED가 아니면 수거 treatStusCd 초기화
         if (newStatus != 'BOOKED') {
           _pickupTreatStusCd = null;
+          _failedPickup = false;
+        } else {
+          _failedPickup = _isPickupDatePast();
         }
       });
 
@@ -3275,15 +3280,129 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       final epost = inner['epost'] as Map<String, dynamic>?;
       final code = epost?['treatStusCd'] as String?;
 
+      final events = inner['trackingEvents'] as List<dynamic>? ?? [];
+      final failed = events.any((event) {
+        if (event is! Map) return false;
+        return _isFailedPickupStatus(event['status']?.toString()) ||
+            _isFailedPickupStatus(event['description']?.toString());
+      });
+
       if (mounted) {
-        setState(() => _pickupTreatStusCd = code);
+        setState(() {
+          _pickupTreatStusCd = code;
+          _failedPickup = failed || _isPickupDatePast();
+        });
         debugPrint('📦 수거 treatStusCd: $code (00~02=취소가능, 03~05=문의하기)');
       }
     } catch (e) {
       debugPrint('⚠️ 수거 treatStusCd 조회 실패: $e');
       if (mounted) {
-        setState(() => _pickupTreatStusCd = null);
+        setState(() {
+          _pickupTreatStusCd = null;
+          _failedPickup = _isPickupDatePast();
+        });
       }
+    }
+  }
+
+  bool _isFailedPickupStatus(String? value) {
+    final text = (value ?? '').replaceAll(RegExp(r'\s+'), '');
+    if (text.isEmpty) return false;
+    if (text.contains('수령인부재') && !text.contains('송화인')) return false;
+    const patterns = ['송화인부재', '미집하', '미수거', '수거불가', '방문불응'];
+    return patterns.any(text.contains) || text.contains('부재');
+  }
+
+  bool _isPickupDatePast() {
+    final raw = _orderData?['pickup_date']?.toString() ??
+        _shipmentData?['pickup_scheduled_date']?.toString() ??
+        '';
+    if (raw.length < 10) return false;
+    final ymd = raw.substring(0, 10);
+    final now = DateTime.now();
+    final today =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return ymd.compareTo(today) < 0;
+  }
+
+  static const _krHolidays = {
+    '2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18',
+    '2026-03-01', '2026-03-02',
+    '2026-05-05', '2026-05-24', '2026-05-25',
+    '2026-06-06',
+    '2026-08-15', '2026-08-16', '2026-08-17',
+    '2026-09-24', '2026-09-25', '2026-09-26', '2026-09-28',
+    '2026-10-03', '2026-10-05',
+    '2026-10-09', '2026-12-25',
+  };
+
+  bool _isUnavailablePickupDate(DateTime date) {
+    if (date.weekday == DateTime.saturday || date.weekday == DateTime.sunday) {
+      return true;
+    }
+    final key = date.toIso8601String().split('T')[0];
+    return _krHolidays.contains(key);
+  }
+
+  DateTime _nextAvailablePickupDate() {
+    var d = DateTime.now().add(const Duration(days: 1));
+    while (_isUnavailablePickupDate(d)) {
+      d = d.add(const Duration(days: 1));
+    }
+    return DateTime(d.year, d.month, d.day);
+  }
+
+  Future<void> _showRebookPickupSheet() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _nextAvailablePickupDate(),
+      firstDate: _nextAvailablePickupDate(),
+      lastDate: DateTime.now().add(const Duration(days: 21)),
+      helpText: '다시 방문할 수거일',
+      selectableDayPredicate: (date) => !_isUnavailablePickupDate(date),
+    );
+    if (selected == null || !mounted) return;
+
+    final ymd =
+        '${selected.year.toString().padLeft(4, '0')}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('수거 다시 예약'),
+        content: Text('선택한 수거일($ymd)로 다시 예약할까요?\n기존 송장은 취소되고 새 송장이 발급됩니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('재접수')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isRebookingPickup = true);
+    try {
+      final result = await _orderService.rebookPickup(
+        orderId: widget.orderId,
+        pickupDate: ymd,
+      );
+      final trackingNo = result['tracking_no'] ?? result['pickup_tracking_no'];
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            trackingNo != null
+                ? '새 수거 송장 $trackingNo 이(가) 발급되었습니다.'
+                : '수거가 다시 예약되었습니다.',
+          ),
+        ),
+      );
+      await _loadOrderData(showLoading: false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _isRebookingPickup = false);
     }
   }
 
@@ -3588,6 +3707,50 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
             ),
           const SizedBox(height: 16),
 
+          if (_currentStatus == 'BOOKED' && _failedPickup) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFDBA74)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '수거가 완료되지 않았습니다',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF9A3412),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    '방문 당시 자리에 없으셨거나 수거가 이뤄지지 않았습니다. 새 수거일로 다시 예약해 주세요.',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF9A3412), height: 1.4),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isRebookingPickup ? null : _showRebookPickupSheet,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEA580C),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text(_isRebookingPickup ? '재접수 중...' : '수거 다시 예약하기'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           _buildInfoRow('택배사',
               _shipmentData?['carrier'] == 'EPOST' ? '우체국 택배' : '우체국 택배'),
           _buildInfoRow(

@@ -46,9 +46,13 @@ Content-Type: application/json
   "delivery_address_detail": "XYZ아파트 101동 1001호",
   "delivery_zipcode": "06235",
   "delivery_phone": "010-9876-5432",
-  "customer_name": "홍길동"
+  "customer_name": "홍길동",
+  "force_rebook": false,
+  "pickup_date": "2026-09-14"
 }
 ```
+
+송화인 부재 등 미수거 재접수는 `force_rebook: true`와 새 `pickup_date`를 넣는다. 주문·결제는 유지하고 기존 송장만 취소한 뒤 새 송장을 발급한다. 집하완료면 `ALREADY_PICKED_UP`.
 
 **Response (201 Created):**
 ```json

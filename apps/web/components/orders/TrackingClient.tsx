@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { isFailedPickupStatus, nextAvailablePickupDate } from "@/lib/rebook-pickup";
 
 interface TrackingEvent {
   date: string;
@@ -118,6 +119,10 @@ export function TrackingClient({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [rebookPickupDate, setRebookPickupDate] = useState(nextAvailablePickupDate());
+  const [isRebookingPickup, setIsRebookingPickup] = useState(false);
+  const [rebookError, setRebookError] = useState<string | null>(null);
+  const [rebookedTrackingNo, setRebookedTrackingNo] = useState<string | null>(null);
 
   const loadTracking = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -140,6 +145,27 @@ export function TrackingClient({
   }, [trackingNo]);
 
   useEffect(() => { loadTracking(); }, [loadTracking]);
+
+  async function handleRebookPickup() {
+    setIsRebookingPickup(true);
+    setRebookError(null);
+    try {
+      const res = await fetch(`/api/orders/${orderId}/rebook-pickup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pickupDate: rebookPickupDate }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || "수거 재접수에 실패했습니다.");
+      }
+      setRebookedTrackingNo(result.trackingNo || "발급됨");
+    } catch (e) {
+      setRebookError(e instanceof Error ? e.message : "수거 재접수에 실패했습니다.");
+    } finally {
+      setIsRebookingPickup(false);
+    }
+  }
 
   async function copyTrackingNo() {
     await navigator.clipboard.writeText(trackingNo).catch(() => {});
@@ -181,6 +207,7 @@ export function TrackingClient({
   const isCachedEvents = data?.isCachedEvents ?? false;
   const epostError = data?.epostError;
   const shipment = data?.shipment;
+  const failedPickup = events.some((event) => isFailedPickupStatus(event.status) || isFailedPickupStatus(event.description));
 
   return (
     <div className="pb-8 space-y-3">
@@ -298,6 +325,38 @@ export function TrackingClient({
               {data.epost.senderName && <span>보내는 분: {data.epost.senderName}</span>}
               {data.epost.receiverName && <span>받는 분: {data.epost.receiverName}</span>}
             </div>
+          )}
+        </div>
+      )}
+
+      {failedPickup && (
+        <div className="mx-4 p-5 bg-orange-50 border border-orange-200 rounded-2xl">
+          <p className="text-sm font-bold text-orange-900">송화인 부재로 수거되지 않았습니다</p>
+          <p className="text-sm text-orange-800 mt-1 leading-relaxed">
+            새 수거일을 고르면 기존 송장을 취소하고 다시 예약합니다.
+          </p>
+          {rebookedTrackingNo ? (
+            <p className="text-sm font-semibold text-[#00C896] mt-3">
+              재접수 완료 · 새 송장 {rebookedTrackingNo}
+            </p>
+          ) : (
+            <>
+              <input
+                type="date"
+                min={nextAvailablePickupDate()}
+                value={rebookPickupDate}
+                onChange={(e) => setRebookPickupDate(e.target.value)}
+                className="mt-3 w-full px-3 py-2.5 text-sm border border-orange-200 rounded-xl bg-white"
+              />
+              {rebookError && <p className="text-xs text-red-600 mt-2">{rebookError}</p>}
+              <button
+                onClick={handleRebookPickup}
+                disabled={isRebookingPickup}
+                className="mt-3 w-full py-3.5 bg-orange-600 text-white text-sm font-bold rounded-xl disabled:opacity-50"
+              >
+                {isRebookingPickup ? "재접수 중..." : "수거 다시 예약하기"}
+              </button>
+            </>
           )}
         </div>
       )}

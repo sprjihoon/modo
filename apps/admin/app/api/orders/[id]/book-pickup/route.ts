@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireStaff } from "@/lib/ops-auth";
 import { bookPickupForOrder } from "@/lib/book-pickup";
 import { isMissingPickupWaybill, isRealTrackingNo } from "@/lib/missing-pickup";
+import { canRebookPickup } from "@/lib/rebook-pickup";
+import { notifyCustomer } from "@/lib/notify-customer";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,7 @@ export async function POST(
   const { id: orderId } = await params;
   const body = await request.json().catch(() => ({}));
   const pickupDate = typeof body?.pickupDate === "string" ? body.pickupDate.trim() : "";
+  const forceRebook = body?.forceRebook === true;
   const admin = getSupabaseAdmin();
   const { data: order, error } = await admin
     .from("orders")
@@ -33,13 +36,25 @@ export async function POST(
 
   const { data: shipment } = await admin
     .from("shipments")
-    .select("pickup_tracking_no, tracking_no")
+    .select("pickup_tracking_no, tracking_no, status, pickup_completed_at")
     .eq("order_id", orderId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (!isMissingPickupWaybill({ ...order, shipment })) {
+  if (forceRebook) {
+    if (!canRebookPickup({
+      status: order.status,
+      canceled_at: order.canceled_at,
+      shipmentStatus: shipment?.status,
+      pickupCompletedAt: shipment?.pickup_completed_at,
+    })) {
+      return NextResponse.json(
+        { success: false, error: "현재 상태에서는 수거를 재접수할 수 없습니다." },
+        { status: 400 }
+      );
+    }
+  } else if (!isMissingPickupWaybill({ ...order, shipment })) {
     return NextResponse.json({
       success: true,
       alreadyBooked: true,
@@ -63,7 +78,10 @@ export async function POST(
     order.pickup_date = pickupDate;
   }
 
-  const result = await bookPickupForOrder(order);
+  const result = await bookPickupForOrder(
+    order,
+    forceRebook ? { force_rebook: true, pickup_date: pickupDate || undefined } : undefined
+  );
   if (!result.ok) {
     return NextResponse.json(
       { success: false, error: result.error || "수거예약에 실패했습니다.", code: result.code },
@@ -71,9 +89,21 @@ export async function POST(
     );
   }
 
+  if (forceRebook && result.trackingNo) {
+    const dateLabel = pickupDate || "우체국 기본일";
+    await notifyCustomer(admin, {
+      userId: order.user_id,
+      orderId,
+      type: "pickup_rebooked",
+      title: "수거가 다시 예약되었습니다",
+      body: `미수거되어 새 수거일(${dateLabel})로 재접수했습니다. 송장번호 ${result.trackingNo}`,
+    });
+  }
+
   return NextResponse.json({
     success: true,
     trackingNo: result.trackingNo,
     attempts: result.attempts,
+    rebooked: forceRebook,
   });
 }
