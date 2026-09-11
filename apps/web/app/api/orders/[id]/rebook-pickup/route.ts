@@ -68,7 +68,6 @@ export async function POST(
     if (!shouldOfferCustomerRebook({
       status: order.status,
       canceled_at: order.canceled_at,
-      pickupDate: order.pickup_date,
       scheduledDate: shipment?.pickup_scheduled_date,
       shipmentStatus: shipment?.status,
       pickupCompletedAt: shipment?.pickup_completed_at,
