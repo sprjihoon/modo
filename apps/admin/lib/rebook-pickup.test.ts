@@ -14,6 +14,7 @@ assert(isFailedPickupStatus("송화인부재"), "송화인부재");
 assert(isFailedPickupStatus("송화인 부재"), "송화인 부재 공백");
 assert(isFailedPickupStatus("미집하"), "미집하");
 assert(isFailedPickupStatus("미수거"), "미수거");
+assert(isFailedPickupStatus("신청취소"), "신청취소");
 assert(!isFailedPickupStatus("수령인 부재"), "배송 수령인 부재는 수거 실패가 아님");
 assert(!isFailedPickupStatus("집하완료"), "집하완료는 실패 아님");
 
@@ -74,6 +75,16 @@ assert(
     ],
   }),
   "이번 예약 이후 미수거면 노출"
+);
+assert(
+  shouldOfferCustomerRebook({
+    status: "BOOKED",
+    trackingEvents: [
+      { status: "BOOKED", description: "수거예약 완료" },
+      { status: "신청취소" },
+    ],
+  }),
+  "이번 예약 이후 신청취소면 노출"
 );
 assert(
   !shouldOfferCustomerRebook({

@@ -13,6 +13,7 @@ const FAILED_PICKUP_PATTERNS = [
   "미수거",
   "수거불가",
   "방문불응",
+  "신청취소",
 ];
 
 export function normalizeStatusText(value?: string | null): string {

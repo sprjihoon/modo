@@ -3323,7 +3323,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     final text = (value ?? '').replaceAll(RegExp(r'\s+'), '');
     if (text.isEmpty) return false;
     if (text.contains('수령인부재') && !text.contains('송화인')) return false;
-    const patterns = ['송화인부재', '미집하', '미수거', '수거불가', '방문불응'];
+    const patterns = ['송화인부재', '미집하', '미수거', '수거불가', '방문불응', '신청취소'];
     return patterns.any(text.contains) || text.contains('부재');
   }
 

@@ -682,8 +682,8 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 | 경로 | 동작 |
 |---|---|
 | Edge | `shipments-book` + `force_rebook: true` — 우체국 취소 후 새 송장. 집하완료면 거부 |
-| 어드민 | 주문 상세 **수거 재접수**. 이번 예약이 미수거/부재일 때만 표시. `POST /api/orders/[id]/book-pickup` `{ forceRebook: true, pickupDate }` |
-| 고객 웹 | 주문 상세·배송추적. **이번 예약 이후** 송화인부재/미수거일 때만. `POST /api/orders/[id]/rebook-pickup` |
+| 어드민 | 주문 상세 **수거 재접수**. 이번 예약이 미수거/부재/신청취소일 때만 표시. `POST /api/orders/[id]/book-pickup` `{ forceRebook: true, pickupDate }` |
+| 고객 웹 | 주문 상세·배송추적. **이번 예약 이후** 송화인부재/미수거/신청취소일 때만. `POST /api/orders/[id]/rebook-pickup` |
 | 앱 | 주문 상세 **수거 다시 예약하기**. 같은 Edge `force_rebook`. **다음 스토어 빌드(`1.0.12`)** |
 
 주문 취소·환불과 다르다. `shipments-cancel`은 주문까지 취소한다.
@@ -883,7 +883,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
-| 2026-09-11 | 재접수는 미수거만 | 신규 예약·재접수 완료 건에는 버튼을 숨긴다. 이번 예약 이후 송화인부재/미수거일 때만 표시. 이전 실패 이력은 추적에 유지 |
+| 2026-09-11 | 재접수는 미수거만 | 신규 예약·재접수 완료 건에는 버튼을 숨긴다. 이번 예약 이후 송화인부재/미수거/신청취소일 때만 표시. 이전 실패 이력은 추적에 유지 |
 | 2026-09-11 | 재접수 reqNo 복구 | 추적 이력이 예약번호를 덮어써도 재접수. `reqNo` 없으면 우체국 취소 건너뛰고 새 접수. ERR-211을 고객번호 오류로 오인하지 않음. `delivery_info`에 `reqNo` 저장. 검증: `rebook-booking-fields.test.ts` |
 | 2026-09-11 | 미수거 재접수 | 송화인 부재 등으로 미수거되면 기존 송장 취소 후 새 수거일 재접수. 주문·결제 유지. 어드민 주문 상세 · 웹 주문/추적 · 앱 주문 상세. Edge `shipments-book` `force_rebook`. 검증: `rebook-pickup.test.ts`. 앱 버튼은 `1.0.12` |
 | 2026-09-10 | 결제정보에 포인트·쿠폰 표시 | 어드민 주문 상세 결제 정보, 웹·앱 주문 정보에 쿠폰 코드·배송비 할인·포인트 사용 표시. 웹·어드민 `main` 라이브. **앱은 `1.0.11`에 없음 → 다음 스토어 빌드(`1.0.12`)에 포함.** 지금 재빌드 불필요 |

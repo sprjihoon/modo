@@ -11,6 +11,7 @@ function assert(cond: unknown, msg: string) {
 }
 
 assert(isFailedPickupStatus("송화인부재"), "송화인부재");
+assert(isFailedPickupStatus("신청취소"), "신청취소");
 assert(!isFailedPickupStatus("수령인 부재"), "배송 수령인 부재 제외");
 assert(canRebookPickup({ status: "BOOKED" }), "BOOKED 재접수 가능");
 assert(!canRebookPickup({ status: "PROCESSING" }), "수선중 재접수 불가");
