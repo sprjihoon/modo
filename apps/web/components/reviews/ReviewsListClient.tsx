@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { MyReview, PublicReview } from "@/lib/reviews";
+import { ensurePreviewReviews } from "@/lib/review-preview";
 import { ReviewCard } from "./ReviewCard";
 
 type Sort = "rating" | "recent";
@@ -44,14 +45,23 @@ export function ReviewsListClient() {
         const myList = Array.isArray(json?.mine) ? (json.mine as MyReview[]) : [];
         setMine(myList);
         const mineIds = new Set(myList.map((review) => review.id));
-        setReviews(applyListView(list.filter((review) => !mineIds.has(review.id)), sort, photoOnly));
+        setReviews(
+          applyListView(
+            ensurePreviewReviews(
+              list.filter((review) => !mineIds.has(review.id)),
+              { photoOnly, clothing }
+            ),
+            sort,
+            photoOnly
+          )
+        );
         if (Array.isArray(json?.categories)) {
           setCategories((json.categories as unknown[]).filter((name): name is string => typeof name === "string" && name.trim().length > 0));
         }
       })
       .catch(() => {
         if (cancelled) return;
-        setReviews([]);
+        setReviews(applyListView(ensurePreviewReviews([], { photoOnly, clothing }), sort, photoOnly));
         setMine([]);
       })
       .finally(() => {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/review_samples.dart';
 import '../../data/review_service.dart';
 import '../../domain/review_models.dart';
 import 'star_rating.dart';
@@ -16,8 +17,8 @@ class HomeReviewsPreview extends StatefulWidget {
 
 class _HomeReviewsPreviewState extends State<HomeReviewsPreview> {
   final _service = ReviewService();
-  List<PublicReview> _reviews = const [];
-  bool _ready = false;
+  List<PublicReview> _reviews = previewReviews;
+  bool _ready = true;
   int _photoOffset = 0;
   int _textOffset = 0;
   bool _fading = false;
@@ -40,13 +41,13 @@ class _HomeReviewsPreviewState extends State<HomeReviewsPreview> {
       final result = await _service.fetchReviews(home: true, limit: 20);
       if (!mounted) return;
       setState(() {
-        _reviews = result.reviews;
+        _reviews = ensurePreviewReviews(result.reviews);
         _ready = true;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _reviews = const [];
+        _reviews = previewReviews;
         _ready = true;
       });
     }

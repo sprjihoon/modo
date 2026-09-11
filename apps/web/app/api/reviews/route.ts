@@ -13,7 +13,8 @@ import {
   toMyReview,
   toPublicReview,
 } from "@/lib/reviews";
-import type { MyReview } from "@/lib/reviews";
+import type { MyReview, PublicReview } from "@/lib/reviews";
+import { ensurePreviewReviews, publicReviewStats } from "@/lib/review-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,30 @@ const PUBLIC_COLS =
 
 const MINE_COLS =
   "id, order_id, rating, content, photo_urls, display_name, repair_summary, clothing_type, points_type, reviewed_at, status, points_awarded";
+
+function publicListPayload(
+  reviews: PublicReview[],
+  approvedCount: number,
+  average: number,
+  curated: boolean,
+  extra: { mine?: MyReview[]; categories?: string[] } = {}
+) {
+  const merged = ensurePreviewReviews(reviews);
+  const stats = publicReviewStats({
+    reviews: merged,
+    approvedCount,
+    average,
+    extraCount: merged.length - reviews.length,
+  });
+  return {
+    reviews: merged,
+    mine: extra.mine ?? [],
+    count: stats.count,
+    average: stats.average,
+    curated,
+    categories: extra.categories ?? [],
+  };
+}
 
 async function loadClothingTypes(
   admin: ReturnType<typeof createServiceClient>
@@ -75,9 +100,9 @@ export async function GET(request: NextRequest) {
     if (!home && clothingValues.length > 0) {
       statsQuery = statsQuery.in("clothing_type", clothingValues);
     }
-    const { data: stats } = await statsQuery;
+    const { data: ratingRows } = await statsQuery;
 
-    const ratings = (stats ?? []).map((r) => r.rating as number);
+    const ratings = (ratingRows ?? []).map((r) => r.rating as number);
     const average =
       ratings.length > 0
         ? Math.round((ratings.reduce((sum, n) => sum + n, 0) / ratings.length) * 10) / 10
@@ -96,13 +121,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: featuredError.message }, { status: 500 });
       }
 
-      if (featured && featured.length > 0) {
-        return NextResponse.json({
-          reviews: featured.map(toPublicReview),
-          count: approvedCount,
-          average,
-          curated: true,
-        });
+      const featuredReviews = (featured ?? []).map(toPublicReview);
+      if (featuredReviews.length > 0) {
+        return NextResponse.json(publicListPayload(featuredReviews, approvedCount, average, true));
       }
     }
 
@@ -130,12 +151,24 @@ export async function GET(request: NextRequest) {
     }
 
     const mine = home ? [] : await loadMineReviews(admin, request);
+    const clothing = searchParams.get("clothing") ?? "";
+    const page = (data ?? []).map(toPublicReview);
+    const reviews =
+      offset === 0
+        ? ensurePreviewReviews(page, home ? {} : { photoOnly, clothing })
+        : page;
+    const summary = publicReviewStats({
+      reviews,
+      approvedCount: count ?? approvedCount,
+      average,
+      extraCount: reviews.length - page.length,
+    });
 
     return NextResponse.json({
-      reviews: (data ?? []).map(toPublicReview),
+      reviews,
       mine,
-      count: count ?? approvedCount,
-      average,
+      count: summary.count,
+      average: summary.average,
       curated: false,
       categories,
     });

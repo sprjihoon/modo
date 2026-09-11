@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { PublicReview } from "@/lib/reviews";
-import { PREVIEW_REVIEWS } from "@/lib/review-preview";
+import { ensurePreviewReviews, PREVIEW_REVIEWS } from "@/lib/review-preview";
 import { StarRating } from "./StarRating";
 
 const ROTATE_MS = 4500;
@@ -68,11 +68,11 @@ export function HomeReviewsPreview({ preview = false }: { preview?: boolean }) {
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (cancelled) return;
-        setReviews(json?.reviews ?? []);
+        setReviews(ensurePreviewReviews(Array.isArray(json?.reviews) ? json.reviews : []));
         setReady(true);
       })
       .catch(() => {
-        setReviews([]);
+        setReviews(PREVIEW_REVIEWS);
         setReady(true);
       });
     return () => {

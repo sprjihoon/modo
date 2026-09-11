@@ -67,19 +67,26 @@ void main() {
       expect(empty.average, previewAverage);
     });
 
-    test('공개 리뷰가 있으면 샘플로 바꾸지 않는다', () {
+    test('공개 리뷰가 있어도 미리보기 4건은 유지한다', () {
       final live = PublicReview.fromJson({
         'id': 'live',
         'rating': 4,
         'content': '실제 리뷰',
         'photo_urls': [],
-        'display_name': '박**',
+        'display_name': '최**',
         'reviewed_at': '2026-08-21T00:00:00.000Z',
       });
       final result = withSampleReviews([live]);
-      expect(result.reviews.single.id, 'live');
-      expect(result.count, 1);
-      expect(result.average, 4);
+      expect(result.reviews.first.id, 'live');
+      expect(result.reviews.length, 5);
+      expect(result.reviews.where((r) => r.id.startsWith('preview-')).length, 4);
+      expect(result.count, 5);
+    });
+
+    test('같은 내용이면 미리보기를 중복하지 않는다', () {
+      final result = withSampleReviews(previewReviews);
+      expect(result.reviews.length, 4);
+      expect(result.count, 4);
     });
   });
 

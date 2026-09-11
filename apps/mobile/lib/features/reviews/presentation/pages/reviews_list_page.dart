@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/widgets/modo_app_bar.dart';
+import '../../data/review_samples.dart';
 import '../../data/review_service.dart';
 import '../../domain/review_models.dart';
 import '../widgets/review_card.dart';
@@ -15,13 +16,13 @@ class ReviewsListPage extends StatefulWidget {
 
 class _ReviewsListPageState extends State<ReviewsListPage> {
   final _service = ReviewService();
-  List<PublicReview> _reviews = const [];
+  List<PublicReview> _reviews = previewReviews;
   List<MyReview> _mine = const [];
   String _sort = 'rating';
   bool _photoOnly = false;
   String _clothing = '';
   List<String> _categories = const [];
-  bool _loading = true;
+  bool _loading = false;
 
   @override
   void initState() {
@@ -42,14 +43,18 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
       final mineIds = result.mine.map((r) => r.id).toSet();
       setState(() {
         _mine = result.mine;
-        _reviews = result.reviews.where((r) => !mineIds.contains(r.id)).toList();
+        _reviews = ensurePreviewReviews(
+          result.reviews.where((r) => !mineIds.contains(r.id)).toList(),
+          photoOnly: _photoOnly,
+          clothing: _clothing,
+        );
         _categories = result.categories;
         _loading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _reviews = const [];
+        _reviews = ensurePreviewReviews(const [], photoOnly: _photoOnly, clothing: _clothing);
         _mine = const [];
         _loading = false;
       });

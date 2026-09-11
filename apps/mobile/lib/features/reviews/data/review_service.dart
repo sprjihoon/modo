@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/review_models.dart';
+import 'review_samples.dart';
 
 class ReviewApiException implements Exception {
   ReviewApiException(this.message);
@@ -52,26 +53,45 @@ class ReviewService {
       if (clothing.isNotEmpty) 'clothing': clothing,
     };
     final uri = Uri.parse('$apiBase/api/reviews').replace(queryParameters: params);
-    final res = await http.get(uri, headers: await _headers());
-    final json = await _json(res);
-    final reviews = (json['reviews'] as List? ?? [])
-        .whereType<Map>()
-        .map((e) => PublicReview.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
-    final mine = (json['mine'] as List? ?? [])
-        .whereType<Map>()
-        .map((e) => MyReview.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
-    return ReviewListResult(
-      reviews: reviews,
-      mine: mine,
-      count: (json['count'] as num?)?.toInt() ?? reviews.length,
-      average: (json['average'] as num?)?.toDouble() ?? 0,
-      categories: (json['categories'] as List? ?? [])
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          .toList(),
-    );
+    try {
+      final res = await http.get(uri, headers: await _headers());
+      final json = await _json(res);
+      final reviews = (json['reviews'] as List? ?? [])
+          .whereType<Map>()
+          .map((e) => PublicReview.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final mine = (json['mine'] as List? ?? [])
+          .whereType<Map>()
+          .map((e) => MyReview.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final merged = ensurePreviewReviews(
+        reviews,
+        photoOnly: photoOnly,
+        clothing: home ? '' : clothing,
+      );
+      return ReviewListResult(
+        reviews: merged,
+        mine: mine,
+        count: ((json['count'] as num?)?.toInt() ?? reviews.length) + (merged.length - reviews.length),
+        average: (json['average'] as num?)?.toDouble() ?? previewAverage,
+        categories: (json['categories'] as List? ?? [])
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList(),
+      );
+    } catch (_) {
+      final merged = ensurePreviewReviews(
+        const [],
+        photoOnly: photoOnly,
+        clothing: home ? '' : clothing,
+      );
+      return ReviewListResult(
+        reviews: merged,
+        mine: const [],
+        count: merged.length,
+        average: merged.isEmpty ? 0 : previewAverage,
+      );
+    }
   }
 
   Future<MyReviewsPageData> fetchMine() async {

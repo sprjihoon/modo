@@ -1,4 +1,4 @@
-import type { PublicReview } from "@/lib/reviews";
+import { clothingFilterValues, type PublicReview } from "@/lib/reviews";
 
 export const PREVIEW_REVIEWS: PublicReview[] = [
   {
@@ -55,4 +55,42 @@ export function isDesignQuery() {
   return new URLSearchParams(window.location.search).get("design") === "1";
 }
 
-/** `/reviews/design` 미리보기 전용. 홈·목록은 DB만 사용한다. */
+export function previewReviewKey(review: Pick<PublicReview, "display_name" | "content">) {
+  return `${review.display_name.trim()}|${review.content.trim()}`;
+}
+
+export function previewReviewsMatching(options: { photoOnly?: boolean; clothing?: string } = {}) {
+  const clothingValues = clothingFilterValues(options.clothing ?? "");
+  return PREVIEW_REVIEWS.filter((preview) => {
+    if (options.photoOnly && preview.photo_urls.length === 0) return false;
+    if (clothingValues.length === 0) return true;
+    const type = preview.clothing_type ?? "";
+    return clothingValues.includes(type);
+  });
+}
+
+/** 고객 리뷰가 있어도 미리보기 4건은 빠지지 않게 붙인다. 같은 글은 중복하지 않는다. */
+export function ensurePreviewReviews(
+  reviews: PublicReview[],
+  options: { photoOnly?: boolean; clothing?: string } = {}
+): PublicReview[] {
+  const seen = new Set(reviews.map(previewReviewKey));
+  const extra = previewReviewsMatching(options).filter((preview) => !seen.has(previewReviewKey(preview)));
+  return extra.length === 0 ? reviews : [...reviews, ...extra];
+}
+
+export function publicReviewStats(input: {
+  reviews: PublicReview[];
+  approvedCount: number;
+  average: number;
+  extraCount: number;
+}) {
+  if (input.approvedCount === 0 && input.reviews.length > 0) {
+    const ratings = input.reviews.map((review) => review.rating);
+    return {
+      count: input.reviews.length,
+      average: Math.round((ratings.reduce((sum, n) => sum + n, 0) / ratings.length) * 10) / 10,
+    };
+  }
+  return { count: input.approvedCount + input.extraCount, average: input.average };
+}
