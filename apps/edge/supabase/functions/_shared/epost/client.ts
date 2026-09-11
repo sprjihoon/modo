@@ -293,8 +293,10 @@ export async function callEPostAPI(
       errorMsg = errorMsg || 'API 호출 실패';
     }
     
-    // ERR-211 특별 처리: 고객번호 오류
-    if (errorCode === 'ERR-211' || xmlText.includes('ERR-211') || errorMsg?.includes('고객번호') || errorMsg?.includes('custNo')) {
+    // ERR-211 은 필수값 누락 전반에 쓰인다. reqNo 누락을 고객번호 오류로 바꾸지 않는다.
+    const isReqNoMissing = !!errorMsg && (errorMsg.includes('reqNo') || errorMsg.includes('신청번호'));
+    const isCustNoError = !!errorMsg && (errorMsg.includes('고객번호') || errorMsg.includes('custNo'));
+    if (!isReqNoMissing && (isCustNoError || ((errorCode === 'ERR-211' || xmlText.includes('ERR-211')) && !errorMsg))) {
       const finalErrorCode = errorCode || 'ERR-211';
       const finalErrorMsg = errorMsg || '데이터오류-고객번호(custNo) 값이 유효하지 않습니다.';
       const detailedMsg = `고객번호(custNo)가 유효하지 않습니다. EPOST_CUSTOMER_ID 환경 변수를 확인하세요. (에러 코드: ${finalErrorCode}, 메시지: ${finalErrorMsg})`;

@@ -8,7 +8,7 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { getResInfo, getTrackingInfo, getStatusFromEvents, mapDeliveryStatusToCode, pickHigherStatusCode } from '../_shared/epost/index.ts';
+import { getResInfo, getTrackingInfo, getStatusFromEvents, mapDeliveryStatusToCode, pickHigherStatusCode, extractPickupBookingFields, mergeTrackingEventsWithBooking } from '../_shared/epost/index.ts';
 import type { TrackingEvent, TrackingResponse } from '../_shared/epost/index.ts';
 
 Deno.serve(async (req) => {
@@ -87,11 +87,32 @@ Deno.serve(async (req) => {
         };
         // 성공 시 이벤트를 DB에 저장 (이후 API 실패 시 fallback)
         try {
-          const eventsToStore = trackingInfo.events.map((e: TrackingEvent) => ({
-            date: e.date, time: e.time, location: e.location,
-            status: e.status, description: e.description || null,
-          }));
-          await supabase.from('shipments').update({ tracking_events: eventsToStore }).eq('id', shipment.id);
+          const eventsToStore = mergeTrackingEventsWithBooking(
+            shipment.tracking_events,
+            trackingInfo.events.map((e: TrackingEvent) => ({
+              date: e.date, time: e.time, location: e.location,
+              status: e.status, description: e.description || null,
+            })),
+            shipment.delivery_info,
+          );
+          const booking = extractPickupBookingFields(shipment.tracking_events, shipment.delivery_info);
+          const nextDeliveryInfo = booking.reqNo
+            ? {
+                ...(typeof shipment.delivery_info === 'object' && shipment.delivery_info
+                  ? shipment.delivery_info
+                  : {}),
+                reqNo: booking.reqNo,
+                resNo: booking.resNo || undefined,
+                apprNo: booking.apprNo || undefined,
+                reqType: booking.reqType,
+                payType: booking.payType,
+                reqYmd: booking.reqYmd,
+              }
+            : undefined;
+          await supabase.from('shipments').update({
+            tracking_events: eventsToStore,
+            ...(nextDeliveryInfo ? { delivery_info: nextDeliveryInfo } : {}),
+          }).eq('id', shipment.id);
           console.log('✅ 추적 이벤트 DB 저장 완료:', eventsToStore.length, '건');
         } catch (saveErr: any) {
           console.warn('⚠️ 이벤트 DB 저장 실패 (무시):', saveErr?.message);

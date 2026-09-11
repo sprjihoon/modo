@@ -688,8 +688,10 @@ SQL: `create_ops_daily_reports.sql`, `add_ops_alert_triggers.sql` (2026-08-26), 
 
 주문 취소·환불과 다르다. `shipments-cancel`은 주문까지 취소한다.
 
+추적 스크래핑이 예약번호(`reqNo`)를 지워도 `delivery_info`에 남겨 두고, 없으면 우체국 취소를 건너뛰고 새 접수를 한다. ERR-211 신청번호 누락을 고객번호 오류로 바꾸지 않는다.
+
 ```bash
-cd apps/admin && npx tsx lib/rebook-pickup.test.ts && npx tsx lib/missing-pickup.test.ts
+cd apps/admin && npx tsx lib/rebook-pickup.test.ts && npx tsx lib/missing-pickup.test.ts && npx tsx lib/rebook-booking-fields.test.ts
 cd apps/web && npx tsx lib/rebook-pickup.test.ts
 ```
 
@@ -881,6 +883,7 @@ QA 계정 (비밀번호 `ModoQa#2026Staff!`): `qa.superadmin@modo.mom` · `qa.ad
 
 | 날짜 | 항목 | 내용 |
 |---|---|---|
+| 2026-09-11 | 재접수 reqNo 복구 | 추적 이력이 예약번호를 덮어써도 재접수. `reqNo` 없으면 우체국 취소 건너뛰고 새 접수. ERR-211을 고객번호 오류로 오인하지 않음. `delivery_info`에 `reqNo` 저장. 검증: `rebook-booking-fields.test.ts` |
 | 2026-09-11 | 미수거 재접수 | 송화인 부재 등으로 미수거되면 기존 송장 취소 후 새 수거일 재접수. 주문·결제 유지. 어드민 주문 상세 · 웹 주문/추적 · 앱 주문 상세. Edge `shipments-book` `force_rebook`. 검증: `rebook-pickup.test.ts`. 앱 버튼은 `1.0.12` |
 | 2026-09-10 | 결제정보에 포인트·쿠폰 표시 | 어드민 주문 상세 결제 정보, 웹·앱 주문 정보에 쿠폰 코드·배송비 할인·포인트 사용 표시. 웹·어드민 `main` 라이브. **앱은 `1.0.11`에 없음 → 다음 스토어 빌드(`1.0.12`)에 포함.** 지금 재빌드 불필요 |
 | 2026-09-10 | 취소 시 포인트 자동 복구 | 앱 취소·관리자 결제/항목 취소·반송·부분 취소에도 `USE_RESTORE`. 전액은 잔여 전액, 부분은 취소 금액 비율. SQL·Edge 라이브. RPC 검증 통과. 기존 `ORD1788952187223-LTO1N`은 유지하고 **이후 발생 건부터** 적용 |

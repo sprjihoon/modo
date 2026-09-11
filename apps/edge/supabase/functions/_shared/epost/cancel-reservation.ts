@@ -1,5 +1,6 @@
-import { cancelOrder } from './order.ts';
+import { cancelOrder, getResInfo } from './order.ts';
 import { isEpostNoReservationError, resolveCancelReqYmds } from './dates.ts';
+import { extractPickupBookingFields, isMissingReqNoError } from './booking-fields.ts';
 
 export type CancelReservationResult =
   | { ok: true; missing: boolean }
@@ -8,6 +9,7 @@ export type CancelReservationResult =
 function isAlreadyGoneMessage(message?: string): boolean {
   if (!message) return false;
   if (isEpostNoReservationError(message)) return true;
+  if (isMissingReqNoError(message)) return true;
   return (
     message.includes('이미 취소') ||
     message.includes('취소된') ||
@@ -20,9 +22,11 @@ function isAlreadyGoneMessage(message?: string): boolean {
 
 /**
  * 주문/결제는 유지한 채 우체국 수거예약만 취소한다.
- * 예약이 이미 없으면 missing=true 로 성공 처리한다.
+ * 예약이 이미 없거나 신청번호(reqNo)를 잃었으면 missing=true 로 성공 처리한다.
  */
 export async function cancelExistingPickupReservation(shipment: {
+  order_id?: string | null;
+  order_no?: string | null;
   pickup_tracking_no?: string | null;
   tracking_no?: string | null;
   tracking_events?: unknown;
@@ -37,30 +41,55 @@ export async function cancelExistingPickupReservation(shipment: {
     return { ok: false, blocked: true, error: '이미 집하완료된 소포는 재접수할 수 없습니다.' };
   }
 
-  const trackingEvents = Array.isArray(shipment.tracking_events) ? shipment.tracking_events : [];
-  const firstEvent = (trackingEvents.find((event) => {
-    return !!event && typeof event === 'object' && !!(event as Record<string, unknown>).reqNo;
-  }) || trackingEvents[0] || {}) as Record<string, unknown>;
-  const reqNo = String(firstEvent.reqNo || '');
-  const resNo = String(firstEvent.resNo || '');
-  const apprNo = String(firstEvent.apprNo || Deno.env.get('EPOST_APPROVAL_NO') || '0000000000');
-  const reqType = (String(firstEvent.reqType || '2') === '1' ? '1' : '2') as '1' | '2';
-  const payType = (String(firstEvent.payType || '2') === '1' ? '1' : '2') as '1' | '2';
+  const booking = extractPickupBookingFields(shipment.tracking_events, shipment.delivery_info);
+  let reqNo = booking.reqNo;
+  let resNo = booking.resNo;
+  const apprNo = booking.apprNo || Deno.env.get('EPOST_APPROVAL_NO') || '0000000000';
+  const reqType = booking.reqType;
+  const payType = booking.payType;
   const regiNo = String(shipment.pickup_tracking_no || shipment.tracking_no || '');
   const custNo = Deno.env.get('EPOST_CUSTOMER_ID') || '';
-
-  if (!regiNo && !reqNo) {
-    return { ok: true, missing: true };
-  }
-
   const deliveryInfo = (shipment.delivery_info as Record<string, unknown> | null) || {};
+
   const reqYmdCandidates = resolveCancelReqYmds({
-    storedReqYmd: typeof firstEvent.reqYmd === 'string' ? firstEvent.reqYmd : undefined,
+    storedReqYmd: booking.reqYmd,
     resDate: typeof deliveryInfo.resDate === 'string' ? deliveryInfo.resDate : undefined,
     reqNo,
     pickupRequestedAt: shipment.pickup_requested_at || undefined,
     createdAt: shipment.created_at || undefined,
   });
+
+  const epostOrderNo = shipment.order_no || shipment.order_id || '';
+  if (!reqNo && epostOrderNo) {
+    for (const reqYmd of reqYmdCandidates) {
+      try {
+        const info = await getResInfo({
+          custNo,
+          reqType,
+          orderNo: epostOrderNo,
+          reqYmd,
+        });
+        if (info?.reqNo) {
+          reqNo = info.reqNo;
+          resNo = info.resNo || resNo;
+          console.log('✅ GetResInfo 로 reqNo 복구:', reqNo);
+          break;
+        }
+      } catch (e) {
+        console.warn('⚠️ 재접수 전 GetResInfo 실패:', e instanceof Error ? e.message : e);
+      }
+    }
+  }
+
+  if (!regiNo && !reqNo) {
+    console.warn('⚠️ 재접수: 취소할 신청번호가 없어 우체국 취소를 건너뜁니다.');
+    return { ok: true, missing: true };
+  }
+
+  if (!reqNo) {
+    console.warn('⚠️ 재접수: reqNo 가 없어 우체국 취소를 건너뛰고 새 접수를 진행합니다.', { regiNo });
+    return { ok: true, missing: true };
+  }
 
   let lastNoReservationError = '';
   let lastError = '';
@@ -102,7 +131,7 @@ export async function cancelExistingPickupReservation(shipment: {
     }
   }
 
-  if (lastNoReservationError) {
+  if (lastNoReservationError || isMissingReqNoError(lastError)) {
     return { ok: true, missing: true };
   }
   if (lastError) {

@@ -198,6 +198,7 @@ Deno.serve(async (req) => {
       ...existingOrder,
       pickup_date: pickupDateValue,
     };
+    let rebookTargetShipmentId: string | null = null;
 
     if (force_rebook && shipment_type === 'pickup') {
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -232,13 +233,19 @@ Deno.serve(async (req) => {
         }
       }
 
-      const { data: currentShipment } = await supabase
+      const { data: shipmentRows } = await supabase
         .from('shipments')
-        .select('id, pickup_tracking_no, tracking_no, tracking_events, delivery_info, pickup_requested_at, created_at, status, pickup_completed_at')
+        .select('id, order_id, pickup_tracking_no, tracking_no, tracking_events, delivery_info, pickup_requested_at, created_at, status, pickup_completed_at')
         .eq('order_id', order_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
+      const currentShipment =
+        shipmentRows?.find((row) =>
+          row.pickup_tracking_no === existingOrder.tracking_no ||
+          row.tracking_no === existingOrder.tracking_no
+        )
+        || shipmentRows?.find((row) => row.status === 'BOOKED')
+        || shipmentRows?.[0]
+        || null;
 
       const eligibility = canForceRebookPickup({
         orderStatus: existingOrder.status,
@@ -270,7 +277,10 @@ Deno.serve(async (req) => {
         tracking_no: existingOrder.tracking_no || currentShipment?.pickup_tracking_no,
       });
 
-      const cancelResult = await cancelExistingPickupReservation(currentShipment);
+      const cancelResult = await cancelExistingPickupReservation({
+        ...currentShipment,
+        order_no: existingOrder.order_number,
+      });
       if (!cancelResult.ok) {
         return errorResponse(
           cancelResult.error,
@@ -289,6 +299,7 @@ Deno.serve(async (req) => {
       existingOrder.tracking_no = null;
 
       if (currentShipment?.id) {
+        rebookTargetShipmentId = currentShipment.id;
         const { error: clearShipErr } = await supabase
           .from('shipments')
           .update({
@@ -325,11 +336,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: existingShipmentBefore } = await supabase
+    const { data: existingShipmentBeforeRows } = await supabase
       .from('shipments')
-      .select('id, pickup_tracking_no, tracking_no')
+      .select('id, pickup_tracking_no, tracking_no, status')
       .eq('order_id', order_id)
-      .maybeSingle();
+      .order('created_at', { ascending: false });
+    const existingShipmentBefore =
+      existingShipmentBeforeRows?.find((row) =>
+        (row.pickup_tracking_no && !isPickupBookingLock(row.pickup_tracking_no)) ||
+        (row.tracking_no && !isPickupBookingLock(row.tracking_no))
+      )
+      || existingShipmentBeforeRows?.[0]
+      || null;
     const existingPickupNo = [existingShipmentBefore?.pickup_tracking_no, existingShipmentBefore?.tracking_no]
       .find((value) => value && !isPickupBookingLock(value));
     if (existingPickupNo && !(force_rebook && shipment_type === 'pickup')) {
@@ -1167,11 +1185,17 @@ Deno.serve(async (req) => {
     });
 
     // 기존 shipment가 있는지 확인
-    const { data: existingShipment } = await supabase
+    const { data: existingShipmentRows } = await supabase
       .from('shipments')
-      .select('id')
+      .select('id, status, pickup_tracking_no, tracking_no')
       .eq('order_id', order_id)
-      .maybeSingle();
+      .order('created_at', { ascending: false });
+    const existingShipment =
+      (rebookTargetShipmentId && existingShipmentRows?.find((row) => row.id === rebookTargetShipmentId))
+      || existingShipmentRows?.find((row) => row.status === 'CANCELLED' || row.status === 'BOOKED')
+      || existingShipmentRows?.find((row) => row.status !== 'DELIVERED')
+      || existingShipmentRows?.[0]
+      || null;
 
     let shipment;
     let shipmentError;
@@ -1265,6 +1289,12 @@ Deno.serve(async (req) => {
       isSaturdayClosed: isSaturdayClosed, // 토요배송 휴무지역 여부
       saturdayClosedMessage: saturdayClosedMessage || undefined, // 토요휴무 안내 메시지
       resDate: epostResponse.resDate || undefined, // 취소 시 reqYmd 용
+      reqNo: epostResponse.reqNo || undefined,
+      resNo: epostResponse.resNo || undefined,
+      apprNo: epostParams.apprNo || undefined,
+      reqType: epostParams.reqType || undefined,
+      payType: epostParams.payType || undefined,
+      reqYmd: epostResponse.resDate ? epostResponse.resDate.substring(0, 8) : undefined,
     };
 
     if (existingShipment) {
