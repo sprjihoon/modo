@@ -9,7 +9,7 @@ Supabase Edge Functions로 구현한 백엔드 API
 - 우체국 API 연동
 - 송장번호(`tracking_no`) 생성
 - 기본 규격: 초소형 1kg / 세 변 합 50cm / `microYn=Y` (`EPOST_MICRO_PACKAGE`). 앱은 중량·크기를 안 넘김 → **스토어 새 빌드 불필요**
-- **미수거 재접수:** `force_rebook: true` + `pickup_date` (YYYY-MM-DD). 기존 우체국 예약을 취소하고 새 송장을 발급. 주문·결제는 유지. 집하완료(`PICKED_UP`)면 거부. 사용자 JWT면 본인 주문만. 신청번호(`reqNo`)가 없으면 취소를 건너뛰고 새 접수.
+- **미수거 재접수:** `force_rebook: true` + `pickup_date` (YYYY-MM-DD). 기존 우체국 예약을 취소하고 새 송장을 발급. 주문·결제는 유지. 집하완료면 거부. 사용자 JWT면 본인 주문만. `reqNo` 없으면 취소를 건너뛰고 새 접수. UI는 이번 예약이 미수거/부재/신청취소일 때만 버튼을 보여 준다.
 
 ### 출고 송장
 - **POST** `/shipments-create-outbound`
