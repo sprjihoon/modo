@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { canRebookPickup, isUnavailablePickupDate } from "@/lib/rebook-pickup";
+import { isUnavailablePickupDate, shouldOfferCustomerRebook } from "@/lib/rebook-pickup";
 
 export const dynamic = "force-dynamic";
 
@@ -59,20 +59,23 @@ export async function POST(
 
     const { data: shipment } = await admin
       .from("shipments")
-      .select("status, pickup_completed_at")
+      .select("status, pickup_completed_at, pickup_scheduled_date, tracking_events")
       .eq("order_id", orderId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (!canRebookPickup({
+    if (!shouldOfferCustomerRebook({
       status: order.status,
       canceled_at: order.canceled_at,
+      pickupDate: order.pickup_date,
+      scheduledDate: shipment?.pickup_scheduled_date,
       shipmentStatus: shipment?.status,
       pickupCompletedAt: shipment?.pickup_completed_at,
+      trackingEvents: shipment?.tracking_events,
     })) {
       return NextResponse.json(
-        { success: false, error: "현재 상태에서는 수거를 다시 예약할 수 없습니다." },
+        { success: false, error: "수거 실패 건만 다시 예약할 수 있습니다." },
         { status: 400 }
       );
     }

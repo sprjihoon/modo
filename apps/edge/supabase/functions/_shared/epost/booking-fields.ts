@@ -15,12 +15,33 @@ function str(value: unknown): string {
   return value == null ? '' : String(value).trim();
 }
 
+export function isPickupBookingEvent(event: unknown): boolean {
+  const rec = asRecord(event);
+  const status = str(rec.status);
+  const description = str(rec.description);
+  return status === 'BOOKED' || description.includes('수거예약');
+}
+
+export function latestPickupBookingIndex(events: unknown): number {
+  if (!Array.isArray(events)) return -1;
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (isPickupBookingEvent(events[i])) return i;
+  }
+  return -1;
+}
+
 export function extractPickupBookingFields(
   trackingEvents: unknown,
   deliveryInfo?: unknown,
 ): PickupBookingFields {
   const events = Array.isArray(trackingEvents) ? trackingEvents : [];
-  const booked = events.find((event) => str(asRecord(event).reqNo));
+  let booked: unknown;
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (str(asRecord(events[i]).reqNo)) {
+      booked = events[i];
+      break;
+    }
+  }
   const fromEvent = asRecord(booked);
   const fromInfo = asRecord(deliveryInfo);
 
@@ -34,11 +55,29 @@ export function extractPickupBookingFields(
   return { reqNo, resNo, apprNo, reqType, payType, reqYmd };
 }
 
+export function appendPickupRebookEvent(
+  existingEvents: unknown,
+  bookedEvent: Record<string, unknown>,
+): Array<Record<string, unknown>> {
+  const prior = Array.isArray(existingEvents)
+    ? existingEvents.filter((event) => event && typeof event === 'object') as Array<Record<string, unknown>>
+    : [];
+  return [...prior, bookedEvent];
+}
+
 export function mergeTrackingEventsWithBooking(
   existingEvents: unknown,
   liveEvents: Array<Record<string, unknown>>,
   deliveryInfo?: unknown,
 ): Array<Record<string, unknown>> {
+  const events = Array.isArray(existingEvents)
+    ? existingEvents.filter((event) => event && typeof event === 'object') as Array<Record<string, unknown>>
+    : [];
+  const bookingIdx = latestPickupBookingIndex(events);
+  if (bookingIdx >= 0) {
+    return [...events.slice(0, bookingIdx), events[bookingIdx], ...liveEvents];
+  }
+
   const booking = extractPickupBookingFields(existingEvents, deliveryInfo);
   if (!booking.reqNo) return liveEvents;
   const already = liveEvents.some((event) => str(event.reqNo) === booking.reqNo);

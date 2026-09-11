@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
     let epostStatus: any = null;
     let epostError: { message: string; code: string } | null = null;
     let trackingInfo: TrackingResponse | null = null;
+    let mergedTrackingEvents: Array<Record<string, unknown>> | null = null;
 
     // 1. 우체국 웹 스크래핑 (1순위)
     try {
@@ -95,6 +96,7 @@ Deno.serve(async (req) => {
             })),
             shipment.delivery_info,
           );
+          mergedTrackingEvents = eventsToStore;
           const booking = extractPickupBookingFields(shipment.tracking_events, shipment.delivery_info);
           const nextDeliveryInfo = booking.reqNo
             ? {
@@ -336,13 +338,13 @@ Deno.serve(async (req) => {
       } : null,
       // 종추적조회 이벤트: live 스크래핑 → DB 캐시 순으로 fallback
       trackingEvents: hasTrackingEvents
-        ? trackingInfo!.events.map((event: TrackingEvent) => ({
+        ? (mergedTrackingEvents ?? trackingInfo!.events.map((event: TrackingEvent) => ({
             date: event.date,
             time: event.time,
             location: event.location,
             status: event.status,
             description: event.description || null,
-          }))
+          })))
         : storedTrackingEvents,
       epostError: epostError || null,
       // 아직 집하 전: live도 없고 캐시도 없고 epost 상태도 없는 경우

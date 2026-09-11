@@ -220,7 +220,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
           _pickupTreatStusCd = null;
           _failedPickup = false;
         } else {
-          _failedPickup = _isPickupDatePast();
+          _failedPickup = _trackingEventsShowCurrentFailedPickup(shipment?['tracking_events']);
         }
       });
 
@@ -3281,7 +3281,19 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       final code = epost?['treatStusCd'] as String?;
 
       final events = inner['trackingEvents'] as List<dynamic>? ?? [];
-      final failed = events.any((event) {
+      var bookingIdx = -1;
+      for (var i = events.length - 1; i >= 0; i--) {
+        final event = events[i];
+        if (event is! Map) continue;
+        final status = event['status']?.toString().replaceAll(RegExp(r'\s+'), '') ?? '';
+        final description = event['description']?.toString().replaceAll(RegExp(r'\s+'), '') ?? '';
+        if (status == 'BOOKED' || description.contains('수거예약')) {
+          bookingIdx = i;
+          break;
+        }
+      }
+      final relevant = bookingIdx >= 0 ? events.sublist(bookingIdx + 1) : events;
+      final failed = relevant.any((event) {
         if (event is! Map) return false;
         return _isFailedPickupStatus(event['status']?.toString()) ||
             _isFailedPickupStatus(event['description']?.toString());
@@ -3290,7 +3302,7 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       if (mounted) {
         setState(() {
           _pickupTreatStusCd = code;
-          _failedPickup = failed || _isPickupDatePast();
+          _failedPickup = failed;
         });
         debugPrint('📦 수거 treatStusCd: $code (00~02=취소가능, 03~05=문의하기)');
       }
@@ -3299,7 +3311,9 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
       if (mounted) {
         setState(() {
           _pickupTreatStusCd = null;
-          _failedPickup = _isPickupDatePast();
+          _failedPickup = _trackingEventsShowCurrentFailedPickup(
+            inner['trackingEvents'] ?? _shipmentData?['tracking_events'],
+          );
         });
       }
     }
@@ -3313,16 +3327,26 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage>
     return patterns.any(text.contains) || text.contains('부재');
   }
 
-  bool _isPickupDatePast() {
-    final raw = _orderData?['pickup_date']?.toString() ??
-        _shipmentData?['pickup_scheduled_date']?.toString() ??
-        '';
-    if (raw.length < 10) return false;
-    final ymd = raw.substring(0, 10);
-    final now = DateTime.now();
-    final today =
-        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    return ymd.compareTo(today) < 0;
+  bool _trackingEventsShowCurrentFailedPickup(dynamic rawEvents) {
+    final events = rawEvents is List ? rawEvents : const [];
+    if (events.isEmpty) return false;
+    var bookingIdx = -1;
+    for (var i = events.length - 1; i >= 0; i--) {
+      final event = events[i];
+      if (event is! Map) continue;
+      final status = event['status']?.toString().replaceAll(RegExp(r'\s+'), '') ?? '';
+      final description = event['description']?.toString().replaceAll(RegExp(r'\s+'), '') ?? '';
+      if (status == 'BOOKED' || description.contains('수거예약')) {
+        bookingIdx = i;
+        break;
+      }
+    }
+    final relevant = bookingIdx >= 0 ? events.sublist(bookingIdx + 1) : events;
+    return relevant.any((event) {
+      if (event is! Map) return false;
+      return _isFailedPickupStatus(event['status']?.toString()) ||
+          _isFailedPickupStatus(event['description']?.toString());
+    });
   }
 
   static const _krHolidays = {

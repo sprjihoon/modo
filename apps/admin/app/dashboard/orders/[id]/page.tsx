@@ -15,7 +15,7 @@ import { ExtraChargeReviewDialog } from "@/components/orders/extra-charge-review
 import { ExtraChargeStatusCard } from "@/components/orders/extra-charge-status-card";
 import { OrderCsCard } from "@/components/orders/order-cs-card";
 import { formatOrderDate, isPastOrderDate, isPickupBookingLock, isRealTrackingNo, todayYmdKst } from "@/lib/missing-pickup";
-import { canRebookPickup, nextAvailablePickupDate, trackingEventsShowFailedPickup } from "@/lib/rebook-pickup";
+import { nextAvailablePickupDate, shouldOfferCustomerRebook, trackingEventsShowFailedPickup } from "@/lib/rebook-pickup";
 import { HLSVideoPlayer } from "@/components/video/hls-video-player";
 import {
   adminMediaPlaybackUrl,
@@ -719,11 +719,14 @@ export default function OrderDetailPage(_props: OrderDetailPageProps) {
         </Card>
       )}
 
-      {order && displayOrder.trackingNo && canRebookPickup({
+      {order && displayOrder.trackingNo && shouldOfferCustomerRebook({
         status: order.status,
         canceled_at: order.canceled_at,
+        pickupDate: order.pickup_date,
+        scheduledDate: order.shipment?.pickup_scheduled_date,
         shipmentStatus: order.shipment?.status,
         pickupCompletedAt: order.shipment?.pickup_completed_at,
+        trackingEvents: order.shipment?.tracking_events,
       }) && (
         <Card className="border-orange-400 bg-orange-50/70">
           <CardContent className="pt-6">

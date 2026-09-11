@@ -21,7 +21,17 @@ export function trackingEventsShowFailedPickup(
   events?: Array<{ status?: string | null; description?: string | null }> | null,
 ): boolean {
   if (!events?.length) return false;
-  return events.some(
+  let bookingIdx = -1;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const status = String(events[i]?.status ?? '').replace(/\s+/g, '');
+    const description = String(events[i]?.description ?? '').replace(/\s+/g, '');
+    if (status === 'BOOKED' || description.includes('수거예약')) {
+      bookingIdx = i;
+      break;
+    }
+  }
+  const relevant = bookingIdx >= 0 ? events.slice(bookingIdx + 1) : events;
+  return relevant.some(
     (event) => isFailedPickupStatus(event.status) || isFailedPickupStatus(event.description),
   );
 }

@@ -29,11 +29,25 @@ export function isFailedPickupStatus(value?: string | null): boolean {
   return text.includes("부재");
 }
 
+export function isPickupBookingEvent(event?: { status?: string | null; description?: string | null } | null): boolean {
+  const status = normalizeStatusText(event?.status);
+  const description = normalizeStatusText(event?.description);
+  return status === "BOOKED" || description.includes("수거예약");
+}
+
 export function trackingEventsShowFailedPickup(
   events?: Array<{ status?: string | null; description?: string | null }> | null
 ): boolean {
   if (!events?.length) return false;
-  return events.some(
+  let bookingIdx = -1;
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (isPickupBookingEvent(events[i])) {
+      bookingIdx = i;
+      break;
+    }
+  }
+  const relevant = bookingIdx >= 0 ? events.slice(bookingIdx + 1) : events;
+  return relevant.some(
     (event) => isFailedPickupStatus(event.status) || isFailedPickupStatus(event.description)
   );
 }
@@ -62,12 +76,7 @@ export function shouldOfferCustomerRebook(opts: {
   todayYmd?: string;
 }): boolean {
   if (!canRebookPickup(opts)) return false;
-  if (trackingEventsShowFailedPickup(opts.trackingEvents)) return true;
-  const today = opts.todayYmd || new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const dates = [opts.pickupDate, opts.scheduledDate]
-    .map((v) => (v ? String(v).slice(0, 10) : ""))
-    .filter((v) => /^\d{4}-\d{2}-\d{2}$/.test(v));
-  return dates.some((ymd) => ymd < today);
+  return trackingEventsShowFailedPickup(opts.trackingEvents);
 }
 
 const KR_HOLIDAYS = new Set([

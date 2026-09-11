@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { isFailedPickupStatus, nextAvailablePickupDate } from "@/lib/rebook-pickup";
+import { nextAvailablePickupDate, trackingEventsShowFailedPickup } from "@/lib/rebook-pickup";
 
 interface TrackingEvent {
   date: string;
@@ -207,7 +207,7 @@ export function TrackingClient({
   const isCachedEvents = data?.isCachedEvents ?? false;
   const epostError = data?.epostError;
   const shipment = data?.shipment;
-  const failedPickup = events.some((event) => isFailedPickupStatus(event.status) || isFailedPickupStatus(event.description));
+  const failedPickup = trackingEventsShowFailedPickup(events);
 
   return (
     <div className="pb-8 space-y-3">

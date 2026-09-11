@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { requireStaff } from "@/lib/ops-auth";
 import { bookPickupForOrder } from "@/lib/book-pickup";
 import { isMissingPickupWaybill, isRealTrackingNo } from "@/lib/missing-pickup";
-import { canRebookPickup } from "@/lib/rebook-pickup";
+import { shouldOfferCustomerRebook } from "@/lib/rebook-pickup";
 import { notifyCustomer } from "@/lib/notify-customer";
 
 export const dynamic = "force-dynamic";
@@ -36,21 +36,24 @@ export async function POST(
 
   const { data: shipment } = await admin
     .from("shipments")
-    .select("pickup_tracking_no, tracking_no, status, pickup_completed_at")
+    .select("pickup_tracking_no, tracking_no, status, pickup_completed_at, pickup_scheduled_date, tracking_events")
     .eq("order_id", orderId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (forceRebook) {
-    if (!canRebookPickup({
+    if (!shouldOfferCustomerRebook({
       status: order.status,
       canceled_at: order.canceled_at,
+      pickupDate: order.pickup_date,
+      scheduledDate: shipment?.pickup_scheduled_date,
       shipmentStatus: shipment?.status,
       pickupCompletedAt: shipment?.pickup_completed_at,
+      trackingEvents: shipment?.tracking_events,
     })) {
       return NextResponse.json(
-        { success: false, error: "현재 상태에서는 수거를 재접수할 수 없습니다." },
+        { success: false, error: "수거 실패 건만 재접수할 수 있습니다." },
         { status: 400 }
       );
     }

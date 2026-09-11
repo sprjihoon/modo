@@ -19,12 +19,19 @@ assert(isUnavailablePickupDate("2026-09-13"), "일요일 불가");
 assert(!isUnavailablePickupDate("2026-09-14"), "월요일 가능");
 assert(nextAvailablePickupDate("2026-09-11") === "2026-09-14", "금→월");
 assert(
-  shouldOfferCustomerRebook({
+  !shouldOfferCustomerRebook({
     status: "BOOKED",
     scheduledDate: "2026-09-09",
     todayYmd: "2026-09-11",
   }),
-  "예정일 지나면 노출"
+  "신규 예약은 미수거 없이 숨김"
+);
+assert(
+  shouldOfferCustomerRebook({
+    status: "BOOKED",
+    trackingEvents: [{ status: "BOOKED" }, { status: "미수거" }],
+  }),
+  "이번 수거 실패만 노출"
 );
 
 console.log("web rebook-pickup tests passed");

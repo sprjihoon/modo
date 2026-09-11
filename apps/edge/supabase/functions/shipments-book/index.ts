@@ -9,7 +9,7 @@
 import { corsHeaders, handleCorsOptions } from '../_shared/cors.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { successResponse, errorResponse } from '../_shared/response.ts';
-import { insertOrder, mockInsertOrder, getApprovalNumber, getResInfo, EPOST_MICRO_PACKAGE, cancelExistingPickupReservation, canForceRebookPickup, type InsertOrderParams } from '../_shared/epost/index.ts';
+import { insertOrder, mockInsertOrder, getApprovalNumber, getResInfo, EPOST_MICRO_PACKAGE, cancelExistingPickupReservation, canForceRebookPickup, appendPickupRebookEvent, type InsertOrderParams } from '../_shared/epost/index.ts';
 import { createPickupBookingLock, isPickupBookingLock, isStalePickupBookingLock } from '../_shared/book-pickup.ts';
 import { flushPendingNotifications } from '../_shared/flush-notifications.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -199,6 +199,7 @@ Deno.serve(async (req) => {
       pickup_date: pickupDateValue,
     };
     let rebookTargetShipmentId: string | null = null;
+    let rebookHistoryEvents: unknown[] = [];
 
     if (force_rebook && shipment_type === 'pickup') {
       const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -300,6 +301,9 @@ Deno.serve(async (req) => {
 
       if (currentShipment?.id) {
         rebookTargetShipmentId = currentShipment.id;
+        rebookHistoryEvents = Array.isArray(currentShipment.tracking_events)
+          ? currentShipment.tracking_events
+          : [];
         const { error: clearShipErr } = await supabase
           .from('shipments')
           .update({
@@ -1297,6 +1301,22 @@ Deno.serve(async (req) => {
       reqYmd: epostResponse.resDate ? epostResponse.resDate.substring(0, 8) : undefined,
     };
 
+    const bookedEvent = {
+      timestamp: new Date().toISOString(),
+      status: 'BOOKED',
+      description: rebookHistoryEvents.length ? '수거 재접수 완료' : '수거예약 완료',
+      location: epostResponse.regiPoNm,
+      reqNo: epostResponse.reqNo,
+      resNo: epostResponse.resNo,
+      apprNo: epostParams.apprNo,
+      reqType: epostParams.reqType,
+      payType: epostParams.payType,
+      reqYmd: epostResponse.resDate ? epostResponse.resDate.substring(0, 8) : undefined,
+    };
+    const trackingEventsToStore = rebookHistoryEvents.length
+      ? appendPickupRebookEvent(rebookHistoryEvents, bookedEvent)
+      : [bookedEvent];
+
     if (existingShipment) {
       // 업데이트
       const result = await supabase
@@ -1319,20 +1339,9 @@ Deno.serve(async (req) => {
           pickup_requested_at: new Date().toISOString(),
           pickup_scheduled_date: pickupScheduledDate, // 🗓️ 수거 예정일 (D-1, 당일 알림용)
           delivery_info: deliveryInfoData, // notifyMsg와 도서산간 정보 포함
-          tracking_events: [{
-            timestamp: new Date().toISOString(),
-            status: 'BOOKED',
-            description: '수거예약 완료',
-            location: epostResponse.regiPoNm,
-            reqNo: epostResponse.reqNo,
-            resNo: epostResponse.resNo,
-            apprNo: epostParams.apprNo, // 취소 시 사용할 승인번호 저장
-            reqType: epostParams.reqType, // 취소 시 사용할 소포신청 구분 (1:일반소포, 2:반품소포)
-            payType: epostParams.payType, // 취소 시 사용할 요금 납부 구분 (1:일반, 2:착불)
-            reqYmd: epostResponse.resDate ? epostResponse.resDate.substring(0, 8) : undefined,
-          }],
+          tracking_events: trackingEventsToStore,
         })
-        .eq('order_id', order_id)
+        .eq('id', existingShipment.id)
         .select()
         .single();
       
@@ -1361,18 +1370,7 @@ Deno.serve(async (req) => {
           pickup_requested_at: new Date().toISOString(),
           pickup_scheduled_date: pickupScheduledDate, // 🗓️ 수거 예정일 (D-1, 당일 알림용)
           delivery_info: deliveryInfoData, // notifyMsg와 도서산간 정보 포함
-          tracking_events: [{
-            timestamp: new Date().toISOString(),
-            status: 'BOOKED',
-            description: '수거예약 완료',
-            location: epostResponse.regiPoNm,
-            reqNo: epostResponse.reqNo,
-            resNo: epostResponse.resNo,
-            apprNo: epostParams.apprNo, // 취소 시 사용할 승인번호 저장
-            reqType: epostParams.reqType, // 취소 시 사용할 소포신청 구분 (1:일반소포, 2:반품소포)
-            payType: epostParams.payType, // 취소 시 사용할 요금 납부 구분 (1:일반, 2:착불)
-            reqYmd: epostResponse.resDate ? epostResponse.resDate.substring(0, 8) : undefined,
-          }],
+          tracking_events: trackingEventsToStore,
         })
         .select()
         .single();

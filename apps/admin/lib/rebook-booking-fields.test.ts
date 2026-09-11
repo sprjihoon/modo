@@ -40,6 +40,14 @@ const mergedFromInfo = mergeTrackingEventsWithBooking(
 );
 assert(mergedFromInfo[0].reqNo === "REQ-INFO", "delivery_info 예약번호도 유지");
 
+const keptHistory = mergeTrackingEventsWithBooking(
+  [{ status: "미수거" }, { status: "BOOKED", reqNo: "REQ-NEW" }],
+  [{ status: "운송장출력" }],
+);
+assert(keptHistory[0].status === "미수거", "이전 미수거 이력 유지");
+assert(keptHistory[1].status === "BOOKED", "새 예약 유지");
+assert(keptHistory[2].status === "운송장출력", "이번 추적 뒤에");
+
 assert(isMissingReqNoError("필수항목누락-우체국택배신청번호(reqNo) 값이 없습니다."), "reqNo 누락 에러");
 assert(!isMissingReqNoError("고객번호(custNo)가 유효하지 않습니다."), "custNo 오류는 다른 처리");
 

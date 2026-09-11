@@ -45,7 +45,14 @@ export { getEPostConfig, getEPostBaseUrl } from './config.ts';
 export { toKstYmd, resolveCancelReqYmds, isEpostNoReservationError } from './dates.ts';
 export { cancelExistingPickupReservation } from './cancel-reservation.ts';
 export { canForceRebookPickup, isFailedPickupStatus, trackingEventsShowFailedPickup } from './failed-pickup.ts';
-export { extractPickupBookingFields, mergeTrackingEventsWithBooking, isMissingReqNoError } from './booking-fields.ts';
+export {
+  extractPickupBookingFields,
+  mergeTrackingEventsWithBooking,
+  appendPickupRebookEvent,
+  isPickupBookingEvent,
+  latestPickupBookingIndex,
+  isMissingReqNoError,
+} from './booking-fields.ts';
 
 // 클라이언트 (내부용, 필요시 export)
 export { callEPostAPI, parseXmlValue } from './client.ts';

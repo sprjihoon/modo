@@ -51,29 +51,39 @@ assert(
   "고객에게 송화인부재면 재접수 노출"
 );
 assert(
-  shouldOfferCustomerRebook({
+  !shouldOfferCustomerRebook({
     status: "BOOKED",
     pickupDate: "2026-09-01",
     todayYmd: "2026-09-11",
   }),
-  "지난 수거일이면 고객 재접수 노출"
+  "신규·예약만 된 건은 재접수 숨김"
 );
 assert(
   !shouldOfferCustomerRebook({
     status: "BOOKED",
-    pickupDate: "2099-01-01",
-    todayYmd: "2026-09-11",
+    trackingEvents: [{ status: "BOOKED", description: "수거예약 완료" }],
   }),
-  "미래 수거일은 고객 재접수 숨김"
+  "수거예약 완료만 있으면 숨김"
 );
 assert(
   shouldOfferCustomerRebook({
     status: "BOOKED",
-    pickupDate: "2026-09-11",
-    scheduledDate: "2026-09-09",
-    todayYmd: "2026-09-11",
+    trackingEvents: [
+      { status: "BOOKED", description: "수거예약 완료" },
+      { status: "미수거" },
+    ],
   }),
-  "우체국 수거 예정일이 지났으면 고객 재접수 노출"
+  "이번 예약 이후 미수거면 노출"
+);
+assert(
+  !shouldOfferCustomerRebook({
+    status: "BOOKED",
+    trackingEvents: [
+      { status: "미수거" },
+      { status: "BOOKED", description: "수거 재접수 완료" },
+    ],
+  }),
+  "재접수 후에는 이전 미수거로 버튼을 다시 열지 않음"
 );
 
 assert(nextAvailablePickupDate("2026-09-11") === "2026-09-14", "금요일 다음은 월요일");
